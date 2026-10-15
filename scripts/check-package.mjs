@@ -27,11 +27,20 @@ const run = (cmd, args, cwd = root) => {
 };
 await mkdir(join(root, ".scratch"), { recursive: true });
 const dir = await mkdtemp(join(root, ".scratch/package-check-"));
-run("pnpm", ["pack", "--pack-destination", dir]);
-const tgz = join(dir, "zerp-ui-0.0.0.tgz");
+const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const artifactIndex = process.argv.indexOf("--tgz");
+assert.ok(
+  artifactIndex < 0 || process.argv[artifactIndex + 1],
+  "--tgz requires a path",
+);
+if (artifactIndex < 0) run("pnpm", ["pack", "--pack-destination", dir]);
+const tgz =
+  artifactIndex < 0
+    ? join(dir, `zerp-ui-${pkg.version}.tgz`)
+    : resolve(process.argv[artifactIndex + 1]);
+await stat(tgz);
 const consumer = join(dir, "consumer");
 await mkdir(consumer);
-const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const dev = Object.fromEntries(
   ["vite", "@vitejs/plugin-vue", "typescript", "vue-tsc", "@types/node"].map(
     (key) => [key, pkg.devDependencies[key]],
@@ -45,9 +54,12 @@ await writeFile(
       type: "module",
       dependencies: {
         "@zerp/ui": `file:${tgz}`,
-        vue: "3.5.40",
-        vuetify: "4.1.5",
-        "vue-router": "5.2.0",
+        ...Object.fromEntries(
+          Object.keys(pkg.peerDependencies).map((name) => [
+            name,
+            pkg.devDependencies[name],
+          ]),
+        ),
       },
       devDependencies: dev,
     },
@@ -106,7 +118,7 @@ await writeFile(
         module: "ESNext",
         moduleResolution: "Bundler",
         strict: true,
-        skipLibCheck: true,
+        skipLibCheck: false,
         noEmit: true,
         lib: ["ES2022", "DOM"],
         types: ["vite/client"],
@@ -151,6 +163,15 @@ for (const name of ["vue", "vuetify", "vue-router", "@zerp/ui/style.css"])
     require.resolve(name).startsWith(join(consumer, "node_modules")),
     `${name} escaped independent install tree`,
   );
+const libraryRequire = createRequire(require.resolve("@zerp/ui"));
+for (const name of Object.keys(pkg.peerDependencies)) {
+  assert.equal(
+    libraryRequire.resolve(name),
+    require.resolve(name),
+    `${name} has a second host instance`,
+  );
+}
+run("npm", ["ls", "vue", "vuetify", "vue-router", "--all"], consumer);
 assert.throws(() => require.resolve("@zerp/ui/src/write-lock"), {
   code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
 });
@@ -175,7 +196,17 @@ try {
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   const errors = [];
-  page.on("pageerror", (e) => errors.push(e.message));
+  const observe = (page) => {
+    page.on("pageerror", (e) => errors.push(e.message));
+    page.on("requestfailed", (request) =>
+      errors.push(`Failed resource: ${request.url()}`),
+    );
+    page.on("response", (response) => {
+      if (response.status() >= 400)
+        errors.push(`HTTP ${response.status()}: ${response.url()}`);
+    });
+  };
+  observe(page);
   await page.goto(`http://127.0.0.1:${address.port}`);
   if (shellMode || workflowMode || documentMode || versionMode || reportMode) {
     const smoke = shellMode
@@ -209,7 +240,7 @@ try {
       const localAddress = exampleServer.httpServer.address();
       assert.ok(localAddress && typeof localAddress !== "string");
       const examplePage = await browser.newPage();
-      examplePage.on("pageerror", (e) => errors.push(e.message));
+      observe(examplePage);
       await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
       await smoke(examplePage);
       await examplePage.close();
@@ -285,6 +316,8 @@ try {
       "production build",
       "CSS/font resolution",
       "public exports",
+      "single Vue/Vuetify/Router host resolution and npm installation tree",
+      "no failed browser assets",
       ...(shellMode
         ? [
             "shell themes/defaults, all six runtime consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
@@ -317,6 +350,14 @@ try {
     exitCode: 0,
   };
   await writeFile(join(dir, "evidence.json"), JSON.stringify(report, null, 2));
+  const evidenceIndex = process.argv.indexOf("--evidence");
+  if (evidenceIndex >= 0) {
+    assert.ok(process.argv[evidenceIndex + 1], "--evidence requires a path");
+    await writeFile(
+      resolve(process.argv[evidenceIndex + 1]),
+      JSON.stringify(report, null, 2) + "\n",
+    );
+  }
   console.log(JSON.stringify(report, null, 2));
 } finally {
   await browser?.close();

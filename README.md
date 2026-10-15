@@ -1,29 +1,49 @@
 # ZERP UI
 
-独立的 Vue/Vuetify 组件库 `@zerp/ui`。本片实现[公共交互与直接维护运行时 #8](https://github.com/hansonyu183/zerp-ui/issues/8)，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)。版本 `0.0.0` 为本地验收包；完整七片通过后才发布 `0.1.0`，本片不发布 Release。
+独立的 Vue/Vuetify 组件库 `@zerp/ui@0.1.0`，提供公共表单/列表/引用交互、六类固定契约运行时和外壳/主题，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
+
+## 固定版本安装
+
+从 [ui-v0.1.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.1.0) 下载 `zerp-ui-0.1.0.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
+
+```sh
+shasum -a 256 -c SHA256SUMS
+npm install --save-exact ./zerp-ui-0.1.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
+```
+
+将 tgz 放在消费者项目的固定路径并提交相应 lockfile；不要使用 latest、源码别名或 registry 同名包。首发基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0，peer 范围分别为 `~3.5.40`、`~4.1.5`、`~5.2.0`。宿主各提供唯一实例；MDI 字体是已声明的直接依赖，发布包自带所需 woff2 及字体许可证，无需 CDN。Node 26 是本库与独立消费者构建验收基线；消费的是编译后 ESM、声明和 CSS，不需要克隆 ZERP、编译库源码或安装自动导入插件。
 
 ## 开发与验证
 
 使用 Node 26 和 packageManager 指定的 pnpm。先 `pnpm install --frozen-lockfile`、`pnpm build`，再运行 `pnpm dev`。示例经包公开入口加载编译产物；修改库后重新 build。其余可用命令见 package.json scripts。
 
-`pnpm check:package` 打包当前 dist，在本库 `.scratch/package-check-*/consumer` 新建独立 manifest/安装树，使用 npm 实际安装同一 tgz；不继承仓库别名或 workspace。检查声明推导、错误类型配对拒绝、生产构建、字体/CSS、私有出口拒绝、浏览器新增/修改及 20 个消费者示例。需要先安装 Playwright Chromium。证据 JSON 记录源码基线 SHA、tgz SHA-256、安装目录与退出码。脚本在 finally 中关闭自己启动的浏览器和预览服务器，保留可复核安装工件；可删除该次 package-check 目录回收磁盘。
+`pnpm check:package` 打包当前 dist，在本库 `.scratch/package-check-*/consumer` 新建独立 manifest/安装树，使用 npm 实际安装同一 tgz；不继承仓库别名或 workspace。检查声明推导、错误类型配对拒绝、生产构建、字体/CSS、私有出口拒绝、浏览器新增/修改及 20 个消费者示例。需要先安装 Playwright Chromium。各切片检查支持 `--tgz <绝对路径>` 复用指定工件。证据 JSON 记录源码基线 SHA、tgz SHA-256、安装目录与退出码。脚本在 finally 中关闭自己启动的浏览器和预览服务器，保留可复核安装工件；可删除该次 package-check 目录回收磁盘。
 
 测试仅使用合成资料与模拟 Adapter，不连接 ZERP API、数据库或生产数据，也不代表真实 ZERP E2E。ZERP 源码、依赖与部署保持原状；真实接入由发布后的[独立工单](https://github.com/hansonyu183/zerp/issues/520)完成。
 
+`pnpm check:release` 必须从干净 commit 运行：执行本库静态检查、完整组件测试、库及七个示例构建，只 pack 一次，再对同一个 tgz 执行七类独立安装/类型/浏览器验收。产物审计拒绝源码/额外文件、缺失声明引用及未声明模块依赖；安装树检查 Vue/Vuetify/Router 的宿主解析相同。CI 执行相同命令并上传证据。结果保留在 `.scratch/release/<SHA>/`；用 `pnpm check:release --tgz <下载工件绝对路径>` 对分发包再次执行全部安装 smoke（不重复组件测试、不重新 pack）。脚本失败不会发布。发布使用验收包原文件，附源码 SHA、变更、SHA256SUMS 和 evidence.json；上传后下载、比对校验并运行分发 smoke。不要重建或覆盖已发布版本。
+
 ## 独立消费者
 
-安装本片验证生成的 tgz，并由宿主提供 Vue `~3.5.40`、Vuetify `~4.1.5`、Vue Router `~5.2.0` 唯一实例。入口仅为 `@zerp/ui` 与 `@zerp/ui/style.css`；模块及所有实际子路径依赖均 external。宿主创建 Vue/Vuetify，导入 `vuetify/styles` 与库 CSS；库不创建 Session、Router、API 客户端或存储键。
+安装固定版本 tgz，并由宿主提供 Vue `~3.5.40`、Vuetify `~4.1.5`、Vue Router `~5.2.0` 唯一实例。入口仅为 `@zerp/ui` 与 `@zerp/ui/style.css`；模块及所有实际子路径依赖均 external。宿主创建 Vue/Vuetify，导入 `vuetify/styles` 与库 CSS；库不创建 Session、Router、API 客户端或存储键。
 
 ```ts
 import { createApp } from "vue";
 import { createVuetify } from "vuetify";
+import { createRouter, createWebHistory } from "vue-router";
+import { createShellThemes } from "@zerp/ui";
 import "vuetify/styles";
 import "@zerp/ui/style.css";
 import App from "./App.vue";
-createApp(App).use(createVuetify()).mount("#app");
+// routes 由消费者提供；App 由宿主创建唯一 VApp 根。
+const router = createRouter({ history: createWebHistory(), routes: [] });
+createApp(App)
+  .use(createVuetify({ theme: createShellThemes({ primary: "#295787" }) }))
+  .use(router)
+  .mount("#app");
 ```
 
-完整的强类型定义、合成 Adapter 与可运行装配见 `examples/direct`。包包含 ESM、完整声明、限定作用域的 CSS、字体及字体授权。消费者无需编译库内 Vue/TS，也无需自动导入插件。所有示例均使用公开导出。
+完整的强类型定义、合成 Adapter 与可运行装配见 [独立示例](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.1.0/examples)，`examples/shell` 组合全部运行时；消费者可按需复制示例装配，而无需编译库源码。包包含 ESM、完整声明、限定作用域的 CSS、字体及字体授权。消费者无需编译库内 Vue/TS，也无需自动导入插件。所有示例均使用公开导出。
 
 ## 接口与责任
 

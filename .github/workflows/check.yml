@@ -1,7 +1,7 @@
-name: UI slice checks
+name: UI release checks
 on: [push, pull_request]
 jobs:
-  direct:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -12,17 +12,13 @@ jobs:
         with:
           version: 11.15.1
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm typecheck && pnpm lint && pnpm format:check
-      - run: pnpm test
-      - run: pnpm build:example
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm check:package
+      - run: pnpm check:release
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: direct-install-evidence
+          name: ui-release-evidence
           path: |
+            .scratch/release/**
             .scratch/package-check-*/evidence.json
-            .scratch/package-check-*/*.tgz
           include-hidden-files: true
