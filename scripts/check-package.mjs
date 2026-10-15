@@ -813,6 +813,13 @@ async function shellSmoke(page) {
   await page.reload();
   await page.getByRole("button", { name: "登录演示账户", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "模拟品牌失败", exact: true }).click();
+  assert.ok(
+    await page
+      .getByRole("button", { name: "重试品牌", exact: true })
+      .isVisible(),
+  );
+  await page.getByRole("button", { name: "重试品牌", exact: true }).click();
   await page.getByRole("button", { name: "切换导航", exact: true }).click();
   await page.getByRole("link", { name: "报表", exact: true }).click();
   await page.getByRole("heading", { name: "报表", exact: true }).waitFor();

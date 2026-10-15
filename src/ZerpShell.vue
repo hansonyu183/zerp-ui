@@ -16,7 +16,7 @@ import {
   defaultThemeChoice,
   shellDefaults,
   shellThemeName,
-  navigationIcons,
+  navigationGlyph,
   type Brand,
   type LoadState,
   type NavigationGroup,
@@ -80,9 +80,11 @@ function navigated() {
             <span v-if="brand.mark.kind === 'text'">{{ brand.mark.text }}</span>
             <img v-else :src="brand.mark.src" :alt="brand.mark.alt" />
             <strong>{{ brand.productName }}</strong>
-            <span v-if="brandState.kind === 'ready'">{{
-              brand.enterpriseName
-            }}</span>
+            <span
+              v-if="brandState.kind === 'ready'"
+              class="zerp-shell-enterprise"
+              >{{ brand.enterpriseName }}</span
+            >
             <span v-else-if="brandState.kind === 'loading'" role="status"
               >品牌加载中</span
             >
@@ -153,7 +155,7 @@ function navigated() {
                     v-if="item.icon"
                     aria-hidden="true"
                     class="zerp-ui-icon"
-                    >{{ navigationIcons[item.icon] }}</span
+                    >{{ navigationGlyph(item.icon) }}</span
                   >{{ item.caption }}</RouterLink
                 >
               </details>

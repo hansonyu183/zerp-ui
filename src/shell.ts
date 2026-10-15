@@ -64,10 +64,16 @@ export function createShellThemes(colors: BrandColors = {}) {
   return { defaultTheme: shellThemeName(defaultThemeChoice), themes };
 }
 export const navigationIcons: Record<NavigationIcon, string> = {
-  home: "\uF02DC",
-  catalog: "\uF0219",
-  settings: "\uF0493",
-  report: "\uF0128",
-  document: "\uF0214",
-  workflow: "\uF0625",
+  home: "\u{F02DC}",
+  catalog: "\u{F0219}",
+  settings: "\u{F0493}",
+  report: "\u{F0128}",
+  document: "\u{F0214}",
+  workflow: "\u{F0625}",
 };
+
+export function navigationGlyph(icon: NavigationIcon) {
+  if (!Object.hasOwn(navigationIcons, icon))
+    throw new Error(`未知导航图标：${icon}`);
+  return navigationIcons[icon];
+}

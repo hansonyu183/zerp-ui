@@ -136,7 +136,7 @@
   padding: 0.5rem;
 }
 @media (max-width: 600px) {
-  .zerp-shell-brand > span:last-child {
+  .zerp-shell-brand > .zerp-shell-enterprise {
     display: none;
   }
   .zerp-shell-theme {

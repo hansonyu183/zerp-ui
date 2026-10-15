@@ -70,6 +70,7 @@ it("renders consumer links, retries and controlled theme intents without owning 
   expect(wrapper.find("a").attributes("href")).toBe("/catalog");
   expect(wrapper.find("a").attributes("aria-current")).toBe("page");
   expect(wrapper.text()).toContain("消费者内容");
+  expect(wrapper.get(".zerp-ui-icon").text()).toBe("\u{F0219}");
   await wrapper.setProps({
     brandState: { kind: "error", caption: "品牌错误" },
     navigationState: { kind: "error", caption: "导航错误" },
