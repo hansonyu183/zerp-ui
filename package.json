@@ -50,7 +50,10 @@
     "check:document": "node scripts/check-package.mjs --document",
     "dev:workflow": "vite examples/workflow --host 127.0.0.1",
     "build:workflow": "vite build examples/workflow",
-    "check:workflow": "node scripts/check-package.mjs --workflow"
+    "check:workflow": "node scripts/check-package.mjs --workflow",
+    "dev:shell": "vite examples/shell --host 127.0.0.1",
+    "build:shell": "vite build examples/shell",
+    "check:shell": "node scripts/check-package.mjs --shell"
   },
   "devDependencies": {
     "vue": "3.5.40",

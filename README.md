@@ -141,3 +141,13 @@ createApp(App).use(createVuetify()).mount("#app");
 打开动作明确成功后通过有限的 `open-document(Document)` 事件交给消费者装配路由与单据正文；未知时不导航，核实成功后用户可以重新打开。库不接收任意页面插槽或整页控制器。`examples/workflow` 以 Vue Router 装配目标资源与已完成的 DocumentRuntime，展示创建下级→打开目标单据→编辑/提交→返回流程→批准与审计；合成后端独立检查资格/revision，按完整原请求匹配审计，提供冲突、未知已应用/未应用/仅历史审计、刷新失败、空态和错误重试。全部为消费者侧合成数据，不代表真实授权或 ZERP API/E2E。
 
 使用 package scripts 的 `dev:workflow`、`build:workflow`、`check:workflow`。tgz 验收在独立安装树检查声明配对、拒绝非法动作/目标/修订、生产构建及 CSS/字体，并对运行示例与独立安装消费者执行相同浏览器流程。只读行为参考为原 ZERP 的 `process-page/ProcessPage.vue`、`node-data.ts`；真实接入与旧实现删除留发布后工单。
+
+## 外壳、品牌与主题（#14）
+
+`ZerpShell` 提供顶栏、响应式 drawer、分组链接、页标题/页脚、品牌/导航状态及重试意图、账户菜单和受控主题。消费者提供 `Brand`、`LoadState`、已过滤的 `NavigationGroup[]`（Vue Router 目标及有限语义图标）、`ShellAccount` 和 `ThemeChoice`；账户仅输出 `profile`、`change-password`、`sign-out` 意图。主内容槽用于消费者 RouterView/页面装配，不改变六类 runtime 的契约。
+
+宿主创建唯一 Vue/Vuetify/Router 与应用根；将 `createShellThemes({ primary, secondary })` 返回值传给 `createVuetify({ theme: ... })`，并导入 `vuetify/styles`、`@zerp/ui/style.css`。库不创建实例，不读取存储或发请求。默认 MD3 浅色，保留 MD1/2/3 明暗色和官方 blueprint defaults（随外壳受控主题局部切换），另保留 muted 色；仅允许主/辅助品牌色，不接收全量 Vuetify 配置。品牌标识只接受文字或图像资料。外壳及账户浮层样式使用库类，不向宿主注入 reset。
+
+`examples/shell` 是独立公司消费者，通过公开入口组合全部六类已完成 runtime 和各自强类型合成 Adapter。示例持有偏好存储、账户资料/改密/登出/演示登录及 pageshow/storage 恢复；这些内存演示不代表实际身份认证或真实 ZERP API/E2E。改密输入确认/取消和恢复时清空，实际密码策略、请求与会话协议由消费者实现。
+
+使用 `dev:shell`、`build:shell`、`check:shell`。tgz 检查在独立安装树验证类型/非法配对、生产构建、CSS/字体，并在源示例和安装消费者执行六主题、各 runtime 装配、导航链接选中/新标签、错误重试、账户取消/退出/恢复和窄屏导航交互。原 ZERP 仅只读参考 themes.ts 和 App.vue 的官方主题/defaults 选取，本片不改变其账户、主题或部署。

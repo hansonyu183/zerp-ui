@@ -13,6 +13,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+const shellMode = process.argv.includes("--shell");
 const workflowMode = process.argv.includes("--workflow");
 const documentMode = process.argv.includes("--document");
 const versionMode = process.argv.includes("--version");
@@ -57,17 +58,19 @@ await writeFile(
 await cp(
   join(
     root,
-    workflowMode
-      ? "examples/workflow"
-      : documentMode
-        ? "examples/document"
-        : versionMode
-          ? "examples/version"
-          : reportMode
-            ? "examples/report"
-            : configuration
-              ? "examples/configuration"
-              : "examples/direct",
+    shellMode
+      ? "examples/shell"
+      : workflowMode
+        ? "examples/workflow"
+        : documentMode
+          ? "examples/document"
+          : versionMode
+            ? "examples/version"
+            : reportMode
+              ? "examples/report"
+              : configuration
+                ? "examples/configuration"
+                : "examples/direct",
   ),
   consumer,
   {
@@ -75,6 +78,25 @@ await cp(
     filter: (p) => !p.includes("/dist"),
   },
 );
+if (shellMode) {
+  const appPath = join(consumer, "App.vue");
+  let app = await readFile(appPath, "utf8");
+  for (const name of [
+    "direct",
+    "configuration",
+    "report",
+    "version",
+    "document",
+    "workflow",
+  ]) {
+    await cp(join(root, "examples", name), join(consumer, "modules", name), {
+      recursive: true,
+      filter: (p) => !p.includes("/dist"),
+    });
+    app = app.replaceAll(`../${name}/`, `./modules/${name}/`);
+  }
+  await writeFile(appPath, app);
+}
 await writeFile(
   join(consumer, "tsconfig.json"),
   JSON.stringify(
@@ -89,7 +111,7 @@ await writeFile(
         lib: ["ES2022", "DOM"],
         types: ["vite/client"],
       },
-      include: ["*.ts", "*.vue"],
+      include: ["**/*.ts", "**/*.vue"],
     },
     null,
     2,
@@ -98,17 +120,19 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    workflowMode
-      ? "tests/workflow.type-test.ts"
-      : documentMode
-        ? "tests/document.type-test.ts"
-        : versionMode
-          ? "tests/version.type-test.ts"
-          : reportMode
-            ? "tests/report.type-test.ts"
-            : configuration
-              ? "tests/configuration.type-test.ts"
-              : "tests/contracts.type-test.ts",
+    shellMode
+      ? "tests/shell.type-test.ts"
+      : workflowMode
+        ? "tests/workflow.type-test.ts"
+        : documentMode
+          ? "tests/document.type-test.ts"
+          : versionMode
+            ? "tests/version.type-test.ts"
+            : reportMode
+              ? "tests/report.type-test.ts"
+              : configuration
+                ? "tests/configuration.type-test.ts"
+                : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
@@ -153,24 +177,28 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://127.0.0.1:${address.port}`);
-  if (workflowMode || documentMode || versionMode || reportMode) {
-    const smoke = workflowMode
-      ? workflowSmoke
-      : documentMode
-        ? documentSmoke
-        : versionMode
-          ? versionSmoke
-          : reportSmoke;
+  if (shellMode || workflowMode || documentMode || versionMode || reportMode) {
+    const smoke = shellMode
+      ? shellSmoke
+      : workflowMode
+        ? workflowSmoke
+        : documentMode
+          ? documentSmoke
+          : versionMode
+            ? versionSmoke
+            : reportSmoke;
     await smoke(page);
     const exampleRoot = join(
       root,
-      workflowMode
-        ? "examples/workflow"
-        : documentMode
-          ? "examples/document"
-          : versionMode
-            ? "examples/version"
-            : "examples/report",
+      shellMode
+        ? "examples/shell"
+        : workflowMode
+          ? "examples/workflow"
+          : documentMode
+            ? "examples/document"
+            : versionMode
+              ? "examples/version"
+              : "examples/report",
     );
     const exampleServer = await preview({
       root: exampleRoot,
@@ -257,30 +285,34 @@ try {
       "production build",
       "CSS/font resolution",
       "public exports",
-      ...(workflowMode
+      ...(shellMode
         ? [
-            "workflow node/target eligibility, exact audit reconciliation, document/runtime consumer routing and refresh-only retry in both contexts",
+            "shell themes/defaults, all six runtime consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
           ]
-        : documentMode
+        : workflowMode
           ? [
-              "document create/clone/edit, recursive drafts, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
+              "workflow node/target eligibility, exact audit reconciliation, document/runtime consumer routing and refresh-only retry in both contexts",
             ]
-          : versionMode
+          : documentMode
             ? [
-                "version official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
+                "document create/clone/edit, recursive drafts, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
               ]
-            : reportMode
+            : versionMode
               ? [
-                  "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
+                  "version official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
                 ]
-              : configuration
+              : reportMode
                 ? [
-                    "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                    "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
                   ]
-                : [
-                    "browser create/edit and 20 examples",
-                    "mobile card surface",
-                  ]),
+                : configuration
+                  ? [
+                      "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                    ]
+                  : [
+                      "browser create/edit and 20 examples",
+                      "mobile card surface",
+                    ]),
     ],
     exitCode: 0,
   };
@@ -725,4 +757,63 @@ async function workflowSmoke(page) {
   await page.getByLabel("会话作用域").selectOption("session-a");
   await button("查看 流程二").click();
   assert.ok(await button("创建下级").isDisabled());
+}
+
+async function shellSmoke(page) {
+  await page.getByRole("heading", { name: "流程", exact: true }).waitFor();
+  for (const preset of ["md1", "md2", "md3"]) {
+    await page.getByLabel("主题预设").selectOption(preset);
+    await page
+      .getByRole("button", { name: "切换明暗模式", exact: true })
+      .click();
+    assert.ok(
+      await page.locator(`.zerp-shell.v-theme--zerp-${preset}-dark`).count(),
+    );
+    await page
+      .getByRole("button", { name: "切换明暗模式", exact: true })
+      .click();
+  }
+  await page.reload();
+  await page.locator(".zerp-shell.v-theme--zerp-md3-light").waitFor();
+  await page.getByRole("button", { name: "模拟品牌失败", exact: true }).click();
+  await page.getByRole("button", { name: "重试品牌", exact: true }).click();
+  await page.getByRole("button", { name: "模拟导航失败", exact: true }).click();
+  await page.getByRole("button", { name: "重试导航", exact: true }).click();
+  for (const name of ["直接维护", "配置", "报表", "版本档案", "单据", "流程"]) {
+    const link = page.getByRole("link", { name, exact: true });
+    assert.ok(await link.getAttribute("href"));
+    await link.click();
+    await page.getByRole("heading", { name, exact: true }).waitFor();
+    assert.equal(await link.getAttribute("aria-current"), "page");
+  }
+  const originalURL = page.url();
+  await page
+    .getByRole("link", { name: "报表", exact: true })
+    .dispatchEvent("click", { metaKey: true, button: 0 });
+  assert.equal(page.url(), originalURL);
+  const newTab = page.context().waitForEvent("page");
+  await page
+    .getByRole("link", { name: "报表", exact: true })
+    .click({ button: "middle" });
+  const popup = await newTab;
+  await popup.waitForLoadState();
+  assert.ok(popup.url().endsWith("/report"));
+  await popup.close();
+  await page
+    .getByRole("button", { name: "账户：演示账户", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "修改密码", exact: true }).click();
+  await page.getByLabel("新密码", { exact: true }).fill("synthetic-password");
+  await page.getByRole("button", { name: "取消账户修改", exact: true }).click();
+  assert.equal(await page.getByLabel("新密码", { exact: true }).count(), 0);
+  await page
+    .getByRole("button", { name: "账户：演示账户", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "退出登录", exact: true }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "登录演示账户", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "切换导航", exact: true }).click();
+  await page.getByRole("link", { name: "报表", exact: true }).click();
+  await page.getByRole("heading", { name: "报表", exact: true }).waitFor();
 }

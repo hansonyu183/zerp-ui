@@ -74,3 +74,16 @@ export type {
   WorkflowAdapter,
   WorkflowDefinition,
 } from "./workflow";
+
+export { default as ZerpShell } from "./ZerpShell.vue";
+export { createShellThemes, defaultThemeChoice } from "./shell";
+export type {
+  ThemeChoice,
+  BrandColors,
+  Brand,
+  LoadState,
+  AccountIntent,
+  ShellAccount,
+  NavigationIcon,
+  NavigationGroup,
+} from "./shell";
