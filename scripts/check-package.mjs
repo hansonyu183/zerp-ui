@@ -13,6 +13,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+const documentMode = process.argv.includes("--document");
 const versionMode = process.argv.includes("--version");
 const reportMode = process.argv.includes("--report");
 const configuration = process.argv.includes("--configuration");
@@ -55,13 +56,15 @@ await writeFile(
 await cp(
   join(
     root,
-    versionMode
-      ? "examples/version"
-      : reportMode
-        ? "examples/report"
-        : configuration
-          ? "examples/configuration"
-          : "examples/direct",
+    documentMode
+      ? "examples/document"
+      : versionMode
+        ? "examples/version"
+        : reportMode
+          ? "examples/report"
+          : configuration
+            ? "examples/configuration"
+            : "examples/direct",
   ),
   consumer,
   {
@@ -92,13 +95,15 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    versionMode
-      ? "tests/version.type-test.ts"
-      : reportMode
-        ? "tests/report.type-test.ts"
-        : configuration
-          ? "tests/configuration.type-test.ts"
-          : "tests/contracts.type-test.ts",
+    documentMode
+      ? "tests/document.type-test.ts"
+      : versionMode
+        ? "tests/version.type-test.ts"
+        : reportMode
+          ? "tests/report.type-test.ts"
+          : configuration
+            ? "tests/configuration.type-test.ts"
+            : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
@@ -143,12 +148,20 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://127.0.0.1:${address.port}`);
-  if (versionMode || reportMode) {
-    const smoke = versionMode ? versionSmoke : reportSmoke;
+  if (documentMode || versionMode || reportMode) {
+    const smoke = documentMode
+      ? documentSmoke
+      : versionMode
+        ? versionSmoke
+        : reportSmoke;
     await smoke(page);
     const exampleRoot = join(
       root,
-      versionMode ? "examples/version" : "examples/report",
+      documentMode
+        ? "examples/document"
+        : versionMode
+          ? "examples/version"
+          : "examples/report",
     );
     const exampleServer = await preview({
       root: exampleRoot,
@@ -235,19 +248,23 @@ try {
       "production build",
       "CSS/font resolution",
       "public exports",
-      ...(versionMode
+      ...(documentMode
         ? [
-            "version official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
+            "document create/clone/edit, recursive drafts, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
           ]
-        : reportMode
+        : versionMode
           ? [
-              "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
+              "version official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
             ]
-          : configuration
+          : reportMode
             ? [
-                "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
               ]
-            : ["browser create/edit and 20 examples", "mobile card surface"]),
+            : configuration
+              ? [
+                  "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                ]
+              : ["browser create/edit and 20 examples", "mobile card surface"]),
     ],
     exitCode: 0,
   };
@@ -476,4 +493,130 @@ async function versionSmoke(page) {
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
   assert.ok(await button("编辑版本").isDisabled());
+}
+
+async function documentSmoke(page) {
+  const button = (name) => page.getByRole("button", { name, exact: true });
+  const scenario = (value) => page.getByLabel("写入情景").selectOption(value);
+  const value = () => page.getByRole("textbox", { name: "名称", exact: true });
+  const expectValue = async (field, expected) =>
+    assert.equal(await field.inputValue(), expected);
+  await page
+    .getByRole("heading", { name: "合成单据 · ordinary", exact: true })
+    .waitFor();
+  await button("创建 Draft").click();
+  await value().fill("合成新单据");
+  await expectValue(page.getByLabel("精确金额"), "9007199254740993.0100");
+  await button("合成来源甲").click();
+  await page.getByText(/source-r7/).waitFor();
+  await button("准备录入目录").click();
+  assert.ok(await button("提交单据").isDisabled());
+  await page.getByLabel("本地附件").setInputFiles({
+    name: "doc.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("synthetic"),
+  });
+  await scenario("stage-unknown");
+  await button("提交单据").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "附件暂存结果未知" })
+    .waitFor();
+  await button("关闭编辑").click();
+  await button("重试读取").first().click();
+  assert.ok(await button("创建 Draft").isDisabled());
+  await button("核实本次请求").click();
+  await page.getByRole("status").filter({ hasText: "尚未业务提交" }).waitFor();
+  await button("恢复 Draft").click();
+  await scenario("unknown-applied");
+  await button("提交单据").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "业务写入结果未知" })
+    .waitFor();
+  await button("关闭编辑").click();
+  await button("核实本次请求").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "已核实业务写入成功" })
+    .waitFor();
+  await button("查看 SYN-2").click();
+  await expectValue(value(), "合成新单据");
+  const download = page.waitForEvent("download");
+  await button("读取附件 doc.txt").click();
+  assert.equal((await download).suggestedFilename(), "doc.txt");
+  await scenario("success");
+  await button("审批通过").click();
+  await button("审批通过").waitFor({ state: "detached" });
+  await button("克隆 Draft").click();
+  await value().fill("克隆值");
+  await button("提交单据").click();
+  await button("查看 SYN-3").click();
+  await expectValue(value(), "克隆值");
+  await button("历史 SYN-ordinary · 合成经办人").click();
+  await expectValue(value(), "合成录入");
+  assert.equal(await button("编辑单据").count(), 0);
+  await button("审计").click();
+  await page.getByRole("cell").filter({ hasText: "审批" }).waitFor();
+  await button("当前单据").click();
+  await button("编辑单据").click();
+  await scenario("refresh-failure");
+  await button("提交单据").click();
+  await page.getByRole("alert").filter({ hasText: "合成刷新失败" }).waitFor();
+  await button("重试读取").first().click();
+  // Script writes keep a separate configuration identity and gate document submission.
+  const script = page
+    .getByRole("heading", { name: "合成独立脚本", exact: true })
+    .locator("..");
+  await script.getByRole("button", { name: "编辑", exact: true }).click();
+  await page.getByLabel("脚本正文").fill("return 'updated';");
+  await scenario("unknown-applied");
+  await button("保存").click();
+  await button("关闭编辑").click();
+  assert.ok(await button("创建 Draft").isDisabled());
+  await button("核实本次请求").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "已核实保存成功" })
+    .waitFor();
+  await scenario("success");
+  await page.getByLabel("单据示例").selectOption("opening");
+  await button("创建 Draft").click();
+  await button("新增期初行").click();
+  await page.getByLabel("行名称").fill("取消行");
+  await button("新增子项").click();
+  await page.getByLabel("子项金额").fill("0.0100");
+  await button("确定子项").first().click();
+  await button("取消子项").click();
+  assert.equal(await page.getByText("取消行", { exact: true }).count(), 0);
+  await button("新增期初行").click();
+  await page.getByLabel("行名称").fill("保留行");
+  await button("确定子项").click();
+  await button("提交单据").click();
+  await button("查看 SYN-2").click();
+  await page.getByText(/保留行/).waitFor();
+  await page.getByLabel("单据示例").selectOption("system");
+  await button("查看 SYN-system").click();
+  assert.equal(await button("创建 Draft").count(), 0);
+  assert.equal(await button("编辑单据").count(), 0);
+  assert.equal(await button("克隆 Draft").count(), 0);
+  await page.getByLabel("单据示例").selectOption("opening");
+  await button("查看 SYN-opening").click();
+  await button("编辑单据").click();
+  await scenario("unknown-not-applied");
+  await button("提交单据").click();
+  await button("核实本次请求").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "已确认本次请求未应用" })
+    .waitFor();
+  await scenario("conflict");
+  await button("提交单据").click();
+  await page.getByRole("alert").filter({ hasText: "合成修订冲突" }).waitFor();
+  await scenario("no-evidence");
+  await button("提交单据").click();
+  await button("核实本次请求").click();
+  await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
+  await button("关闭编辑").click();
+  assert.ok(await button("创建 Draft").isDisabled());
 }

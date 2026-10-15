@@ -50,3 +50,16 @@ export type {
   VersionAdapter,
   VersionDefinition,
 } from "./version";
+
+export { default as DocumentRuntime } from "./DocumentRuntime.vue";
+export { defineDocument } from "./document";
+export type {
+  DocumentIdentity,
+  DocumentSnapshot,
+  DocumentArchive,
+  DocumentAttempt,
+  DocumentStageAttempt,
+  DocumentReconciliation,
+  DocumentAdapter,
+  DocumentDefinition,
+} from "./document";

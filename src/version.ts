@@ -37,7 +37,7 @@ export type StageAttempt<I, S, O> = Base<I, S> &
 export type VersionAttempt<D, I, S, H> = Base<I, S> &
   (
     | Readonly<{ operation: "submit"; input: D; attachments: readonly H[] }>
-    | Readonly<{ operation: VersionAction }>
+    | { [K in VersionAction]: Readonly<{ operation: K }> }[VersionAction]
   );
 export type VersionReconciliation<H, E> =
   | { status: "unknown" }

@@ -115,3 +115,17 @@ createApp(App).use(createVuetify()).mount("#app");
 运行、构建、tgz 安装验收分别使用 `dev:version`、`build:version`、`check:version`。安装脚本对示例和全新独立安装树运行相同浏览器流程：定价编辑、暂存未知/精确核实、提交未知/精确核实、附件下载、审批、历史/审计、启停、刷新失败只重读、配方目录与冲突/证据不足。声明检查拒绝错误字段、Identity、Owner 与任意命令；检查生产构建和 CSS/字体解析。所有内容均为合成内存 Adapter，不等同真实 ZERP API/E2E。
 
 只读参考为 ZERP `bf0e6e8d81f025bba81612c0e37b1527b2889eee` 的 `version-archive.component.spec.ts`、`attachments/attachments.ts` 及 #2/#3 的已确认职责/接口决策。库不引入 ZERP DTO、资源后缀分派、ULID/base64、Session、API 路径或生产规则，真实接入留发布后专门工单。
+
+## 单据运行时（#12）
+
+`defineDocument<Draft, Identity, Revision, Submission, State, Owner, Handle, Audit, Evidence>` 与 `DocumentRuntime` 提供固定的列表、创建/克隆 Draft、局部录入、提交/审批、历史及审计交互。`DocumentIdentity` 分别保留消费者的 document、revision 和只读 Submission，快照另有 number/handler 展示；库不解析领域载荷或改变十进制字符串。`adapter.list` 返回带身份、编号和经办人的 total/hasMore 分页列表，`get` 返回 current/history/audit。`empty` 与 `clone` 是可选的同步本地准备方法，消费者负责分配新 document/提交身份、映射精确来源和决定附件是否继承；它们不得发起业务写入。只读系统类型省略这两个方法和写入资格即可，库不会为它增加创建动作。新建记录提交后在刷新列表中查看。
+
+当前快照的 `eligible.edit/clone/approve` 和页面 `permissions.read/write/reconcile` 分别控制实际能力；服务端仍须重验资格、原身份、原修订和状态。克隆可以从只读或历史快照采用值，必须由 Adapter 返回新的身份，历史本身不可改。每次业务提交的原 attempt 保留分离输入和原 Submission，不从刷新后的当前值重建。成功只刷新，刷新失败不重放；未知仅用精确审计证据解除。`DocumentAttempt` 只允许 submit/approve，`DocumentStageAttempt` 单独记录 stage 身份，拒绝任意字符串命令和版本启停方法。
+
+单据与版本档案共用私有提交/附件生命周期实现，没有第二套 stage、局部区块或核实路径。附件和 `blocks` 的有限值/目录/read|edit/pending 契约与上一切片一致；递归子项确定只更改父 Draft，取消父层丢弃下层确认值，关闭未暂存的 Draft 丢弃本地输入。成功暂存或未知的上下文跨关闭/卸载保留；`恢复 Draft` 恢复原来源、原身份与工件，不能借另一张单据覆盖它。多个区块 pending 按来源聚合，旧实例事件失效。列表/详情/下载/核实与写入的迟到响应受资源、scope 和资格约束，旧 stage 仅记录原作用域工件，不继续提交。
+
+可选 `script: {definition, permissions}` 使用强类型 `ConfigurationDefinition` 装配独立脚本维护。脚本资源/Adapter 与单据分离，脚本保存保持自己的原 identity/revision/input/attempt 和精确核实；库不执行脚本。脚本 pending/unknown/刷新锁阻止单据写入，单据写入锁阻止脚本保存；普通读取或关闭脚本不能解除未知锁。脚本不通过领域区块取得最终提交或解锁权限。与单据有关的脚本定义和 Adapter 在会话内保持稳定，不应移除装配绕过锁。
+
+`examples/document` 是经公开包入口运行的普通录入、期初递归录入和只读系统矩阵。消费者侧 `EntryBlock` 展示专用值、目录准备、精确来源采用与十进制字符串；脚本有独立配置身份。合成审计按原 attempt/identity/revision/Submission 和输入匹配，包含已应用、明确未应用、未知、资格不足和刷新失败语义。示例不执行真实 ZERP API、不使用公司数据、不代表真实后端 E2E。
+
+运行/构建/独立 tgz 安装验收使用 `dev:document`、`build:document`、`check:document`。验收覆盖公开声明配对及错误拒绝、两个消费者上下文的真实浏览器创建/克隆/专用录入/来源/递归取消、附件 stage/核实/下载、审批/历史/审计、独立脚本锁与错误恢复，并检查生产构建和 CSS/字体。只读参考为原 ZERP `frontend/src/target/components/document-page/DocumentPage.vue` 的本地 Draft、克隆新身份、专用期初来源、独立脚本保存及提交核实；应用 DTO、载荷全集、编辑器和真实 API 接入留给发布后工单。
