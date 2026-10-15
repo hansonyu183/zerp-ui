@@ -17,3 +17,12 @@ export type {
   DirectDefinition,
 } from "./contracts";
 import "./style.css";
+export { default as ConfigurationRuntime } from "./ConfigurationRuntime.vue";
+export { defineConfiguration, configurationBlock } from "./configuration";
+export type {
+  ConfigurationDefinition,
+  ConfigurationAdapter,
+  ConfigurationAttempt,
+  ConfigurationBlock,
+  ConfigurationBlockProps,
+} from "./configuration";
