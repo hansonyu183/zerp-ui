@@ -874,6 +874,7 @@ async function shellSmoke(page) {
     .getByRole("link", { name: "报表", exact: true })
     .click({ button: "middle" });
   const popup = await newTab;
+  await popup.waitForURL("**/report");
   await popup.waitForLoadState();
   assert.ok(popup.url().endsWith("/report"));
   await popup.close();
