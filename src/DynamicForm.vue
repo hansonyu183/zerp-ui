@@ -68,7 +68,7 @@ function range(key: string): string[] {
 function setRange(key: string, index: number, value: string) {
   const next = [...range(key)];
   next[index] = value;
-  set(key, next);
+  set(key, next.every((value) => value === "") ? null : next);
 }
 function rows(key: string) {
   return (values.value[key] ?? []) as object[];

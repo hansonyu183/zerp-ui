@@ -88,7 +88,7 @@ createApp(App).use(createVuetify()).mount("#app");
 
 `defineReport<Parameters, Row>` 与 `ReportRuntime` 提供独立的参数→查询→分页/导出交互，不使用 CRUD 的 Draft、保存或写入核实。消费者提供 `resource/title/parameters/initialParameters/columns/adapter`，运行时接收 `definition`、含账号/会话代次的 `scope`、`permissions.query/export` 和可选 `pageSize`（默认 20）。资源、作用域、资格或分页大小切换清空本页状态，使迟到查询和导出失效；定义与 Adapter 在使用期间保持稳定。
 
-参数支持有限的 text、integer、decimal、boolean、date、date-range、enum、multi-enum 和引用；字段键和值类型成对检查，不接受递归编辑、任意模板或命令。日期范围为 `[起日, 止日]` 字符串数组，提交时校验真实日期和顺序；枚举由消费者提供中文 label。未完成数字输入保留在输入层，decimal 不转浮点数，未改动的 null、0、false 原样传给 Adapter。引用沿用公共 ReferencePicker 的搜索/resolve 与作用域隔离。只传需要的参数，不依赖报表目录或公司 DTO。
+参数支持有限的 text、integer、decimal、boolean、date、date-range、enum、multi-enum 和引用；字段键和值类型成对检查，不接受递归编辑、任意模板或命令。日期范围为 `[起日, 止日]` 字符串数组，提交时校验真实日期和顺序；可选范围以 null 表示不限制，清空两端恢复 null，必填范围和只填一端仍报错；枚举由消费者提供中文 label。未完成数字输入保留在输入层，decimal 不转浮点数，未改动的 null、0、false 原样传给 Adapter。引用沿用公共 ReferencePicker 的搜索/resolve 与作用域隔离。只传需要的参数，不依赖报表目录或公司 DTO。
 
 `adapter.query({scope, parameters, page, pageSize})` 返回 `Page<Row>`：真实 `total` 或 `hasMore` 二选一。查询必须显式提交，输入编辑不触发请求，翻页和失败重试使用已提交快照；新查询允许替换在途旧查询，旧响应不覆盖当前结果。加载、空态、查询失败分别呈现，失败不会显示为空数据。参数校验失败保留输入；结果类型不符显示稳定列错误，重试仅重新查询。
 

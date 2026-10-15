@@ -259,3 +259,49 @@ it("keeps incomplete decimals in the input and rejects malformed result values w
   expect(w.text()).toContain("9007199254740993.0100");
   w.unmount();
 });
+it("restores an optional date range to null after clearing, while rejecting a partial range", async () => {
+  const query = vi.fn(
+    async (_input: {
+      scope: string;
+      parameters: { range: string[] | null };
+      page: number;
+      pageSize: number;
+    }) => ({ items: [], hasMore: false }),
+  );
+  const d = defineReport<{ range: string[] | null }, { name: string }>({
+    resource: "optional-range",
+    title: "可选范围",
+    parameters: [{ key: "range", type: "date-range", label: "日期" }],
+    initialParameters: () => ({ range: null }),
+    columns: [{ key: "name", label: "名称" }],
+    adapter: { query },
+  });
+  const w = mount(ReportRuntime as Component, {
+    props: {
+      definition: d,
+      scope: "a",
+      permissions: { query: true, export: false },
+    },
+  });
+  await w.get('input[aria-label="日期起"]').setValue("2026-10-01");
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(query).not.toHaveBeenCalled();
+  await w.get('input[aria-label="日期止"]').setValue("2026-10-31");
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(query).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      parameters: { range: ["2026-10-01", "2026-10-31"] },
+    }),
+  );
+  await w.get('input[aria-label="日期起"]').setValue("");
+  await w.get('input[aria-label="日期止"]').setValue("");
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(query).toHaveBeenLastCalledWith(
+    expect.objectContaining({ parameters: { range: null } }),
+  );
+  expect(w.find('[role="alert"]').exists()).toBe(false);
+  w.unmount();
+});

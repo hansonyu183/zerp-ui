@@ -13,7 +13,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
-const report = process.argv.includes("--report");
+const reportMode = process.argv.includes("--report");
 const configuration = process.argv.includes("--configuration");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const commands = [];
@@ -54,7 +54,7 @@ await writeFile(
 await cp(
   join(
     root,
-    report
+    reportMode
       ? "examples/report"
       : configuration
         ? "examples/configuration"
@@ -89,7 +89,7 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    report
+    reportMode
       ? "tests/report.type-test.ts"
       : configuration
         ? "tests/configuration.type-test.ts"
@@ -138,7 +138,7 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://127.0.0.1:${address.port}`);
-  if (report) {
+  if (reportMode) {
     await reportSmoke(page);
     const exampleRoot = join(root, "examples/report");
     const exampleServer = await preview({
@@ -226,7 +226,7 @@ try {
       "production build",
       "CSS/font resolution",
       "public exports",
-      ...(report
+      ...(reportMode
         ? [
             "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
           ]
