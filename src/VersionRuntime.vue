@@ -29,7 +29,12 @@ const props = defineProps<{
 type Snapshot = VersionSnapshot<D, I, S, O, H>;
 type Attempt = VersionAttempt<D, I, S, H> | StageAttempt<I, S, O>;
 type Local = { id: string; file: File; staged?: { handle: H } };
-type Draft = { source: Snapshot; values: D; files: Local[] };
+type Draft = {
+  source: Snapshot;
+  view: "official" | "candidate";
+  values: D;
+  files: Local[];
+};
 const lock = computed(() =>
   writeLock<D, I, Attempt, Draft>(
     props.definition.adapter,
@@ -42,16 +47,18 @@ const selected = ref<"official" | "candidate" | "history" | "audit">(
     "official",
   ),
   historyIndex = ref(0);
+const editor = ref(false);
 const historical = shallowRef<Snapshot | null>(null);
 const snapshot = computed(() =>
-  selected.value === "history"
-    ? historical.value
-    : selected.value === "audit"
-      ? null
-      : archive.value?.[selected.value],
+  editor.value && lock.value.context
+    ? lock.value.context.source
+    : selected.value === "history"
+      ? historical.value
+      : selected.value === "audit"
+        ? null
+        : archive.value?.[selected.value],
 );
-const editor = ref(false),
-  loading = ref(false),
+const loading = ref(false),
   error = ref(""),
   notice = ref(""),
   verifying = ref(false),
@@ -71,7 +78,8 @@ const fields = computed(
 let generation = 0,
   queryId = 0,
   instance = 0,
-  active = true;
+  active = true,
+  verificationId = 0;
 let ownedLock = lock.value;
 function discardUnstaged() {
   if (
@@ -132,9 +140,11 @@ function begin() {
     return;
   lock.value.context ??= {
     source: clone(snapshot.value),
+    view: selected.value === "candidate" ? "candidate" : "official",
     values: clone(snapshot.value.values),
     files: [],
   };
+  selected.value = lock.value.context.view;
   editor.value = true;
   instance++;
   pending.value = {};
@@ -364,9 +374,12 @@ async function reconcile() {
     verifying.value
   )
     return;
+  const v = ++verificationId;
   verifying.value = true;
   try {
     const outcome = await verify(clone(attempt));
+    if (!current(g) || v !== verificationId || !props.permissions.reconcile)
+      return;
     if (
       outcome.status === "unknown" ||
       outcome.attemptId !== attempt.id ||
@@ -410,7 +423,7 @@ async function reconcile() {
   } catch (e) {
     if (current(g)) error.value = message(e);
   } finally {
-    if (current(g)) verifying.value = false;
+    if (current(g) && v === verificationId) verifying.value = false;
   }
 }
 async function readAttachment(handle: H, owner: O) {
@@ -441,6 +454,14 @@ async function readAttachment(handle: H, owner: O) {
     if (current(g)) downloading.value = false;
   }
 }
+watch(
+  () => props.permissions.reconcile,
+  () => {
+    verificationId++;
+    verifying.value = false;
+  },
+  { flush: "sync" },
+);
 function select(view: typeof selected.value, index = 0) {
   if (editor.value) return;
   selected.value = view;

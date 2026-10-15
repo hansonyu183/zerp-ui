@@ -514,3 +514,51 @@ it("retains the selected exact historical snapshot when a refresh reorders versi
   );
   w.unmount();
 });
+it("restores the retained staged draft's source view and caption before editing another version", async () => {
+  const d = definition(),
+    w = await start(d);
+  vi.mocked(d.adapter.submit).mockResolvedValueOnce({
+    status: "failure",
+    message: "明确未应用",
+  });
+  await click(w, "开放候选");
+  await click(w, "编辑版本");
+  await add(w, "retained.txt");
+  await click(w, "提交版本");
+  await click(w, "关闭编辑");
+  await click(w, "正式资料");
+  await click(w, "编辑版本");
+  expect(w.text()).toContain("版本：r3");
+  expect(w.text()).not.toContain("版本：r2");
+  await click(w, "提交版本");
+  expect(d.adapter.submit).toHaveBeenLastCalledWith(
+    expect.objectContaining({ identity: { key: "one", revision: "r3" } }),
+  );
+  expect(d.adapter.attachments!.stage).toHaveBeenCalledTimes(1);
+  w.unmount();
+});
+it("ignores late verification after permission revocation and scope changes", async () => {
+  const base = definition();
+  vi.mocked(base.adapter.submit).mockResolvedValueOnce({ status: "unknown" });
+  const proof =
+    deferred<
+      import("../src/index").VersionReconciliation<string, { receipt: string }>
+    >();
+  const d = { ...base, reconcile: vi.fn(() => proof.promise) },
+    w = await start(d);
+  await click(w, "编辑版本");
+  await click(w, "提交版本");
+  const a = vi.mocked(d.adapter.submit).mock.calls[0][0];
+  await click(w, "核实本次请求");
+  await w.setProps({ permissions: { ...permissions, reconcile: false } });
+  proof.resolve({
+    status: "applied",
+    operation: "business",
+    attemptId: a.id,
+    evidence: { receipt: a.id },
+  });
+  await flushPromises();
+  expect(w.text()).toContain("业务写入结果未知");
+  expect(button(w, "提交版本").attributes("disabled")).toBeDefined();
+  w.unmount();
+});
