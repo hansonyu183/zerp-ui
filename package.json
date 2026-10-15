@@ -38,7 +38,10 @@
     "check:package": "node scripts/check-package.mjs",
     "dev:configuration": "vite examples/configuration --host 127.0.0.1",
     "build:configuration": "vite build examples/configuration",
-    "check:configuration": "node scripts/check-package.mjs --configuration"
+    "check:configuration": "node scripts/check-package.mjs --configuration",
+    "dev:report": "vite examples/report --host 127.0.0.1",
+    "build:report": "vite build examples/report",
+    "check:report": "node scripts/check-package.mjs --report"
   },
   "devDependencies": {
     "vue": "3.5.40",

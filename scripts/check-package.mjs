@@ -13,6 +13,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+const report = process.argv.includes("--report");
 const configuration = process.argv.includes("--configuration");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const commands = [];
@@ -51,7 +52,14 @@ await writeFile(
   ),
 );
 await cp(
-  join(root, configuration ? "examples/configuration" : "examples/direct"),
+  join(
+    root,
+    report
+      ? "examples/report"
+      : configuration
+        ? "examples/configuration"
+        : "examples/direct",
+  ),
   consumer,
   {
     recursive: true,
@@ -81,9 +89,11 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    configuration
-      ? "tests/configuration.type-test.ts"
-      : "tests/contracts.type-test.ts",
+    report
+      ? "tests/report.type-test.ts"
+      : configuration
+        ? "tests/configuration.type-test.ts"
+        : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
@@ -128,7 +138,28 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://127.0.0.1:${address.port}`);
-  if (configuration) {
+  if (report) {
+    await reportSmoke(page);
+    const exampleRoot = join(root, "examples/report");
+    const exampleServer = await preview({
+      root: exampleRoot,
+      configFile: join(exampleRoot, "vite.config.ts"),
+      preview: { host: "127.0.0.1", port: 0, strictPort: false },
+    });
+    try {
+      const localAddress = exampleServer.httpServer.address();
+      assert.ok(localAddress && typeof localAddress !== "string");
+      const examplePage = await browser.newPage();
+      examplePage.on("pageerror", (e) => errors.push(e.message));
+      await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
+      await reportSmoke(examplePage);
+      await examplePage.close();
+    } finally {
+      await new Promise((yes, no) =>
+        exampleServer.httpServer.close((e) => (e ? no(e) : yes())),
+      );
+    }
+  } else if (configuration) {
     await configurationSmoke(page);
   } else {
     await page
@@ -195,11 +226,15 @@ try {
       "production build",
       "CSS/font resolution",
       "public exports",
-      ...(configuration
+      ...(report
         ? [
-            "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+            "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
           ]
-        : ["browser create/edit and 20 examples", "mobile card surface"]),
+        : configuration
+          ? [
+              "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+            ]
+          : ["browser create/edit and 20 examples", "mobile card surface"]),
     ],
     exitCode: 0,
   };
@@ -286,4 +321,50 @@ async function configurationSmoke(page) {
   }
   await page.getByLabel("配置示例").selectOption("mapping");
   assert.ok(await button("编辑").isDisabled());
+}
+
+async function reportSmoke(page) {
+  const button = (name) => page.getByRole("button", { name, exact: true });
+  await page
+    .getByRole("heading", { name: "合成报表 · 分批", exact: true })
+    .waitFor();
+  await page.getByLabel("日期范围起", { exact: true }).fill("2026-10-02");
+  await button("查询").click();
+  await page
+    .getByRole("cell", { name: "9007199254740993.0100", exact: true })
+    .waitFor();
+  assert.equal(
+    await page
+      .getByRole("columnheader", { name: "隐藏列", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(await page.getByText("共 3 条", { exact: false }).count(), 0);
+  await page
+    .getByRole("textbox", { name: "关键字", exact: true })
+    .fill("合成甲");
+  await button("下一页").click();
+  await page.getByRole("cell", { name: "合成丙", exact: true }).waitFor();
+  const download = page.waitForEvent("download");
+  await button("导出").click();
+  assert.equal((await download).suggestedFilename(), "synthetic-batch.csv");
+  await page.getByLabel("报表示例").selectOption("ledger");
+  await button("查询").click();
+  await page.getByText("共 3 条", { exact: false }).waitFor();
+  await page.getByLabel("读取情景").selectOption("failure");
+  await button("查询").click();
+  await page.getByRole("alert").filter({ hasText: "合成查询失败" }).waitFor();
+  await page.getByLabel("读取情景").selectOption("empty");
+  await button("重试查询").click();
+  await page.getByText("暂无数据", { exact: true }).waitFor();
+  await page.getByLabel("操作资格").selectOption("export");
+  assert.equal(await button("查询").count(), 0);
+  await page.getByLabel("读取情景").selectOption("success");
+  const exportOnly = page.waitForEvent("download");
+  await button("导出").click();
+  assert.equal((await exportOnly).suggestedFilename(), "synthetic-ledger.csv");
+  await page.getByLabel("操作资格").selectOption("query");
+  assert.equal(await button("导出").count(), 0);
+  await button("查询").click();
+  await page.getByRole("cell", { name: "合成甲", exact: true }).waitFor();
 }

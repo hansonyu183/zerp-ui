@@ -60,6 +60,16 @@ function pending(key: string, busy: boolean) {
   else sources.delete(key);
   emit("pending", sources.size > 0);
 }
+function range(key: string): string[] {
+  return Array.isArray(values.value[key])
+    ? (values.value[key] as string[])
+    : ["", ""];
+}
+function setRange(key: string, index: number, value: string) {
+  const next = [...range(key)];
+  next[index] = value;
+  set(key, next);
+}
 function rows(key: string) {
   return (values.value[key] ?? []) as object[];
 }
@@ -153,6 +163,27 @@ onBeforeUnmount(() => emit("pending", false));
         <button type="button" :disabled="!!editing" @click="begin(field, -1)">
           新增{{ field.label }}
         </button>
+      </fieldset>
+      <fieldset
+        v-else-if="field.type === 'date-range'"
+        :disabled="disabled || field.readonly"
+      >
+        <legend>{{ field.label }}</legend>
+        <label v-for="(suffix, index) in ['起', '止']" :key="suffix"
+          >{{ field.label + suffix }}
+          <input
+            type="date"
+            :aria-label="field.label + suffix"
+            :value="range(field.key)[index] ?? ''"
+            @input="
+              setRange(
+                field.key,
+                index,
+                ($event.target as HTMLInputElement).value,
+              )
+            "
+          />
+        </label>
       </fieldset>
       <label v-else
         >{{ field.label

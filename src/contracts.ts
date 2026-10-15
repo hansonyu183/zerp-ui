@@ -34,6 +34,7 @@ export type AnyField = Common<string> &
     | { type: "text" | "textarea" | "password" | "date" | "decimal" }
     | { type: "integer"; min?: number; max?: number }
     | { type: "boolean" }
+    | { type: "date-range" }
     | {
         type: "multi-enum";
         options: readonly { value: string; label: string }[];
@@ -58,7 +59,7 @@ type Kind<V> =
           >
         : NonNullable<V> extends readonly (infer R)[]
           ? R extends string
-            ? Extract<AnyField, { type: "multi-enum" }>
+            ? Extract<AnyField, { type: "multi-enum" | "date-range" }>
             : R extends ReferenceValue
               ? Extract<AnyField, { type: "references" }>
               : R extends object
@@ -78,7 +79,10 @@ export type Fields<T extends object> = keyof T extends never
 export type Column<R> = {
   key: Extract<keyof R, string>;
   label: string;
-  type?: "text" | "boolean" | "decimal";
+  type?: "text" | "boolean" | "decimal" | "integer" | "date" | "enum";
+  options?: readonly { value: string; label: string }[];
+  visible?: boolean;
+  width?: string;
 };
 export type DirectAction = "edit" | "enable" | "disable" | "delete";
 export type Attempt<D, I> = Readonly<{

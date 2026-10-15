@@ -83,3 +83,19 @@ createApp(App).use(createVuetify()).mount("#app");
 可运行示例见 `examples/configuration`，启动/构建/独立安装验证使用 package scripts 中的 `dev:configuration`、`build:configuration`、`check:configuration`。三个合成消费者分别展示嵌套映射与局部目录区块、期间状态布尔值、报表定义及递归参数；提供成功、修订冲突、未知后核实已应用/未应用/证据不足、刷新失败等情景。它们使用合成内存 Adapter，不模拟真实服务端权限或宣称真实 ZERP API/E2E 通过。
 
 只读参考为原 ZERP 的 `configuration-page/ConfigurationPage.vue` 和 mapping/period/report-definition 定义：映射的嵌套配置、期间携带 revision 的状态变化、报表定义的参数编辑均归消费者；库不包含会计规则、报表 SQL 协议、Session、固定 API、任意动作执行器或试算。原页面中的观察式读取核实不满足本库精确请求证据契约，示例使用按原请求 ID 存储的合成回执。真实 ZERP 接入仍等待发布后专门工单。
+
+## 报表运行时（#10）
+
+`defineReport<Parameters, Row>` 与 `ReportRuntime` 提供独立的参数→查询→分页/导出交互，不使用 CRUD 的 Draft、保存或写入核实。消费者提供 `resource/title/parameters/initialParameters/columns/adapter`，运行时接收 `definition`、含账号/会话代次的 `scope`、`permissions.query/export` 和可选 `pageSize`（默认 20）。资源、作用域、资格或分页大小切换清空本页状态，使迟到查询和导出失效；定义与 Adapter 在使用期间保持稳定。
+
+参数支持有限的 text、integer、decimal、boolean、date、date-range、enum、multi-enum 和引用；字段键和值类型成对检查，不接受递归编辑、任意模板或命令。日期范围为 `[起日, 止日]` 字符串数组，提交时校验真实日期和顺序；枚举由消费者提供中文 label。未完成数字输入保留在输入层，decimal 不转浮点数，未改动的 null、0、false 原样传给 Adapter。引用沿用公共 ReferencePicker 的搜索/resolve 与作用域隔离。只传需要的参数，不依赖报表目录或公司 DTO。
+
+`adapter.query({scope, parameters, page, pageSize})` 返回 `Page<Row>`：真实 `total` 或 `hasMore` 二选一。查询必须显式提交，输入编辑不触发请求，翻页和失败重试使用已提交快照；新查询允许替换在途旧查询，旧响应不覆盖当前结果。加载、空态、查询失败分别呈现，失败不会显示为空数据。参数校验失败保留输入；结果类型不符显示稳定列错误，重试仅重新查询。
+
+列支持 text、integer、decimal、boolean、date 和带中文 options 的 enum，`visible=false` 隐藏，`width` 原样交给表格列宽。十进制列只能匹配字符串 DTO，显示原值（含尾零），不转换为浮点数。结果中 null 显示为“—”；布尔显示“是/否”，未知枚举保留原值以避免丢失解释。列及原值类型在展示前检查。表格/移动卡片复用同一个 ListSurface，无报表专属复制实现。
+
+`adapter.export({scope, parameters})` 可选，返回 `{content: Blob, filename: string}`。导出**点击时的当前有效参数输入**，不借用上次查询条件或当前页；因此仅导出资格也无需先查询。消费者负责后端导出协议、格式和列内容，库持有导出互斥、下载、反馈、失败后的重新导出，以及资源/会话切换后不触发旧下载。Blob URL 在触发下载后回收。query/export 均可按实际能力省略；库只结合已提供的方法与资格事实显示按钮，不推导后端授权，服务端仍须重验权限。
+
+`examples/report` 展示 BatchDTO→hasMore、LedgerDTO→total 两种不同协议映射，以及查询/仅查询/仅导出/无资格、失败重试和空态。全部为消费者侧合成内存数据；日期范围与金额下限演示原值传递，示例不据此模拟业务筛选。运行 `dev:report`；构建与 tgz 独立安装验证分别使用 `build:report`、`check:report`。安装验证包括公开声明与错误配对拒绝、生产构建、CSS/字体解析、真实浏览器参数提交/快照翻页/下载及资格分支。
+
+只读交互参考：原 ZERP `frontend/src/target/components/report-page/{ReportPage.vue,report-data.ts}` 的参数与已应用参数分离、日期范围、原十进制字符串、可见列/宽度及查询/导出资格。后端错误码解释和下载格式属于消费者；库不包含 ZERP API 路径、Session 或报表目录。本片不代表真实 ZERP API/E2E 验收。

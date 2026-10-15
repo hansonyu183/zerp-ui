@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="R extends object">
+import { computed } from "vue";
 import type { Column, Page, DirectAction } from "./contracts";
-defineProps<{
+const props = defineProps<{
   columns: readonly Column<R>[];
   result: Page<R>;
   page: number;
@@ -13,6 +14,9 @@ const emit = defineEmits<{
   page: [value: number];
   action: [action: DirectAction, row: R];
 }>();
+const visibleColumns = computed(() =>
+  props.columns.filter((c) => c.visible !== false),
+);
 const captions = {
   edit: "编辑",
   enable: "启用",
@@ -27,7 +31,10 @@ function display(row: R, column: Column<R>) {
       ? value
         ? "是"
         : "否"
-      : String(value);
+      : column.type === "enum"
+        ? (column.options?.find((option) => option.value === value)?.label ??
+          String(value))
+        : String(value);
 }
 </script>
 <template>
@@ -35,22 +42,27 @@ function display(row: R, column: Column<R>) {
     <table>
       <thead>
         <tr>
-          <th v-for="column in columns" :key="column.key" scope="col">
+          <th
+            v-for="column in visibleColumns"
+            :key="column.key"
+            scope="col"
+            :style="{ width: column.width }"
+          >
             {{ column.label }}
           </th>
-          <th scope="col">操作</th>
+          <th v-if="actions" scope="col">操作</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(row, index) in result.items" :key="index">
           <td
-            v-for="column in columns"
+            v-for="column in visibleColumns"
             :key="column.key"
             :data-label="column.label"
           >
             {{ display(row, column) }}
           </td>
-          <td data-label="操作">
+          <td v-if="actions" data-label="操作">
             <button
               v-for="action in actions?.(row)"
               :key="action"

@@ -26,3 +26,14 @@ export type {
   ConfigurationBlock,
   ConfigurationBlockProps,
 } from "./configuration";
+
+export { default as ReportRuntime } from "./ReportRuntime.vue";
+export { defineReport } from "./report";
+export type {
+  ReportParameters,
+  ReportColumn,
+  ReportQuery,
+  ReportExport,
+  ReportAdapter,
+  ReportDefinition,
+} from "./report";
