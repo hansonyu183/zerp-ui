@@ -459,3 +459,32 @@ it("switches the document definition and list adapter together", async () => {
   expect(w.text()).not.toContain("查看 DOC-001");
   w.unmount();
 });
+it("uses create-only fields for new and cloned drafts and edit-only fields for existing documents", async () => {
+  const d = definition();
+  d.fields = [
+    {
+      key: "name",
+      label: "创建名称",
+      type: "text",
+      mode: "create",
+      required: true,
+    },
+    { key: "amount", label: "编辑金额", type: "decimal", mode: "edit" },
+  ];
+  const w = await start(d);
+  await click(w, "创建 Draft");
+  expect(w.find('input[aria-label="创建名称"]').exists()).toBe(true);
+  expect(w.find('input[aria-label="编辑金额"]').exists()).toBe(false);
+  await w.get('input[aria-label="创建名称"]').setValue("");
+  await click(w, "提交单据");
+  expect(d.adapter.submit).not.toHaveBeenCalled();
+  await click(w, "关闭编辑");
+  await click(w, "查看 DOC-001");
+  await click(w, "编辑单据");
+  expect(w.find('input[aria-label="编辑金额"]').exists()).toBe(true);
+  expect(w.find('input[aria-label="创建名称"]').exists()).toBe(false);
+  await click(w, "关闭编辑");
+  await click(w, "克隆 Draft");
+  expect(w.find('input[aria-label="创建名称"]').exists()).toBe(true);
+  w.unmount();
+});

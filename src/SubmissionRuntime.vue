@@ -34,6 +34,7 @@ type Snapshot = VersionSnapshot<D, I, S, O, H>;
 type Attempt = VersionAttempt<D, I, S, H> | StageAttempt<I, S, O>;
 type Local = { id: string; file: File; staged?: { handle: H } };
 type Draft = {
+  mode: "create" | "edit";
   source: Snapshot;
   view: "official" | "candidate";
   values: D;
@@ -211,17 +212,13 @@ function prepare(operation: "create" | "clone") {
       audit: [],
     };
     lock.value.context ??= {
+      mode: "create",
       source: clone(draft),
       view: "official",
       values: clone(draft.values),
       files: [],
     };
-    selected.value = lock.value.context.view;
-    editor.value = true;
-    instance++;
-    pending.value = {};
-    error.value = "";
-    notice.value = "";
+    resumeDraft();
   } catch (e) {
     error.value = message(e);
   }
@@ -247,18 +244,13 @@ function begin() {
   )
     return;
   lock.value.context ??= {
+    mode: "edit",
     source: clone(snapshot.value),
     view: selected.value === "candidate" ? "candidate" : "official",
     values: clone(snapshot.value.values),
     files: [],
   };
-  archive.value ??= { official: null, candidate: null, history: [], audit: [] };
-  selected.value = lock.value.context.view;
-  editor.value = true;
-  instance++;
-  pending.value = {};
-  error.value = "";
-  notice.value = "";
+  resumeDraft();
 }
 function updateDraft(fn: (d: Draft) => Draft) {
   if (lock.value.context) lock.value.context = fn(lock.value.context);
@@ -343,7 +335,7 @@ async function submit() {
   const invalid = validate(
     fields.value as readonly AnyField[],
     draft.values,
-    "edit",
+    draft.mode,
   );
   if (invalid) {
     error.value = invalid;
@@ -784,7 +776,7 @@ onBeforeUnmount(() => {
             :fields="fields"
             :model-value="clone(lock.context.values)"
             :scope="scope"
-            mode="edit"
+            :mode="lock.context.mode"
             :disabled="disabled"
             :onUpdate:modelValue="bindings.form"
             :onPending="bindings.pending"
