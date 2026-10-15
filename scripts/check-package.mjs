@@ -6,6 +6,7 @@ import {
   readFile,
   writeFile,
   stat,
+  readdir,
 } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
 import { createHash } from "node:crypto";
@@ -118,7 +119,7 @@ await writeFile(
         module: "ESNext",
         moduleResolution: "Bundler",
         strict: true,
-        skipLibCheck: false,
+        skipLibCheck: true,
         noEmit: true,
         lib: ["ES2022", "DOM"],
         types: ["vite/client"],
@@ -182,6 +183,38 @@ for (const [, url] of css.matchAll(/url\(["']?([^"')]+)["']?\)/g)) {
   await stat(resolve(dirname(cssPath), url));
 }
 run(join(consumer, "node_modules/.bin/vue-tsc"), ["--noEmit"], consumer);
+// Check every shipped declaration, including those not used by this example.
+// Upstream Vuetify/TypeScript declarations have their own diagnostics; do not
+// suppress our package's diagnostics with the consumer's skipLibCheck setting.
+const ts = require("typescript");
+const declarationRoot = dirname(require.resolve("@zerp/ui/style.css"));
+const declarationFiles = (await readdir(declarationRoot))
+  .filter((name) => name.endsWith(".d.ts"))
+  .map((name) => join(declarationRoot, name));
+const declarationProgram = ts.createProgram(declarationFiles, {
+  strict: true,
+  skipLibCheck: false,
+  noEmit: true,
+  target: ts.ScriptTarget.ES2022,
+  module: ts.ModuleKind.ESNext,
+  moduleResolution: ts.ModuleResolutionKind.Bundler,
+  types: [],
+});
+const declarationDiagnostics = ts.getPreEmitDiagnostics(declarationProgram);
+const packageDiagnostics = declarationDiagnostics.filter(
+  (diagnostic) =>
+    !diagnostic.file ||
+    diagnostic.file.fileName.startsWith(`${declarationRoot}/`),
+);
+assert.equal(
+  packageDiagnostics.length,
+  0,
+  ts.formatDiagnosticsWithColorAndContext(packageDiagnostics, {
+    getCanonicalFileName: (name) => name,
+    getCurrentDirectory: () => consumer,
+    getNewLine: () => "\n",
+  }),
+);
 run(join(consumer, "node_modules/.bin/vite"), ["build"], consumer);
 const { preview } = await import(pathToFileURL(require.resolve("vite")));
 let server, browser;
@@ -208,93 +241,50 @@ try {
   };
   observe(page);
   await page.goto(`http://127.0.0.1:${address.port}`);
-  if (shellMode || workflowMode || documentMode || versionMode || reportMode) {
-    const smoke = shellMode
-      ? shellSmoke
-      : workflowMode
-        ? workflowSmoke
-        : documentMode
-          ? documentSmoke
-          : versionMode
-            ? versionSmoke
-            : reportSmoke;
-    await smoke(page);
-    const exampleRoot = join(
-      root,
-      shellMode
-        ? "examples/shell"
-        : workflowMode
-          ? "examples/workflow"
-          : documentMode
-            ? "examples/document"
-            : versionMode
-              ? "examples/version"
-              : "examples/report",
-    );
-    const exampleServer = await preview({
-      root: exampleRoot,
-      configFile: join(exampleRoot, "vite.config.ts"),
-      preview: { host: "127.0.0.1", port: 0, strictPort: false },
-    });
-    try {
-      const localAddress = exampleServer.httpServer.address();
-      assert.ok(localAddress && typeof localAddress !== "string");
-      const examplePage = await browser.newPage();
-      observe(examplePage);
-      await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
-      await smoke(examplePage);
-      await examplePage.close();
-    } finally {
-      await new Promise((yes, no) =>
-        exampleServer.httpServer.close((e) => (e ? no(e) : yes())),
-      );
-    }
-  } else if (configuration) {
-    await configurationSmoke(page);
-  } else {
-    await page
-      .getByRole("heading", { name: "合成示例 · 账簿", exact: true })
-      .waitFor();
-    await page.getByRole("button", { name: "新增", exact: true }).click();
-    await page
-      .getByRole("textbox", { name: "名称", exact: true })
-      .fill("离仓安装新增");
-    await page.getByRole("button", { name: "保存", exact: true }).click();
-    await page
-      .getByRole("cell", { name: "离仓安装新增", exact: true })
-      .waitFor();
-    await page
-      .getByRole("row")
-      .filter({
-        has: page.getByRole("cell", { name: "离仓安装新增", exact: true }),
-      })
-      .getByRole("button", { name: "编辑", exact: true })
-      .click();
-    await page
-      .getByRole("textbox", { name: "名称", exact: true })
-      .fill("离仓安装修改");
-    await page.getByRole("button", { name: "保存", exact: true }).click();
-    await page
-      .getByRole("cell", { name: "离仓安装修改", exact: true })
-      .waitFor();
-    for (const option of await page
-      .locator("select")
-      .first()
-      .locator("option")
-      .all()) {
-      const value = await option.getAttribute("value");
-      await page.locator("select").first().selectOption(value);
-      await page.getByRole("heading").filter({ hasText: "合成示例" }).waitFor();
-      await page.getByRole("button", { name: "新增", exact: true }).click();
-      await page.getByRole("textbox", { name: "名称", exact: true }).waitFor();
-      await page.getByRole("button", { name: "取消编辑", exact: true }).click();
-    }
-    await page.setViewportSize({ width: 390, height: 844 });
-    assert.equal(
-      await page
-        .locator("thead")
-        .evaluate((el) => getComputedStyle(el).display),
-      "none",
+  const smoke = shellMode
+    ? shellSmoke
+    : workflowMode
+      ? workflowSmoke
+      : documentMode
+        ? documentSmoke
+        : versionMode
+          ? versionSmoke
+          : reportMode
+            ? reportSmoke
+            : configuration
+              ? configurationSmoke
+              : directSmoke;
+  await smoke(page);
+  const exampleName = shellMode
+    ? "shell"
+    : workflowMode
+      ? "workflow"
+      : documentMode
+        ? "document"
+        : versionMode
+          ? "version"
+          : reportMode
+            ? "report"
+            : configuration
+              ? "configuration"
+              : "direct";
+  const exampleRoot = join(root, "examples", exampleName);
+  const exampleServer = await preview({
+    root: exampleRoot,
+    configFile: join(exampleRoot, "vite.config.ts"),
+    preview: { host: "127.0.0.1", port: 0, strictPort: false },
+  });
+  try {
+    const localAddress = exampleServer.httpServer.address();
+    assert.ok(localAddress && typeof localAddress !== "string");
+    const examplePage = await browser.newPage();
+    observe(examplePage);
+    await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
+    await smoke(examplePage);
+    await examplePage.close();
+  } finally {
+    await new Promise((yes, no) =>
+      exampleServer.httpServer.close((e) => (e ? no(e) : yes())),
     );
   }
   assert.deepEqual(errors, []);
@@ -310,6 +300,12 @@ try {
       .digest("hex"),
     tgz,
     consumer,
+    declarations: {
+      checkedFiles: declarationFiles.length,
+      packageErrors: packageDiagnostics.length,
+      thirdPartyDiagnostics:
+        declarationDiagnostics.length - packageDiagnostics.length,
+    },
     checks: [
       "independent install",
       "type inference and rejected pairs",
@@ -365,6 +361,47 @@ try {
     await new Promise((yes, no) =>
       server.httpServer.close((e) => (e ? no(e) : yes())),
     );
+}
+
+async function directSmoke(page) {
+  await page
+    .getByRole("heading", { name: "合成示例 · 账簿", exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: "新增", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "名称", exact: true })
+    .fill("离仓安装新增");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("cell", { name: "离仓安装新增", exact: true }).waitFor();
+  await page
+    .getByRole("row")
+    .filter({
+      has: page.getByRole("cell", { name: "离仓安装新增", exact: true }),
+    })
+    .getByRole("button", { name: "编辑", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "名称", exact: true })
+    .fill("离仓安装修改");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("cell", { name: "离仓安装修改", exact: true }).waitFor();
+  for (const option of await page
+    .locator("select")
+    .first()
+    .locator("option")
+    .all()) {
+    const value = await option.getAttribute("value");
+    await page.locator("select").first().selectOption(value);
+    await page.getByRole("heading").filter({ hasText: "合成示例" }).waitFor();
+    await page.getByRole("button", { name: "新增", exact: true }).click();
+    await page.getByRole("textbox", { name: "名称", exact: true }).waitFor();
+    await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await page.locator("thead").evaluate((el) => getComputedStyle(el).display),
+    "none",
+  );
 }
 
 async function configurationSmoke(page) {
