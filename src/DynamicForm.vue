@@ -130,10 +130,15 @@ onBeforeUnmount(() => emit("pending", false));
         <ol>
           <li v-for="(row, index) in rows(field.key)" :key="index">
             <span>{{ JSON.stringify(row) }}</span
-            ><button type="button" @click="begin(field, index)">
+            ><button
+              type="button"
+              :disabled="!!editing"
+              @click="begin(field, index)"
+            >
               编辑{{ field.label }}{{ index + 1 }}</button
             ><button
               type="button"
+              :disabled="!!editing"
               @click="
                 set(
                   field.key,
@@ -145,7 +150,7 @@ onBeforeUnmount(() => emit("pending", false));
             </button>
           </li>
         </ol>
-        <button type="button" @click="begin(field, -1)">
+        <button type="button" :disabled="!!editing" @click="begin(field, -1)">
           新增{{ field.label }}
         </button>
       </fieldset>

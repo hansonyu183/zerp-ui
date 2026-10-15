@@ -55,3 +55,75 @@ it.each(resourceCases)(
     w.unmount();
   },
 );
+it.each(["aux/dictionary-item", "acc/subject"] as const)(
+  "%s applies directory filtering only after submit",
+  async (resource) => {
+    const d = exampleDefinition(resource),
+      w = mount(DirectRuntime as Component, {
+        props: {
+          definition: d,
+          scope: "a",
+          permissions: { query: true, write: true, create: true },
+        },
+      });
+    await flushPromises();
+    await click(w, "更多条件");
+    await click(w, "合成可选 B");
+    expect(w.findAll("tbody tr").some((r) => r.text().includes(" B"))).toBe(
+      resource === "aux/dictionary-item",
+    );
+    await w.get("form").trigger("submit");
+    await flushPromises();
+    expect(w.findAll("tbody tr")).toHaveLength(1);
+    expect(w.get("tbody").text()).toContain(" B");
+    w.unmount();
+  },
+);
+it("keeps user assignment readonly when denied and editable when allowed by detail facts", async () => {
+  const d = exampleDefinition("app/user"),
+    w = mount(DirectRuntime as Component, {
+      props: {
+        definition: d,
+        scope: "a",
+        permissions: { query: true, write: true, create: true },
+      },
+    });
+  await flushPromises();
+  await click(w, "编辑");
+  for (const label of ["可分配角色", "关联员工"])
+    expect(
+      w
+        .findAll("fieldset")
+        .find((f) => f.find("legend").text() === label)!
+        .attributes("disabled"),
+    ).toBeDefined();
+  await click(w, "取消编辑");
+  await w
+    .findAll("tbody tr")[1]
+    .findAll("button")
+    .find((b) => b.text() === "编辑")!
+    .trigger("click");
+  await flushPromises();
+  for (const label of ["可分配角色", "关联员工"])
+    expect(
+      w
+        .findAll("fieldset")
+        .find((f) => f.find("legend").text() === label)!
+        .attributes("disabled"),
+    ).toBeUndefined();
+  w.unmount();
+});
+it("omits writes on a synthetic role without action qualification", async () => {
+  const d = exampleDefinition("app/role"),
+    w = mount(DirectRuntime as Component, {
+      props: {
+        definition: d,
+        scope: "a",
+        permissions: { query: true, write: true, create: true },
+      },
+    });
+  await flushPromises();
+  expect(w.findAll("tbody tr")[0].findAll("button").length).toBeGreaterThan(0);
+  expect(w.findAll("tbody tr")[1].findAll("button")).toHaveLength(0);
+  w.unmount();
+});

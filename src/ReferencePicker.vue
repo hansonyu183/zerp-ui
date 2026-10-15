@@ -107,6 +107,8 @@ watch(
     searchVersion++;
     resolveVersion++;
     resolved.value = [];
+    result.value = { items: [], total: 0 };
+    page.value = 1;
     void search();
     void resolve();
   },

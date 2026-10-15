@@ -19,6 +19,7 @@ export type Draft = {
   parent: ReferenceValue | null;
   directory: ReferenceValue | null;
   roles: ReferenceValue[];
+  employee: ReferenceValue | null;
   factor: string | null;
   carrierKind: string;
   internal: ReferenceValue | null;
@@ -28,6 +29,9 @@ export type Draft = {
 };
 export type Filters = { keyword: string; directory: ReferenceValue | null };
 export type Row = {
+  directoryId: string;
+  assignmentEditable: boolean;
+  editable: boolean;
   id: string;
   revision: string;
   name: string;
@@ -59,10 +63,18 @@ export const resourceCases = [
   ["aux/vehicle", "车辆", "conditional"],
 ] as const;
 export const catalog: ReferenceAdapter = {
-  async search({ keyword, page }) {
+  async search({ keyword, page, parent }) {
     const items = [
-      { id: "a", label: "合成可选 A" },
-      { id: "b", label: "合成可选 B" },
+      {
+        id: parent ? `${parent.id}-child-a` : "a",
+        label: parent ? `${parent.label} 子项 A` : "合成可选 A",
+        snapshot: { revision: "synthetic-a" },
+      },
+      {
+        id: parent ? `${parent.id}-child-b` : "b",
+        label: parent ? `${parent.label} 子项 B` : "合成可选 B",
+        snapshot: { revision: "synthetic-b" },
+      },
       { id: "blocked", label: "合成停用项", selectable: false },
     ].filter((v) => v.label.includes(keyword));
     return {
@@ -173,6 +185,16 @@ export function exampleDefinition(
           },
         ]
       : []),
+    ...(kind === "assignment"
+      ? [
+          {
+            key: "employee" as const,
+            label: "关联员工",
+            type: "reference" as const,
+            adapter: catalog,
+          },
+        ]
+      : []),
     ...(["assignment", "permissions"].includes(kind)
       ? [
           {
@@ -250,6 +272,9 @@ export function exampleDefinition(
   let rows: Row[] = [
     {
       id: "synthetic-1",
+      directoryId: "a",
+      assignmentEditable: false,
+      editable: true,
       revision: "1",
       name: `合成${spec[1]}`,
       enabled: true,
@@ -258,6 +283,16 @@ export function exampleDefinition(
         kind === "decimal" ? "123456789012345678.123456789012345678" : null,
     },
   ];
+  if (["directory", "save-enable", "assignment", "permissions"].includes(kind))
+    rows.push({
+      ...rows[0],
+      id: "synthetic-2",
+      directoryId: "b",
+      assignmentEditable: true,
+      editable: kind !== "permissions",
+      name: `合成${spec[1]} B`,
+    });
+  let nextId = rows.length + 1;
   const drafts = new Map<string, Draft>();
   const empty = (context?: { scope: string; filters: Filters }): Draft => ({
     name: "",
@@ -275,6 +310,7 @@ export function exampleDefinition(
         ? { id: "a", label: "合成可选 A" }
         : null),
     roles: [],
+    employee: null,
     factor: null,
     carrierKind: "internal",
     internal: null,
@@ -292,12 +328,16 @@ export function exampleDefinition(
     )
       return { status: "failure", message: "合成修订冲突，请重新读取。" };
     if (input) {
-      const id = identity?.id ?? `synthetic-${rows.length + 1}`;
+      const id = identity?.id ?? `synthetic-${nextId++}`;
+      const existing = rows.find((r) => r.id === id);
       drafts.set(id, structuredClone(input));
       rows = [
         ...rows.filter((r) => r.id !== id),
         {
           id,
+          directoryId: input.directory?.id ?? "a",
+          assignmentEditable: existing?.assignmentEditable ?? true,
+          editable: existing?.editable ?? true,
           revision: String(Number(identity?.revision ?? "0") + 1),
           name: input.name,
           enabled: input.enabled,
@@ -325,7 +365,11 @@ export function exampleDefinition(
           ]
         : []),
     ],
-    initialFilters: () => ({ keyword: "", directory: null }),
+    initialFilters: () => ({
+      keyword: "",
+      directory:
+        kind === "save-enable" ? { id: "a", label: "合成可选 A" } : null,
+    }),
     columns: [
       { key: "name", label: "名称" },
       { key: "enabled", label: "启用", type: "boolean" },
@@ -341,6 +385,7 @@ export function exampleDefinition(
     ],
     identity: (r) => ({ id: r.id, revision: r.revision }),
     actions: (r) => {
+      if (!r.editable) return [];
       const actions: DirectAction[] = ["edit"];
       if (kind !== "no-enable" && kind !== "save-enable")
         actions.push(r.enabled ? "disable" : "enable");
@@ -361,7 +406,11 @@ export function exampleDefinition(
     adapter: {
       empty,
       async query({ filters, page, pageSize }) {
-        const items = rows.filter((r) => r.name.includes(filters.keyword));
+        const items = rows.filter(
+          (r) =>
+            r.name.includes(filters.keyword) &&
+            (!filters.directory || r.directoryId === filters.directory.id),
+        );
         return {
           items: items.slice((page - 1) * pageSize, page * pageSize),
           total: items.length,
@@ -373,7 +422,9 @@ export function exampleDefinition(
           identity: { id: row.id, revision: row.revision },
           readonlyFields:
             kind === "assignment"
-              ? (["code"] as const)
+              ? row.assignmentEditable
+                ? (["code"] as const)
+                : (["code", "roles", "employee"] as const)
               : kind === "save-enable"
                 ? (["directory"] as const)
                 : [],
@@ -382,6 +433,10 @@ export function exampleDefinition(
             name: row.name,
             enabled: row.enabled,
             factor: row.factor,
+            directory: {
+              id: row.directoryId,
+              label: row.directoryId === "a" ? "合成可选 A" : "合成可选 B",
+            },
             roles:
               kind === "assignment"
                 ? [{ id: "blocked", label: "历史停用角色", selectable: false }]

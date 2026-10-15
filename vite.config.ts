@@ -4,6 +4,7 @@ export default defineConfig({
   base: "./",
   plugins: [vue()],
   build: {
+    assetsDir: "",
     lib: {
       entry: "src/index.ts",
       formats: ["es"],

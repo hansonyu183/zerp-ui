@@ -252,3 +252,25 @@ it("aggregates pending from two references until both resolve", async () => {
   expect(w.emitted("pending")?.at(-1)).toEqual([false]);
   w.unmount();
 });
+it("removes old scope candidates even when the new search fails", async () => {
+  const adapter: ReferenceAdapter = {
+    search: vi
+      .fn()
+      .mockResolvedValueOnce({
+        items: [{ id: "old", label: "旧范围候选" }],
+        total: 1,
+      })
+      .mockRejectedValueOnce(new Error("新范围失败")),
+    resolve: async () => [],
+  };
+  const w = mount(ReferencePicker, {
+    props: { adapter, scope: "a", label: "引用", modelValue: null },
+  });
+  await flushPromises();
+  expect(w.text()).toContain("旧范围候选");
+  await w.setProps({ scope: "b" });
+  await flushPromises();
+  expect(w.text()).toContain("新范围失败");
+  expect(w.text()).not.toContain("旧范围候选");
+  w.unmount();
+});

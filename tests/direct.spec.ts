@@ -226,3 +226,39 @@ it("hides actions when the consumer denies permission", async () => {
   expect(w.findAll("button").map((b) => b.text())).not.toContain("新增");
   w.unmount();
 });
+it("rejects an incomplete decimal without calling the write adapter", async () => {
+  const d = defineDirect({
+    resource: "decimal",
+    title: "金额",
+    fields: [{ key: "amount", label: "金额", type: "decimal" }],
+    filters: [],
+    initialFilters: () => ({}),
+    columns: [{ key: "name", label: "名称" }],
+    identity: (row: { id: string; name: string }) => row.id,
+    actions: () => ["edit"] as const,
+    adapter: {
+      empty: () => ({ amount: "0" }),
+      query: async () => ({ items: [{ id: "one", name: "合成" }], total: 1 }),
+      get: async () => ({
+        identity: "one",
+        values: { amount: "123456789012345678.123456789012345678" },
+      }),
+      create: async () => ({ status: "success" as const }),
+      save: vi.fn(async () => ({ status: "success" as const })),
+    },
+  });
+  const w = mount(DirectRuntime as Component, {
+    props: { definition: d, scope: "a", permissions },
+  });
+  await flushPromises();
+  await click(w, "编辑");
+  await w.get('input[aria-label="金额"]').setValue("-");
+  await click(w, "保存");
+  expect(w.text()).toContain("应为完整十进制数");
+  expect(d.adapter.save).not.toHaveBeenCalled();
+  expect(w.get('input[aria-label="金额"]').element).toHaveProperty(
+    "value",
+    "-",
+  );
+  w.unmount();
+});

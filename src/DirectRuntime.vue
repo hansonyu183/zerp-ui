@@ -95,7 +95,8 @@ async function query(next = 1, submit = false) {
   const v = version,
     q = ++queryVersion,
     target = lock.value,
-    refreshing = target.phase === "refresh";
+    refreshing = target.phase === "refresh",
+    refreshAttempt = target.attempt;
   loading.value = true;
   error.value = "";
   try {
@@ -108,7 +109,11 @@ async function query(next = 1, submit = false) {
     if (!current(v) || q !== queryVersion) return;
     result.value = clone(value);
     page.value = next;
-    if (refreshing && target.phase === "refresh") {
+    if (
+      refreshing &&
+      target.phase === "refresh" &&
+      target.attempt === refreshAttempt
+    ) {
       target.phase = "idle";
       target.attempt = null;
     }
@@ -230,7 +235,7 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
   notice.value = "";
   confirming.value = null;
   try {
-    const outcome = await execute(clone(attempt));
+    const outcome = await execute.call(definition.adapter, clone(attempt));
     if (outcome.status === "success") {
       target.phase = "refresh";
       if (current(v)) {
