@@ -217,13 +217,17 @@ it("aggregates local pending and rejects events from a closed block instance", a
         required: true,
       },
       disabled: Boolean,
+      "onUpdate:modelValue": {
+        type: Function as import("vue").PropType<(value: string) => void>,
+        required: true,
+      },
+      onPending: {
+        type: Function as import("vue").PropType<(value: boolean) => void>,
+        required: true,
+      },
     },
-    emits: ["update:modelValue", "pending"],
-    setup(_p, { emit }) {
-      events.push({
-        change: (v) => emit("update:modelValue", v),
-        pending: (v) => emit("pending", v),
-      });
+    setup(p) {
+      events.push({ change: p["onUpdate:modelValue"], pending: p.onPending });
       return () => h("p", "局部编辑");
     },
   });
@@ -263,7 +267,10 @@ it("aggregates local pending and rejects events from a closed block instance", a
   events[0].pending(false);
   await flushPromises();
   expect(button(w, "保存").attributes("disabled")).toBeDefined();
+  await w.setProps({ permissions: { ...permissions, write: false } });
   events[1].pending(false);
+  await flushPromises();
+  await w.setProps({ permissions });
   await flushPromises();
   expect(button(w, "保存").attributes("disabled")).toBeUndefined();
   await click(w, "关闭编辑");

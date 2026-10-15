@@ -15,8 +15,11 @@ import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 const configuration = process.argv.includes("--configuration");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const run = (cmd, args, cwd = root) =>
+const commands = [];
+const run = (cmd, args, cwd = root) => {
   execFileSync(cmd, args, { cwd, stdio: "inherit" });
+  commands.push({ command: [cmd, ...args], cwd, exitCode: 0 });
+};
 await mkdir(join(root, ".scratch"), { recursive: true });
 const dir = await mkdtemp(join(root, ".scratch/package-check-"));
 run("pnpm", ["pack", "--pack-destination", dir]);
@@ -180,6 +183,7 @@ try {
   }).trim();
   const report = {
     sourceBase: sha,
+    commands,
     sha256: createHash("sha256")
       .update(await readFile(tgz))
       .digest("hex"),

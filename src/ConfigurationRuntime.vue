@@ -3,7 +3,7 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, ref, shallowRef, toRaw, watch } from "vue";
 import { VAlert, VProgressLinear } from "vuetify/components";
 import type { AnyField, Page } from "./contracts";
 import type {
@@ -164,19 +164,19 @@ async function begin(row?: R) {
 const bindings = computed(() => {
   const g = generation,
     e = editId;
-  const valid = () =>
-    current(g) && e === editId && !!editor.value && !disabled.value;
+  const live = () => current(g) && e === editId && !!editor.value;
+  const valid = () => live() && !disabled.value;
   return {
     form: (value: D) => {
       if (valid()) editor.value = { ...editor.value!, values: clone(value) };
     },
     formPending: (value: boolean) => {
-      if (valid()) pending.value = { ...pending.value, form: value };
+      if (live()) pending.value = { ...pending.value, form: value };
     },
     blocks:
       props.blocks?.map((block) => ({
         key: block.key,
-        component: block.component,
+        component: toRaw(block.component),
         props: {
           modelValue: clone(editor.value?.values[block.key]),
           catalog: clone(block.catalog),
@@ -190,7 +190,7 @@ const bindings = computed(() => {
               };
           },
           onPending: (value: boolean) => {
-            if (valid())
+            if (live())
               pending.value = {
                 ...pending.value,
                 [`block:${block.key}`]: value,
@@ -298,7 +298,7 @@ async function reconcile() {
   }
 }
 watch(
-  () => [props.scope, props.definition, props.permissions.read],
+  [() => props.scope, () => props.definition, () => props.permissions.read],
   () => {
     generation++;
     queryId++;
