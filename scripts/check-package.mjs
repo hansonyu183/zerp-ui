@@ -163,7 +163,7 @@ for (const name of ["vue", "vuetify", "vue-router", "@zerp/ui/style.css"])
     require.resolve(name).startsWith(join(consumer, "node_modules")),
     `${name} escaped independent install tree`,
   );
-const libraryRequire = createRequire(require.resolve("@zerp/ui"));
+const libraryRequire = createRequire(require.resolve("@zerp/ui/style.css"));
 for (const name of Object.keys(pkg.peerDependencies)) {
   assert.equal(
     libraryRequire.resolve(name),
