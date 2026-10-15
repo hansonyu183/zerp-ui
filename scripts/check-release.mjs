@@ -29,7 +29,7 @@ assert.ok(
   artifactIndex < 0 || process.argv[artifactIndex + 1],
   "--tgz requires a path",
 );
-for (const script of ["typecheck", "lint", "format:check", "build"])
+for (const script of ["build", "typecheck", "lint", "format:check"])
   run("pnpm", [script]);
 if (artifactIndex < 0) run("pnpm", ["test"]);
 const slices = [
