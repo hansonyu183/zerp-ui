@@ -63,3 +63,14 @@ export type {
   DocumentAdapter,
   DocumentDefinition,
 } from "./document";
+
+export { default as WorkflowRuntime } from "./WorkflowRuntime.vue";
+export { defineWorkflow } from "./workflow";
+export type {
+  WorkflowAction,
+  WorkflowNode,
+  WorkflowInstance,
+  WorkflowAttempt,
+  WorkflowAdapter,
+  WorkflowDefinition,
+} from "./workflow";

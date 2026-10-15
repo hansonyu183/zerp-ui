@@ -129,3 +129,15 @@ createApp(App).use(createVuetify()).mount("#app");
 `examples/document` 是经公开包入口运行的普通录入、期初递归录入和只读系统矩阵。消费者侧 `EntryBlock` 展示专用值、目录准备、精确来源采用与十进制字符串；脚本有独立配置身份。合成审计按原 attempt/identity/revision/Submission 和输入匹配，包含已应用、明确未应用、未知、资格不足和刷新失败语义。示例不执行真实 ZERP API、不使用公司数据、不代表真实后端 E2E。
 
 运行/构建/独立 tgz 安装验收使用 `dev:document`、`build:document`、`check:document`。验收覆盖公开声明配对及错误拒绝、两个消费者上下文的真实浏览器创建/克隆/专用录入/来源/递归取消、附件 stage/核实/下载、审批/历史/审计、独立脚本锁与错误恢复，并检查生产构建和 CSS/字体。只读参考为原 ZERP `frontend/src/target/components/document-page/DocumentPage.vue` 的本地 Draft、克隆新身份、专用期初来源、独立脚本保存及提交核实；应用 DTO、载荷全集、编辑器和真实 API 接入留给发布后工单。
+
+## 流程运行时（#13）
+
+`defineWorkflow<InstanceIdentity, NodeIdentity, Revision, Target, Document, Audit, Evidence>` 与 `WorkflowRuntime` 封装固定的实例查询/分页、节点与审计读取、节点动作互斥、反馈、写后刷新和精确核实。Adapter 的 `list/get/audit/act` 各自使用消费者身份，不依赖模型、Session、API 路径或路由注册表。页面传入稳定 definition/Adapter、包含账号和会话代次的 scope，以及 read/audit/reconcile、actions、targets 权限事实。后端返回的节点 `eligible` 与权限 actions 取交集；CREATE_CHILD 再取节点 targets 的 key 与权限 targets 的交集。最终授权和 revision 校验仍归后端。
+
+六个动作固定为 OPEN_DOCUMENT、CREATE_CHILD、APPROVE_CHILD、REJECT_CHILD、RETRY_CHILD、CANCEL_CHILD；不接受任意状态机、脚本或字符串命令。每次动作保留原 id、scope、resource、instance、node、revision、reason；创建携带强类型 target，打开携带强类型 document。节点 label/state 与审计列由消费者映射，库不推断领域状态。输入关键字仅显式查询时采用，分页与重试使用已提交值。失败详情清除旧节点入口，重试不重放动作。实例/作用域/资源/读资格切换使迟到响应失效。
+
+`reconcile(originalAttempt)` 只能以本次请求的精确权威审计返回 applied/not-applied（原 attemptId 与非空 Evidence）或 unknown；消费者必须核对原身份、revision、动作及完整输入。历史同类动作、当前状态相同、无审计权限或证据不足均保持 unknown。普通读取、关闭、切实例和卸载不能解除未知锁；稳定 Adapter/resource/scope 的锁在当前 JS 会话内保留，不声称浏览器重载后的持久恢复。已成功但刷新失败进入只读重试，绝不重发业务动作。核实权限或实例变化使在途核实结果失效。
+
+打开动作明确成功后通过有限的 `open-document(Document)` 事件交给消费者装配路由与单据正文；未知时不导航，核实成功后用户可以重新打开。库不接收任意页面插槽或整页控制器。`examples/workflow` 以 Vue Router 装配目标资源与已完成的 DocumentRuntime，展示创建下级→打开目标单据→编辑/提交→返回流程→批准与审计；合成后端独立检查资格/revision，按完整原请求匹配审计，提供冲突、未知已应用/未应用/仅历史审计、刷新失败、空态和错误重试。全部为消费者侧合成数据，不代表真实授权或 ZERP API/E2E。
+
+使用 package scripts 的 `dev:workflow`、`build:workflow`、`check:workflow`。tgz 验收在独立安装树检查声明配对、拒绝非法动作/目标/修订、生产构建及 CSS/字体，并对运行示例与独立安装消费者执行相同浏览器流程。只读行为参考为原 ZERP 的 `process-page/ProcessPage.vue`、`node-data.ts`；真实接入与旧实现删除留发布后工单。

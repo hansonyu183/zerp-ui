@@ -13,6 +13,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+const workflowMode = process.argv.includes("--workflow");
 const documentMode = process.argv.includes("--document");
 const versionMode = process.argv.includes("--version");
 const reportMode = process.argv.includes("--report");
@@ -56,15 +57,17 @@ await writeFile(
 await cp(
   join(
     root,
-    documentMode
-      ? "examples/document"
-      : versionMode
-        ? "examples/version"
-        : reportMode
-          ? "examples/report"
-          : configuration
-            ? "examples/configuration"
-            : "examples/direct",
+    workflowMode
+      ? "examples/workflow"
+      : documentMode
+        ? "examples/document"
+        : versionMode
+          ? "examples/version"
+          : reportMode
+            ? "examples/report"
+            : configuration
+              ? "examples/configuration"
+              : "examples/direct",
   ),
   consumer,
   {
@@ -95,15 +98,17 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    documentMode
-      ? "tests/document.type-test.ts"
-      : versionMode
-        ? "tests/version.type-test.ts"
-        : reportMode
-          ? "tests/report.type-test.ts"
-          : configuration
-            ? "tests/configuration.type-test.ts"
-            : "tests/contracts.type-test.ts",
+    workflowMode
+      ? "tests/workflow.type-test.ts"
+      : documentMode
+        ? "tests/document.type-test.ts"
+        : versionMode
+          ? "tests/version.type-test.ts"
+          : reportMode
+            ? "tests/report.type-test.ts"
+            : configuration
+              ? "tests/configuration.type-test.ts"
+              : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
@@ -148,20 +153,24 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://127.0.0.1:${address.port}`);
-  if (documentMode || versionMode || reportMode) {
-    const smoke = documentMode
-      ? documentSmoke
-      : versionMode
-        ? versionSmoke
-        : reportSmoke;
+  if (workflowMode || documentMode || versionMode || reportMode) {
+    const smoke = workflowMode
+      ? workflowSmoke
+      : documentMode
+        ? documentSmoke
+        : versionMode
+          ? versionSmoke
+          : reportSmoke;
     await smoke(page);
     const exampleRoot = join(
       root,
-      documentMode
-        ? "examples/document"
-        : versionMode
-          ? "examples/version"
-          : "examples/report",
+      workflowMode
+        ? "examples/workflow"
+        : documentMode
+          ? "examples/document"
+          : versionMode
+            ? "examples/version"
+            : "examples/report",
     );
     const exampleServer = await preview({
       root: exampleRoot,
@@ -248,23 +257,30 @@ try {
       "production build",
       "CSS/font resolution",
       "public exports",
-      ...(documentMode
+      ...(workflowMode
         ? [
-            "document create/clone/edit, recursive drafts, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
+            "workflow node/target eligibility, exact audit reconciliation, document/runtime consumer routing and refresh-only retry in both contexts",
           ]
-        : versionMode
+        : documentMode
           ? [
-              "version official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
+              "document create/clone/edit, recursive drafts, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
             ]
-          : reportMode
+          : versionMode
             ? [
-                "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
+                "version official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
               ]
-            : configuration
+            : reportMode
               ? [
-                  "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                  "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
                 ]
-              : ["browser create/edit and 20 examples", "mobile card surface"]),
+              : configuration
+                ? [
+                    "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                  ]
+                : [
+                    "browser create/edit and 20 examples",
+                    "mobile card surface",
+                  ]),
     ],
     exitCode: 0,
   };
@@ -619,4 +635,94 @@ async function documentSmoke(page) {
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
   await button("关闭编辑").click();
   assert.ok(await button("创建 Draft").isDisabled());
+}
+
+async function workflowSmoke(page) {
+  const button = (name) => page.getByRole("button", { name, exact: true });
+  const scenario = (value) => page.getByLabel("写入情景").selectOption(value);
+  await page
+    .getByRole("heading", { name: "合成流程运行时", exact: true })
+    .waitFor();
+  await page.getByLabel("读取情景").selectOption("failure");
+  await button("重试读取").click();
+  await page.getByRole("alert").filter({ hasText: "合成查询失败" }).waitFor();
+  await page.getByLabel("读取情景").selectOption("empty");
+  await button("重试读取").click();
+  await page.getByText("暂无数据", { exact: true }).waitFor();
+  await page.getByLabel("读取情景").selectOption("success");
+  await button("重试读取").click();
+  await button("查看 流程一").click();
+  assert.equal(await page.getByText("未授权目标", { exact: true }).count(), 0);
+  await page.getByLabel("根节点创建目标").selectOption("receipt");
+  await scenario("unknown");
+  await button("创建下级").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "节点动作结果未知" })
+    .waitFor();
+  await button("关闭实例").click();
+  await button("重试读取").click();
+  await button("查看 流程二").click();
+  assert.ok(await button("创建下级").isDisabled());
+  await button("核实本次请求").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "已核实节点动作成功" })
+    .waitFor();
+  await button("查看 流程一").click();
+  await page.getByRole("heading", { name: "下级节点", exact: true }).waitFor();
+  await scenario("success");
+  await page
+    .getByRole("region", { name: "下级节点", exact: true })
+    .getByRole("button", { name: "打开单据", exact: true })
+    .click();
+  await page
+    .getByText("消费者路由目标：流程一-child", { exact: true })
+    .waitFor();
+  await button("查看 流程一-child").click();
+  await button("编辑单据").click();
+  await page
+    .getByRole("textbox", { name: "名称", exact: true })
+    .fill("流程目标单据修改");
+  assert.equal(
+    await page.getByLabel("精确金额").inputValue(),
+    "9007199254740993.0100",
+  );
+  await button("提交单据").click();
+  await button("查看 流程一-child").click();
+  assert.equal(
+    await page.getByRole("textbox", { name: "名称", exact: true }).inputValue(),
+    "流程目标单据修改",
+  );
+  await page.getByRole("link", { name: "返回流程", exact: true }).click();
+  await button("查看 流程一").click();
+  await scenario("not-applied");
+  await button("批准下级").click();
+  await button("核实本次请求").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "已确认本次请求未应用" })
+    .waitFor();
+  await scenario("conflict");
+  await button("批准下级").click();
+  await page.getByRole("alert").filter({ hasText: "合成修订冲突" }).waitFor();
+  await scenario("refresh-failure");
+  await button("批准下级").click();
+  await page.getByRole("alert").filter({ hasText: "合成刷新失败" }).waitFor();
+  await button("重试读取").click();
+  await page.getByText("已批准", { exact: true }).waitFor();
+  await scenario("no-evidence");
+  await button("打开单据").first().click();
+  await button("核实本次请求").click();
+  await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
+  await button("关闭实例").click();
+  await button("查看 流程二").click();
+  assert.ok(await button("创建下级").isDisabled());
+  await page.getByLabel("会话作用域").selectOption("session-b");
+  await button("查看 流程二").click();
+  await page.getByLabel("根节点创建目标").selectOption("receipt");
+  assert.ok(await button("创建下级").isEnabled());
+  await page.getByLabel("会话作用域").selectOption("session-a");
+  await button("查看 流程二").click();
+  assert.ok(await button("创建下级").isDisabled());
 }
