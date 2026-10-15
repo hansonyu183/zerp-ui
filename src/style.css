@@ -1,0 +1,94 @@
+@font-face {
+  font-family: "Zerp UI Icons";
+  src: url("@mdi/font/fonts/materialdesignicons-webfont.woff2?no-inline")
+    format("woff2");
+  font-style: normal;
+  font-weight: normal;
+  font-display: swap;
+}
+.zerp-ui-icon {
+  font-family: "Zerp UI Icons";
+  font-style: normal;
+}
+.zerp-ui {
+  font: inherit;
+  color: inherit;
+  max-width: 100%;
+  padding: 1rem;
+}
+.zerp-ui button,
+.zerp-form button,
+.zerp-reference button {
+  font: inherit;
+  cursor: pointer;
+  margin: 0.3rem;
+  padding: 0.35rem 0.7rem;
+}
+.zerp-ui button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.zerp-form {
+  display: grid;
+  gap: 0.75rem;
+}
+.zerp-form label {
+  display: grid;
+  gap: 0.25rem;
+}
+.zerp-form input:not([type="checkbox"]),
+.zerp-form textarea,
+.zerp-form select {
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0.5rem;
+  font: inherit;
+}
+.zerp-ui [role="dialog"] {
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+.zerp-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.zerp-list th,
+.zerp-list td {
+  padding: 0.5rem;
+  text-align: start;
+  border-bottom: 1px solid #888;
+}
+.zerp-list nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.zerp-reference {
+  padding: 0.5rem;
+}
+.zerp-reference ul {
+  list-style: none;
+  padding: 0;
+}
+@media (max-width: 600px) {
+  .zerp-list thead {
+    display: none;
+  }
+  .zerp-list tr {
+    display: block;
+    border: 1px solid #888;
+    margin: 0.5rem 0;
+  }
+  .zerp-list td {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .zerp-list td::before {
+    content: attr(data-label);
+    font-weight: bold;
+  }
+}

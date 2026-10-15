@@ -1,0 +1,60 @@
+{
+  "name": "@zerp/ui",
+  "version": "0.0.0",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./dist/zerp-ui.css"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "peerDependencies": {
+    "vue": "~3.5.40",
+    "vuetify": "~4.1.5",
+    "vue-router": "~5.2.0"
+  },
+  "dependencies": {
+    "@mdi/font": "7.4.47"
+  },
+  "scripts": {
+    "dev": "vite examples/direct --host 127.0.0.1",
+    "typecheck": "vue-tsc --noEmit",
+    "build": "vite build && vue-tsc -p tsconfig.build.json && node scripts/build-assets.mjs",
+    "build:example": "vite build examples/direct",
+    "test": "vitest run",
+    "lint": "oxlint src tests examples scripts",
+    "format": "prettier --write src tests examples scripts '*.{json,ts}' README.md",
+    "format:check": "prettier --check src tests examples scripts '*.{json,ts}' README.md",
+    "check:package": "node scripts/check-package.mjs"
+  },
+  "devDependencies": {
+    "vue": "3.5.40",
+    "vuetify": "4.1.5",
+    "vue-router": "5.2.0",
+    "@vitejs/plugin-vue": "6.0.8",
+    "vite": "8.1.5",
+    "vue-tsc": "3.3.11",
+    "typescript": "^6.0.2",
+    "vitest": "4.1.10",
+    "@vue/test-utils": "2.4.11",
+    "jsdom": "29.1.1",
+    "@types/node": "^26.1.1",
+    "oxlint": "1.80.0",
+    "prettier": "3.9.6",
+    "@playwright/test": "1.61.1"
+  },
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=26 <27"
+  }
+}

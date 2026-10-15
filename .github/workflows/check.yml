@@ -1,0 +1,28 @@
+name: UI slice checks
+on: [push, pull_request]
+jobs:
+  direct:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.15.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm typecheck && pnpm lint && pnpm format:check
+      - run: pnpm test
+      - run: pnpm build:example
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm check:package
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: direct-install-evidence
+          path: |
+            .scratch/package-check-*/evidence.json
+            .scratch/package-check-*/*.tgz
+          include-hidden-files: true
