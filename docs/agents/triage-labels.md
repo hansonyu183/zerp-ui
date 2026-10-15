@@ -1,0 +1,11 @@
+# Triage labels
+
+| Role | Label | Meaning |
+| --- | --- | --- |
+| needs-triage | needs-triage | 需要维护者评估 |
+| needs-info | needs-info | 等待必要信息 |
+| ready-for-agent | ready-for-agent | 规格明确，可由 Agent 实施；仍须遵守原生阻塞关系 |
+| ready-for-human | ready-for-human | 需要人工执行 |
+| wontfix | wontfix | 不实施 |
+
+ready-for-agent 不替代前置验收，也不是生产部署授权。
