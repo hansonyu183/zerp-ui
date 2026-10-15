@@ -13,6 +13,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+const versionMode = process.argv.includes("--version");
 const reportMode = process.argv.includes("--report");
 const configuration = process.argv.includes("--configuration");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -54,11 +55,13 @@ await writeFile(
 await cp(
   join(
     root,
-    reportMode
-      ? "examples/report"
-      : configuration
-        ? "examples/configuration"
-        : "examples/direct",
+    versionMode
+      ? "examples/version"
+      : reportMode
+        ? "examples/report"
+        : configuration
+          ? "examples/configuration"
+          : "examples/direct",
   ),
   consumer,
   {
@@ -89,11 +92,13 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    reportMode
-      ? "tests/report.type-test.ts"
-      : configuration
-        ? "tests/configuration.type-test.ts"
-        : "tests/contracts.type-test.ts",
+    versionMode
+      ? "tests/version.type-test.ts"
+      : reportMode
+        ? "tests/report.type-test.ts"
+        : configuration
+          ? "tests/configuration.type-test.ts"
+          : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
@@ -138,9 +143,13 @@ try {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(`http://127.0.0.1:${address.port}`);
-  if (reportMode) {
-    await reportSmoke(page);
-    const exampleRoot = join(root, "examples/report");
+  if (versionMode || reportMode) {
+    const smoke = versionMode ? versionSmoke : reportSmoke;
+    await smoke(page);
+    const exampleRoot = join(
+      root,
+      versionMode ? "examples/version" : "examples/report",
+    );
     const exampleServer = await preview({
       root: exampleRoot,
       configFile: join(exampleRoot, "vite.config.ts"),
@@ -152,7 +161,7 @@ try {
       const examplePage = await browser.newPage();
       examplePage.on("pageerror", (e) => errors.push(e.message));
       await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
-      await reportSmoke(examplePage);
+      await smoke(examplePage);
       await examplePage.close();
     } finally {
       await new Promise((yes, no) =>
@@ -226,15 +235,19 @@ try {
       "production build",
       "CSS/font resolution",
       "public exports",
-      ...(reportMode
+      ...(versionMode
         ? [
-            "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
+            "version official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
           ]
-        : configuration
+        : reportMode
           ? [
-              "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+              "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
             ]
-          : ["browser create/edit and 20 examples", "mobile card surface"]),
+          : configuration
+            ? [
+                "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+              ]
+            : ["browser create/edit and 20 examples", "mobile card surface"]),
     ],
     exitCode: 0,
   };
@@ -367,4 +380,100 @@ async function reportSmoke(page) {
   assert.equal(await button("导出").count(), 0);
   await button("查询").click();
   await page.getByRole("cell", { name: "合成甲", exact: true }).waitFor();
+}
+
+async function versionSmoke(page) {
+  const button = (name) => page.getByRole("button", { name, exact: true });
+  const scenario = (value) => page.getByLabel("写入情景").selectOption(value);
+  const name = () => page.getByRole("textbox", { name: "名称", exact: true });
+  const expectValue = async (field, value) =>
+    assert.equal(await field.inputValue(), value);
+  await page
+    .getByRole("heading", { name: "合成版本 · 定价", exact: true })
+    .waitFor();
+  await expectValue(page.getByLabel("定价金额"), "9007199254740993.0100");
+  await button("历史 v1").click();
+  await expectValue(name(), "合成历史快照");
+  assert.equal(await button("编辑版本").count(), 0);
+  await button("正式资料").click();
+  await button("编辑版本").click();
+  await name().fill("新候选定价");
+  await page.getByLabel("定价客户").selectOption("客户乙");
+  await page.getByLabel("本地附件").setInputFiles({
+    name: "synthetic.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("synthetic only"),
+  });
+  await page
+    .getByText("synthetic.txt：本地准备，待暂存", { exact: true })
+    .waitFor();
+  await scenario("stage-unknown");
+  await button("提交版本").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "附件暂存结果未知" })
+    .waitFor();
+  await button("关闭编辑").click();
+  await button("重试读取").click();
+  assert.ok(await button("编辑版本").isDisabled());
+  await button("核实本次请求").click();
+  await page.getByRole("status").filter({ hasText: "尚未业务提交" }).waitFor();
+  await scenario("business-unknown");
+  await button("编辑版本").click();
+  await button("提交版本").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "业务写入结果未知" })
+    .waitFor();
+  await button("关闭编辑").click();
+  await button("重试读取").click();
+  assert.ok(await button("编辑版本").isDisabled());
+  await button("核实本次请求").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "已核实业务写入成功" })
+    .waitFor();
+  await expectValue(name(), "合成定价");
+  await button("开放候选").click();
+  await expectValue(name(), "新候选定价");
+  await expectValue(page.getByLabel("定价客户"), "客户乙");
+  const download = page.waitForEvent("download");
+  await button("读取附件 synthetic.txt").click();
+  assert.equal((await download).suggestedFilename(), "synthetic.txt");
+  await scenario("success");
+  await button("审批通过").click();
+  await page.getByText("暂无开放候选", { exact: true }).waitFor();
+  await button("正式资料").click();
+  await expectValue(name(), "新候选定价");
+  await button("历史 v1").click();
+  await expectValue(name(), "合成历史快照");
+  await button("审计").click();
+  await page.getByRole("cell").filter({ hasText: "审批" }).waitFor();
+  await button("正式资料").click();
+  await button("停用版本").click();
+  await button("启用版本").waitFor();
+  await button("启用版本").click();
+  await button("编辑版本").click();
+  await scenario("refresh-failure");
+  await button("提交版本").click();
+  await page.getByRole("alert").filter({ hasText: "合成刷新失败" }).waitFor();
+  assert.ok(await button("编辑版本").isDisabled());
+  await button("重试读取").click();
+  await page.getByLabel("版本示例").selectOption("formula");
+  await page
+    .getByRole("heading", { name: "合成版本 · 配方", exact: true })
+    .waitFor();
+  await expectValue(page.getByLabel("配方用量"), "0.0100");
+  await button("编辑版本").click();
+  await page.getByLabel("配方原料").selectOption("b");
+  await page.getByLabel("配方用量").fill("1.2300");
+  await scenario("conflict");
+  await button("提交版本").click();
+  await page.getByRole("alert").filter({ hasText: "合成修订冲突" }).waitFor();
+  await scenario("no-evidence");
+  await button("提交版本").click();
+  await button("关闭编辑").click();
+  await button("核实本次请求").click();
+  await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
+  assert.ok(await button("编辑版本").isDisabled());
 }

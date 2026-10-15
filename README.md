@@ -99,3 +99,19 @@ createApp(App).use(createVuetify()).mount("#app");
 `examples/report` 展示 BatchDTO→hasMore、LedgerDTO→total 两种不同协议映射，以及查询/仅查询/仅导出/无资格、失败重试和空态。全部为消费者侧合成内存数据；日期范围与金额下限演示原值传递，示例不据此模拟业务筛选。运行 `dev:report`；构建与 tgz 独立安装验证分别使用 `build:report`、`check:report`。安装验证包括公开声明与错误配对拒绝、生产构建、CSS/字体解析、真实浏览器参数提交/快照翻页/下载及资格分支。
 
 只读交互参考：原 ZERP `frontend/src/target/components/report-page/{ReportPage.vue,report-data.ts}` 的参数与已应用参数分离、日期范围、原十进制字符串、可见列/宽度及查询/导出资格。后端错误码解释和下载格式属于消费者；库不包含 ZERP API 路径、Session 或报表目录。本片不代表真实 ZERP API/E2E 验收。
+
+## 版本档案与附件（#11）
+
+`defineVersion<Draft, Identity, State, Owner, Handle, Audit, Evidence>` 和 `VersionRuntime` 使用固定的正式资料、开放候选、精确历史、审计四个视图。`adapter.query({scope})` 返回 `VersionArchive`，各 `VersionSnapshot` 携带自己独立的 `values/identity/state/owner/attachments/eligible`。消费者将后端 current、submission、version、audit 协议映射为这份事实；Identity 必须含动作所需的精确身份/修订/提交件，State 为原状态，不做数字转换。历史由 Adapter 提供采用时快照，库不再 resolve 当前值覆盖它。此入口展示一个消费者选定的档案；档案列表、路由及具体请求路径仍归消费者。不同档案使用不同 resource 和稳定 Adapter，scope 包含账号/会话代次与数据范围。
+
+提交的原 `VersionAttempt` 记录 UUID、scope、resource、identity、state、Draft 和附件 Handle；`submit` 是固定方法，`approve/enable/disable` 按实际能力提供。呈现与执行须同时满足页面 `permissions.read/write`、快照的 `eligible` 和具体方法存在；历史不可编辑/审批。服务端仍须检查权限、精确修订和状态。候选不覆盖正式资料，提交后仅刷新一次，审批后由新事实决定正式资料/候选状态。明确失败保留 Draft；未知、成功后刷新失败分别锁定，普通读取只可能清除成功后的刷新锁。
+
+局部区块复用已有 `configurationBlock<Draft>()` 和 `ConfigurationBlockProps<Value,Catalog>`，经 `blocks` 属性装配，不放进 definition。普通字段与区块按字段 key 互斥。详情只给该字段的分离副本、必要目录、read 模式和禁用状态；编辑只回传该字段值及 pending。表单与每个区块分别聚合 pending；关闭/切视图/作用域切换后旧事件无效。区块目录/装配在实例期间保持稳定，不传提交、刷新、解锁或整页对象。`examples/version` 提供独立合成客户定价和产品配方，展示十进制原字符串、消费者目录准备及 pending。
+
+附件协议在 `adapter.attachments`：`validate(File)` 定义消费者限制，`stage(StageAttempt)` 返回成功 Handle、明确失败或未知，`read({scope,owner,handle})` 返回 Blob/filename。选文件仅本地准备，不立即上传；点击提交才逐个暂存，再以成功 Handle 发起业务提交。stage 请求记录独立 attemptId、稳定 fileId、精确 Owner 及原快照身份/状态。成功工件在明确失败后的再次提交、关闭/重开和重挂载时复用，不擅自重传或删除；关闭尚未暂存的普通 Draft 则丢弃本地输入。部分成功后其余失败不会丢弃成功工件。关闭保留成功工件时，再次编辑恢复原 Draft 与修订，由后端重新校验。附件列表区分本地准备、暂存成功和业务成功反馈，暂存不宣称业务已提交。读取使用所选快照的 Owner/Handle；切作用域或视图使迟到下载失效，下载 Blob URL 使用后回收。
+
+可选 `reconcile(originalAttempt)` 返回 `VersionReconciliation`，消费者须用原 request、精确 identity/revision/submission/state 与权威回执核实；当前值相同、普通查询成功或历史同类事件均不算证据。库只消费原 attemptId、非空 Evidence 和与原阶段匹配的结果；stage 的 applied 还须返回已核实 Handle，之后由用户继续提交，不自动发业务命令；not-applied 才允许重新发送。业务 applied 进入刷新，刷新失败只重读。无方法、无核实资格、证据不足或读取失败均保持未知。未知/在途锁以稳定 Adapter 身份和 resource/scope 在当前 JS 会话内保留，关闭/重挂载不解锁，不声称刷新浏览器后的持久恢复。作用域切换使迟到响应不再改变当前页面；原写入结果仍记录在原作用域，旧 stage 成功后不会继续发起下一笔写入。含成功工件/未知结果的恢复数据留在原会话内以便核实，消费者不得换 Adapter 来绕过锁。
+
+运行、构建、tgz 安装验收分别使用 `dev:version`、`build:version`、`check:version`。安装脚本对示例和全新独立安装树运行相同浏览器流程：定价编辑、暂存未知/精确核实、提交未知/精确核实、附件下载、审批、历史/审计、启停、刷新失败只重读、配方目录与冲突/证据不足。声明检查拒绝错误字段、Identity、Owner 与任意命令；检查生产构建和 CSS/字体解析。所有内容均为合成内存 Adapter，不等同真实 ZERP API/E2E。
+
+只读参考为 ZERP `bf0e6e8d81f025bba81612c0e37b1527b2889eee` 的 `version-archive.component.spec.ts`、`attachments/attachments.ts` 及 #2/#3 的已确认职责/接口决策。库不引入 ZERP DTO、资源后缀分派、ULID/base64、Session、API 路径或生产规则，真实接入留发布后专门工单。

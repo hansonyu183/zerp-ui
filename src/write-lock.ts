@@ -1,17 +1,18 @@
 import { shallowReactive } from "vue";
 import type { Attempt } from "./contracts";
-type Lock<D, I> = {
+type Lock<A, C = unknown> = {
   phase: "idle" | "pending" | "unknown" | "refresh";
-  attempt: Attempt<D, I> | null;
+  attempt: A | null;
+  context?: C;
 };
 // Keep unresolved writes across component removal and scope changes. Adapter identity
 // must remain stable for the lifetime of a consumer session; no public unlock API.
-const locks = new WeakMap<object, Map<string, Lock<unknown, unknown>>>();
-export function writeLock<D, I>(
+const locks = new WeakMap<object, Map<string, Lock<unknown>>>();
+export function writeLock<D, I, A = Attempt<D, I>, C = unknown>(
   adapter: object,
   resource: string,
   scope: string,
-): Lock<D, I> {
+): Lock<A, C> {
   let entries = locks.get(adapter);
   if (!entries) {
     entries = new Map();
@@ -20,11 +21,11 @@ export function writeLock<D, I>(
   const key = JSON.stringify([resource, scope]);
   let lock = entries.get(key);
   if (!lock) {
-    lock = shallowReactive<Lock<unknown, unknown>>({
+    lock = shallowReactive<Lock<unknown>>({
       phase: "idle",
       attempt: null,
     });
     entries.set(key, lock);
   }
-  return lock as Lock<D, I>;
+  return lock as Lock<A, C>;
 }

@@ -37,3 +37,16 @@ export type {
   ReportAdapter,
   ReportDefinition,
 } from "./report";
+
+export { default as VersionRuntime } from "./VersionRuntime.vue";
+export { defineVersion } from "./version";
+export type {
+  VersionAction,
+  VersionSnapshot,
+  VersionArchive,
+  VersionAttempt,
+  StageAttempt,
+  VersionReconciliation,
+  VersionAdapter,
+  VersionDefinition,
+} from "./version";
