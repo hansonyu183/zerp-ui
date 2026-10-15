@@ -55,6 +55,17 @@ const tgz =
     ? join(dir, `zerp-ui-${pkg.version}.tgz`)
     : resolve(process.argv[artifactIndex + 1]);
 const artifact = await checkArtifact(tgz, pkg);
+if (artifactIndex >= 0) {
+  const verified = JSON.parse(
+    await readFile(join(dir, "evidence.json"), "utf8"),
+  );
+  assert.equal(verified.sourceSHA, sourceSHA);
+  assert.equal(
+    artifact.sha256,
+    verified.sha256,
+    "Downloaded artifact differs from the verified release tarball",
+  );
+}
 const evidence = [];
 for (const slice of slices) {
   const evidencePath = join(dir, `${slice.name}.json`);
@@ -88,8 +99,9 @@ await writeFile(
   join(dir, artifactIndex < 0 ? "evidence.json" : "distribution-evidence.json"),
   JSON.stringify(report, null, 2) + "\n",
 );
-await writeFile(
-  join(dir, "SHA256SUMS"),
-  `${artifact.sha256}  zerp-ui-${pkg.version}.tgz\n`,
-);
+if (artifactIndex < 0)
+  await writeFile(
+    join(dir, "SHA256SUMS"),
+    `${artifact.sha256}  zerp-ui-${pkg.version}.tgz\n`,
+  );
 console.log(JSON.stringify(report, null, 2));
