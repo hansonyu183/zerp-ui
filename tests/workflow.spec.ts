@@ -2,7 +2,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { it, expect, vi } from "vitest";
 import type { Component } from "vue";
 import {
-  WorkflowRuntime,
+  WorkflowView,
   defineWorkflow,
   type WorkflowAdapter,
 } from "../src/index";
@@ -79,7 +79,7 @@ const start = async (
     unknown
   > = definition(),
 ) => {
-  const w = mount(WorkflowRuntime as Component, {
+  const w = mount(WorkflowView as Component, {
     props: { definition: d, scope: "a", permissions },
   });
   await flushPromises();

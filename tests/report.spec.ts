@@ -1,7 +1,7 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import { ReportRuntime, defineReport } from "../src/index";
+import { ReportView, defineReport } from "../src/index";
 
 const definition = () =>
   defineReport({
@@ -30,7 +30,7 @@ const click = async (w: ReturnType<typeof mount>, name: string) => {
   await flushPromises();
 };
 const start = (d = definition()) =>
-  mount(ReportRuntime as Component, {
+  mount(ReportView as Component, {
     props: {
       definition: d,
       scope: "a",
@@ -82,7 +82,7 @@ it("renders Chinese enums and visible columns, and validates a date range before
       })),
     },
   });
-  const w = mount(ReportRuntime as Component, {
+  const w = mount(ReportView as Component, {
     props: {
       definition: d,
       scope: "a",
@@ -182,7 +182,7 @@ it("exports validated current input with export-only eligibility and isolates a 
       }),
     );
     const d = { ...definition(), adapter: { export: exported } };
-    const w = mount(ReportRuntime as Component, {
+    const w = mount(ReportView as Component, {
       props: {
         definition: d,
         scope: "a",
@@ -231,7 +231,7 @@ it("keeps incomplete decimals in the input and rejects malformed result values w
     columns: [{ key: "amount", label: "金额", type: "decimal" }],
     adapter: { query },
   });
-  const w = mount(ReportRuntime as Component, {
+  const w = mount(ReportView as Component, {
     props: {
       definition: d,
       scope: "a",
@@ -276,7 +276,7 @@ it("restores an optional date range to null after clearing, while rejecting a pa
     columns: [{ key: "name", label: "名称" }],
     adapter: { query },
   });
-  const w = mount(ReportRuntime as Component, {
+  const w = mount(ReportView as Component, {
     props: {
       definition: d,
       scope: "a",

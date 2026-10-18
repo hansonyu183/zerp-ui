@@ -316,7 +316,7 @@ try {
       "no failed browser assets",
       ...(shellMode
         ? [
-            "shell themes/defaults, all six runtime consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
+            "auth flows, app themes/defaults, all six view consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
           ]
         : workflowMode
           ? [
@@ -862,6 +862,7 @@ async function shellSmoke(page) {
     assert.ok(await link.getAttribute("href"));
     await link.click();
     await page.getByRole("heading", { name, exact: true }).waitFor();
+    assert.equal(await page.locator("h1").count(), 1);
     assert.equal(await link.getAttribute("aria-current"), "page");
   }
   const originalURL = page.url();
@@ -890,7 +891,22 @@ async function shellSmoke(page) {
     .click();
   await page.getByRole("menuitem", { name: "退出登录", exact: true }).click();
   await page.reload();
-  await page.getByRole("button", { name: "登录演示账户", exact: true }).click();
+  await page.getByRole("heading", { name: "星河演示", exact: true }).waitFor();
+  assert.equal(await page.locator(".zerp-shell").count(), 0);
+  await page.getByRole("button", { name: "注册账号", exact: true }).click();
+  await page.getByLabel("账号", { exact: true }).fill("synthetic-user");
+  await page.getByLabel("密码", { exact: true }).fill("synthetic-password");
+  await page.getByLabel("确认密码", { exact: true }).fill("synthetic-password");
+  await page.getByRole("button", { name: "注册账号", exact: true }).click();
+  await page.getByRole("button", { name: "忘记密码", exact: true }).click();
+  await page.getByLabel("账号", { exact: true }).fill("synthetic-user");
+  await page.getByRole("button", { name: "找回密码", exact: true }).click();
+  await page.getByLabel("新密码", { exact: true }).fill("reset-password");
+  await page.getByLabel("确认密码", { exact: true }).fill("reset-password");
+  await page.getByRole("button", { name: "设置新密码", exact: true }).click();
+  await page.getByLabel("账号", { exact: true }).fill("synthetic-user");
+  await page.getByLabel("密码", { exact: true }).fill("reset-password");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "模拟品牌失败", exact: true }).click();
   assert.ok(

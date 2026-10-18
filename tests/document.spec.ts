@@ -2,7 +2,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { it, expect, vi } from "vitest";
 import type { Component } from "vue";
 import {
-  DocumentRuntime,
+  DocumentView,
   defineDocument,
   type DocumentSnapshot,
   type DocumentAdapter,
@@ -103,7 +103,7 @@ const start = async (
     unknown
   > = definition(),
 ) => {
-  const w = mount(DocumentRuntime as Component, {
+  const w = mount(DocumentView as Component, {
     props: { definition: d, scope: "a", permissions },
   });
   await flushPromises();
@@ -174,7 +174,7 @@ it("keeps script saves and document submissions independently identified and blo
     permissions,
     script: { definition: script, permissions },
   };
-  const w = mount(DocumentRuntime as Component, { props });
+  const w = mount(DocumentView as Component, { props });
   await flushPromises();
   await click(w, "编辑");
   await click(w, "保存");
@@ -189,7 +189,7 @@ it("keeps script saves and document submissions independently identified and blo
   await click(w, "重试读取");
   expect(d.adapter.submit).not.toHaveBeenCalled();
   w.unmount();
-  const v = mount(DocumentRuntime as Component, { props });
+  const v = mount(DocumentView as Component, { props });
   await flushPromises();
   expect(button(v, "创建 Draft").attributes("disabled")).toBeDefined();
   v.unmount();
@@ -315,7 +315,7 @@ it("keeps recursive confirmations local, cancels the parent draft and adopts exa
   const original = d.adapter.submit;
   const submitted = vi.fn(original);
   d.adapter.submit = submitted;
-  const w = mount(DocumentRuntime as Component, {
+  const w = mount(DocumentView as Component, {
     props: {
       definition: d,
       scope: "a",

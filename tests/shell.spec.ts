@@ -25,7 +25,7 @@ it("provides all six official material themes with finite brand colors and MD3 l
 import { mount, flushPromises, config } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { createVuetify } from "vuetify";
-import { ZerpShell } from "../src/index";
+import { AppPage } from "../src/index";
 it("renders consumer links, retries and controlled theme intents without owning navigation or theme state", async () => {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -34,7 +34,7 @@ it("renders consumer links, retries and controlled theme intents without owning 
   await router.push("/catalog");
   const plugins = config.global.plugins;
   config.global.plugins = [createVuetify({ theme: createShellThemes() })];
-  const wrapper = mount(ZerpShell, {
+  const wrapper = mount(AppPage, {
     props: {
       brand: {
         productName: "产品",

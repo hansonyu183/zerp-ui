@@ -1,23 +1,23 @@
-export { default as DirectRuntime } from "./DirectRuntime.vue";
+export { default as CrudView } from "./CrudView.vue";
 export { default as DynamicForm } from "./DynamicForm.vue";
 export { default as ReferencePicker } from "./ReferencePicker.vue";
-export { default as ListSurface } from "./ListSurface.vue";
-export { defineDirect } from "./contracts";
+export { default as DataList } from "./DataList.vue";
+export { defineCrud } from "./contracts";
 export type {
   Page,
   ReferenceValue,
   ReferenceAdapter,
   Fields,
   Column,
-  DirectAction,
+  CrudAction,
   Attempt,
   WriteResult,
   ReconcileResult,
-  DirectAdapter,
-  DirectDefinition,
+  CrudAdapter,
+  CrudDefinition,
 } from "./contracts";
 import "./style.css";
-export { default as ConfigurationRuntime } from "./ConfigurationRuntime.vue";
+export { default as ConfigurationView } from "./ConfigurationView.vue";
 export { defineConfiguration, configurationBlock } from "./configuration";
 export type {
   ConfigurationDefinition,
@@ -27,7 +27,7 @@ export type {
   ConfigurationBlockProps,
 } from "./configuration";
 
-export { default as ReportRuntime } from "./ReportRuntime.vue";
+export { default as ReportView } from "./ReportView.vue";
 export { defineReport } from "./report";
 export type {
   ReportParameters,
@@ -38,7 +38,7 @@ export type {
   ReportDefinition,
 } from "./report";
 
-export { default as VersionRuntime } from "./VersionRuntime.vue";
+export { default as VersionView } from "./VersionView.vue";
 export { defineVersion } from "./version";
 export type {
   VersionAction,
@@ -51,7 +51,7 @@ export type {
   VersionDefinition,
 } from "./version";
 
-export { default as DocumentRuntime } from "./DocumentRuntime.vue";
+export { default as DocumentView } from "./DocumentView.vue";
 export { defineDocument } from "./document";
 export type {
   DocumentIdentity,
@@ -64,7 +64,7 @@ export type {
   DocumentDefinition,
 } from "./document";
 
-export { default as WorkflowRuntime } from "./WorkflowRuntime.vue";
+export { default as WorkflowView } from "./WorkflowView.vue";
 export { defineWorkflow } from "./workflow";
 export type {
   WorkflowAction,
@@ -75,7 +75,14 @@ export type {
   WorkflowDefinition,
 } from "./workflow";
 
-export { default as ZerpShell } from "./ZerpShell.vue";
+export { default as AppPage } from "./AppPage.vue";
+export { default as AuthPage } from "./AuthPage.vue";
+export type {
+  AuthMode,
+  AuthValues,
+  AuthCapabilities,
+  AuthSubmit,
+} from "./auth";
 export { createShellThemes, defaultThemeChoice } from "./shell";
 export type {
   ThemeChoice,

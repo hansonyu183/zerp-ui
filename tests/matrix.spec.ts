@@ -1,7 +1,7 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { it, expect } from "vitest";
-import { DirectRuntime } from "../src/index";
+import { CrudView } from "../src/index";
 import { exampleDefinition, resourceCases } from "../examples/direct/matrix";
 const click = async (w: ReturnType<typeof mount>, name: string) => {
   await w
@@ -14,7 +14,7 @@ it.each(resourceCases)(
   "%s exposes its synthetic direct maintenance interactions",
   async (resource, title, kind) => {
     const d = exampleDefinition(resource),
-      w = mount(DirectRuntime as Component, {
+      w = mount(CrudView as Component, {
         props: {
           definition: d,
           scope: "synthetic",
@@ -59,7 +59,7 @@ it.each(["aux/dictionary-item", "acc/subject"] as const)(
   "%s applies directory filtering only after submit",
   async (resource) => {
     const d = exampleDefinition(resource),
-      w = mount(DirectRuntime as Component, {
+      w = mount(CrudView as Component, {
         props: {
           definition: d,
           scope: "a",
@@ -81,7 +81,7 @@ it.each(["aux/dictionary-item", "acc/subject"] as const)(
 );
 it("keeps user assignment readonly when denied and editable when allowed by detail facts", async () => {
   const d = exampleDefinition("app/user"),
-    w = mount(DirectRuntime as Component, {
+    w = mount(CrudView as Component, {
       props: {
         definition: d,
         scope: "a",
@@ -115,7 +115,7 @@ it("keeps user assignment readonly when denied and editable when allowed by deta
 });
 it("omits writes on a synthetic role without action qualification", async () => {
   const d = exampleDefinition("app/role"),
-    w = mount(DirectRuntime as Component, {
+    w = mount(CrudView as Component, {
       props: {
         definition: d,
         scope: "a",

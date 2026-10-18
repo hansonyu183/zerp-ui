@@ -95,6 +95,58 @@
 .zerp-shell {
   min-height: 100vh;
 }
+.zerp-auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+.zerp-auth-card {
+  width: min(100%, 440px);
+  padding: 2rem;
+  border-radius: 12px;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  box-shadow: 0 10px 35px #0002;
+}
+.zerp-auth-brand {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.zerp-auth-brand img {
+  max-width: 52px;
+  max-height: 52px;
+}
+.zerp-auth-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgb(var(--v-theme-primary));
+  color: rgb(var(--v-theme-on-primary));
+  font-size: 1.5rem;
+}
+.zerp-auth-card form,
+.zerp-auth-card label {
+  display: grid;
+  gap: 0.5rem;
+}
+.zerp-auth-card form {
+  gap: 1rem;
+}
+.zerp-auth-card input {
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0.65rem;
+  font: inherit;
+}
+.zerp-auth-card nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 1rem;
+}
 .zerp-shell-brand {
   display: flex;
   align-items: center;

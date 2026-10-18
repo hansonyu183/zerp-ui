@@ -1,4 +1,4 @@
-import { defineDirect, type Fields, type DirectAdapter } from "../src/index";
+import { defineCrud, type Fields, type CrudAdapter } from "../src/index";
 type Draft = {
   name: string;
   enabled: boolean;
@@ -31,7 +31,7 @@ const wrongNested: Fields<Draft> = [
     ],
   },
 ];
-declare const adapter: DirectAdapter<
+declare const adapter: CrudAdapter<
   Draft,
   { keyword: string },
   { id: string },
@@ -39,7 +39,7 @@ declare const adapter: DirectAdapter<
 >;
 // Compile only: never execute this fixture.
 export function inference() {
-  return defineDirect({
+  return defineCrud({
     resource: "synthetic",
     title: "示例",
     fields: good,
@@ -52,7 +52,7 @@ export function inference() {
   });
 }
 // @ts-expect-error Draft and adapter types must remain paired.
-const wrongAdapter: DirectAdapter<
+const wrongAdapter: CrudAdapter<
   { different: number },
   { keyword: string },
   { id: string },

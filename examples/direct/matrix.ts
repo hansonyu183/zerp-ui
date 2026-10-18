@@ -1,7 +1,7 @@
 import {
-  defineDirect,
-  type DirectAction,
-  type DirectDefinition,
+  defineCrud,
+  type CrudAction,
+  type CrudDefinition,
   type Fields,
   type ReferenceAdapter,
   type ReferenceValue,
@@ -92,7 +92,7 @@ export const catalog: ReferenceAdapter = {
 };
 export function exampleDefinition(
   resource: (typeof resourceCases)[number][0],
-): DirectDefinition<Draft, Filters, Row, Identity, { request: string }> {
+): CrudDefinition<Draft, Filters, Row, Identity, { request: string }> {
   const spec = resourceCases.find((r) => r[0] === resource)!,
     kind = spec[2];
   const fields: Fields<Draft> = [
@@ -348,7 +348,7 @@ export function exampleDefinition(
     }
     return { status: "success" };
   }
-  return defineDirect<Draft, Filters, Row, Identity, { request: string }>({
+  return defineCrud<Draft, Filters, Row, Identity, { request: string }>({
     resource,
     title: `合成示例 · ${spec[1]}`,
     fields,
@@ -386,7 +386,7 @@ export function exampleDefinition(
     identity: (r) => ({ id: r.id, revision: r.revision }),
     actions: (r) => {
       if (!r.editable) return [];
-      const actions: DirectAction[] = ["edit"];
+      const actions: CrudAction[] = ["edit"];
       if (kind !== "no-enable" && kind !== "save-enable")
         actions.push(r.enabled ? "disable" : "enable");
       if (

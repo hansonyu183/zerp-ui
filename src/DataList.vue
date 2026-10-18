@@ -1,18 +1,18 @@
 <script setup lang="ts" generic="R extends object">
 import { computed } from "vue";
-import type { Column, Page, DirectAction } from "./contracts";
+import type { Column, Page, CrudAction } from "./contracts";
 const props = defineProps<{
   columns: readonly Column<R>[];
   result: Page<R>;
   page: number;
   pageSize: number;
   loading?: boolean;
-  actions?: (row: R) => readonly DirectAction[];
+  actions?: (row: R) => readonly CrudAction[];
   disabled?: boolean;
 }>();
 const emit = defineEmits<{
   page: [value: number];
-  action: [action: DirectAction, row: R];
+  action: [action: CrudAction, row: R];
 }>();
 const visibleColumns = computed(() =>
   props.columns.filter((c) => c.visible !== false),

@@ -1,7 +1,7 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import { ConfigurationRuntime, defineConfiguration } from "../src/index";
+import { ConfigurationView, defineConfiguration } from "../src/index";
 const definition = () =>
   defineConfiguration({
     resource: "synthetic-config",
@@ -42,7 +42,7 @@ const start = async (
     unknown
   > = definition(),
 ) => {
-  const w = mount(ConfigurationRuntime as Component, {
+  const w = mount(ConfigurationView as Component, {
     props: { definition: d, scope: "a", permissions },
   });
   await flushPromises();
@@ -256,7 +256,7 @@ it("aggregates local pending and rejects events from a closed block instance", a
       catalog: [],
     }),
   ];
-  const w = mount(ConfigurationRuntime as Component, {
+  const w = mount(ConfigurationView as Component, {
     props: { definition: d, scope: "a", permissions, blocks },
   });
   await flushPromises();
@@ -334,7 +334,7 @@ it("keeps explicit filters and latest query results isolated from older reads", 
         ),
       },
     });
-  const w = mount(ConfigurationRuntime as Component, {
+  const w = mount(ConfigurationView as Component, {
     props: { definition: d, scope: "a", permissions },
   });
   await flushPromises();

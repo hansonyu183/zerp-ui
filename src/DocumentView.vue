@@ -19,7 +19,7 @@
   "
 >
 import { computed } from "vue";
-import ConfigurationRuntime from "./ConfigurationRuntime.vue";
+import ConfigurationView from "./ConfigurationView.vue";
 import { writeLock } from "./write-lock";
 import SubmissionRuntime from "./SubmissionRuntime.vue";
 import type {
@@ -134,7 +134,7 @@ const scriptPermissions = computed(
     :permissions="permissions"
     :blocks="blocks"
     :external-disabled="scriptBlocked"
-  /><ConfigurationRuntime
+  /><ConfigurationView
     v-if="script && scriptPermissions"
     :definition="script.definition"
     :scope="scope"

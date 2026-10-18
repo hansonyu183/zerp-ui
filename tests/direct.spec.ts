@@ -1,9 +1,9 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { describe, it, expect, vi } from "vitest";
-import { DirectRuntime, defineDirect } from "../src/index";
+import { CrudView, defineCrud } from "../src/index";
 const definition = () =>
-  defineDirect({
+  defineCrud({
     resource: "sample",
     title: "合成资料",
     fields: [{ key: "name", type: "text", label: "名称" }],
@@ -36,7 +36,7 @@ const click = async (w: ReturnType<typeof mount>, name: string) => {
 describe("public direct runtime", () => {
   it("submits filters explicitly and saves a detached draft with one refresh", async () => {
     const d = definition(),
-      w = mount(DirectRuntime as Component, {
+      w = mount(CrudView as Component, {
         props: {
           definition: d,
           scope: "account-a",
@@ -84,7 +84,7 @@ const start = async (
   },
   scope = "a",
 ) => {
-  const w = mount(DirectRuntime as Component, {
+  const w = mount(CrudView as Component, {
     props: { definition: d, scope, permissions },
   });
   await flushPromises();
@@ -227,7 +227,7 @@ it("hides actions when the consumer denies permission", async () => {
   w.unmount();
 });
 it("rejects an incomplete decimal without calling the write adapter", async () => {
-  const d = defineDirect({
+  const d = defineCrud({
     resource: "decimal",
     title: "金额",
     fields: [{ key: "amount", label: "金额", type: "decimal" }],
@@ -247,7 +247,7 @@ it("rejects an incomplete decimal without calling the write adapter", async () =
       save: vi.fn(async () => ({ status: "success" as const })),
     },
   });
-  const w = mount(DirectRuntime as Component, {
+  const w = mount(CrudView as Component, {
     props: { definition: d, scope: "a", permissions },
   });
   await flushPromises();

@@ -16,7 +16,7 @@ import type {
 } from "./version";
 import type { SubmissionDefinition } from "./submission";
 import DynamicForm from "./DynamicForm.vue";
-import ListSurface from "./ListSurface.vue";
+import DataList from "./DataList.vue";
 import { clone, message } from "./clone";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
@@ -607,7 +607,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="zerp-ui" :aria-label="definition.title">
-    <h1>{{ definition.title }}</h1>
     <VProgressLinear v-if="loading" indeterminate aria-label="加载中" />
     <VAlert v-if="error" type="error" role="alert">{{ error }}</VAlert>
     <p v-if="notice" role="status">{{ notice }}</p>
@@ -650,7 +649,7 @@ onBeforeUnmount(() => {
       >
         创建 Draft
       </button>
-      <ListSurface
+      <DataList
         :columns="[
           { key: 'number', label: '编号' },
           { key: 'handler', label: '经办人' },
@@ -691,7 +690,7 @@ onBeforeUnmount(() => {
       <button :disabled="editor" @click="select('audit')">审计</button>
     </nav>
     <template v-if="permissions.read && archive">
-      <ListSurface
+      <DataList
         v-if="selected === 'audit'"
         :columns="definition.auditColumns"
         :result="{ items: archive.audit, total: archive.audit.length }"

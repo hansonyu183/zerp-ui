@@ -1,6 +1,7 @@
 <script setup lang="ts">
+const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { ref } from "vue";
-import { VersionRuntime, configurationBlock } from "@zerp/ui";
+import { VersionView, configurationBlock } from "@zerp/ui";
 import { sample, type Pricing, type Formula, type Scenario } from "./adapters";
 import PricingBlock from "./PricingBlock.vue";
 import FormulaBlock from "./FormulaBlock.vue";
@@ -61,14 +62,17 @@ const permissions = { read: true, write: true, reconcile: true };
         <option value="refresh-failure">刷新失败</option>
       </select></label
     >
-    <VersionRuntime
+    <h1 v-if="showTitle">
+      {{ resource === "pricing" ? pricing.title : formula.title }}
+    </h1>
+    <VersionView
       v-if="resource === 'pricing'"
       :definition="pricing"
       :blocks="priceBlocks"
       scope="synthetic-session"
       :permissions="permissions"
     />
-    <VersionRuntime
+    <VersionView
       v-else
       :definition="formula"
       :blocks="formulaBlocks"

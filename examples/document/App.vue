@@ -1,6 +1,7 @@
 <script setup lang="ts">
+const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { ref } from "vue";
-import { DocumentRuntime, configurationBlock } from "@zerp/ui";
+import { DocumentView, configurationBlock } from "@zerp/ui";
 import { sample, scriptSample, type Scenario, type Entry } from "./adapters";
 import EntryBlock from "./EntryBlock.vue";
 const kind = ref<"ordinary" | "opening" | "system">("ordinary"),
@@ -43,7 +44,8 @@ const blocks = [
         <option value="refresh-failure">刷新失败</option>
       </select></label
     >
-    <DocumentRuntime
+    <h1 v-if="showTitle">{{ definitions[kind].title }}</h1>
+    <DocumentView
       :definition="definitions[kind]"
       :blocks="blocks"
       scope="synthetic-session"

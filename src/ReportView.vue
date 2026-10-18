@@ -4,7 +4,7 @@ import { validateReportRows } from "./report";
 import type { ReportDefinition } from "./report";
 import type { Fields, Page, AnyField } from "./contracts";
 import DynamicForm from "./DynamicForm.vue";
-import ListSurface from "./ListSurface.vue";
+import DataList from "./DataList.vue";
 import { clone } from "./clone";
 import { validate } from "./validation";
 const props = withDefaults(
@@ -146,7 +146,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="zerp-ui" :aria-label="definition.title">
-    <h1>{{ definition.title }}</h1>
     <form @submit.prevent="search">
       <DynamicForm
         :key="formGeneration"
@@ -185,7 +184,7 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="exportError" role="alert">{{ exportError }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <ListSurface
+    <DataList
       v-if="canQuery && result"
       :columns="definition.columns"
       :result="result"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
+const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { computed, ref } from "vue";
-import { ReportRuntime } from "@zerp/ui";
+import { ReportView } from "@zerp/ui";
 import { reportExample, type Scenario } from "./adapters";
 const kind = ref<"batch" | "ledger">("batch");
 const scenario = ref<Scenario>("success");
@@ -41,7 +42,8 @@ const permissions = computed(() => ({
         <option value="failure">失败</option>
       </select></label
     >
-    <ReportRuntime
+    <h1 v-if="showTitle">{{ definitions[kind].title }}</h1>
+    <ReportView
       :definition="definitions[kind]"
       scope="synthetic-session-1"
       :permissions="permissions"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
+const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { ref } from "vue";
-import { ConfigurationRuntime, configurationBlock } from "@zerp/ui";
+import { ConfigurationView, configurationBlock } from "@zerp/ui";
 import { sample, type Mapping, type Scenario } from "./adapters";
 import RouteBlock from "./RouteBlock.vue";
 const resource = ref("mapping"),
@@ -75,20 +76,29 @@ const permissions = { read: true, write: true, reconcile: true };
         <option value="refresh-failure">成功后刷新失败</option>
       </select></label
     >
-    <ConfigurationRuntime
+    <h1 v-if="showTitle">
+      {{
+        resource === "mapping"
+          ? mapping.title
+          : resource === "period"
+            ? period.title
+            : report.title
+      }}
+    </h1>
+    <ConfigurationView
       v-if="resource === 'mapping'"
       :definition="mapping"
       :blocks="blocks"
       scope="synthetic-session"
       :permissions="permissions"
     />
-    <ConfigurationRuntime
+    <ConfigurationView
       v-else-if="resource === 'period'"
       :definition="period"
       scope="synthetic-session"
       :permissions="permissions"
     />
-    <ConfigurationRuntime
+    <ConfigurationView
       v-else
       :definition="report"
       scope="synthetic-session"

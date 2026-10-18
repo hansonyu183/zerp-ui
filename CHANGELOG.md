@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- 公开组件分为顶层页面、业务视图和复合交互。新增受控 `AuthPage`，覆盖登录、注册、找回申请和设置新密码；认证、验证、Session 与跳转仍由消费者负责。
+- `ZerpShell` 更名为 `AppPage`；六类公开运行时更名为 `CrudView`、`ConfigurationView`、`ReportView`、`VersionView`、`DocumentView`、`WorkflowView`；`ListSurface` 更名为 `DataList`。直接维护的定义函数与类型同步使用 `Crud` 名称，旧导出不保留别名。
+- 页面主标题由 `AppPage` 或独立消费者提供，业务视图不重复输出。独立示例和 tgz 消费者覆盖新接口及合成认证流程。
+- 迁移对照见 README。只修改独立组件库，未接入真实 ZERP API、Session 或生产数据。
+
 ## 0.1.0
 
 首个完整独立版本，按 [#7](https://github.com/hansonyu183/zerp-ui/issues/7) 与 [#15](https://github.com/hansonyu183/zerp-ui/issues/15) 通过 GitHub Release 分发。

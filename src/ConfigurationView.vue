@@ -12,7 +12,7 @@ import type {
   ConfigurationBlock,
 } from "./configuration";
 import DynamicForm from "./DynamicForm.vue";
-import ListSurface from "./ListSurface.vue";
+import DataList from "./DataList.vue";
 import { clone, message } from "./clone";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
@@ -327,7 +327,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="zerp-ui" :aria-label="definition.title">
-    <h1>{{ definition.title }}</h1>
     <form v-if="permissions.read" @submit.prevent="query(1, true)">
       <DynamicForm
         v-model="filters"
@@ -373,7 +372,7 @@ onBeforeUnmount(() => {
     >
       新增配置
     </button>
-    <ListSurface
+    <DataList
       :columns="definition.columns"
       :result="result"
       :page="page"

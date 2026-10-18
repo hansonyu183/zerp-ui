@@ -1,7 +1,8 @@
 <script setup lang="ts">
+const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { shallowRef } from "vue";
 import { VApp, VMain } from "vuetify/components";
-import { DirectRuntime } from "@zerp/ui";
+import { CrudView } from "@zerp/ui";
 import { exampleDefinition, resourceCases } from "./matrix";
 const selected = shallowRef(
   resourceCases[0][0] as (typeof resourceCases)[number][0],
@@ -24,7 +25,9 @@ function change() {
             {{ item[1] }}
           </option>
         </select></label
-      ><DirectRuntime
+      >
+      <h1 v-if="showTitle">{{ definition.title }}</h1>
+      <CrudView
         :definition="definition"
         scope="synthetic-session"
         :permissions="{ query: true, create: true, write: true }" /></VMain

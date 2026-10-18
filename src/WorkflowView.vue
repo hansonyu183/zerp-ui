@@ -11,7 +11,7 @@ import type {
 } from "./workflow";
 import { clone, message } from "./clone";
 import { writeLock } from "./write-lock";
-import ListSurface from "./ListSurface.vue";
+import DataList from "./DataList.vue";
 const props = defineProps<{
   definition: WorkflowDefinition<I, N, R, T, D, A, E>;
   scope: string;
@@ -283,7 +283,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="zerp-ui" :aria-label="definition.title">
-    <h1>{{ definition.title }}</h1>
     <form v-if="permissions.read" @submit.prevent="read(1, true)">
       <label
         >流程关键字<input v-model="keyword" aria-label="流程关键字"
@@ -318,7 +317,7 @@ onBeforeUnmount(() => {
     >
       重试读取
     </button>
-    <ListSurface
+    <DataList
       :columns="[{ key: 'label', label: '流程实例' }]"
       :result="result"
       :page="page"
@@ -385,7 +384,7 @@ onBeforeUnmount(() => {
       </section>
       <section v-if="permissions.audit" aria-label="运行审计">
         <h2>运行审计</h2>
-        <ListSurface
+        <DataList
           :columns="definition.auditColumns"
           :result="{ items: [...audit], total: audit.length }"
           :page="1"

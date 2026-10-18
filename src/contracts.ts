@@ -84,7 +84,7 @@ export type Column<R> = {
   visible?: boolean;
   width?: string;
 };
-export type DirectAction = "edit" | "enable" | "disable" | "delete";
+export type CrudAction = "edit" | "enable" | "disable" | "delete";
 export type Attempt<D, I> = Readonly<{
   id: string;
   scope: string;
@@ -100,7 +100,7 @@ export type WriteResult =
 export type ReconcileResult<E> =
   | { status: "unknown" }
   | { status: "applied" | "not-applied"; attemptId: string; evidence: E };
-export type DirectAdapter<
+export type CrudAdapter<
   D extends object,
   F extends object,
   R extends object,
@@ -123,7 +123,7 @@ export type DirectAdapter<
   setEnabled?(attempt: Attempt<D, I>): Promise<WriteResult>;
   delete?(attempt: Attempt<D, I>): Promise<WriteResult>;
 };
-export type DirectDefinition<
+export type CrudDefinition<
   D extends object,
   F extends object,
   R extends object,
@@ -137,18 +137,16 @@ export type DirectDefinition<
   initialFilters: () => F;
   columns: readonly Column<R>[];
   identity: (row: R) => I;
-  actions: (row: R) => readonly DirectAction[];
-  adapter: DirectAdapter<D, F, R, I>;
+  actions: (row: R) => readonly CrudAction[];
+  adapter: CrudAdapter<D, F, R, I>;
   reconcile?: (attempt: Attempt<D, I>) => Promise<ReconcileResult<E>>;
 };
-export function defineDirect<
+export function defineCrud<
   D extends object,
   F extends object,
   R extends object,
   I,
   E = never,
->(
-  definition: DirectDefinition<D, F, R, I, E>,
-): DirectDefinition<D, F, R, I, E> {
+>(definition: CrudDefinition<D, F, R, I, E>): CrudDefinition<D, F, R, I, E> {
   return definition;
 }

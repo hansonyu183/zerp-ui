@@ -2,7 +2,7 @@ import { mount, flushPromises } from "@vue/test-utils";
 import type { Component } from "vue";
 import { expect, it, vi } from "vitest";
 import {
-  VersionRuntime,
+  VersionView,
   defineVersion,
   type VersionSnapshot,
   type VersionAdapter,
@@ -75,7 +75,7 @@ const start = async (
     unknown
   > = definition(),
 ) => {
-  const w = mount(VersionRuntime as Component, {
+  const w = mount(VersionView as Component, {
     props: { definition: d, scope: "a", permissions },
   });
   await flushPromises();
@@ -405,7 +405,7 @@ it("aggregates local pending, honors readonly detail mode and rejects closed ins
       catalog: [] as readonly string[],
     }),
   ];
-  const w = mount(VersionRuntime as Component, {
+  const w = mount(VersionView as Component, {
     props: { definition: d, scope: "a", permissions, blocks },
   });
   await flushPromises();

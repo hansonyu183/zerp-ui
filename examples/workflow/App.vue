@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { WorkflowRuntime, DocumentRuntime } from "@zerp/ui";
+const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
+import { WorkflowView, DocumentView } from "@zerp/ui";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { computed, ref } from "vue";
 import { controls, workflow, documentFor, type DocumentRef } from "./adapters";
@@ -52,7 +53,10 @@ function openDocument(document: DocumentRef) {
       </select></label
     >
     <RouterLink to="/">返回流程</RouterLink>
-    <WorkflowRuntime
+    <h1 v-if="showTitle">
+      {{ route.path === "/" ? workflow.title : documentDefinition.title }}
+    </h1>
+    <WorkflowView
       v-if="route.path === '/'"
       :definition="workflow"
       :scope="scope"
@@ -61,7 +65,7 @@ function openDocument(document: DocumentRef) {
     />
     <section v-else>
       <p>消费者路由目标：{{ route.params.id }}</p>
-      <DocumentRuntime
+      <DocumentView
         :key="String(route.params.id)"
         :definition="documentDefinition"
         :scope="scope"

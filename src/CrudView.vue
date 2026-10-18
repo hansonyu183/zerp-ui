@@ -6,19 +6,19 @@
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { VAlert, VProgressLinear } from "vuetify/components";
 import type {
-  DirectDefinition,
-  DirectAction,
+  CrudDefinition,
+  CrudAction,
   Page,
   Attempt,
   AnyField,
 } from "./contracts";
 import DynamicForm from "./DynamicForm.vue";
-import ListSurface from "./ListSurface.vue";
+import DataList from "./DataList.vue";
 import { clone, message } from "./clone";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
 const props = defineProps<{
-  definition: DirectDefinition<D, F, R, I, E>;
+  definition: CrudDefinition<D, F, R, I, E>;
   scope: string;
   permissions: {
     query: boolean;
@@ -44,7 +44,7 @@ const editor = shallowRef<{
   detailLoading = ref(false),
   confirming = shallowRef<{
     row: R;
-    action: Exclude<DirectAction, "edit">;
+    action: Exclude<CrudAction, "edit">;
   } | null>(null),
   verifying = ref(false);
 const readonlyFields = shallowRef<readonly Extract<keyof D, string>[]>([]);
@@ -185,7 +185,7 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
     row &&
     !props.definition
       .actions(row)
-      .includes(operation === "save" ? "edit" : (operation as DirectAction))
+      .includes(operation === "save" ? "edit" : (operation as CrudAction))
   )
     return;
   const definition = props.definition,
@@ -347,7 +347,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="zerp-ui" :aria-label="definition.title">
-    <h1>{{ definition.title }}</h1>
     <form v-if="permissions.query" @submit.prevent="query(1, true)">
       <DynamicForm
         :fields="shownFilters"
@@ -395,7 +394,7 @@ onBeforeUnmount(() => {
     >
       <span class="zerp-ui-icon" aria-hidden="true">&#xf0415;</span>新增
     </button>
-    <ListSurface
+    <DataList
       :columns="definition.columns"
       :result="result"
       :page="page"
