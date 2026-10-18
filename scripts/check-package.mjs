@@ -691,9 +691,10 @@ async function documentSmoke(page) {
   await page.getByRole("alert").filter({ hasText: "合成刷新失败" }).waitFor();
   await button("重试读取").first().click();
   // Script writes keep a separate configuration identity and gate document submission.
-  const script = page
-    .getByRole("heading", { name: "合成独立脚本", exact: true })
-    .locator("..");
+  const script = page.getByRole("region", {
+    name: "合成独立脚本",
+    exact: true,
+  });
   await script.getByRole("button", { name: "编辑", exact: true }).click();
   await page.getByLabel("脚本正文").fill("return 'updated';");
   await scenario("unknown-applied");
