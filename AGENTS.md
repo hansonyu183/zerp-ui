@@ -4,7 +4,7 @@
 
 ## 当前边界
 
-- 当前先完成独立组件库及 0.1.0 Release，再安排 ZERP 接入。实现、示例、构建与测试均在本仓库完成。
+- 组件库已独立发布 0.1.0；ZERP 接入由发布后的专门工单负责。本库后续实现、示例、构建与测试均在本仓库完成。
 - 原 ZERP 仓库是只读行为参考。此阶段不得修改其代码、配置、依赖、文档或部署；尚未接入的原实现继续服务 ZERP，不是本库的兼容分支。
 - 每个切片提供真实可运行的独立消费者示例、强类型 Adapter 及验证。真实 ZERP 接入与旧实现删除由发布后的专门接入工单完成。
 - 公司 DTO、领域规则、API 路径、凭证、Session store 和 Router 注册表归消费者。库通过有限强类型接口封装生命周期，不创建通用配置平台。
@@ -20,4 +20,16 @@
 - 不提交凭证、Cookie、Token、测试账号或公司数据。保留不相关用户修改。
 - 关闭本会话启动且不共享的临时服务/浏览器/隧道，结束时报告必要保留项。
 
-议题操作见 [issue tracker](docs/agents/issue-tracker.md)，标签语义见 [triage labels](docs/agents/triage-labels.md)。
+## Agent skills
+
+### Issue tracker
+
+议题操作前读取 `docs/agents/issue-tracker.md`；正式规格、决策和工单维护于本仓库 GitHub Issues。
+
+### Triage labels
+
+分诊及调整标签前读取 `docs/agents/triage-labels.md`；采用五个默认 triage 标签。
+
+### Domain docs
+
+采用 single-context 布局。探索代码及讨论领域术语、架构决策前读取 `docs/agents/domain.md`。
