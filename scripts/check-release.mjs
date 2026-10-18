@@ -37,8 +37,8 @@ const slices = [
   ...[
     "configuration",
     "report",
-    "version",
     "document",
+    "voucher",
     "workflow",
     "shell",
   ].map((name, index) => ({

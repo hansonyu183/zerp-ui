@@ -8,7 +8,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/", component: App },
-    { path: "/documents/:id", component: App },
+    { path: "/vouchers/:id", component: App },
   ],
 });
 createApp(App).use(createVuetify()).use(router).mount("#app");

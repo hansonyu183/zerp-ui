@@ -8,12 +8,12 @@ import { VAlert, VProgressLinear } from "vuetify/components";
 import type { AnyField } from "./contracts";
 import type { ConfigurationBlock } from "./configuration";
 import type {
-  VersionArchive,
-  VersionSnapshot,
-  VersionAction,
-  VersionAttempt,
+  DocumentArchive,
+  DocumentSnapshot,
+  DocumentAction,
+  DocumentAttempt,
   StageAttempt,
-} from "./version";
+} from "./document";
 import type { SubmissionDefinition } from "./submission";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
@@ -25,13 +25,13 @@ const props = defineProps<{
   scope: string;
   permissions: { read: boolean; write: boolean; reconcile?: boolean };
   blocks?: readonly ConfigurationBlock<D>[];
-  kind?: "version" | "document";
+  kind?: "document" | "voucher";
   lockAdapter?: object;
   externalDisabled?: boolean;
 }>();
-const documents = computed(() => props.definition.documents);
-type Snapshot = VersionSnapshot<D, I, S, O, H>;
-type Attempt = VersionAttempt<D, I, S, H> | StageAttempt<I, S, O>;
+const vouchers = computed(() => props.definition.vouchers);
+type Snapshot = DocumentSnapshot<D, I, S, O, H>;
+type Attempt = DocumentAttempt<D, I, S, H> | StageAttempt<I, S, O>;
 type Local = { id: string; file: File; staged?: { handle: H } };
 type Draft = {
   mode: "create" | "edit";
@@ -43,22 +43,22 @@ type Draft = {
 const lock = computed(() =>
   writeLock<D, I, Attempt, Draft>(
     props.lockAdapter ?? props.definition.adapter,
-    `${props.kind ?? "version"}:${props.definition.resource}`,
+    `${props.kind ?? "document"}:${props.definition.resource}`,
     props.scope,
   ),
 );
 const rows = shallowRef<
   import("./contracts").Page<{ identity: I; number: string; handler: string }>
 >({ items: [], total: 0 });
-const documentPage = ref(1);
-const documentIdentity = shallowRef<{ value: I } | null>(null);
+const voucherPage = ref(1);
+const voucherIdentity = shallowRef<{ value: I } | null>(null);
 const editCaption = computed(() =>
-  props.kind === "document" ? "编辑单据" : "编辑版本",
+  props.kind === "voucher" ? "编辑单据" : "编辑档案",
 );
 const submitCaption = computed(() =>
-  props.kind === "document" ? "提交单据" : "提交版本",
+  props.kind === "voucher" ? "提交单据" : "提交档案",
 );
-const archive = shallowRef<VersionArchive<D, I, S, O, H, A> | null>(null);
+const archive = shallowRef<DocumentArchive<D, I, S, O, H, A> | null>(null);
 const selected = ref<"official" | "candidate" | "history" | "audit">(
     "official",
   ),
@@ -131,19 +131,19 @@ async function query() {
   loading.value = true;
   error.value = "";
   try {
-    let result: VersionArchive<D, I, S, O, H, A>;
-    if (props.definition.documents) {
-      const list = await props.definition.documents.list({
+    let result: DocumentArchive<D, I, S, O, H, A>;
+    if (props.definition.vouchers) {
+      const list = await props.definition.vouchers.list({
         scope: props.scope,
-        page: documentPage.value,
+        page: voucherPage.value,
         pageSize: 20,
       });
       if (!current(g) || q !== queryId) return;
       rows.value = clone(list);
-      result = documentIdentity.value
-        ? await props.definition.documents.get({
+      result = voucherIdentity.value
+        ? await props.definition.vouchers.get({
             scope: props.scope,
-            identity: clone(documentIdentity.value.value),
+            identity: clone(voucherIdentity.value.value),
           })
         : { official: null, candidate: null, history: [], audit: [] };
     } else
@@ -165,18 +165,18 @@ async function query() {
     if (current(g) && q === queryId) loading.value = false;
   }
 }
-async function openDocument(identity: I) {
+async function openVoucher(identity: I) {
   if (editor.value || loading.value || !props.permissions.read) return;
   archive.value = null;
-  documentIdentity.value = { value: clone(identity) };
+  voucherIdentity.value = { value: clone(identity) };
   selected.value = "official";
   historical.value = null;
   instance++;
   await query();
 }
-async function pageDocuments(page: number) {
+async function pageVouchers(page: number) {
   if (editor.value || loading.value) return;
-  documentPage.value = page;
+  voucherPage.value = page;
   await query();
 }
 function prepare(operation: "create" | "clone") {
@@ -184,7 +184,7 @@ function prepare(operation: "create" | "clone") {
     disabled.value ||
     loading.value ||
     editor.value ||
-    !props.definition.documents
+    !props.definition.vouchers
   )
     return;
   try {
@@ -195,11 +195,11 @@ function prepare(operation: "create" | "clone") {
     const source = snapshot.value;
     const draft =
       operation === "create"
-        ? props.definition.documents.empty?.({ scope: props.scope })
+        ? props.definition.vouchers.empty?.({ scope: props.scope })
         : source &&
-            props.definition.documents.canClone?.(source) &&
+            props.definition.vouchers.canClone?.(source) &&
             selected.value !== "audit"
-          ? props.definition.documents.clone?.({
+          ? props.definition.vouchers.clone?.({
               scope: props.scope,
               source: clone(source),
             })
@@ -392,7 +392,7 @@ async function submit() {
       return;
   }
   const attempt: Extract<
-    VersionAttempt<D, I, S, H>,
+    DocumentAttempt<D, I, S, H>,
     { operation: "submit" }
   > = {
     ...base(draft.source),
@@ -405,7 +405,7 @@ async function submit() {
   };
   await write(attempt, () => definition.adapter.submit(clone(attempt)));
 }
-async function act(operation: VersionAction) {
+async function act(operation: DocumentAction) {
   const source = snapshot.value,
     adapter = props.definition.adapter;
   if (
@@ -432,7 +432,7 @@ async function act(operation: VersionAction) {
   }
 }
 async function write(
-  attempt: VersionAttempt<D, I, S, H>,
+  attempt: DocumentAttempt<D, I, S, H>,
   run: () => Promise<import("./contracts").WriteResult>,
 ) {
   const target = lock.value,
@@ -584,8 +584,8 @@ watch(
     pending.value = {};
     archive.value = null;
     rows.value = { items: [], total: 0 };
-    documentPage.value = 1;
-    documentIdentity.value = null;
+    voucherPage.value = 1;
+    voucherIdentity.value = null;
     selected.value = "official";
     historyIndex.value = 0;
     historical.value = null;
@@ -630,7 +630,7 @@ onBeforeUnmount(() => {
     </button>
     <button
       v-if="
-        documents &&
+        vouchers &&
         lock.context &&
         !editor &&
         permissions.write &&
@@ -641,9 +641,9 @@ onBeforeUnmount(() => {
     >
       恢复 Draft
     </button>
-    <section v-if="documents && permissions.read" aria-label="单据列表">
+    <section v-if="vouchers && permissions.read" aria-label="单据列表">
       <button
-        v-if="documents.empty && permissions.write"
+        v-if="vouchers.empty && permissions.write"
         :disabled="disabled || loading || editor"
         @click="prepare('create')"
       >
@@ -655,28 +655,28 @@ onBeforeUnmount(() => {
           { key: 'handler', label: '经办人' },
         ]"
         :result="rows"
-        :page="documentPage"
+        :page="voucherPage"
         :page-size="20"
         :loading="loading || editor"
-        @page="pageDocuments"
+        @page="pageVouchers"
       />
       <button
         v-for="(row, index) in rows.items"
         :key="index"
         :disabled="loading || editor"
-        @click="openDocument(row.identity)"
+        @click="openVoucher(row.identity)"
       >
         查看 {{ row.number }}
       </button>
     </section>
     <nav
       v-if="permissions.read"
-      :aria-label="documents ? '单据视图' : '版本视图'"
+      :aria-label="vouchers ? '单据视图' : '档案视图'"
     >
       <button :disabled="editor" @click="select('official')">
-        {{ documents ? "当前单据" : "正式资料" }}
+        {{ vouchers ? "当前单据" : "正式资料" }}
       </button>
-      <button v-if="!documents" :disabled="editor" @click="select('candidate')">
+      <button v-if="!vouchers" :disabled="editor" @click="select('candidate')">
         开放候选
       </button>
       <button
@@ -699,14 +699,14 @@ onBeforeUnmount(() => {
       />
       <template v-else-if="snapshot">
         <p>
-          {{ documents ? "单据" : "版本" }}：{{ snapshot.label }} · 状态：{{
+          {{ vouchers ? "单据" : "档案" }}：{{ snapshot.label }} · 状态：{{
             snapshot.state
           }}
         </p>
         <button
           v-if="
-            documents?.clone &&
-            documents.canClone?.(snapshot) &&
+            vouchers?.clone &&
+            vouchers.canClone?.(snapshot) &&
             permissions.write &&
             !editor
           "
@@ -755,14 +755,14 @@ onBeforeUnmount(() => {
             :disabled="disabled || loading"
             @click="act('enable')"
           >
-            启用版本
+            启用档案
           </button>
           <button
             v-if="snapshot.eligible.disable && definition.adapter.disable"
             :disabled="disabled || loading"
             @click="act('disable')"
           >
-            停用版本
+            停用档案
           </button>
         </template>
         <section

@@ -1,30 +1,30 @@
 import { reactive } from "vue";
 import {
   defineWorkflow,
-  defineDocument,
+  defineVoucher,
   type WorkflowAdapter,
   type WorkflowAttempt,
   type WorkflowAction,
   type WorkflowInstance,
-  type DocumentSnapshot,
-  type DocumentAdapter,
+  type VoucherSnapshot,
+  type VoucherAdapter,
 } from "@zerp/ui";
 export const controls = reactive({ scenario: "success", reads: "success" });
 type Target = { entity: "receipt" };
-export type DocumentRef = { id: string };
-type Attempt = WorkflowAttempt<string, string, string, Target, DocumentRef>;
+export type VoucherRef = { id: string };
+type Attempt = WorkflowAttempt<string, string, string, Target, VoucherRef>;
 type Event = {
   event: string;
   request: Attempt | null;
   result: "applied" | "not-applied";
 };
-type Instance = WorkflowInstance<string, string, string, Target, DocumentRef>;
+type Instance = WorkflowInstance<string, string, string, Target, VoucherRef>;
 const copy = <T>(value: T): T => structuredClone(value);
 const instances = new Map<string, Instance>();
 const audits = new Map<string, Event[]>();
 let failRefresh = false;
-const documents = new Map<string, Snap>();
-type Snap = DocumentSnapshot<
+const vouchers = new Map<string, Snap>();
+type Snap = VoucherSnapshot<
   { name: string; amount: string },
   string,
   string,
@@ -36,7 +36,7 @@ type Snap = DocumentSnapshot<
 function doc(id: string): Snap {
   return {
     identity: {
-      document: id,
+      voucher: id,
       revision: "r1",
       submission: { id: `submission-${id}` },
     },
@@ -55,7 +55,7 @@ function key(scope: string, id: string) {
 function get(scope: string, id: string) {
   const k = key(scope, id);
   if (!instances.has(k)) {
-    documents.set(key(scope, `${id}-root`), doc(`${id}-root`));
+    vouchers.set(key(scope, `${id}-root`), doc(`${id}-root`));
     instances.set(k, {
       identity: id,
       label: `合成${id}`,
@@ -65,8 +65,8 @@ function get(scope: string, id: string) {
           revision: "r1",
           label: "根节点",
           state: "待处理",
-          document: { id: `${id}-root` },
-          eligible: ["OPEN_DOCUMENT", "CREATE_CHILD"],
+          voucher: { id: `${id}-root` },
+          eligible: ["OPEN_VOUCHER", "CREATE_CHILD"],
           targets: [
             {
               key: "receipt",
@@ -94,7 +94,7 @@ const adapter: WorkflowAdapter<
   string,
   string,
   Target,
-  DocumentRef,
+  VoucherRef,
   Event
 > = {
   async list({ scope, keyword }) {
@@ -143,7 +143,7 @@ const adapter: WorkflowAdapter<
     if (applied) {
       if (attempt.operation === "CREATE_CHILD") {
         const id = `${attempt.instance}-child`;
-        documents.set(key(attempt.scope, id), doc(id));
+        vouchers.set(key(attempt.scope, id), doc(id));
         instance.nodes = [
           ...instance.nodes,
           {
@@ -151,9 +151,9 @@ const adapter: WorkflowAdapter<
             revision: "r1",
             label: "下级节点",
             state: "待处理",
-            document: { id },
+            voucher: { id },
             eligible: [
-              "OPEN_DOCUMENT",
+              "OPEN_VOUCHER",
               "APPROVE_CHILD",
               "REJECT_CHILD",
               "RETRY_CHILD",
@@ -162,8 +162,8 @@ const adapter: WorkflowAdapter<
             targets: [],
           },
         ];
-        node.eligible = ["OPEN_DOCUMENT"];
-      } else if (attempt.operation !== "OPEN_DOCUMENT") {
+        node.eligible = ["OPEN_VOUCHER"];
+      } else if (attempt.operation !== "OPEN_VOUCHER") {
         node.state = (
           {
             APPROVE_CHILD: "已批准",
@@ -171,11 +171,11 @@ const adapter: WorkflowAdapter<
             RETRY_CHILD: "已重试",
             CANCEL_CHILD: "已取消",
           } satisfies Record<
-            Exclude<WorkflowAction, "OPEN_DOCUMENT" | "CREATE_CHILD">,
+            Exclude<WorkflowAction, "OPEN_VOUCHER" | "CREATE_CHILD">,
             string
           >
         )[attempt.operation];
-        node.eligible = ["OPEN_DOCUMENT"];
+        node.eligible = ["OPEN_VOUCHER"];
       }
       node.revision += "+1";
     }
@@ -212,7 +212,7 @@ export const workflow = defineWorkflow({
       : { status: "unknown" };
   },
 });
-const documentAdapter: DocumentAdapter<
+const voucherAdapter: VoucherAdapter<
   { name: string; amount: string },
   string,
   string,
@@ -224,19 +224,19 @@ const documentAdapter: DocumentAdapter<
 > = {
   async list({ scope }) {
     return {
-      items: [...documents.entries()]
+      items: [...vouchers.entries()]
         .filter(([k]) => JSON.parse(k)[0] === scope)
         .map(([, s]) => ({
           identity: s.identity,
           number: s.number,
           handler: s.handler,
         })),
-      total: [...documents.keys()].filter((k) => JSON.parse(k)[0] === scope)
+      total: [...vouchers.keys()].filter((k) => JSON.parse(k)[0] === scope)
         .length,
     };
   },
   async get({ scope, identity }) {
-    const current = documents.get(key(scope, identity.document));
+    const current = vouchers.get(key(scope, identity.voucher));
     if (!current) throw new Error("合成单据不存在");
     return {
       current: copy(current),
@@ -245,9 +245,7 @@ const documentAdapter: DocumentAdapter<
     };
   },
   async submit(attempt) {
-    const current = documents.get(
-      key(attempt.scope, attempt.identity.document),
-    );
+    const current = vouchers.get(key(attempt.scope, attempt.identity.voucher));
     if (!current || current.identity.revision !== attempt.identity.revision)
       return { status: "failure", message: "合成单据修订冲突" };
     current.values = copy(attempt.input);
@@ -259,31 +257,31 @@ const documentAdapter: DocumentAdapter<
     return { status: "success" };
   },
 };
-export const documentDefinition = defineDocument({
-  resource: "synthetic-document",
+export const voucherDefinition = defineVoucher({
+  resource: "synthetic-voucher",
   title: "流程单据正文",
   fields: [
     { key: "name", type: "text", label: "名称" },
     { key: "amount", type: "decimal", label: "精确金额" },
   ],
   auditColumns: [{ key: "event", label: "事件" }],
-  adapter: documentAdapter,
+  adapter: voucherAdapter,
 });
 
-// The host limits the document runtime to the route's exact target identity.
-export function documentFor(id: string): typeof documentDefinition {
+// The host limits the voucher runtime to the route's exact target identity.
+export function voucherFor(id: string): typeof voucherDefinition {
   return {
-    ...documentDefinition,
+    ...voucherDefinition,
     adapter: {
-      ...documentAdapter,
+      ...voucherAdapter,
       async list(input) {
-        const rows = await documentAdapter.list(input);
-        const items = rows.items.filter((row) => row.identity.document === id);
+        const rows = await voucherAdapter.list(input);
+        const items = rows.items.filter((row) => row.identity.voucher === id);
         return { items, total: items.length };
       },
       async get(input) {
-        if (input.identity.document !== id) throw new Error("合成路由身份不符");
-        return documentAdapter.get(input);
+        if (input.identity.voucher !== id) throw new Error("合成路由身份不符");
+        return voucherAdapter.get(input);
       },
     },
   };

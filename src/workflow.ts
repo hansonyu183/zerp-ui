@@ -1,6 +1,6 @@
 import type { Column, Page, ReconcileResult, WriteResult } from "./contracts";
 export type WorkflowAction =
-  | "OPEN_DOCUMENT"
+  | "OPEN_VOUCHER"
   | "CREATE_CHILD"
   | "APPROVE_CHILD"
   | "REJECT_CHILD"
@@ -11,7 +11,7 @@ export type WorkflowNode<N, R, T, D> = {
   revision: R;
   label: string;
   state: string;
-  document?: D;
+  voucher?: D;
   /** Authoritative backend facts, still rechecked by the backend on execution. */
   eligible: readonly WorkflowAction[];
   targets: readonly { key: string; label: string; identity: T }[];
@@ -32,9 +32,9 @@ export type WorkflowAttempt<I, N, R, T, D> = Readonly<{
 }> &
   (
     | Readonly<{ operation: "CREATE_CHILD"; target: T }>
-    | Readonly<{ operation: "OPEN_DOCUMENT"; document: D }>
+    | Readonly<{ operation: "OPEN_VOUCHER"; voucher: D }>
     | Readonly<{
-        operation: Exclude<WorkflowAction, "CREATE_CHILD" | "OPEN_DOCUMENT">;
+        operation: Exclude<WorkflowAction, "CREATE_CHILD" | "OPEN_VOUCHER">;
       }>
   );
 export type WorkflowAdapter<I, N, R, T, D, A extends object> = {

@@ -10,7 +10,7 @@ const permissions = {
   read: true,
   audit: true,
   reconcile: true,
-  actions: ["APPROVE_CHILD", "OPEN_DOCUMENT", "CREATE_CHILD"] as const,
+  actions: ["APPROVE_CHILD", "OPEN_VOUCHER", "CREATE_CHILD"] as const,
   targets: ["allowed"],
 };
 function definition() {
@@ -38,10 +38,10 @@ function definition() {
           revision: "r7",
           label: "合成节点",
           state: "待处理",
-          document: { id: "doc1" },
+          voucher: { id: "doc1" },
           eligible: [
             "APPROVE_CHILD",
-            "OPEN_DOCUMENT",
+            "OPEN_VOUCHER",
             "CREATE_CHILD",
             "CANCEL_CHILD",
           ] as const,
@@ -190,7 +190,7 @@ it("refresh failure retries reads without replay; failures retain actionable fac
   expect(d.adapter.act).toHaveBeenCalledTimes(2);
   w.unmount();
 });
-it("sends a typed target and emits document navigation only after an applied open action", async () => {
+it("sends a typed target and emits voucher navigation only after an applied open action", async () => {
   const d = definition(),
     w = await start(d);
   await click(w, "查看 流程一");
@@ -204,13 +204,13 @@ it("sends a typed target and emits document navigation only after an applied ope
   );
   vi.mocked(d.adapter.act).mockResolvedValueOnce({ status: "unknown" });
   await click(w, "打开单据");
-  expect(w.emitted("open-document")).toBeUndefined();
+  expect(w.emitted("open-voucher")).toBeUndefined();
   w.unmount();
   const d2 = definition(),
     w2 = await start(d2);
   await click(w2, "查看 流程一");
   await click(w2, "打开单据");
-  expect(w2.emitted("open-document")).toEqual([[{ id: "doc1" }]]);
+  expect(w2.emitted("open-voucher")).toEqual([[{ id: "doc1" }]]);
   w2.unmount();
 });
 it("isolates out-of-order instance/scope reads and preserves pending writes in their original scope", async () => {

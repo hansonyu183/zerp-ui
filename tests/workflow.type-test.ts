@@ -8,7 +8,7 @@ type Attempt = WorkflowAttempt<
   string,
   number,
   { entity: "receipt" },
-  { document: string }
+  { voucher: string }
 >;
 const attempt: Attempt = {
   id: "a",
@@ -27,18 +27,18 @@ const missing: Attempt = { ...attempt, target: undefined };
 const script: Attempt = { ...attempt, operation: "RUN_SCRIPT" };
 // @ts-expect-error revision is not coerced
 const revision: Attempt = { ...attempt, revision: "7" };
-const document: Attempt = {
+const voucher: Attempt = {
   ...attempt,
-  operation: "OPEN_DOCUMENT",
-  // @ts-expect-error wrong document identity
-  document: 1,
+  operation: "OPEN_VOUCHER",
+  // @ts-expect-error wrong voucher identity
+  voucher: 1,
 };
 declare const adapter: WorkflowAdapter<
   { id: string },
   string,
   number,
   { entity: "receipt" },
-  { document: string },
+  { voucher: string },
   { event: string }
 >;
 defineWorkflow({
@@ -54,4 +54,4 @@ defineWorkflow({
   // @ts-expect-error audit columns must match the paired adapter
   auditColumns: [{ key: "other", label: "错误" }],
 });
-void [attempt, missing, script, revision, document];
+void [attempt, missing, script, revision, voucher];

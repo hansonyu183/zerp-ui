@@ -16,8 +16,8 @@ import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 const shellMode = process.argv.includes("--shell");
 const workflowMode = process.argv.includes("--workflow");
+const voucherMode = process.argv.includes("--voucher");
 const documentMode = process.argv.includes("--document");
-const versionMode = process.argv.includes("--version");
 const reportMode = process.argv.includes("--report");
 const configuration = process.argv.includes("--configuration");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -75,10 +75,10 @@ await cp(
       ? "examples/shell"
       : workflowMode
         ? "examples/workflow"
-        : documentMode
-          ? "examples/document"
-          : versionMode
-            ? "examples/version"
+        : voucherMode
+          ? "examples/voucher"
+          : documentMode
+            ? "examples/document"
             : reportMode
               ? "examples/report"
               : configuration
@@ -98,8 +98,8 @@ if (shellMode) {
     "direct",
     "configuration",
     "report",
-    "version",
     "document",
+    "voucher",
     "workflow",
   ]) {
     await cp(join(root, "examples", name), join(consumer, "modules", name), {
@@ -137,10 +137,10 @@ const fixture = await readFile(
       ? "tests/shell.type-test.ts"
       : workflowMode
         ? "tests/workflow.type-test.ts"
-        : documentMode
-          ? "tests/document.type-test.ts"
-          : versionMode
-            ? "tests/version.type-test.ts"
+        : voucherMode
+          ? "tests/voucher.type-test.ts"
+          : documentMode
+            ? "tests/document.type-test.ts"
             : reportMode
               ? "tests/report.type-test.ts"
               : configuration
@@ -245,10 +245,10 @@ try {
     ? shellSmoke
     : workflowMode
       ? workflowSmoke
-      : documentMode
-        ? documentSmoke
-        : versionMode
-          ? versionSmoke
+      : voucherMode
+        ? voucherSmoke
+        : documentMode
+          ? documentSmoke
           : reportMode
             ? reportSmoke
             : configuration
@@ -259,10 +259,10 @@ try {
     ? "shell"
     : workflowMode
       ? "workflow"
-      : documentMode
-        ? "document"
-        : versionMode
-          ? "version"
+      : voucherMode
+        ? "voucher"
+        : documentMode
+          ? "document"
           : reportMode
             ? "report"
             : configuration
@@ -320,15 +320,15 @@ try {
           ]
         : workflowMode
           ? [
-              "workflow node/target eligibility, exact audit reconciliation, document/runtime consumer routing and refresh-only retry in both contexts",
+              "workflow node/target eligibility, exact audit reconciliation, voucher/runtime consumer routing and refresh-only retry in both contexts",
             ]
-          : documentMode
+          : voucherMode
             ? [
-                "document create/clone/edit, recursive drafts, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
+                "voucher create/clone/edit, recursive drafts, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
               ]
-            : versionMode
+            : documentMode
               ? [
-                  "version official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
+                  "document official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
                 ]
               : reportMode
                 ? [
@@ -525,21 +525,21 @@ async function reportSmoke(page) {
   await page.getByRole("cell", { name: "合成甲", exact: true }).waitFor();
 }
 
-async function versionSmoke(page) {
+async function documentSmoke(page) {
   const button = (name) => page.getByRole("button", { name, exact: true });
   const scenario = (value) => page.getByLabel("写入情景").selectOption(value);
   const name = () => page.getByRole("textbox", { name: "名称", exact: true });
   const expectValue = async (field, value) =>
     assert.equal(await field.inputValue(), value);
   await page
-    .getByRole("heading", { name: "合成版本 · 定价", exact: true })
+    .getByRole("heading", { name: "合成档案 · 定价", exact: true })
     .waitFor();
   await expectValue(page.getByLabel("定价金额"), "9007199254740993.0100");
   await button("历史 v1").click();
   await expectValue(name(), "合成历史快照");
-  assert.equal(await button("编辑版本").count(), 0);
+  assert.equal(await button("编辑档案").count(), 0);
   await button("正式资料").click();
-  await button("编辑版本").click();
+  await button("编辑档案").click();
   await name().fill("新候选定价");
   await page.getByLabel("定价客户").selectOption("客户乙");
   await page.getByLabel("本地附件").setInputFiles({
@@ -551,26 +551,26 @@ async function versionSmoke(page) {
     .getByText("synthetic.txt：本地准备，待暂存", { exact: true })
     .waitFor();
   await scenario("stage-unknown");
-  await button("提交版本").click();
+  await button("提交档案").click();
   await page
     .getByRole("status")
     .filter({ hasText: "附件暂存结果未知" })
     .waitFor();
   await button("关闭编辑").click();
   await button("重试读取").click();
-  assert.ok(await button("编辑版本").isDisabled());
+  assert.ok(await button("编辑档案").isDisabled());
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "尚未业务提交" }).waitFor();
   await scenario("business-unknown");
-  await button("编辑版本").click();
-  await button("提交版本").click();
+  await button("编辑档案").click();
+  await button("提交档案").click();
   await page
     .getByRole("status")
     .filter({ hasText: "业务写入结果未知" })
     .waitFor();
   await button("关闭编辑").click();
   await button("重试读取").click();
-  assert.ok(await button("编辑版本").isDisabled());
+  assert.ok(await button("编辑档案").isDisabled());
   await button("核实本次请求").click();
   await page
     .getByRole("status")
@@ -593,35 +593,35 @@ async function versionSmoke(page) {
   await button("审计").click();
   await page.getByRole("cell").filter({ hasText: "审批" }).waitFor();
   await button("正式资料").click();
-  await button("停用版本").click();
-  await button("启用版本").waitFor();
-  await button("启用版本").click();
-  await button("编辑版本").click();
+  await button("停用档案").click();
+  await button("启用档案").waitFor();
+  await button("启用档案").click();
+  await button("编辑档案").click();
   await scenario("refresh-failure");
-  await button("提交版本").click();
+  await button("提交档案").click();
   await page.getByRole("alert").filter({ hasText: "合成刷新失败" }).waitFor();
-  assert.ok(await button("编辑版本").isDisabled());
+  assert.ok(await button("编辑档案").isDisabled());
   await button("重试读取").click();
-  await page.getByLabel("版本示例").selectOption("formula");
+  await page.getByLabel("档案示例").selectOption("formula");
   await page
-    .getByRole("heading", { name: "合成版本 · 配方", exact: true })
+    .getByRole("heading", { name: "合成档案 · 配方", exact: true })
     .waitFor();
   await expectValue(page.getByLabel("配方用量"), "0.0100");
-  await button("编辑版本").click();
+  await button("编辑档案").click();
   await page.getByLabel("配方原料").selectOption("b");
   await page.getByLabel("配方用量").fill("1.2300");
   await scenario("conflict");
-  await button("提交版本").click();
+  await button("提交档案").click();
   await page.getByRole("alert").filter({ hasText: "合成修订冲突" }).waitFor();
   await scenario("no-evidence");
-  await button("提交版本").click();
+  await button("提交档案").click();
   await button("关闭编辑").click();
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
-  assert.ok(await button("编辑版本").isDisabled());
+  assert.ok(await button("编辑档案").isDisabled());
 }
 
-async function documentSmoke(page) {
+async function voucherSmoke(page) {
   const button = (name) => page.getByRole("button", { name, exact: true });
   const scenario = (value) => page.getByLabel("写入情景").selectOption(value);
   const value = () => page.getByRole("textbox", { name: "名称", exact: true });
@@ -690,7 +690,7 @@ async function documentSmoke(page) {
   await button("提交单据").click();
   await page.getByRole("alert").filter({ hasText: "合成刷新失败" }).waitFor();
   await button("重试读取").first().click();
-  // Script writes keep a separate configuration identity and gate document submission.
+  // Script writes keep a separate configuration identity and gate voucher submission.
   const script = page.getByRole("region", {
     name: "合成独立脚本",
     exact: true,
@@ -858,7 +858,7 @@ async function shellSmoke(page) {
   await page.getByRole("button", { name: "重试品牌", exact: true }).click();
   await page.getByRole("button", { name: "模拟导航失败", exact: true }).click();
   await page.getByRole("button", { name: "重试导航", exact: true }).click();
-  for (const name of ["直接维护", "配置", "报表", "版本档案", "单据", "流程"]) {
+  for (const name of ["直接维护", "配置", "报表", "资料档案", "单据", "流程"]) {
     const link = page.getByRole("link", { name, exact: true });
     assert.ok(await link.getAttribute("href"));
     await link.click();

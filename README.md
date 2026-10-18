@@ -7,7 +7,7 @@
 | 层级     | 组件                                                                                         | 职责                                                 |
 | -------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | 顶层页面 | `AuthPage`、`AppPage`                                                                        | 登录/注册/密码找回；登录后的导航、品牌、主题和主内容 |
-| 业务视图 | `CrudView`、`ConfigurationView`、`ReportView`、`VersionView`、`DocumentView`、`WorkflowView` | 查询、编辑、写入及核实等固定业务交互；可脱离外壳使用 |
+| 业务视图 | `CrudView`、`ConfigurationView`、`ReportView`、`DocumentView`、`VoucherView`、`WorkflowView` | 查询、编辑、写入及核实等固定业务交互；可脱离外壳使用 |
 | 复合交互 | `DynamicForm`、`ReferencePicker`、`DataList`                                                 | 可独立使用的表单、引用选择及响应式数据列表           |
 
 `SubmissionRuntime` 和认证子表单仅供库内部复用；消费者的领域 `*Block` 不属于库组件。`define*`、Adapter 类型和主题函数属于非组件 API。`0.1.0` 的组件导入名在 `0.2.0` 中更改，见 [迁移说明](#从-010-迁移)。
@@ -106,7 +106,7 @@ createApp(App)
 | aux/fund-account        | 关联资料选择、启停/删除                               |
 | aux/vehicle             | 内/外承运条件切换及引用；精确快照由消费者提供         |
 
-首片只提供上述公共能力与直接维护运行时。后续配置、报表、版本/附件、单据、流程、外壳及完整发布按 [#9–#15](https://github.com/hansonyu183/zerp-ui/issues/9) 的原生阻塞顺序推进。
+首片只提供上述公共能力与直接维护运行时。后续配置、报表、资料档案/附件、单据、流程、外壳及完整发布按 [#9–#15](https://github.com/hansonyu183/zerp-ui/issues/9) 的原生阻塞顺序推进。
 
 ## 配置运行时（#9）
 
@@ -136,45 +136,45 @@ createApp(App)
 
 只读交互参考：原 ZERP `frontend/src/target/components/report-page/{ReportPage.vue,report-data.ts}` 的参数与已应用参数分离、日期范围、原十进制字符串、可见列/宽度及查询/导出资格。后端错误码解释和下载格式属于消费者；库不包含 ZERP API 路径、Session 或报表目录。本片不代表真实 ZERP API/E2E 验收。
 
-## 版本档案与附件（#11）
+## 资料档案与附件（#11）
 
-`defineVersion<Draft, Identity, State, Owner, Handle, Audit, Evidence>` 和 `VersionView` 使用固定的正式资料、开放候选、精确历史、审计四个视图。`adapter.query({scope})` 返回 `VersionArchive`，各 `VersionSnapshot` 携带自己独立的 `values/identity/state/owner/attachments/eligible`。消费者将后端 current、submission、version、audit 协议映射为这份事实；Identity 必须含动作所需的精确身份/修订/提交件，State 为原状态，不做数字转换。历史由 Adapter 提供采用时快照，库不再 resolve 当前值覆盖它。此入口展示一个消费者选定的档案；档案列表、路由及具体请求路径仍归消费者。不同档案使用不同 resource 和稳定 Adapter，scope 包含账号/会话代次与数据范围。
+`defineDocument<Draft, Identity, State, Owner, Handle, Audit, Evidence>` 和 `DocumentView` 使用固定的正式资料、开放候选、精确历史、审计四个视图。`adapter.query({scope})` 返回 `DocumentArchive`，各 `DocumentSnapshot` 携带自己独立的 `values/identity/state/owner/attachments/eligible`。消费者将后端 current、submission、version、audit 协议映射为这份事实；Identity 必须含动作所需的精确身份/修订/提交件，State 为原状态，不做数字转换。历史由 Adapter 提供采用时快照，库不再 resolve 当前值覆盖它。此入口展示一个消费者选定的档案；档案列表、路由及具体请求路径仍归消费者。不同档案使用不同 resource 和稳定 Adapter，scope 包含账号/会话代次与数据范围。
 
-提交的原 `VersionAttempt` 记录 UUID、scope、resource、identity、state、Draft 和附件 Handle；`submit` 是固定方法，`approve/enable/disable` 按实际能力提供。呈现与执行须同时满足页面 `permissions.read/write`、快照的 `eligible` 和具体方法存在；历史不可编辑/审批。服务端仍须检查权限、精确修订和状态。候选不覆盖正式资料，提交后仅刷新一次，审批后由新事实决定正式资料/候选状态。明确失败保留 Draft；未知、成功后刷新失败分别锁定，普通读取只可能清除成功后的刷新锁。
+提交的原 `DocumentAttempt` 记录 UUID、scope、resource、identity、state、Draft 和附件 Handle；`submit` 是固定方法，`approve/enable/disable` 按实际能力提供。呈现与执行须同时满足页面 `permissions.read/write`、快照的 `eligible` 和具体方法存在；历史不可编辑/审批。服务端仍须检查权限、精确修订和状态。候选不覆盖正式资料，提交后仅刷新一次，审批后由新事实决定正式资料/候选状态。明确失败保留 Draft；未知、成功后刷新失败分别锁定，普通读取只可能清除成功后的刷新锁。
 
-局部区块复用已有 `configurationBlock<Draft>()` 和 `ConfigurationBlockProps<Value,Catalog>`，经 `blocks` 属性装配，不放进 definition。普通字段与区块按字段 key 互斥。详情只给该字段的分离副本、必要目录、read 模式和禁用状态；编辑只回传该字段值及 pending。表单与每个区块分别聚合 pending；关闭/切视图/作用域切换后旧事件无效。区块目录/装配在实例期间保持稳定，不传提交、刷新、解锁或整页对象。`examples/version` 提供独立合成客户定价和产品配方，展示十进制原字符串、消费者目录准备及 pending。
+局部区块复用已有 `configurationBlock<Draft>()` 和 `ConfigurationBlockProps<Value,Catalog>`，经 `blocks` 属性装配，不放进 definition。普通字段与区块按字段 key 互斥。详情只给该字段的分离副本、必要目录、read 模式和禁用状态；编辑只回传该字段值及 pending。表单与每个区块分别聚合 pending；关闭/切视图/作用域切换后旧事件无效。区块目录/装配在实例期间保持稳定，不传提交、刷新、解锁或整页对象。`examples/document` 提供独立合成客户定价和产品配方，展示十进制原字符串、消费者目录准备及 pending。
 
 附件协议在 `adapter.attachments`：`validate(File)` 定义消费者限制，`stage(StageAttempt)` 返回成功 Handle、明确失败或未知，`read({scope,owner,handle})` 返回 Blob/filename。选文件仅本地准备，不立即上传；点击提交才逐个暂存，再以成功 Handle 发起业务提交。stage 请求记录独立 attemptId、稳定 fileId、精确 Owner 及原快照身份/状态。成功工件在明确失败后的再次提交、关闭/重开和重挂载时复用，不擅自重传或删除；关闭尚未暂存的普通 Draft 则丢弃本地输入。部分成功后其余失败不会丢弃成功工件。关闭保留成功工件时，再次编辑恢复原 Draft 与修订，由后端重新校验。附件列表区分本地准备、暂存成功和业务成功反馈，暂存不宣称业务已提交。读取使用所选快照的 Owner/Handle；切作用域或视图使迟到下载失效，下载 Blob URL 使用后回收。
 
-可选 `reconcile(originalAttempt)` 返回 `VersionReconciliation`，消费者须用原 request、精确 identity/revision/submission/state 与权威回执核实；当前值相同、普通查询成功或历史同类事件均不算证据。库只消费原 attemptId、非空 Evidence 和与原阶段匹配的结果；stage 的 applied 还须返回已核实 Handle，之后由用户继续提交，不自动发业务命令；not-applied 才允许重新发送。业务 applied 进入刷新，刷新失败只重读。无方法、无核实资格、证据不足或读取失败均保持未知。未知/在途锁以稳定 Adapter 身份和 resource/scope 在当前 JS 会话内保留，关闭/重挂载不解锁，不声称刷新浏览器后的持久恢复。作用域切换使迟到响应不再改变当前页面；原写入结果仍记录在原作用域，旧 stage 成功后不会继续发起下一笔写入。含成功工件/未知结果的恢复数据留在原会话内以便核实，消费者不得换 Adapter 来绕过锁。
+可选 `reconcile(originalAttempt)` 返回 `DocumentReconciliation`，消费者须用原 request、精确 identity/revision/submission/state 与权威回执核实；当前值相同、普通查询成功或历史同类事件均不算证据。库只消费原 attemptId、非空 Evidence 和与原阶段匹配的结果；stage 的 applied 还须返回已核实 Handle，之后由用户继续提交，不自动发业务命令；not-applied 才允许重新发送。业务 applied 进入刷新，刷新失败只重读。无方法、无核实资格、证据不足或读取失败均保持未知。未知/在途锁以稳定 Adapter 身份和 resource/scope 在当前 JS 会话内保留，关闭/重挂载不解锁，不声称刷新浏览器后的持久恢复。作用域切换使迟到响应不再改变当前页面；原写入结果仍记录在原作用域，旧 stage 成功后不会继续发起下一笔写入。含成功工件/未知结果的恢复数据留在原会话内以便核实，消费者不得换 Adapter 来绕过锁。
 
-运行、构建、tgz 安装验收分别使用 `dev:version`、`build:version`、`check:version`。安装脚本对示例和全新独立安装树运行相同浏览器流程：定价编辑、暂存未知/精确核实、提交未知/精确核实、附件下载、审批、历史/审计、启停、刷新失败只重读、配方目录与冲突/证据不足。声明检查拒绝错误字段、Identity、Owner 与任意命令；检查生产构建和 CSS/字体解析。所有内容均为合成内存 Adapter，不等同真实 ZERP API/E2E。
+运行、构建、tgz 安装验收分别使用 `dev:document`、`build:document`、`check:document`。安装脚本对示例和全新独立安装树运行相同浏览器流程：定价编辑、暂存未知/精确核实、提交未知/精确核实、附件下载、审批、历史/审计、启停、刷新失败只重读、配方目录与冲突/证据不足。声明检查拒绝错误字段、Identity、Owner 与任意命令；检查生产构建和 CSS/字体解析。所有内容均为合成内存 Adapter，不等同真实 ZERP API/E2E。
 
 只读参考为 ZERP `bf0e6e8d81f025bba81612c0e37b1527b2889eee` 的 `version-archive.component.spec.ts`、`attachments/attachments.ts` 及 #2/#3 的已确认职责/接口决策。库不引入 ZERP DTO、资源后缀分派、ULID/base64、Session、API 路径或生产规则，真实接入留发布后专门工单。
 
 ## 单据运行时（#12）
 
-`defineDocument<Draft, Identity, Revision, Submission, State, Owner, Handle, Audit, Evidence>` 与 `DocumentView` 提供固定的列表、创建/克隆 Draft、局部录入、提交/审批、历史及审计交互。`DocumentIdentity` 分别保留消费者的 document、revision 和只读 Submission，快照另有 number/handler 展示；库不解析领域载荷或改变十进制字符串。`adapter.list` 返回带身份、编号和经办人的 total/hasMore 分页列表，`get` 返回 current/history/audit。`empty` 与 `clone` 是可选的同步本地准备方法，消费者负责分配新 document/提交身份、映射精确来源和决定附件是否继承；它们不得发起业务写入。只读系统类型省略这两个方法和写入资格即可，库不会为它增加创建动作。新建记录提交后在刷新列表中查看。
+`defineVoucher<Draft, Identity, Revision, Submission, State, Owner, Handle, Audit, Evidence>` 与 `VoucherView` 提供固定的列表、创建/克隆 Draft、局部录入、提交/审批、历史及审计交互。`VoucherIdentity` 分别保留消费者的 voucher、revision 和只读 Submission，快照另有 number/handler 展示；库不解析领域载荷或改变十进制字符串。`adapter.list` 返回带身份、编号和经办人的 total/hasMore 分页列表，`get` 返回 current/history/audit。`empty` 与 `clone` 是可选的同步本地准备方法，消费者负责分配新 voucher/提交身份、映射精确来源和决定附件是否继承；它们不得发起业务写入。只读系统类型省略这两个方法和写入资格即可，库不会为它增加创建动作。新建记录提交后在刷新列表中查看。
 
-当前快照的 `eligible.edit/clone/approve` 和页面 `permissions.read/write/reconcile` 分别控制实际能力；服务端仍须重验资格、原身份、原修订和状态。克隆可以从只读或历史快照采用值，必须由 Adapter 返回新的身份，历史本身不可改。每次业务提交的原 attempt 保留分离输入和原 Submission，不从刷新后的当前值重建。成功只刷新，刷新失败不重放；未知仅用精确审计证据解除。`DocumentAttempt` 只允许 submit/approve，`DocumentStageAttempt` 单独记录 stage 身份，拒绝任意字符串命令和版本启停方法。
+当前快照的 `eligible.edit/clone/approve` 和页面 `permissions.read/write/reconcile` 分别控制实际能力；服务端仍须重验资格、原身份、原修订和状态。克隆可以从只读或历史快照采用值，必须由 Adapter 返回新的身份，历史本身不可改。每次业务提交的原 attempt 保留分离输入和原 Submission，不从刷新后的当前值重建。成功只刷新，刷新失败不重放；未知仅用精确审计证据解除。`VoucherAttempt` 只允许 submit/approve，`VoucherStageAttempt` 单独记录 stage 身份，拒绝任意字符串命令和档案启停方法。
 
-单据与版本档案共用私有提交/附件生命周期实现，没有第二套 stage、局部区块或核实路径。附件和 `blocks` 的有限值/目录/read|edit/pending 契约与上一切片一致；递归子项确定只更改父 Draft，取消父层丢弃下层确认值，关闭未暂存的 Draft 丢弃本地输入。成功暂存或未知的上下文跨关闭/卸载保留；`恢复 Draft` 恢复原来源、原身份与工件，不能借另一张单据覆盖它。多个区块 pending 按来源聚合，旧实例事件失效。列表/详情/下载/核实与写入的迟到响应受资源、scope 和资格约束，旧 stage 仅记录原作用域工件，不继续提交。
+单据与资料档案共用私有提交/附件生命周期实现，没有第二套 stage、局部区块或核实路径。附件和 `blocks` 的有限值/目录/read|edit/pending 契约与上一切片一致；递归子项确定只更改父 Draft，取消父层丢弃下层确认值，关闭未暂存的 Draft 丢弃本地输入。成功暂存或未知的上下文跨关闭/卸载保留；`恢复 Draft` 恢复原来源、原身份与工件，不能借另一张单据覆盖它。多个区块 pending 按来源聚合，旧实例事件失效。列表/详情/下载/核实与写入的迟到响应受资源、scope 和资格约束，旧 stage 仅记录原作用域工件，不继续提交。
 
 可选 `script: {definition, permissions}` 使用强类型 `ConfigurationDefinition` 装配独立脚本维护。脚本资源/Adapter 与单据分离，脚本保存保持自己的原 identity/revision/input/attempt 和精确核实；库不执行脚本。脚本 pending/unknown/刷新锁阻止单据写入，单据写入锁阻止脚本保存；普通读取或关闭脚本不能解除未知锁。脚本不通过领域区块取得最终提交或解锁权限。与单据有关的脚本定义和 Adapter 在会话内保持稳定，不应移除装配绕过锁。
 
-`examples/document` 是经公开包入口运行的普通录入、期初递归录入和只读系统矩阵。消费者侧 `EntryBlock` 展示专用值、目录准备、精确来源采用与十进制字符串；脚本有独立配置身份。合成审计按原 attempt/identity/revision/Submission 和输入匹配，包含已应用、明确未应用、未知、资格不足和刷新失败语义。示例不执行真实 ZERP API、不使用公司数据、不代表真实后端 E2E。
+`examples/voucher` 是经公开包入口运行的普通录入、期初递归录入和只读系统矩阵。消费者侧 `EntryBlock` 展示专用值、目录准备、精确来源采用与十进制字符串；脚本有独立配置身份。合成审计按原 attempt/identity/revision/Submission 和输入匹配，包含已应用、明确未应用、未知、资格不足和刷新失败语义。示例不执行真实 ZERP API、不使用公司数据、不代表真实后端 E2E。
 
-运行/构建/独立 tgz 安装验收使用 `dev:document`、`build:document`、`check:document`。验收覆盖公开声明配对及错误拒绝、两个消费者上下文的真实浏览器创建/克隆/专用录入/来源/递归取消、附件 stage/核实/下载、审批/历史/审计、独立脚本锁与错误恢复，并检查生产构建和 CSS/字体。只读参考为原 ZERP `frontend/src/target/components/document-page/DocumentPage.vue` 的本地 Draft、克隆新身份、专用期初来源、独立脚本保存及提交核实；应用 DTO、载荷全集、编辑器和真实 API 接入留给发布后工单。
+运行/构建/独立 tgz 安装验收使用 `dev:voucher`、`build:voucher`、`check:voucher`。验收覆盖公开声明配对及错误拒绝、两个消费者上下文的真实浏览器创建/克隆/专用录入/来源/递归取消、附件 stage/核实/下载、审批/历史/审计、独立脚本锁与错误恢复，并检查生产构建和 CSS/字体。只读参考为原 ZERP `frontend/src/target/components/document-page/VoucherPage.vue` 的本地 Draft、克隆新身份、专用期初来源、独立脚本保存及提交核实；应用 DTO、载荷全集、编辑器和真实 API 接入留给发布后工单。
 
 ## 流程运行时（#13）
 
-`defineWorkflow<InstanceIdentity, NodeIdentity, Revision, Target, Document, Audit, Evidence>` 与 `WorkflowView` 封装固定的实例查询/分页、节点与审计读取、节点动作互斥、反馈、写后刷新和精确核实。Adapter 的 `list/get/audit/act` 各自使用消费者身份，不依赖模型、Session、API 路径或路由注册表。页面传入稳定 definition/Adapter、包含账号和会话代次的 scope，以及 read/audit/reconcile、actions、targets 权限事实。后端返回的节点 `eligible` 与权限 actions 取交集；CREATE_CHILD 再取节点 targets 的 key 与权限 targets 的交集。最终授权和 revision 校验仍归后端。
+`defineWorkflow<InstanceIdentity, NodeIdentity, Revision, Target, Voucher, Audit, Evidence>` 与 `WorkflowView` 封装固定的实例查询/分页、节点与审计读取、节点动作互斥、反馈、写后刷新和精确核实。Adapter 的 `list/get/audit/act` 各自使用消费者身份，不依赖模型、Session、API 路径或路由注册表。页面传入稳定 definition/Adapter、包含账号和会话代次的 scope，以及 read/audit/reconcile、actions、targets 权限事实。后端返回的节点 `eligible` 与权限 actions 取交集；CREATE_CHILD 再取节点 targets 的 key 与权限 targets 的交集。最终授权和 revision 校验仍归后端。
 
-六个动作固定为 OPEN_DOCUMENT、CREATE_CHILD、APPROVE_CHILD、REJECT_CHILD、RETRY_CHILD、CANCEL_CHILD；不接受任意状态机、脚本或字符串命令。每次动作保留原 id、scope、resource、instance、node、revision、reason；创建携带强类型 target，打开携带强类型 document。节点 label/state 与审计列由消费者映射，库不推断领域状态。输入关键字仅显式查询时采用，分页与重试使用已提交值。失败详情清除旧节点入口，重试不重放动作。实例/作用域/资源/读资格切换使迟到响应失效。
+六个动作固定为 OPEN_VOUCHER、CREATE_CHILD、APPROVE_CHILD、REJECT_CHILD、RETRY_CHILD、CANCEL_CHILD；不接受任意状态机、脚本或字符串命令。每次动作保留原 id、scope、resource、instance、node、revision、reason；创建携带强类型 target，打开携带强类型 voucher。节点 label/state 与审计列由消费者映射，库不推断领域状态。输入关键字仅显式查询时采用，分页与重试使用已提交值。失败详情清除旧节点入口，重试不重放动作。实例/作用域/资源/读资格切换使迟到响应失效。
 
 `reconcile(originalAttempt)` 只能以本次请求的精确权威审计返回 applied/not-applied（原 attemptId 与非空 Evidence）或 unknown；消费者必须核对原身份、revision、动作及完整输入。历史同类动作、当前状态相同、无审计权限或证据不足均保持 unknown。普通读取、关闭、切实例和卸载不能解除未知锁；稳定 Adapter/resource/scope 的锁在当前 JS 会话内保留，不声称浏览器重载后的持久恢复。已成功但刷新失败进入只读重试，绝不重发业务动作。核实权限或实例变化使在途核实结果失效。
 
-打开动作明确成功后通过有限的 `open-document(Document)` 事件交给消费者装配路由与单据正文；未知时不导航，核实成功后用户可以重新打开。库不接收任意页面插槽或整页控制器。`examples/workflow` 以 Vue Router 装配目标资源与已完成的 DocumentView，展示创建下级→打开目标单据→编辑/提交→返回流程→批准与审计；合成后端独立检查资格/revision，按完整原请求匹配审计，提供冲突、未知已应用/未应用/仅历史审计、刷新失败、空态和错误重试。全部为消费者侧合成数据，不代表真实授权或 ZERP API/E2E。
+打开动作明确成功后通过有限的 `open-voucher(Voucher)` 事件交给消费者装配路由与单据正文；未知时不导航，核实成功后用户可以重新打开。库不接收任意页面插槽或整页控制器。`examples/workflow` 以 Vue Router 装配目标资源与已完成的 VoucherView，展示创建下级→打开目标单据→编辑/提交→返回流程→批准与审计；合成后端独立检查资格/revision，按完整原请求匹配审计，提供冲突、未知已应用/未应用/仅历史审计、刷新失败、空态和错误重试。全部为消费者侧合成数据，不代表真实授权或 ZERP API/E2E。
 
 使用 package scripts 的 `dev:workflow`、`build:workflow`、`check:workflow`。tgz 验收在独立安装树检查声明配对、拒绝非法动作/目标/修订、生产构建及 CSS/字体，并对运行示例与独立安装消费者执行相同浏览器流程。只读行为参考为原 ZERP 的 `process-page/ProcessPage.vue`、`node-data.ts`；真实接入与旧实现删除留发布后工单。
 
@@ -196,8 +196,10 @@ createApp(App)
 | ------------------------------------------------------------------ | --------------------------------------------------------- |
 | `ZerpShell`                                                        | `AppPage`                                                 |
 | `DirectRuntime`、`defineDirect`、`DirectAction/Adapter/Definition` | `CrudView`、`defineCrud`、`CrudAction/Adapter/Definition` |
-| `ConfigurationRuntime`、`ReportRuntime`、`VersionRuntime`          | `ConfigurationView`、`ReportView`、`VersionView`          |
-| `DocumentRuntime`、`WorkflowRuntime`                               | `DocumentView`、`WorkflowView`                            |
+| `ConfigurationRuntime`、`ReportRuntime`、`VersionRuntime`          | `ConfigurationView`、`ReportView`、`DocumentView`         |
+| `DocumentRuntime`、`WorkflowRuntime`                               | `VoucherView`、`WorkflowView`                             |
 | `ListSurface`                                                      | `DataList`                                                |
+
+`Version` 定义函数及类型更名为 `Document`；原 `Document` 定义函数及类型更名为 `Voucher`。流程动作和事件分别由 `OPEN_DOCUMENT`、`open-document` 改为 `OPEN_VOUCHER`、`open-voucher`，节点及动作载荷的 `document` 改为 `voucher`。`NavigationIcon` 的 `document` 改为 `voucher`。这里的 `Document` 指资料/档案，`Voucher` 指单据。
 
 `AuthPage` 是新增的顶层组件。业务视图不再输出 `<h1>`；由 `AppPage` 或独立消费者提供页面标题。`DynamicForm`、`ReferencePicker`、各 `define*` 的领域契约及六类写入生命周期保持原有语义。

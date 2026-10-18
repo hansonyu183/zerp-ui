@@ -16,16 +16,16 @@ import {
 import DirectExample from "../direct/App.vue";
 import ConfigurationExample from "../configuration/App.vue";
 import ReportExample from "../report/App.vue";
-import VersionExample from "../version/App.vue";
 import DocumentExample from "../document/App.vue";
+import VoucherExample from "../voucher/App.vue";
 import WorkflowExample from "../workflow/App.vue";
 const route = useRoute();
 const entries = [
   ["direct", "直接维护", DirectExample],
   ["configuration", "配置", ConfigurationExample],
   ["report", "报表", ReportExample],
-  ["version", "版本档案", VersionExample],
-  ["document", "单据", DocumentExample],
+  ["document", "资料档案", DocumentExample],
+  ["voucher", "单据", VoucherExample],
   ["workflow", "流程", WorkflowExample],
 ] as const;
 const current = computed(

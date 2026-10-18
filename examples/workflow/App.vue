@@ -1,19 +1,19 @@
 <script setup lang="ts">
 const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
-import { WorkflowView, DocumentView } from "@zerp/ui";
+import { WorkflowView, VoucherView } from "@zerp/ui";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { computed, ref } from "vue";
-import { controls, workflow, documentFor, type DocumentRef } from "./adapters";
+import { controls, workflow, voucherFor, type VoucherRef } from "./adapters";
 const route = useRoute(),
   router = useRouter(),
   scope = ref("session-a");
-const documentDefinition = computed(() => documentFor(String(route.params.id)));
+const voucherDefinition = computed(() => voucherFor(String(route.params.id)));
 const permissions = {
   read: true,
   audit: true,
   reconcile: true,
   actions: [
-    "OPEN_DOCUMENT",
+    "OPEN_VOUCHER",
     "CREATE_CHILD",
     "APPROVE_CHILD",
     "REJECT_CHILD",
@@ -22,8 +22,8 @@ const permissions = {
   ] as const,
   targets: ["receipt"],
 };
-function openDocument(document: DocumentRef) {
-  void router.push(`/documents/${encodeURIComponent(document.id)}`);
+function openVoucher(voucher: VoucherRef) {
+  void router.push(`/vouchers/${encodeURIComponent(voucher.id)}`);
 }
 </script>
 <template>
@@ -54,20 +54,20 @@ function openDocument(document: DocumentRef) {
     >
     <RouterLink to="/">返回流程</RouterLink>
     <h1 v-if="showTitle">
-      {{ route.path === "/" ? workflow.title : documentDefinition.title }}
+      {{ route.path === "/" ? workflow.title : voucherDefinition.title }}
     </h1>
     <WorkflowView
       v-if="route.path === '/'"
       :definition="workflow"
       :scope="scope"
       :permissions="permissions"
-      @open-document="openDocument"
+      @open-voucher="openVoucher"
     />
     <section v-else>
       <p>消费者路由目标：{{ route.params.id }}</p>
-      <DocumentView
+      <VoucherView
         :key="String(route.params.id)"
-        :definition="documentDefinition"
+        :definition="voucherDefinition"
         :scope="scope"
         :permissions="{ read: true, write: true, reconcile: true }"
       />

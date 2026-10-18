@@ -21,7 +21,7 @@ export type ShellAccount = Readonly<{
   actions: readonly AccountIntent[];
 }>;
 export type NavigationIcon =
-  "home" | "catalog" | "settings" | "report" | "document" | "workflow";
+  "home" | "catalog" | "settings" | "report" | "voucher" | "workflow";
 export type NavigationGroup = Readonly<{
   key: string;
   caption: string;
@@ -68,7 +68,7 @@ export const navigationIcons: Record<NavigationIcon, string> = {
   catalog: "\u{F0219}",
   settings: "\u{F0493}",
   report: "\u{F0128}",
-  document: "\u{F0214}",
+  voucher: "\u{F0214}",
   workflow: "\u{F0625}",
 };
 

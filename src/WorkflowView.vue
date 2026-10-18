@@ -23,7 +23,7 @@ const props = defineProps<{
     targets: readonly string[];
   };
 }>();
-const emit = defineEmits<{ "open-document": [document: D] }>();
+const emit = defineEmits<{ "open-voucher": [voucher: D] }>();
 const result = shallowRef<Page<{ identity: I; label: string }>>({
   items: [],
   total: 0,
@@ -41,7 +41,7 @@ const keyword = ref(""),
   notice = ref("");
 const targets = ref<Record<number, string>>({});
 const captions: Record<WorkflowAction, string> = {
-  OPEN_DOCUMENT: "打开单据",
+  OPEN_VOUCHER: "打开单据",
   CREATE_CHILD: "创建下级",
   APPROVE_CHILD: "批准下级",
   REJECT_CHILD: "驳回下级",
@@ -68,7 +68,7 @@ function actions(node: WorkflowNode<N, R, T, D>) {
     (action) =>
       node.eligible.includes(action) &&
       props.permissions.actions.includes(action) &&
-      (action !== "OPEN_DOCUMENT" || node.document !== undefined) &&
+      (action !== "OPEN_VOUCHER" || node.voucher !== undefined) &&
       (action !== "CREATE_CHILD" || availableTargets(node).length > 0),
   );
 }
@@ -169,8 +169,8 @@ async function act(
   const attempt: WorkflowAttempt<I, N, R, T, D> = Object.freeze(
     operation === "CREATE_CHILD"
       ? { ...base, operation, target: clone(targetValue!.identity) }
-      : operation === "OPEN_DOCUMENT"
-        ? { ...base, operation, document: clone(node.document!) }
+      : operation === "OPEN_VOUCHER"
+        ? { ...base, operation, voucher: clone(node.voucher!) }
         : { ...base, operation },
   );
   const target = lock.value,
@@ -188,8 +188,8 @@ async function act(
       if (current(g)) {
         notice.value = "节点动作已成功。";
         await read();
-        if (current(g) && attempt.operation === "OPEN_DOCUMENT")
-          emit("open-document", clone(attempt.document));
+        if (current(g) && attempt.operation === "OPEN_VOUCHER")
+          emit("open-voucher", clone(attempt.voucher));
       }
     } else if (outcome.status === "failure") {
       target.phase = "idle";

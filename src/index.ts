@@ -38,31 +38,31 @@ export type {
   ReportDefinition,
 } from "./report";
 
-export { default as VersionView } from "./VersionView.vue";
-export { defineVersion } from "./version";
-export type {
-  VersionAction,
-  VersionSnapshot,
-  VersionArchive,
-  VersionAttempt,
-  StageAttempt,
-  VersionReconciliation,
-  VersionAdapter,
-  VersionDefinition,
-} from "./version";
-
 export { default as DocumentView } from "./DocumentView.vue";
 export { defineDocument } from "./document";
 export type {
-  DocumentIdentity,
+  DocumentAction,
   DocumentSnapshot,
   DocumentArchive,
   DocumentAttempt,
-  DocumentStageAttempt,
+  StageAttempt,
   DocumentReconciliation,
   DocumentAdapter,
   DocumentDefinition,
 } from "./document";
+
+export { default as VoucherView } from "./VoucherView.vue";
+export { defineVoucher } from "./voucher";
+export type {
+  VoucherIdentity,
+  VoucherSnapshot,
+  VoucherArchive,
+  VoucherAttempt,
+  VoucherStageAttempt,
+  VoucherReconciliation,
+  VoucherAdapter,
+  VoucherDefinition,
+} from "./voucher";
 
 export { default as WorkflowView } from "./WorkflowView.vue";
 export { defineWorkflow } from "./workflow";

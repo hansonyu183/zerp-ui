@@ -1,10 +1,10 @@
 import type { Page } from "./contracts";
 import type {
-  VersionDefinition,
-  VersionAdapter,
-  VersionArchive,
-  VersionSnapshot,
-} from "./version";
+  DocumentDefinition,
+  DocumentAdapter,
+  DocumentArchive,
+  DocumentSnapshot,
+} from "./document";
 // Private shared contract for the two fixed submission lifecycles.
 export type SubmissionDefinition<
   D extends object,
@@ -14,10 +14,10 @@ export type SubmissionDefinition<
   H,
   A extends object,
   E,
-> = Omit<VersionDefinition<D, I, S, O, H, A, E>, "adapter"> & {
-  adapter: Omit<VersionAdapter<D, I, S, O, H, A>, "query"> &
-    Partial<Pick<VersionAdapter<D, I, S, O, H, A>, "query">>;
-  documents?: {
+> = Omit<DocumentDefinition<D, I, S, O, H, A, E>, "adapter"> & {
+  adapter: Omit<DocumentAdapter<D, I, S, O, H, A>, "query"> &
+    Partial<Pick<DocumentAdapter<D, I, S, O, H, A>, "query">>;
+  vouchers?: {
     list(input: {
       scope: string;
       page: number;
@@ -26,12 +26,12 @@ export type SubmissionDefinition<
     get(input: {
       scope: string;
       identity: I;
-    }): Promise<VersionArchive<D, I, S, O, H, A>>;
-    empty?(input: { scope: string }): VersionSnapshot<D, I, S, O, H>;
-    canClone?(source: VersionSnapshot<D, I, S, O, H>): boolean;
+    }): Promise<DocumentArchive<D, I, S, O, H, A>>;
+    empty?(input: { scope: string }): DocumentSnapshot<D, I, S, O, H>;
+    canClone?(source: DocumentSnapshot<D, I, S, O, H>): boolean;
     clone?(input: {
       scope: string;
-      source: VersionSnapshot<D, I, S, O, H>;
-    }): VersionSnapshot<D, I, S, O, H>;
+      source: DocumentSnapshot<D, I, S, O, H>;
+    }): DocumentSnapshot<D, I, S, O, H>;
   };
 };
