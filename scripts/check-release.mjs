@@ -15,13 +15,24 @@ assert.equal(
 );
 const sourceSHA = git("rev-parse", "HEAD");
 const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-assert.equal(pkg.version, "0.2.0");
+assert.equal(pkg.version, "0.2.1");
 const dir = join(root, ".scratch", "release", sourceSHA);
 await mkdir(dir, { recursive: true });
 const commands = [];
 const run = (command, args) => {
-  execFileSync(command, args, { cwd: root, stdio: "inherit" });
+  try {
+    execFileSync(command, args, {
+      cwd: root,
+      encoding: "utf8",
+      maxBuffer: 32 << 20,
+    });
+  } catch (error) {
+    if (error.stdout) process.stderr.write(error.stdout);
+    if (error.stderr) process.stderr.write(error.stderr);
+    throw error;
+  }
   commands.push({ command: [command, ...args], exitCode: 0 });
+  console.log(`✓ ${command} ${args.join(" ")}`);
 };
 // A downloaded release can be checked without repacking it.
 const artifactIndex = process.argv.indexOf("--tgz");
@@ -29,7 +40,7 @@ assert.ok(
   artifactIndex < 0 || process.argv[artifactIndex + 1],
   "--tgz requires a path",
 );
-for (const script of ["build", "typecheck", "lint", "format:check"])
+for (const script of ["typecheck", "lint", "format:check"])
   run("pnpm", [script]);
 if (artifactIndex < 0) run("pnpm", ["test"]);
 const slices = [
@@ -104,4 +115,12 @@ if (artifactIndex < 0)
     join(dir, "SHA256SUMS"),
     `${artifact.sha256}  zerp-ui-${pkg.version}.tgz\n`,
   );
-console.log(JSON.stringify(report, null, 2));
+console.log(
+  JSON.stringify({
+    sourceSHA,
+    version: pkg.version,
+    sha256: artifact.sha256,
+    slices: evidence.map(({ name, exitCode }) => ({ name, exitCode })),
+    exitCode: report.exitCode,
+  }),
+);

@@ -23,8 +23,15 @@ const configuration = process.argv.includes("--configuration");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const commands = [];
 const run = (cmd, args, cwd = root) => {
-  execFileSync(cmd, args, { cwd, stdio: "inherit" });
+  try {
+    execFileSync(cmd, args, { cwd, encoding: "utf8", maxBuffer: 32 << 20 });
+  } catch (error) {
+    if (error.stdout) process.stderr.write(error.stdout);
+    if (error.stderr) process.stderr.write(error.stderr);
+    throw error;
+  }
   commands.push({ command: [cmd, ...args], cwd, exitCode: 0 });
+  console.log(`✓ ${cmd} ${args.join(" ")}`);
 };
 await mkdir(join(root, ".scratch"), { recursive: true });
 const dir = await mkdtemp(join(root, ".scratch/package-check-"));
@@ -354,7 +361,14 @@ try {
       JSON.stringify(report, null, 2) + "\n",
     );
   }
-  console.log(JSON.stringify(report, null, 2));
+  console.log(
+    JSON.stringify({
+      slice: exampleName,
+      sourceBase: sha,
+      sha256: report.sha256,
+      exitCode: report.exitCode,
+    }),
+  );
 } finally {
   await browser?.close();
   if (server)

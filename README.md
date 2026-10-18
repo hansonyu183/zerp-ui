@@ -1,6 +1,6 @@
 # ZERP UI
 
-独立的 Vue/Vuetify 组件库 `@zerp/ui@0.2.0`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
+独立的 Vue/Vuetify 组件库 `@zerp/ui@0.2.1`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
 
 ## 公开组件层级
 
@@ -14,11 +14,11 @@
 
 ## 固定版本安装
 
-从 [ui-v0.2.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.2.0) 下载 `zerp-ui-0.2.0.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
+从 [ui-v0.2.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.2.1) 下载 `zerp-ui-0.2.1.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-npm install --save-exact ./zerp-ui-0.2.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
+npm install --save-exact ./zerp-ui-0.2.1.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
 ```
 
 将 tgz 放在消费者项目的固定路径并提交相应 lockfile；不要使用 latest、源码别名或 registry 同名包。首发基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0，peer 范围分别为 `~3.5.40`、`~4.1.5`、`~5.2.0`。宿主各提供唯一实例；MDI 字体是已声明的直接依赖，发布包自带所需 woff2 及字体许可证，无需 CDN。Node 26 是本库与独立消费者构建验收基线；消费的是编译后 ESM、声明和 CSS，不需要克隆 ZERP、编译库源码或安装自动导入插件。
@@ -27,7 +27,7 @@ npm install --save-exact ./zerp-ui-0.2.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router
 
 使用 Node 26 和 packageManager 指定的 pnpm。先 `pnpm install --frozen-lockfile`、`pnpm build`，再运行 `pnpm dev`。示例经包公开入口加载编译产物；修改库后重新 build。其余可用命令见 package.json scripts。
 
-`pnpm check:package` 打包当前 dist，在本库 `.scratch/package-check-*/consumer` 新建独立 manifest/安装树，使用 npm 实际安装同一 tgz；不继承仓库别名或 workspace。检查声明推导、错误类型配对拒绝、生产构建、字体/CSS、私有出口拒绝、浏览器新增/修改及 20 个消费者示例。需要先安装 Playwright Chromium。各切片检查支持 `--tgz <绝对路径>` 复用指定工件。证据 JSON 记录源码基线 SHA、tgz SHA-256、安装目录与退出码。脚本在 finally 中关闭自己启动的浏览器和预览服务器，保留可复核安装工件；可删除该次 package-check 目录回收磁盘。
+`pnpm check:package` 与各 `check:<切片>` 命令先构建当前库和对应示例，再打包当前 dist，在本库 `.scratch/package-check-*/consumer` 新建独立 manifest/安装树，使用 npm 实际安装同一 tgz；不继承仓库别名或 workspace。检查声明推导、错误类型配对拒绝、生产构建、字体/CSS、私有出口拒绝、浏览器新增/修改及 20 个消费者示例。需要先安装 Playwright Chromium。各切片检查支持 `--tgz <绝对路径>` 复用指定工件。证据 JSON 记录源码基线 SHA、tgz SHA-256、安装目录与退出码。脚本在 finally 中关闭自己启动的浏览器和预览服务器，保留可复核安装工件；可删除该次 package-check 目录回收磁盘。
 
 测试仅使用合成资料与模拟 Adapter，不连接 ZERP API、数据库或生产数据，也不代表真实 ZERP E2E。ZERP 源码、依赖与部署保持原状；真实接入由发布后的[独立工单](https://github.com/hansonyu183/zerp/issues/520)完成。
 
@@ -53,7 +53,7 @@ createApp(App)
   .mount("#app");
 ```
 
-完整的强类型定义、合成 Adapter 与可运行装配见 [独立示例](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.2.0/examples)，`examples/shell` 组合全部运行时；消费者可按需复制示例装配，而无需编译库源码。包包含 ESM、完整声明、限定作用域的 CSS、字体及字体授权。消费者无需编译库内 Vue/TS，也无需自动导入插件。所有示例均使用公开导出。
+完整的强类型定义、合成 Adapter 与可运行装配见 [独立示例](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.2.1/examples)，`examples/shell` 组合全部运行时；消费者可按需复制示例装配，而无需编译库源码。包包含 ESM、完整声明、限定作用域的 CSS、字体及字体授权。消费者无需编译库内 Vue/TS，也无需自动导入插件。所有示例均使用公开导出。
 
 ## 顶层页面
 
@@ -164,7 +164,7 @@ createApp(App)
 
 `examples/voucher` 是经公开包入口运行的普通录入、期初递归录入和只读系统矩阵。消费者侧 `EntryBlock` 展示专用值、目录准备、精确来源采用与十进制字符串；脚本有独立配置身份。合成审计按原 attempt/identity/revision/Submission 和输入匹配，包含已应用、明确未应用、未知、资格不足和刷新失败语义。示例不执行真实 ZERP API、不使用公司数据、不代表真实后端 E2E。
 
-运行/构建/独立 tgz 安装验收使用 `dev:voucher`、`build:voucher`、`check:voucher`。验收覆盖公开声明配对及错误拒绝、两个消费者上下文的真实浏览器创建/克隆/专用录入/来源/递归取消、附件 stage/核实/下载、审批/历史/审计、独立脚本锁与错误恢复，并检查生产构建和 CSS/字体。只读参考为原 ZERP `frontend/src/target/components/document-page/VoucherPage.vue` 的本地 Draft、克隆新身份、专用期初来源、独立脚本保存及提交核实；应用 DTO、载荷全集、编辑器和真实 API 接入留给发布后工单。
+运行/构建/独立 tgz 安装验收使用 `dev:voucher`、`build:voucher`、`check:voucher`。验收覆盖公开声明配对及错误拒绝、两个消费者上下文的真实浏览器创建/克隆/专用录入/来源/递归取消、附件 stage/核实/下载、审批/历史/审计、独立脚本锁与错误恢复，并检查生产构建和 CSS/字体。只读参考为原 ZERP `frontend/src/target/components/document-page/DocumentPage.vue` 的本地 Draft、克隆新身份、专用期初来源、独立脚本保存及提交核实；应用 DTO、载荷全集、编辑器和真实 API 接入留给发布后工单。
 
 ## 流程运行时（#13）
 
