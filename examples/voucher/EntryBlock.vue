@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import {
-  DynamicForm,
   ReferencePicker,
+  VoucherEditor,
   type ConfigurationBlockProps,
-  type Fields,
+  type VoucherEditorDefinition,
+  type VoucherEditorValue,
 } from "@zerp/ui";
 import type { Entry } from "./adapters";
 const props =
@@ -14,32 +15,42 @@ const props =
       readonly { id: string; label: string; revision: string }[]
     >
   >();
-const fields: Fields<Pick<Entry["entry"], "amount" | "rows">> = [
-  { key: "amount", label: "精确金额", type: "decimal" },
-  {
-    key: "rows",
-    label: "期初行",
-    type: "rows",
-    empty: () => ({ name: "新行", children: [] }),
-    fields: [
-      { key: "name", label: "行名称", type: "text" },
-      {
-        key: "children",
-        label: "子项",
-        type: "rows",
-        empty: () => ({ amount: "0.0100" }),
-        fields: [{ key: "amount", label: "子项金额", type: "decimal" }],
-      },
-    ],
-  },
-];
+type Header = Pick<Entry["entry"], "amount">;
+type Row = Entry["entry"]["rows"][number];
+type Child = Row["children"][number];
+let nextRow = 0;
+const sheet: VoucherEditorDefinition<Header, Row, Child> = {
+  headerFields: [{ key: "amount", label: "精确金额", type: "decimal" }],
+  rowFields: [{ key: "name", label: "行名称", type: "text" }],
+  columns: [
+    { key: "name", label: "行名称" },
+    {
+      key: "children",
+      label: "配方",
+      type: "children",
+      fields: [{ key: "amount", label: "子项金额", type: "decimal" }],
+      empty: () => ({ amount: "0.0100" }),
+      summary: (children) => `${children.length} 项`,
+    },
+  ],
+  rowKey: (row) => row.id,
+  emptyRow: () => ({
+    id: `synthetic-row-${++nextRow}`,
+    name: "新行",
+    children: [],
+  }),
+};
 const value = computed(() => ({
-  amount: props.modelValue.amount,
+  header: { amount: props.modelValue.amount },
   rows: props.modelValue.rows,
 }));
-function change(v: typeof value.value) {
+function change(v: VoucherEditorValue<Header, Row>) {
   if (!props.disabled)
-    props["onUpdate:modelValue"]?.({ ...props.modelValue, ...v });
+    props["onUpdate:modelValue"]?.({
+      ...props.modelValue,
+      amount: v.header.amount,
+      rows: [...v.rows],
+    });
 }
 const preparing = ref(false),
   formPending = ref(false),
@@ -84,13 +95,14 @@ const source = {
     >
       准备录入目录
     </button>
-    <DynamicForm
+    <VoucherEditor
+      v-bind="sheet"
       :model-value="value"
-      :fields="fields"
       scope="synthetic-entry"
+      :mode="mode"
       :disabled="disabled"
-      :onUpdate:modelValue="change"
-      :onPending="
+      @update:model-value="change"
+      @pending="
         (v) => {
           formPending = v;
           pending();

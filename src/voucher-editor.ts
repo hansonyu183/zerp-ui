@@ -6,7 +6,9 @@ export type VoucherEditorValue<H extends object, R extends object> = {
 };
 
 export type VoucherEditorChildColumn<R extends object, C extends object> = {
-  key: Extract<keyof R, string>;
+  key: {
+    [K in Extract<keyof R, string>]: R[K] extends readonly C[] ? K : never;
+  }[Extract<keyof R, string>];
   label: string;
   type: "children";
   fields: Fields<C>;

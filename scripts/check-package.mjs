@@ -331,7 +331,7 @@ try {
             ]
           : voucherMode
             ? [
-                "voucher create/clone/edit, recursive drafts, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
+                "voucher header/detail/child dialog, local and outer draft cancellation, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
               ]
             : documentMode
               ? [
@@ -637,6 +637,10 @@ async function documentSmoke(page) {
 
 async function voucherSmoke(page) {
   const button = (name) => page.getByRole("button", { name, exact: true });
+  const standalone = page.getByRole("region", {
+    name: "独立单据编辑展示示例",
+    exact: true,
+  });
   const scenario = (value) => page.getByLabel("写入情景").selectOption(value);
   const value = () => page.getByRole("textbox", { name: "名称", exact: true });
   const expectValue = async (field, expected) =>
@@ -644,6 +648,21 @@ async function voucherSmoke(page) {
   await page
     .getByRole("heading", { name: "合成单据 · ordinary", exact: true })
     .waitFor();
+  const ordinary = page.getByRole("region", {
+    name: "合成单据 · ordinary",
+    exact: true,
+  });
+  await standalone.getByRole("button", { name: "编辑配方 · 明细行 1" }).click();
+  await standalone.getByRole("button", { name: "新增配方" }).click();
+  await standalone.getByLabel("原料").fill("合成原料甲");
+  await standalone.getByLabel("用量").fill("0.0100");
+  await standalone.getByRole("button", { name: "确定子项" }).click();
+  await standalone.getByRole("button", { name: "确定配方" }).click();
+  assert.ok(
+    (
+      await standalone.getByRole("table", { name: "单据明细" }).textContent()
+    )?.includes("1 项"),
+  );
   await button("创建 Draft").click();
   await value().fill("合成新单据");
   await expectValue(page.getByLabel("精确金额"), "9007199254740993.0100");
@@ -674,6 +693,10 @@ async function voucherSmoke(page) {
     .getByRole("status")
     .filter({ hasText: "业务写入结果未知" })
     .waitFor();
+  assert.equal(
+    await ordinary.getByRole("button", { name: "新增明细行" }).count(),
+    0,
+  );
   await button("关闭编辑").click();
   await button("核实本次请求").click();
   await page
@@ -723,19 +746,40 @@ async function voucherSmoke(page) {
   await scenario("success");
   await page.getByLabel("单据示例").selectOption("opening");
   await button("创建 Draft").click();
-  await button("新增期初行").click();
+  const opening = page.getByRole("region", {
+    name: "合成单据 · opening",
+    exact: true,
+  });
+  const openingButton = (name) =>
+    opening.getByRole("button", { name, exact: true });
+  await openingButton("新增明细行").click();
   await page.getByLabel("行名称").fill("取消行");
-  await button("新增子项").click();
-  await page.getByLabel("子项金额").fill("0.0100");
-  await button("确定子项").first().click();
-  await button("取消子项").click();
+  await openingButton("取消明细行").click();
   assert.equal(await page.getByText("取消行", { exact: true }).count(), 0);
-  await button("新增期初行").click();
+  await openingButton("新增明细行").click();
   await page.getByLabel("行名称").fill("保留行");
-  await button("确定子项").click();
+  await openingButton("确定明细行").click();
+  await openingButton("编辑配方 · 明细行 1").click();
+  await openingButton("新增配方").click();
+  await opening.getByLabel("子项金额").fill("2.5000");
+  await openingButton("确定子项").click();
+  await openingButton("取消配方").click();
+  assert.ok(
+    (
+      await opening.getByRole("table", { name: "单据明细" }).textContent()
+    )?.includes("0 项"),
+  );
+  await openingButton("编辑配方 · 明细行 1").click();
+  await openingButton("新增配方").click();
+  await opening.getByLabel("子项金额").fill("2.5000");
+  await openingButton("确定子项").click();
+  await openingButton("确定配方").click();
   await button("提交单据").click();
   await button("查看 SYN-2").click();
   await page.getByText(/保留行/).waitFor();
+  await openingButton("查看配方 · 明细行 1").click();
+  assert.equal(await openingButton("确定配方").count(), 0);
+  await openingButton("关闭配方").click();
   await page.getByLabel("单据示例").selectOption("system");
   await button("查看 SYN-system").click();
   assert.equal(await button("创建 Draft").count(), 0);

@@ -14,7 +14,7 @@ export type Entry = {
   entry: {
     amount: string;
     source: { id: string; label: string; snapshot?: unknown } | null;
-    rows: { name: string; children: { amount: string }[] }[];
+    rows: { id: string; name: string; children: { amount: string }[] }[];
   };
 };
 export type Submission = { id: string; adopted: string };

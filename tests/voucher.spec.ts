@@ -306,7 +306,7 @@ it("resumes a staged clone with its original source identity even after navigati
   expect(d.adapter.attachments.stage).toHaveBeenCalledTimes(1);
   w.unmount();
 });
-it("keeps recursive confirmations local, cancels the parent draft and adopts exact source snapshots in a dedicated block", async () => {
+it("keeps voucher row and formula drafts local, then submits the exact adopted source", async () => {
   const { sample } = await import("../examples/voucher/adapters");
   const { default: EntryBlock } =
     await import("../examples/voucher/EntryBlock.vue");
@@ -333,18 +333,18 @@ it("keeps recursive confirmations local, cancels the parent draft and adopts exa
   });
   await flushPromises();
   await click(w, "创建 Draft");
-  await click(w, "新增期初行");
+  await click(w, "新增明细行");
   await w.get('input[aria-label="行名称"]').setValue("取消父行");
-  await click(w, "新增子项");
-  await w.get('input[aria-label="子项金额"]').setValue("123.4500");
-  const confirms = w.findAll("button").filter((b) => b.text() === "确定子项");
-  await confirms[0]!.trigger("click");
-  await flushPromises();
-  await click(w, "取消子项");
+  await click(w, "取消明细行");
   expect(w.text()).not.toContain("取消父行");
-  await click(w, "新增期初行");
+  await click(w, "新增明细行");
   await w.get('input[aria-label="行名称"]').setValue("保留行");
+  await click(w, "确定明细行");
+  await click(w, "编辑配方 · 明细行 1");
+  await click(w, "新增配方");
+  await w.get('input[aria-label="子项金额"]').setValue("123.4500");
   await click(w, "确定子项");
+  await click(w, "确定配方");
   await click(w, "精确来源甲");
   await flushPromises();
   expect(w.text()).toContain("source-r7");
@@ -360,18 +360,35 @@ it("keeps recursive confirmations local, cancels the parent draft and adopts exa
             label: "精确来源甲",
             snapshot: { revision: "source-r7", rate: "0.0100" },
           },
-          rows: [{ name: "保留行", children: [] }],
+          rows: [
+            expect.objectContaining({
+              id: expect.any(String),
+              name: "保留行",
+              children: [{ amount: "123.4500" }],
+            }),
+          ],
         },
       },
     }),
   );
   await click(w, "创建 Draft");
   await w.get('input[aria-label="名称"]').setValue("取消整个草稿");
+  await click(w, "新增明细行");
+  await w.get('input[aria-label="行名称"]').setValue("取消整单的行");
+  await click(w, "确定明细行");
+  await click(w, "编辑配方 · 明细行 1");
+  await click(w, "新增配方");
+  await w.get('input[aria-label="子项金额"]').setValue("9.9999");
+  await click(w, "确定子项");
+  await click(w, "确定配方");
   await click(w, "关闭编辑");
   await click(w, "创建 Draft");
   expect(w.get('input[aria-label="名称"]').element).toHaveProperty(
     "value",
     "合成期初",
+  );
+  expect(w.find('table[aria-label="单据明细"]').text()).not.toContain(
+    "取消整单的行",
   );
   w.unmount();
 });

@@ -162,7 +162,9 @@ createApp(App)
 
 可选 `script: {definition, permissions}` 使用强类型 `ConfigurationDefinition` 装配独立脚本维护。脚本资源/Adapter 与单据分离，脚本保存保持自己的原 identity/revision/input/attempt 和精确核实；库不执行脚本。脚本 pending/unknown/刷新锁阻止单据写入，单据写入锁阻止脚本保存；普通读取或关闭脚本不能解除未知锁。脚本不通过领域区块取得最终提交或解锁权限。与单据有关的脚本定义和 Adapter 在会话内保持稳定，不应移除装配绕过锁。
 
-`examples/voucher` 是经公开包入口运行的普通录入、期初递归录入和只读系统矩阵。消费者侧 `EntryBlock` 展示专用值、目录准备、精确来源采用与十进制字符串；脚本有独立配置身份。合成审计按原 attempt/identity/revision/Submission 和输入匹配，包含已应用、明确未应用、未知、资格不足和刷新失败语义。示例不执行真实 ZERP API、不使用公司数据、不代表真实后端 E2E。
+`VoucherEditor` 是公开的表头＋明细编辑展示组件，也可独立使用。消费者用 `VoucherEditorDefinition<Header, Row, Child>` 提供表头字段、明细字段/列、稳定的行 key、新行值及可选的子条目列；`VoucherEditorValue` 只包含表头和明细。子条目列通过受限字段定义、空子项和文字摘要接入，“配方”是示例名称。组件只回传局部值与 pending：弹窗确定更新目标行，取消不回传；切 scope、实例或行集合时旧弹窗失效。将其放入 `VoucherView` 的专用 `blocks` 时，区块只映射所辖值，最终提交、刷新、审批和未知结果锁仍由单据运行时持有。数量和金额保持消费者提供的十进制字符串，库不计算合计或配方。
+
+`examples/voucher` 是经公开包入口运行的普通录入、期初表头/明细/配方录入、只读系统和独立组件矩阵。消费者侧 `EntryBlock` 展示局部区块接入、目录准备、精确来源采用与十进制字符串；脚本有独立配置身份。合成审计按原 attempt/identity/revision/Submission 和输入匹配，包含已应用、明确未应用、未知、资格不足和刷新失败语义。示例不执行真实 ZERP API、不使用公司数据、不代表真实后端 E2E。
 
 运行/构建/独立 tgz 安装验收使用 `dev:voucher`、`build:voucher`、`check:voucher`。验收覆盖公开声明配对及错误拒绝、两个消费者上下文的真实浏览器创建/克隆/专用录入/来源/递归取消、附件 stage/核实/下载、审批/历史/审计、独立脚本锁与错误恢复，并检查生产构建和 CSS/字体。只读参考为原 ZERP `frontend/src/target/components/document-page/DocumentPage.vue` 的本地 Draft、克隆新身份、专用期初来源、独立脚本保存及提交核实；应用 DTO、载荷全集、编辑器和真实 API 接入留给发布后工单。
 
