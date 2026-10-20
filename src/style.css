@@ -71,6 +71,24 @@
   text-align: start;
   border-bottom: 1px solid #888;
 }
+.zerp-voucher-editor__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: #0008;
+}
+.zerp-voucher-editor__overlay > [role="dialog"] {
+  width: min(100%, 720px);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1rem;
+  border-radius: 6px;
+  background: rgb(var(--v-theme-surface, 255, 255, 255));
+  color: rgb(var(--v-theme-on-surface, 0, 0, 0));
+}
 .zerp-list th,
 .zerp-list td {
   padding: 0.5rem;

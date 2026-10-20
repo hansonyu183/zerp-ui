@@ -82,6 +82,7 @@ function begin(field: Extract<AnyField, { type: "rows" }>, index: number) {
     value: clone(index < 0 ? field.empty() : rows(field.key)[index]),
     fields: field.fields,
   };
+  pending("$editing", true);
 }
 function confirm() {
   const e = editing.value;
@@ -91,6 +92,12 @@ function confirm() {
   else next[e.index] = clone(e.value);
   set(e.key, next);
   editing.value = null;
+  pending("$editing", false);
+}
+function cancelEditing() {
+  editing.value = null;
+  pending("$child", false);
+  pending("$editing", false);
 }
 watch(
   () => [props.scope, props.fields],
@@ -268,14 +275,7 @@ onBeforeUnmount(() => emit("pending", false));
         @click="confirm"
       >
         确定子项</button
-      ><button
-        type="button"
-        :disabled="disabled"
-        @click="
-          editing = null;
-          pending('$child', false);
-        "
-      >
+      ><button type="button" :disabled="disabled" @click="cancelEditing">
         取消子项
       </button>
     </section>

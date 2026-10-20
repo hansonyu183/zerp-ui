@@ -56,6 +56,8 @@ export { default as VoucherEditor } from "./VoucherEditor.vue";
 export type {
   VoucherEditorValue,
   VoucherEditorDefinition,
+  VoucherEditorColumn,
+  VoucherEditorChildColumn,
 } from "./voucher-editor";
 export { defineVoucher } from "./voucher";
 export type {

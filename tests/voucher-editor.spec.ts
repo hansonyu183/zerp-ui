@@ -88,3 +88,131 @@ it("adds and confirms deletion of a detail row", async () => {
   expect(value.value.rows.map((row) => row.id)).toEqual(["two"]);
   wrapper.unmount();
 });
+type Formula = { material: string; amount: string };
+type FormulaRow = Row & { formula: Formula[] };
+function formulaEditor(mode: "read" | "edit" = "edit") {
+  const value = ref<VoucherEditorValue<Header, FormulaRow>>({
+    header: initial.header,
+    rows: [
+      { id: "one", name: "甲", quantity: "1", formula: [] },
+      { id: "two", name: "乙", quantity: "2", formula: [] },
+    ],
+  });
+  const scope = ref("synthetic");
+  const wrapper = mount(
+    defineComponent({
+      setup: () => () =>
+        h(VoucherEditor as Component, {
+          modelValue: value.value,
+          scope: scope.value,
+          mode,
+          headerFields: [],
+          rowFields: [{ key: "name", label: "品名", type: "text" }],
+          columns: [
+            { key: "name", label: "品名" },
+            {
+              key: "formula",
+              label: "配方",
+              type: "children",
+              fields: [
+                { key: "material", label: "原料", type: "text" },
+                { key: "amount", label: "用量", type: "decimal" },
+              ],
+              empty: () => ({ material: "", amount: "" }),
+              summary: (children: readonly Formula[]) =>
+                `${children.length} 项`,
+            },
+          ],
+          rowKey: (row: FormulaRow) => row.id,
+          emptyRow: () => ({ id: "new", name: "", quantity: "", formula: [] }),
+          "onUpdate:modelValue": (
+            next: VoucherEditorValue<Header, FormulaRow>,
+          ) => (value.value = next),
+        }),
+    }),
+    { attachTo: document.body },
+  );
+  return { wrapper, value, scope };
+}
+it("edits only the selected row's formula children and discards cancelled changes", async () => {
+  const { wrapper, value } = formulaEditor();
+  await click(wrapper, "编辑配方 · 明细行 2");
+  await click(wrapper, "新增配方");
+  await wrapper.get('input[aria-label="原料"]').setValue("合成原料");
+  await wrapper.get('input[aria-label="用量"]').setValue("0.0100");
+  await click(wrapper, "确定子项");
+  await click(wrapper, "取消配方");
+  expect(value.value.rows[1].formula).toEqual([]);
+  await click(wrapper, "编辑配方 · 明细行 2");
+  await click(wrapper, "新增配方");
+  await wrapper.get('input[aria-label="原料"]').setValue("合成原料");
+  await wrapper.get('input[aria-label="用量"]').setValue("0.0100");
+  await click(wrapper, "确定子项");
+  await click(wrapper, "确定配方");
+  expect(value.value.rows[0].formula).toEqual([]);
+  expect(value.value.rows[1].formula).toEqual([
+    { material: "合成原料", amount: "0.0100" },
+  ]);
+  expect(wrapper.find("table").text()).toContain("1 项");
+  wrapper.unmount();
+});
+it("discards an open formula draft on scope change and allows read-only inspection", async () => {
+  const { wrapper, value, scope } = formulaEditor();
+  await click(wrapper, "编辑配方 · 明细行 2");
+  await click(wrapper, "新增配方");
+  await wrapper.get('input[aria-label="原料"]').setValue("迟到原料");
+  scope.value = "other";
+  await flushPromises();
+  expect(
+    wrapper.find('[role="dialog"][aria-label="配方 · 明细行 2"]').exists(),
+  ).toBe(false);
+  expect(value.value.rows[1].formula).toEqual([]);
+  wrapper.unmount();
+  const read = formulaEditor("read");
+  await click(read.wrapper, "查看配方 · 明细行 1");
+  expect(
+    read.wrapper.find('[role="dialog"][aria-label="配方 · 明细行 1"]').exists(),
+  ).toBe(true);
+  expect(
+    read.wrapper.findAll("button").some((b) => b.text() === "确定配方"),
+  ).toBe(false);
+  read.wrapper.unmount();
+});
+it("moves focus into the formula dialog and restores it on close", async () => {
+  const { wrapper } = formulaEditor();
+  const trigger = wrapper
+    .findAll("button")
+    .find((b) => b.text() === "编辑配方 · 明细行 1")!;
+  await trigger.trigger("click");
+  await flushPromises();
+  expect(document.activeElement?.textContent).toContain("取消配方");
+  await click(wrapper, "取消配方");
+  expect(document.activeElement).toBe(trigger.element);
+  wrapper.unmount();
+});
+it("keeps the formula draft pending while a child row is being edited", async () => {
+  const { wrapper, value } = formulaEditor();
+  await click(wrapper, "编辑配方 · 明细行 1");
+  await click(wrapper, "新增配方");
+  expect(
+    wrapper
+      .findAll("button")
+      .find((b) => b.text() === "确定配方")!
+      .attributes("disabled"),
+  ).toBeDefined();
+  await click(wrapper, "取消子项");
+  await click(wrapper, "确定配方");
+  expect(value.value.rows[0].formula).toEqual([]);
+  wrapper.unmount();
+});
+it("drops a formula draft if the parent rows change while it is open", async () => {
+  const { wrapper, value } = formulaEditor();
+  await click(wrapper, "编辑配方 · 明细行 1");
+  value.value = { ...value.value, rows: [...value.value.rows].reverse() };
+  await flushPromises();
+  expect(
+    wrapper.find('[role="dialog"][aria-label="配方 · 明细行 1"]').exists(),
+  ).toBe(false);
+  expect(value.value.rows.map((row) => row.formula)).toEqual([[], []]);
+  wrapper.unmount();
+});

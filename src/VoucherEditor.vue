@@ -1,17 +1,31 @@
-<script setup lang="ts" generic="H extends object, R extends object">
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+<script
+  setup
+  lang="ts"
+  generic="H extends object, R extends object, C extends object = object"
+>
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import { clone } from "./clone";
 import DynamicForm from "./DynamicForm.vue";
-import type { Column } from "./contracts";
+import type { Fields } from "./contracts";
 import type {
+  VoucherEditorChildColumn,
+  VoucherEditorColumn,
   VoucherEditorDefinition,
   VoucherEditorValue,
 } from "./voucher-editor";
 
 const props = defineProps<
-  VoucherEditorDefinition<H, R> & {
+  VoucherEditorDefinition<H, R, C> & {
     modelValue: VoucherEditorValue<H, R>;
     scope: string;
+    instance?: string | number;
     mode: "read" | "edit";
     disabled?: boolean;
   }
@@ -26,16 +40,33 @@ const visibleColumns = computed(() =>
 );
 const editing = shallowRef<{ key: string | null; value: R } | null>(null);
 const deleting = ref<string | null>(null);
+const childEditing = shallowRef<{
+  parentKey: string;
+  column: VoucherEditorChildColumn<R, C>;
+  rows: C[];
+  sourceRows: readonly R[];
+} | null>(null);
+let childTrigger: HTMLButtonElement | null = null;
+const childClose = ref<HTMLButtonElement | null>(null);
+const childDialog = ref<HTMLElement | null>(null);
 const headerPending = ref(false);
 const rowPending = ref(false);
+const childPending = ref(false);
 function pending() {
-  emit("pending", headerPending.value || rowPending.value);
+  emit(
+    "pending",
+    headerPending.value || rowPending.value || childPending.value,
+  );
 }
 function setHeader(value: H) {
   if (writable.value)
     emit("update:modelValue", { ...props.modelValue, header: clone(value) });
 }
-function display(row: R, column: Column<R>) {
+function display(row: R, column: VoucherEditorColumn<R, C>) {
+  if (column.type === "children") {
+    const children = row[column.key];
+    return column.summary(Array.isArray(children) ? (children as C[]) : []);
+  }
   const value = row[column.key];
   return value === null || value === undefined
     ? "—"
@@ -47,6 +78,86 @@ function display(row: R, column: Column<R>) {
         ? (column.options?.find((option) => option.value === value)?.label ??
           String(value))
         : String(value);
+}
+function beginChild(
+  row: R,
+  column: VoucherEditorChildColumn<R, C>,
+  event: MouseEvent,
+) {
+  if (childEditing.value || editing.value) return;
+  childTrigger = event.currentTarget as HTMLButtonElement;
+  childEditing.value = {
+    parentKey: props.rowKey(row),
+    column,
+    rows: clone(Array.isArray(row[column.key]) ? (row[column.key] as C[]) : []),
+    sourceRows: props.modelValue.rows,
+  };
+  nextTick(() => childClose.value?.focus());
+}
+const childFields = computed(
+  () =>
+    (childEditing.value
+      ? [
+          {
+            key: "items",
+            label: childEditing.value.column.label,
+            type: "rows",
+            fields: childEditing.value.column.fields,
+            empty: childEditing.value.column.empty,
+          },
+        ]
+      : []) as unknown as Fields<{ items: C[] }>,
+);
+function cancelChild(restoreFocus = true) {
+  childEditing.value = null;
+  childPending.value = false;
+  pending();
+  if (restoreFocus)
+    nextTick(() => {
+      if (childTrigger?.isConnected) childTrigger.focus();
+      childTrigger = null;
+    });
+  else childTrigger = null;
+}
+function childKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    cancelChild();
+    return;
+  }
+  if (event.key !== "Tab" || !childDialog.value) return;
+  const focusable = Array.from(
+    childDialog.value.querySelectorAll<HTMLElement>(
+      "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)",
+    ),
+  );
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+function finishChild() {
+  const draft = childEditing.value;
+  if (!draft || !writable.value || childPending.value) return;
+  if (props.modelValue.rows !== draft.sourceRows) {
+    cancelChild();
+    return;
+  }
+  const rows = [...props.modelValue.rows];
+  const index = rows.findIndex((row) => props.rowKey(row) === draft.parentKey);
+  if (index < 0) {
+    cancelChild();
+    return;
+  }
+  rows[index] = { ...rows[index], [draft.column.key]: clone(draft.rows) } as R;
+  cancelChild();
+  emit("update:modelValue", { ...props.modelValue, rows });
 }
 function begin(row?: R) {
   if (!writable.value) return;
@@ -90,6 +201,7 @@ function removeRow() {
 function reset() {
   editing.value = null;
   deleting.value = null;
+  cancelChild(false);
   headerPending.value = false;
   rowPending.value = false;
   emit("pending", false);
@@ -99,10 +211,12 @@ function cancelRow() {
   rowPending.value = false;
   pending();
 }
-watch(() => [props.scope, props.mode], reset);
+watch(() => [props.scope, props.instance, props.mode], reset);
 watch(
   () => props.modelValue.rows,
   (rows) => {
+    if (childEditing.value && rows !== childEditing.value.sourceRows)
+      cancelChild();
     if (
       editing.value?.key &&
       !rows.some((row) => props.rowKey(row) === editing.value?.key)
@@ -150,15 +264,34 @@ onBeforeUnmount(() => emit("pending", false));
               :key="column.key"
               :data-label="column.label"
             >
-              {{ display(row, column) }}
+              <template v-if="column.type === 'children'">
+                <button
+                  type="button"
+                  :disabled="
+                    !!editing ||
+                    !!childEditing ||
+                    (mode === 'edit' && !!disabled)
+                  "
+                  @click="beginChild(row, column, $event)"
+                >
+                  {{ writable ? "编辑" : "查看" }}{{ column.label }} · 明细行
+                  {{ index + 1 }}
+                </button>
+                <span>{{ display(row, column) }}</span>
+              </template>
+              <template v-else>{{ display(row, column) }}</template>
             </td>
             <td v-if="writable" data-label="操作">
-              <button type="button" :disabled="!!editing" @click="begin(row)">
+              <button
+                type="button"
+                :disabled="!!editing || !!childEditing"
+                @click="begin(row)"
+              >
                 编辑明细行 {{ index + 1 }}
               </button>
               <button
                 type="button"
-                :disabled="!!editing"
+                :disabled="!!editing || !!childEditing"
                 @click="deleting = rowKey(row)"
               >
                 删除明细行 {{ index + 1 }}
@@ -178,7 +311,7 @@ onBeforeUnmount(() => emit("pending", false));
       <button
         v-if="writable"
         type="button"
-        :disabled="!!editing"
+        :disabled="!!editing || !!childEditing"
         @click="begin()"
       >
         新增明细行
@@ -205,5 +338,39 @@ onBeforeUnmount(() => emit("pending", false));
       </button>
       <button type="button" @click="cancelRow">取消明细行</button>
     </section>
+    <div v-if="childEditing" class="zerp-voucher-editor__overlay">
+      <section
+        ref="childDialog"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`${childEditing.column.label} · 明细行 ${modelValue.rows.findIndex((row) => rowKey(row) === childEditing?.parentKey) + 1}`"
+        @keydown="childKeydown"
+      >
+        <DynamicForm
+          :fields="childFields"
+          :model-value="{ items: childEditing.rows }"
+          :scope="scope"
+          :disabled="!writable"
+          @update:model-value="
+            childEditing = { ...childEditing!, rows: $event.items }
+          "
+          @pending="
+            childPending = $event;
+            pending();
+          "
+        />
+        <button
+          v-if="writable"
+          type="button"
+          :disabled="childPending"
+          @click="finishChild"
+        >
+          确定{{ childEditing.column.label }}
+        </button>
+        <button ref="childClose" type="button" @click="cancelChild()">
+          {{ writable ? "取消" : "关闭" }}{{ childEditing.column.label }}
+        </button>
+      </section>
+    </div>
   </section>
 </template>

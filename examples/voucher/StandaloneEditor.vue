@@ -7,8 +7,9 @@ import {
 } from "@zerp/ui";
 
 type Header = { supplier: string; date: string };
-type Row = { id: string; name: string; quantity: string };
-const definition: VoucherEditorDefinition<Header, Row> = {
+type Formula = { material: string; amount: string };
+type Row = { id: string; name: string; quantity: string; formula: Formula[] };
+const definition: VoucherEditorDefinition<Header, Row, Formula> = {
   headerFields: [
     { key: "supplier", label: "供应商", type: "text" },
     { key: "date", label: "单据日期", type: "date" },
@@ -20,13 +21,31 @@ const definition: VoucherEditorDefinition<Header, Row> = {
   columns: [
     { key: "name", label: "品名" },
     { key: "quantity", label: "数量", type: "decimal" },
+    {
+      key: "formula",
+      label: "配方",
+      type: "children",
+      fields: [
+        { key: "material", label: "原料", type: "text" },
+        { key: "amount", label: "用量", type: "decimal" },
+      ],
+      empty: () => ({ material: "", amount: "" }),
+      summary: (children) => `${children.length} 项`,
+    },
   ],
   rowKey: (row) => row.id,
-  emptyRow: () => ({ id: crypto.randomUUID(), name: "", quantity: "" }),
+  emptyRow: () => ({
+    id: crypto.randomUUID(),
+    name: "",
+    quantity: "",
+    formula: [],
+  }),
 };
 const value = ref<VoucherEditorValue<Header, Row>>({
   header: { supplier: "合成供应商甲", date: "2026-10-20" },
-  rows: [{ id: "row-one", name: "合成商品甲", quantity: "0.0100" }],
+  rows: [
+    { id: "row-one", name: "合成商品甲", quantity: "0.0100", formula: [] },
+  ],
 });
 </script>
 
