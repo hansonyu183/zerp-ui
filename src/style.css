@@ -54,6 +54,23 @@
   width: 100%;
   border-collapse: collapse;
 }
+.zerp-voucher-editor__header {
+  margin-bottom: 1rem;
+}
+.zerp-voucher-editor__table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.zerp-voucher-editor table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.zerp-voucher-editor th,
+.zerp-voucher-editor td {
+  padding: 0.5rem;
+  text-align: start;
+  border-bottom: 1px solid #888;
+}
 .zerp-list th,
 .zerp-list td {
   padding: 0.5rem;

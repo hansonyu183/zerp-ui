@@ -52,6 +52,11 @@ export type {
 } from "./document";
 
 export { default as VoucherView } from "./VoucherView.vue";
+export { default as VoucherEditor } from "./VoucherEditor.vue";
+export type {
+  VoucherEditorValue,
+  VoucherEditorDefinition,
+} from "./voucher-editor";
 export { defineVoucher } from "./voucher";
 export type {
   VoucherIdentity,

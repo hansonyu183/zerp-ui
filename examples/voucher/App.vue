@@ -4,6 +4,7 @@ import { ref } from "vue";
 import { VoucherView, configurationBlock } from "@zerp/ui";
 import { sample, scriptSample, type Scenario, type Entry } from "./adapters";
 import EntryBlock from "./EntryBlock.vue";
+import StandaloneEditor from "./StandaloneEditor.vue";
 const kind = ref<"ordinary" | "opening" | "system">("ordinary"),
   scenario = ref<Scenario>("success");
 const ordinary = sample("ordinary", () => scenario.value),
@@ -52,5 +53,6 @@ const blocks = [
       :permissions="permissions"
       :script="kind === 'ordinary' ? script : undefined"
     />
+    <StandaloneEditor />
   </main>
 </template>
