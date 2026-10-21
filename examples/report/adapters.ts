@@ -113,6 +113,8 @@ export function reportExample(
     },
   };
   return defineReport<Parameters, Row>({
+    kind: "parameter",
+    rowKey: (row) => row.name,
     resource: `synthetic-${kind}`,
     title: kind === "batch" ? "合成报表 · 分批" : "合成报表 · 台账",
     parameters: [

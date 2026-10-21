@@ -158,7 +158,7 @@ const fixture = await readFile(
 );
 await writeFile(
   join(consumer, "contracts.type-test.ts"),
-  fixture.replace("../src/index", "@zerp/ui"),
+  fixture.replaceAll("../src/index", "@zerp/ui"),
 );
 run(
   "npm",
@@ -537,6 +537,95 @@ async function reportSmoke(page) {
   assert.equal(await button("导出").count(), 0);
   await button("查询").click();
   await page.getByRole("cell", { name: "合成甲", exact: true }).waitFor();
+  await page.getByLabel("报表示例").selectOption("fixed");
+  await button("查询").click();
+  await page.getByText("服务端全结果合计", { exact: false }).waitFor();
+  await page.getByLabel("固定关键字").fill("未查询条件");
+  const fixedDownload = page.waitForEvent("download");
+  await button("导出").click();
+  assert.equal(
+    (await fixedDownload).suggestedFilename(),
+    "synthetic-1-complete.csv",
+  );
+  await button("下一页").click();
+  await page.getByText("第 2 页", { exact: false }).waitFor();
+  await page.setViewportSize({ width: 390, height: 600 });
+  const scroll = page.locator(".zerp-report-scroll");
+  // Check actual overflow and layout without screenshot/visual comparisons.
+  const position = await scroll.evaluate((element) => {
+    element.scrollLeft = 180;
+    element.scrollTop = 40;
+    return { left: element.scrollLeft, top: element.scrollTop };
+  });
+  assert.ok(position.left > 0);
+  assert.ok(position.top > 0);
+  assert.equal(
+    await page
+      .getByRole("columnheader", { name: "精确金额", exact: true })
+      .evaluate((element) => getComputedStyle(element).display),
+    "table-cell",
+  );
+  await button("离开并保存报表").click();
+  await button("返回报表").click();
+  await page.getByText("第 2 页", { exact: false }).waitFor();
+  await page.waitForFunction(
+    () => !document.body.textContent.includes("结果待重验"),
+  );
+  assert.deepEqual(
+    await scroll.evaluate((element) => ({
+      left: element.scrollLeft,
+      top: element.scrollTop,
+    })),
+    position,
+  );
+  await button("上一页").click();
+  const target = page.getByRole("link", {
+    name: "查看 合成记录甲",
+    exact: true,
+  });
+  assert.equal(await target.getAttribute("href"), "#synthetic-one");
+  await target.press("Enter");
+  await page
+    .getByRole("status")
+    .filter({ hasText: "record · synthetic-1 · one · one" })
+    .waitFor();
+  await button("返回报表").click();
+  await page.waitForFunction(
+    () => !document.body.textContent.includes("结果待重验"),
+  );
+  await button("明细 合成记录甲").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "detail · synthetic-1 · one · one" })
+    .waitFor();
+  await button("返回报表").click();
+  await page.waitForFunction(
+    () => !document.body.textContent.includes("结果待重验"),
+  );
+  await button("选择 合成记录甲").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "select · synthetic-1 · one · one" })
+    .waitFor();
+  await page.getByLabel("重验资格").selectOption("expired");
+  await button("返回报表").click();
+  await page
+    .getByText("结果已失效或无权访问，请重新查询。", { exact: true })
+    .waitFor();
+  assert.ok(await button("导出").isDisabled());
+  await page.getByLabel("重验资格").selectOption("valid");
+  await page.getByLabel("固定读取情景").selectOption("pending");
+  await button("查询").click();
+  await button("停止等待").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "服务端执行未确认取消" })
+    .waitFor();
+  await button("取消服务端查询").click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "服务端已取消。" })
+    .waitFor();
 }
 
 async function documentSmoke(page) {

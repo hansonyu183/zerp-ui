@@ -35,6 +35,8 @@ const adapter: ReportAdapter<Parameters, Row> = {
   }),
 };
 defineReport({
+  kind: "parameter",
+  rowKey: (row: Row) => row.amount,
   resource: "typed",
   title: "报表",
   parameters,
@@ -67,3 +69,103 @@ const invalidAdapter: ReportAdapter<Parameters, Row> = {
   }),
 };
 void [invalidParameters, invalidColumns, invalidAdapter];
+
+// Distinct consumer identities must stay paired through result, page and drill.
+import type {
+  FixedReportAdapter,
+  ReportDrill,
+  ReportSnapshot,
+} from "../src/index";
+type ResultId = { readonly result: string };
+type RowId = `row:${string}`;
+type Target = { readonly voucher: string };
+const fixedAdapter: FixedReportAdapter<Parameters, Row, ResultId> = {
+  query: async () => ({
+    id: { result: "one" },
+    items: [],
+    total: 0,
+    summary: { caption: "全结果", values: { amount: "0.0000" } },
+    context: "查询日",
+  }),
+  page: async ({ resultId }) => ({ items: [], hasMore: !!resultId.result }),
+  export: async ({ resultId }) => ({
+    content: new Blob([resultId.result]),
+    filename: "all.csv",
+  }),
+  revalidate: async () => ({ status: "valid" }),
+  cancel: async () => ({ status: "cleanup-unconfirmed" }),
+};
+const fixed = defineReport<Parameters, Row, ResultId, RowId, Target>({
+  kind: "fixed",
+  resource: "fixed",
+  title: "固定",
+  parameters,
+  columns,
+  initialParameters: () => ({
+    period: [],
+    minimum: "",
+    limit: 0,
+    active: false,
+  }),
+  rowKey: (row) => `row:${row.amount}`,
+  adapter: fixedAdapter,
+  cell: (row) => ({
+    kind: "detail",
+    target: { voucher: row.amount },
+    label: "明细",
+  }),
+});
+const drill: ReportDrill<ResultId, RowId, Target> = {
+  scope: "s",
+  resource: "fixed",
+  resultId: { result: "one" },
+  rowId: "row:one",
+  cell: {
+    kind: "record",
+    href: "/one",
+    label: "单据",
+    target: { voucher: "one" },
+  },
+};
+const wrongResult: ReportDrill<ResultId, RowId, Target> = {
+  ...drill,
+  // @ts-expect-error A row identity cannot replace the opaque result identity.
+  resultId: "row:one",
+};
+const wrongRow: ReportDrill<ResultId, RowId, Target> = {
+  ...drill,
+  // @ts-expect-error A foreign row identity is rejected.
+  rowId: "foreign",
+};
+const wrongTarget: ReportDrill<ResultId, RowId, Target> = {
+  ...drill,
+  // @ts-expect-error Foreign targets cannot enter this report's interaction contract.
+  cell: { kind: "select", label: "选择", target: { customer: "one" } },
+};
+void fixedAdapter.page({
+  scope: "s",
+  // @ts-expect-error Fixed paging has no editable parameter input and requires a result identity.
+  parameters: { limit: 1 },
+  page: 1,
+  pageSize: 2,
+  signal: new AbortController().signal,
+});
+const wrongFixed: FixedReportAdapter<Parameters, Row, ResultId> = {
+  ...fixedAdapter,
+  // @ts-expect-error A query must return an explicit result identity and authoritative summary.
+  query: async () => ({ items: [], total: 0 }),
+};
+const wrongRestore: ReportSnapshot<Parameters, Row, ResultId, RowId, Target> = {
+  scope: "s",
+  resource: "fixed",
+  input: fixed.initialParameters(),
+  applied: null,
+  result: null,
+  page: 1,
+  pageSize: 2,
+  fixed: null,
+  scroll: { left: 0, top: 0 },
+  // @ts-expect-error A snapshot with a foreign row identity cannot restore this report.
+  definition: { ...fixed, rowKey: () => 123 },
+};
+void [fixed, wrongResult, wrongRow, wrongTarget, wrongFixed, wrongRestore];

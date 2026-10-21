@@ -1,5 +1,6 @@
-<script setup lang="ts" generic="R extends object">
+<script setup lang="ts" generic="R extends object, T = never">
 import { computed } from "vue";
+import type { ReportCell, ReportSummary } from "./report";
 import type { Column, Page, CrudAction } from "./contracts";
 const props = defineProps<{
   columns: readonly Column<R>[];
@@ -9,8 +10,13 @@ const props = defineProps<{
   loading?: boolean;
   actions?: (row: R) => readonly CrudAction[];
   disabled?: boolean;
+  wide?: boolean;
+  rowKey?: (row: R) => string | number;
+  summary?: ReportSummary<R>;
+  cell?: (row: R, key: Extract<keyof R, string>) => ReportCell<T> | undefined;
 }>();
 const emit = defineEmits<{
+  cell: [cell: ReportCell<T>, row: R];
   page: [value: number];
   action: [action: CrudAction, row: R];
 }>();
@@ -23,22 +29,39 @@ const captions = {
   disable: "停用",
   delete: "删除",
 };
-function display(row: R, column: Column<R>) {
+function record(event: MouseEvent, intent: ReportCell<T>, row: R) {
+  if (
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    !event.altKey &&
+    event.button === 0
+  )
+    emit("cell", intent, row);
+}
+function display(row: Partial<R>, column: Column<R>) {
   const value = row[column.key];
   return value === null || value === undefined
     ? "—"
-    : column.type === "boolean"
-      ? value
-        ? "是"
-        : "否"
-      : column.type === "enum"
-        ? (column.options?.find((option) => option.value === value)?.label ??
-          String(value))
-        : String(value);
+    : value === ""
+      ? "（空字符串）"
+      : column.type === "boolean"
+        ? value
+          ? "是"
+          : "否"
+        : column.type === "enum"
+          ? (column.options?.find((option) => option.value === value)?.label ??
+            String(value))
+          : String(value);
 }
 </script>
 <template>
-  <div class="zerp-list" :aria-busy="loading">
+  <div
+    class="zerp-list"
+    :class="{ 'zerp-list--wide': wide }"
+    :aria-busy="loading"
+  >
+    <p v-if="summary">{{ summary.caption }}</p>
     <table>
       <thead>
         <tr>
@@ -46,7 +69,10 @@ function display(row: R, column: Column<R>) {
             v-for="column in visibleColumns"
             :key="column.key"
             scope="col"
-            :style="{ width: column.width }"
+            :style="{
+              width: column.width,
+              minWidth: wide ? column.width : undefined,
+            }"
           >
             {{ column.label }}
           </th>
@@ -54,13 +80,39 @@ function display(row: R, column: Column<R>) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(row, index) in result.items" :key="index">
+        <tr
+          v-for="(row, index) in result.items"
+          :key="rowKey ? rowKey(row) : index"
+        >
           <td
             v-for="column in visibleColumns"
             :key="column.key"
             :data-label="column.label"
           >
-            {{ display(row, column) }}
+            <template
+              v-for="intent in [cell?.(row, column.key)]"
+              :key="column.key"
+            >
+              <a
+                v-if="
+                  intent?.kind === 'record' && !disabled && !intent.disabled
+                "
+                :href="intent.href"
+                :aria-label="intent.label"
+                @click="record($event, intent, row)"
+                >{{ display(row, column) }}</a
+              >
+              <button
+                v-else-if="intent"
+                type="button"
+                :aria-label="intent.label"
+                :disabled="disabled || intent.disabled"
+                @click="emit('cell', intent, row)"
+              >
+                {{ display(row, column) }}
+              </button>
+              <template v-else>{{ display(row, column) }}</template>
+            </template>
           </td>
           <td v-if="actions" data-label="操作">
             <button
@@ -75,12 +127,24 @@ function display(row: R, column: Column<R>) {
           </td>
         </tr>
       </tbody>
+      <tfoot v-if="summary">
+        <tr>
+          <td
+            v-for="column in visibleColumns"
+            :key="column.key"
+            :data-label="column.label"
+          >
+            {{ display(summary.values, column) }}
+          </td>
+          <td v-if="actions"></td>
+        </tr>
+      </tfoot>
     </table>
     <p v-if="!loading && !result.items.length">暂无数据</p>
     <nav aria-label="分页">
       <button
         type="button"
-        :disabled="page <= 1 || loading"
+        :disabled="page <= 1 || loading || disabled"
         @click="emit('page', page - 1)"
       >
         上一页</button
@@ -91,6 +155,7 @@ function display(row: R, column: Column<R>) {
       ><button
         type="button"
         :disabled="
+          disabled ||
           loading ||
           (result.total !== undefined
             ? page * pageSize >= result.total

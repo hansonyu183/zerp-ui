@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- 报表增强（[#23](https://github.com/hansonyu183/zerp-ui/issues/23)，尚未发布）：定义明确区分 parameter/fixed 并要求稳定 rowKey；共享 DataList 宽表、权威合计、有限类型化下钻、固定结果分页/完整导出、取消反馈和返回重验恢复。原报表定义须迁移；下次 0.x minor 发布，不保留旧契约兼容分支。
+- 合成报表示例和同一 tgz 独立安装覆盖新接口；不代表真实 ZERP/oit-go API/E2E 验收。
+
 ## 0.2.1
 
 - 补充 Document（资料/档案）与 Voucher（单据）术语表，修正原 ZERP 只读参考路径。

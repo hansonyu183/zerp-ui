@@ -120,21 +120,27 @@ createApp(App)
 
 只读参考为原 ZERP 的 `configuration-page/ConfigurationPage.vue` 和 mapping/period/report-definition 定义：映射的嵌套配置、期间携带 revision 的状态变化、报表定义的参数编辑均归消费者；库不包含会计规则、报表 SQL 协议、Session、固定 API、任意动作执行器或试算。原页面中的观察式读取核实不满足本库精确请求证据契约，示例使用按原请求 ID 存储的合成回执。真实 ZERP 接入仍等待发布后专门工单。
 
-## 报表运行时（#10）
+## 报表运行时（#10、#23）
 
-`defineReport<Parameters, Row>` 与 `ReportView` 提供独立的参数→查询→分页/导出交互，不使用 CRUD 的 Draft、保存或写入核实。消费者提供 `resource/title/parameters/initialParameters/columns/adapter`，运行时接收 `definition`、含账号/会话代次的 `scope`、`permissions.query/export` 和可选 `pageSize`（默认 20）。资源、作用域、资格或分页大小切换清空本页状态，使迟到查询和导出失效；定义与 Adapter 在使用期间保持稳定。
+当前源码按 [#23](https://github.com/hansonyu183/zerp-ui/issues/23) 增强，尚未发布；不包含在 `ui-v0.2.1` 工件中。`defineReport<P, R, ResultId, RowId, Target>` 使用 `kind: "parameter" | "fixed"` 判别。两种定义均提供 `resource/title/parameters/initialParameters/columns/rowKey/adapter`；`rowKey(row)` 必须是稳定且页内唯一的字符串或数字。组件接收 `definition`、含操作者/会话代次的 `scope`、`permissions.query/export`、可选 `pageSize`（默认 20）。作用域、资源、报表种类、资格或分页大小切换清除状态并使迟到响应失效。读取资格及服务端授权事实仍由消费者提供和重验。
 
-参数支持有限的 text、integer、decimal、boolean、date、date-range、enum、multi-enum 和引用；字段键和值类型成对检查，不接受递归编辑、任意模板或命令。日期范围为 `[起日, 止日]` 字符串数组，提交时校验真实日期和顺序；可选范围以 null 表示不限制，清空两端恢复 null，必填范围和只填一端仍报错；枚举由消费者提供中文 label。未完成数字输入保留在输入层，decimal 不转浮点数，未改动的 null、0、false 原样传给 Adapter。引用沿用公共 ReferencePicker 的搜索/resolve 与作用域隔离。只传需要的参数，不依赖报表目录或公司 DTO。
+参数支持有限的 text、integer、decimal、boolean、date、date-range、enum、multi-enum 和引用；字段键和值类型配对，不接受递归编辑、任意模板或命令。日期范围用 `[起日, 止日]`，可选范围以 null 表示不限制；日期、顺序和未完成输入会校验。十进制不转浮点数，null、0、false 原样传给 Adapter，引用复用 ReferencePicker。编辑输入不会触发查询；画面单独显示成功结果对应的已采用条件。
 
-`adapter.query({scope, parameters, page, pageSize})` 返回 `Page<Row>`：真实 `total` 或 `hasMore` 二选一。查询必须显式提交，输入编辑不触发请求，翻页和失败重试使用已提交快照；新查询允许替换在途旧查询，旧响应不覆盖当前结果。加载、空态、查询失败分别呈现，失败不会显示为空数据。参数校验失败保留输入；结果类型不符显示稳定列错误，重试仅重新查询。
+参数型：`adapter.query({scope, parameters, page, pageSize})` 返回 `Page<R>`，`total` 与 `hasMore` 二选一；分页及失败重试使用已提交条件。可选 `adapter.export({scope, parameters})` 按点击时的当前有效输入导出，保留仅导出资格，不要求先查询。query/export 可按资格能力省略。
 
-列支持 text、integer、decimal、boolean、date 和带中文 options 的 enum，`visible=false` 隐藏，`width` 原样交给表格列宽。十进制列只能匹配字符串 DTO，显示原值（含尾零），不转换为浮点数。结果中 null 显示为“—”；布尔显示“是/否”，未知枚举保留原值以避免丢失解释。列及原值类型在展示前检查。表格/移动卡片复用同一个 DataList，无报表专属复制实现。
+固定结果型：`adapter.query({scope, parameters, page, pageSize, requestId, signal})` 返回 `Page<R> & {id: ResultId, summary: {caption, values: Partial<R>}, context: string}`。消费者提供不透明结果身份、权威全结果合计及口径、业务日期等上下文。`page({scope, resultId, page, pageSize, signal})`、可选 `export({scope, resultId, signal})` 及必需 `revalidate({scope, resultId, signal})` 显式使用同一身份。新查询成功才替换旧结果；普通查询/翻页失败保留旧页、条件和合计并提示上下文。查询时采用的列、单元格动作和汇总解释留在结果上，新定义不会重解释旧结果；消费者应采用不可变定义及动作函数，不在闭包中暗藏最后结果。库不计算业务合计、不指定 TTL/容量，也不生成 Excel。
 
-`adapter.export({scope, parameters})` 可选，返回 `{content: Blob, filename: string}`。导出**点击时的当前有效参数输入**，不借用上次查询条件或当前页；因此仅导出资格也无需先查询。消费者负责后端导出协议、格式和列内容，库持有导出互斥、下载、反馈、失败后的重新导出，以及资源/会话切换后不触发旧下载。Blob URL 在触发下载后回收。query/export 均可按实际能力省略；库只结合已提供的方法与资格事实显示按钮，不推导后端授权，服务端仍须重验权限。
+列按定义数组顺序展示，支持 text、integer、decimal、boolean、date 和 enum；`visible=false` 隐藏，`width` 在宽表中作为列宽及最小宽度。报表使用同一 `DataList` 的 `wide` 模式，窄屏也保留逐列对齐和横向滚动；普通列表继续使用响应式表格/卡片。null/undefined 显示“—”，空字符串显示“（空字符串）”，0 显示“0”，布尔显示“是/否”，未知枚举保留原值。严格 decimal 校验十进制字符串并保留精度及尾零；需审计的异常原文请明确映射到 text 列，不能伪装 decimal。
 
-`examples/report` 展示 BatchDTO→hasMore、LedgerDTO→total 两种不同协议映射，以及查询/仅查询/仅导出/无资格、失败重试和空态。全部为消费者侧合成内存数据；日期范围与金额下限演示原值传递，示例不据此模拟业务筛选。运行 `dev:report`；构建与 tgz 独立安装验证分别使用 `build:report`、`check:report`。安装验证包括公开声明与错误配对拒绝、生产构建、CSS/字体解析、真实浏览器参数提交/快照翻页/下载及资格分支。
+固定结果的可选 `cell(row, columnKey)` 只返回 `ReportCell<Target>` 的 `record`（href 链接）、`select`（选择关联记录）或 `detail`（查看明细）。每项含可辨识 label、类型化 target 和可选 disabled。`drill` 事件携带 `{scope, resource, resultId, rowId, cell}`，宿主负责业务读取、选择和路由。record 保留原生链接、键盘及修饰键语义；只有普通主键点击发出 drill，其他开页行为遵循 href。待重验和禁用时移除可用链接并禁用相关操作。
 
-只读交互参考：原 ZERP `frontend/src/target/components/report-page/{ReportPage.vue,report-data.ts}` 的参数与已应用参数分离、日期范围、原十进制字符串、可见列/宽度及查询/导出资格。后端错误码解释和下载格式属于消费者；库不包含 ZERP API 路径、Session 或报表目录。本片不代表真实 ZERP API/E2E 验收。
+停止等待只中止本地接收并提示服务端未确认取消。固定查询可选 `cancel({scope, requestId})`，只有提供此端口才出现主动取消；`ReportCancellation.status` 限定 cancelled/completed/failed/cleanup-unconfirmed，分别反馈已取消、已完成未取消、执行失败及清理未确认；等待取消期间显示进行中。取消与查询的迟到响应均不能替换当前结果。AbortSignal 仅用于停止传输，不构成服务端取消证明。
+
+返回恢复使用 `active` 或 Vue KeepAlive 激活/停用，以及 `snapshot` 事件和 `restore` 属性。宿主保管 `ReportSnapshot<P,R,ResultId,RowId,Target>`，包含输入、已采用条件、结果页、查询时定义和横纵滚动；此快照包含函数引用，供当前会话内存缓存，不是跨整页重载的序列化协议。宿主须按 scope/resource 隔离并在退出会话后丢弃。挂载时或显式恢复匹配的快照，先调用 revalidate；`valid` 才允许分页/导出/下钻，网络失败保留待重验画面和重试入口，expired/forbidden/identity-invalid 清除结果。参数型没有复用结果身份，返回时按已采用条件重读原页。新查询、作用域/资源变化、停用和卸载隔离在途查询、导出及重验。服务端在任一固定结果操作发现权威过期/撤权/身份失效时，抛出公开 `ReportUnavailable(reason, message)`，运行时立即清除不可用事实；普通异常保留仍有效结果。
+
+两种导出均返回 `{content: Blob, filename: string}`；消费者拥有格式及完整数据协议，库负责互斥、下载、错误提示及 Blob URL 回收。`examples/report` 提供 BatchDTO→hasMore、LedgerDTO→total 和固定结果消费者；固定示例支持宽表、三类下钻、精确结果导出、失败保留、可控待决查询/取消、离开/返回、重验失效和会话切换。运行/构建/同一 tgz 的独立安装验证使用 `dev:report`、`build:report`、`check:report`。验收仅使用本库公开入口和合成 Adapter，不代表真实 ZERP/oit-go API、权限或 E2E。
+
+迁移：原无判别的报表定义必须增加 `kind: "parameter"` 和 `rowKey`；旧签名不保留兼容分支。要取得固定结果语义，显式采用 `kind: "fixed"` 并实现 query/page/revalidate，导出改接 resultId，不能沿用参数型 export 或 Adapter 私有的“最后一次结果”。这属于下次 0.x minor 发布的破坏接口；完整发布仍走现行 release gate，本票只交付本地源码与验证工件。
 
 ## 资料档案与附件（#11）
 

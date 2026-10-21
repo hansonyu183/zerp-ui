@@ -28,8 +28,16 @@ export type {
 } from "./configuration";
 
 export { default as ReportView } from "./ReportView.vue";
-export { defineReport } from "./report";
+export { defineReport, ReportUnavailable } from "./report";
 export type {
+  ReportSnapshot,
+  FixedReportAdapter,
+  ReportCell,
+  ReportDrill,
+  ReportSummary,
+  ReportValidity,
+  ReportCancellation,
+  ReportResultRequest,
   ReportParameters,
   ReportColumn,
   ReportQuery,

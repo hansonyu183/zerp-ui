@@ -1,9 +1,10 @@
 <script setup lang="ts">
 const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { computed, ref } from "vue";
+import FixedReport from "./FixedReport.vue";
 import { ReportView } from "@zerp/ui";
 import { reportExample, type Scenario } from "./adapters";
-const kind = ref<"batch" | "ledger">("batch");
+const kind = ref<"batch" | "ledger" | "fixed">("batch");
 const scenario = ref<Scenario>("success");
 const eligibility = ref("both");
 const definitions = {
@@ -25,6 +26,7 @@ const permissions = computed(() => ({
       >报表示例<select v-model="kind" aria-label="报表示例">
         <option value="batch">hasMore 分批 DTO</option>
         <option value="ledger">total 台账 DTO</option>
+        <option value="fixed">固定结果、取消与返回恢复</option>
       </select></label
     >
     <label
@@ -42,8 +44,12 @@ const permissions = computed(() => ({
         <option value="failure">失败</option>
       </select></label
     >
-    <h1 v-if="showTitle">{{ definitions[kind].title }}</h1>
+    <h1 v-if="showTitle">
+      {{ kind === "fixed" ? "合成报表 · 固定结果" : definitions[kind].title }}
+    </h1>
+    <FixedReport v-if="kind === 'fixed'" />
     <ReportView
+      v-else
       :definition="definitions[kind]"
       scope="synthetic-session-1"
       :permissions="permissions"
