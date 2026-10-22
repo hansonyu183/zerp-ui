@@ -1,6 +1,6 @@
 # ZERP UI
 
-独立的 Vue/Vuetify 组件库 `@zerp/ui@0.3.0`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
+独立的 Vue/Vuetify 组件库 `@zerp/ui@0.4.0`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
 
 ## 公开组件层级
 
@@ -14,11 +14,11 @@
 
 ## 固定版本安装
 
-从 [ui-v0.3.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.3.0) 下载 `zerp-ui-0.3.0.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
+从 [ui-v0.4.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.4.0) 下载 `zerp-ui-0.4.0.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-npm install --save-exact ./zerp-ui-0.3.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
+npm install --save-exact ./zerp-ui-0.4.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
 ```
 
 将 tgz 放在消费者项目的固定路径并提交相应 lockfile；不要使用 latest、源码别名或 registry 同名包。首发基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0，peer 范围分别为 `~3.5.40`、`~4.1.5`、`~5.2.0`。宿主各提供唯一实例；MDI 字体是已声明的直接依赖，发布包自带所需 woff2 及字体许可证，无需 CDN。Node 26 是本库与独立消费者构建验收基线；消费的是编译后 ESM、声明和 CSS，不需要克隆 ZERP、编译库源码或安装自动导入插件。
@@ -53,7 +53,7 @@ createApp(App)
   .mount("#app");
 ```
 
-完整的强类型定义、合成 Adapter 与可运行装配见 [独立示例](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.3.0/examples)，`examples/shell` 组合全部运行时；消费者可按需复制示例装配，而无需编译库源码。包包含 ESM、完整声明、限定作用域的 CSS、字体及字体授权。消费者无需编译库内 Vue/TS，也无需自动导入插件。所有示例均使用公开导出。
+完整的强类型定义、合成 Adapter 与可运行装配见 [独立示例](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.4.0/examples)，`examples/shell` 组合全部运行时；消费者可按需复制示例装配，而无需编译库源码。包包含 ESM、完整声明、限定作用域的 CSS、字体及字体授权。消费者无需编译库内 Vue/TS，也无需自动导入插件。所有示例均使用公开导出。
 
 ## 顶层页面
 
@@ -244,14 +244,14 @@ scope、instance、active 或写入状态变化以及卸载，使待决确认返
 
 `AuthPage` 是新增的顶层组件。业务视图不再输出 `<h1>`；由 `AppPage` 或独立消费者提供页面标题。`DynamicForm`、`ReferencePicker`、各 `define*` 的领域契约及六类写入生命周期保持原有语义。
 
-## 内容写入与受控导航（#27、#28，尚未发布）
+## 内容写入与受控导航（#27、#28，0.4.0）
 
-当前源码在 operation 协议的八种状态动作外增加 `create`（创建）、`edit`（保存修改）、`delete`（删除）。仍通过同一个 `VoucherView`、强类型原输入和消费者的完整权威预览办理；`VoucherEditor` 只编辑本地表头/明细，不拥有写入或解锁。动作、目标或原输入变化使旧预览失效；已发送请求继续按原快照核实。
+0.4.0 在 operation 协议的八种状态动作外增加 `create`（创建）、`edit`（保存修改）、`delete`（删除）。仍通过同一个 `VoucherView`、强类型原输入和消费者的完整权威预览办理；`VoucherEditor` 只编辑本地表头/明细，不拥有写入或解锁。动作、目标或原输入变化使旧预览失效；已发送请求继续按原快照核实。
 
-`adapter.refresh` 改接 `VoucherOperationSettlement<Model, Identity, Baseline>`，包含按动作配对的 `request` 与 `receipt`。消费者从 `request.identity/input` 读取原目标和完整输入，从已验证的 `receipt.evidence` 读取创建结果身份或删除事实，完成结果展示/读取与删除后清理。终态保存和整页恢复保留这些证据；刷新失败只重读，不再 execute。 operation 分支同时发出强类型 `settled(settlement)` 通知；消费者通过该通知幂等呈现终态结果或提供已封存原输入恢复。即使 journal 已标记 refreshed/completed，重挂载和整页恢复仍交付已验证终态，避免为找回新建身份重复 refresh；通知本身不执行写入、刷新或解锁。尚未应用的创建不得伪造新对象身份。不得继续使用 0.3.0 的 `refresh({ owner, identity })` 签名；按下一次 minor 版本一次性迁移，不提供兼容分支。存储版本和已存在 journal 的解码/必要转换归消费者，同一个原请求的 binding、终态和完成事实不能被转换丢弃。
+`adapter.refresh` 改接 `VoucherOperationSettlement<Model, Identity, Baseline>`，包含按动作配对的 `request` 与 `receipt`。消费者从 `request.identity/input` 读取原目标和完整输入，从已验证的 `receipt.evidence` 读取创建结果身份或删除事实，完成结果展示/读取与删除后清理。终态保存和整页恢复保留这些证据；刷新失败只重读，不再 execute。 operation 分支同时发出强类型 `settled(settlement)` 通知；消费者通过该通知幂等呈现终态结果或提供已封存原输入恢复。即使 journal 已标记 refreshed/completed，重挂载和整页恢复仍交付已验证终态，避免为找回新建身份重复 refresh；通知本身不执行写入、刷新或解锁。尚未应用的创建不得伪造新对象身份。不得继续使用 0.3.0 的 `refresh({ owner, identity })` 签名；升级至 0.4.0 时一次性迁移，不提供兼容分支。存储版本和已存在 journal 的解码/必要转换归消费者，同一个原请求的 binding、终态和完成事实不能被转换丢弃。
 
 独立单据合成消费者演示内容创建、采用权威结果进行修改、删除及重载恢复。全部为合成数据，不连接真实 API；也不代表 OIT 专用单据、权限或业务规则已验证。
 
 `AppPage` 新增可选 `selectedNavigationKey: string | null`。未传入时使用 RouterLink 的路由派生活跃态；传入时完全按宿主提供的条目 key 呈现唯一高亮和 `aria-current="page"`，null 或不存在的 key 不选中任何项。条目 key 应全局唯一。宿主负责 path/query、目录排序和授权，库保持 href、修饰键、新标签和手机导航行为。同一路径不同 query 的合成入口见外壳示例。
 
-本节能力尚未包含于已发布 `ui-v0.3.0` 工件。当前 manifest 版本的本地 tgz 仅用于验收，不覆盖同名 Release；正式发行另按 minor 升级及既有 release gate 执行。
+本节能力包含于 `ui-v0.4.0` 工件，安装入口与示例均固定到该版本。0.3.0 消费者须迁移 refresh 接口；不覆盖既有版本，也不提供旧签名兼容层。
