@@ -8,7 +8,7 @@
 | -------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | 顶层页面 | `AuthPage`、`AppPage`                                                                        | 登录/注册/密码找回；登录后的导航、品牌、主题和主内容 |
 | 业务视图 | `CrudView`、`ConfigurationView`、`ReportView`、`DocumentView`、`VoucherView`、`WorkflowView` | 查询、编辑、写入及核实等固定业务交互；可脱离外壳使用 |
-| 复合交互 | `DynamicForm`、`ReferencePicker`、`DataList`                                                 | 可独立使用的表单、引用选择及响应式数据列表           |
+| 复合交互 | `DynamicForm`、`ReferencePicker`、`DataList`、`RecordDetails`、`EditGuard`                   | 可独立使用的表单、引用选择及响应式数据列表           |
 
 `SubmissionRuntime` 和认证子表单仅供库内部复用；消费者的领域 `*Block` 不属于库组件。`define*`、Adapter 类型和主题函数属于非组件 API。`0.1.0` 的组件导入名在 `0.2.0` 中更改，见 [迁移说明](#从-010-迁移)。
 
@@ -31,7 +31,7 @@ npm install --save-exact ./zerp-ui-0.2.1.tgz vue@3.5.40 vuetify@4.1.5 vue-router
 
 测试仅使用合成资料与模拟 Adapter，不连接 ZERP API、数据库或生产数据，也不代表真实 ZERP E2E。ZERP 源码、依赖与部署保持原状；真实接入由发布后的[独立工单](https://github.com/hansonyu183/zerp/issues/520)完成。
 
-`pnpm check:release` 必须从干净 commit 运行：执行本库静态检查、完整组件测试、库及七个示例构建，只 pack 一次，再对同一个 tgz 执行七类独立安装/类型/浏览器验收。产物审计拒绝源码/额外文件、缺失声明引用及未声明模块依赖；安装树检查 Vue/Vuetify/Router 的宿主解析相同。CI 执行相同命令并上传证据。结果保留在 `.scratch/release/<SHA>/`；用 `pnpm check:release --tgz <下载工件绝对路径>` 对分发包再次执行全部安装 smoke（不重复组件测试、不重新 pack）。脚本失败不会发布。发布使用验收包原文件，附源码 SHA、变更、SHA256SUMS 和 evidence.json；上传后下载、比对校验并运行分发 smoke。不要重建或覆盖已发布版本。
+`pnpm check:release` 必须从干净 commit 运行：执行本库静态检查、完整组件测试、库及八个示例构建，只 pack 一次，再对同一个 tgz 执行八类独立安装/类型/浏览器验收。产物审计拒绝源码/额外文件、缺失声明引用及未声明模块依赖；安装树检查 Vue/Vuetify/Router 的宿主解析相同。CI 执行相同命令并上传证据。结果保留在 `.scratch/release/<SHA>/`；用 `pnpm check:release --tgz <下载工件绝对路径>` 对分发包再次执行全部安装 smoke（不重复组件测试、不重新 pack）。脚本失败不会发布。发布使用验收包原文件，附源码 SHA、变更、SHA256SUMS 和 evidence.json；上传后下载、比对校验并运行分发 smoke。不要重建或覆盖已发布版本。
 
 ## 独立消费者
 
@@ -213,6 +213,20 @@ execute/reconcile/seal 返回 unknown 或 Receipt；applied 是权威成功，no
 `examples/shell` 是独立公司消费者，通过公开入口组合全部六类已完成 runtime 和各自强类型合成 Adapter。示例持有偏好存储、账户资料/改密/登出/演示登录及 pageshow/storage 恢复；这些内存演示不代表实际身份认证或真实 ZERP API/E2E。改密输入确认/取消和恢复时清空，实际密码策略、请求与会话协议由消费者实现。
 
 使用 `dev:shell`、`build:shell`、`check:shell`。tgz 检查在独立安装树验证类型/非法配对、生产构建、CSS/字体，并在源示例和安装消费者执行六主题、各 runtime 装配、导航链接选中/新标签、错误重试、账户取消/退出/恢复和窄屏导航交互。原 ZERP 仅只读参考 themes.ts 和 App.vue 的官方主题/defaults 选取，本片不改变其账户、主题或部署。
+
+## 公共详情与编辑保护（#26，未发布）
+
+`VoucherEditor` 的 `mode: "read"` 复用表头、明细与所属行子项布局，表头和子项采用只读事实呈现，不挂载禁用表单或执行新建校验；编辑模式继续使用现有字段。打开未确认的明细或子项编辑时 `pending` 为 true，确认、取消或切换上下文后清理；这是局部未完成输入，不是业务写入状态。
+
+剩余分组资料使用 `RecordDetails<T, Intent>`：接收 `value`、`groups: readonly DetailGroup<T, Intent>[]`、`scope` 与必填的记录/加载代次 `instance`。每组仅包含 key、label、`DetailFields<T, Intent>`；字段按属性类型配对 text/decimal/date/enum、integer、boolean、reference、texts 或 records。重复记录明确提供 rowKey、rowLabel 和子字段；原生展开控件保留所属记录名称。decimal 不转数值，缺失值显示 `—`、空字符串显示 `（空字符串）`、空列表显示 `（空列表）`，0 和 false 分别显示 `0` 和 `否`，异常历史字符串原样显示。引用采用传入的历史 id/label/snapshot，不查询当前名称、不解释 snapshot；可选 related 映射只通过强类型 `related(Intent)` 事件交给宿主。详情不接 API、Session 或 Router，也不推断历史回执。切 scope、instance 或值快照后旧展开内容和事件失效；若同一记录重新读取，宿主也应更新 instance。
+
+`EditGuard` 通过公开的 `EditGuardHandle.requestLeave(): Promise<boolean>` 提供有限离开接缝。必填 props 是 scope、instance、active、dirty、`writeState: "idle" | "pending" | "unknown"`；默认插槽仅在 active 时呈现。无修改且 idle 直接返回 true；有修改则显示“继续编辑 / 放弃本地修改”，继续返回 false，放弃发出 discard 后返回 true。宿主在 discard 中只销毁本地 Draft，并重置局部编辑；guard 不保存、取消业务请求或核实结果。pending/unknown 一律拒绝普通离开，即使 dirty 已是 false；必须由拥有原请求的现有运行时提供权威终态后改变 writeState，普通查询不能解锁。
+
+scope、instance、active 或写入状态变化以及卸载，使待决确认返回 false；旧按钮不能影响新确认。身份失效或撤权时宿主直接清除 Draft、将 active 设为 false 或卸载页面，并按认证策略导航，优先于普通离开接缝。宿主持有 dirty 基线、路由守卫和 beforeunload；await 后须复核原上下文仍有效。组件不注册全局导航拦截、监听器或计时器，关闭确认恢复原触发焦点。默认插槽仅用于包裹受保护内容，不承担业务页面运行时或动态模板配置。
+
+独立页面 [examples/details](examples/details) 仅经公开包入口装配 VoucherEditor、RecordDetails、EditGuard 与强类型合成 Adapter，演示查看→展开所属子项→编辑→继续/放弃→离开，以及身份清理、写入锁和宿主 beforeunload 的注册/撤销。使用 `dev:details`、`build:details`、`check:details`；后者对同一 tgz 的全新安装树和本库示例执行相同键盘、焦点、原值与保护行为，检查声明和生产构建。完整 release gate 也纳入此示例。全部仅为本库合成证据，不代表真实 ZERP/oit-go API/E2E。
+
+迁移：只读 VoucherEditor 不再提供禁用 input 作为读取方式，应依赖可见事实或原值；调用方不得依赖其旧 DOM。独立编辑宿主应将局部 pending 合并进 dirty，并将真正的写入 pending/unknown 单独传给 EditGuard；既有 VoucherView 的锁仍由其运行时持有。新增能力尚未包含于 ui-v0.2.1，随下一次 0.x minor 发布，本任务不执行发布或真实应用接入。
 
 ## 从 0.1.0 迁移
 

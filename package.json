@@ -55,7 +55,10 @@
     "dev:shell": "vite examples/shell --host 127.0.0.1",
     "build:shell": "vite build examples/shell",
     "check:shell": "pnpm build && pnpm build:shell && node scripts/check-package.mjs --shell",
-    "check:release": "node scripts/check-release.mjs"
+    "check:release": "node scripts/check-release.mjs",
+    "dev:details": "vite examples/details --host 127.0.0.1",
+    "build:details": "vite build examples/details",
+    "check:details": "pnpm build && pnpm build:details && node scripts/check-package.mjs --details"
   },
   "devDependencies": {
     "vue": "3.5.40",

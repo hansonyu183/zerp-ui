@@ -127,3 +127,8 @@ export type {
   VoucherOperationPersistence,
   VoucherOperationDefinition,
 } from "./voucher-operation";
+
+export { default as RecordDetails } from "./RecordDetails.vue";
+export type { DetailFields, DetailGroup } from "./details";
+export { default as EditGuard } from "./EditGuard.vue";
+export type { EditGuardHandle, EditWriteState } from "./edit-guard";

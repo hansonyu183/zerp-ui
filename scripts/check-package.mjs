@@ -13,8 +13,10 @@ import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
+import { detailsSmoke } from "./details-smoke.mjs";
 import { voucherOperationSmoke } from "./voucher-operation-smoke.mjs";
 import { chromium } from "@playwright/test";
+const detailsMode = process.argv.includes("--details");
 const shellMode = process.argv.includes("--shell");
 const workflowMode = process.argv.includes("--workflow");
 const voucherMode = process.argv.includes("--voucher");
@@ -79,19 +81,21 @@ await writeFile(
 await cp(
   join(
     root,
-    shellMode
-      ? "examples/shell"
-      : workflowMode
-        ? "examples/workflow"
-        : voucherMode
-          ? "examples/voucher"
-          : documentMode
-            ? "examples/document"
-            : reportMode
-              ? "examples/report"
-              : configuration
-                ? "examples/configuration"
-                : "examples/direct",
+    detailsMode
+      ? "examples/details"
+      : shellMode
+        ? "examples/shell"
+        : workflowMode
+          ? "examples/workflow"
+          : voucherMode
+            ? "examples/voucher"
+            : documentMode
+              ? "examples/document"
+              : reportMode
+                ? "examples/report"
+                : configuration
+                  ? "examples/configuration"
+                  : "examples/direct",
   ),
   consumer,
   {
@@ -141,25 +145,29 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    shellMode
-      ? "tests/shell.type-test.ts"
-      : workflowMode
-        ? "tests/workflow.type-test.ts"
-        : voucherMode
-          ? "tests/voucher.type-test.ts"
-          : documentMode
-            ? "tests/document.type-test.ts"
-            : reportMode
-              ? "tests/report.type-test.ts"
-              : configuration
-                ? "tests/configuration.type-test.ts"
-                : "tests/contracts.type-test.ts",
+    detailsMode
+      ? "tests/details.type-test.ts"
+      : shellMode
+        ? "tests/shell.type-test.ts"
+        : workflowMode
+          ? "tests/workflow.type-test.ts"
+          : voucherMode
+            ? "tests/voucher.type-test.ts"
+            : documentMode
+              ? "tests/document.type-test.ts"
+              : reportMode
+                ? "tests/report.type-test.ts"
+                : configuration
+                  ? "tests/configuration.type-test.ts"
+                  : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
 await writeFile(
   join(consumer, "contracts.type-test.ts"),
-  fixture.replaceAll("../src/index", "@zerp/ui"),
+  fixture
+    .replaceAll("../src/index", "@zerp/ui")
+    .replaceAll("../examples/details/adapters", "./adapters"),
 );
 if (voucherMode) {
   const operationTypes = await readFile(
@@ -265,33 +273,37 @@ try {
   };
   observe(page);
   await page.goto(`http://127.0.0.1:${address.port}`);
-  const smoke = shellMode
-    ? shellSmoke
-    : workflowMode
-      ? workflowSmoke
-      : voucherMode
-        ? voucherSmoke
-        : documentMode
-          ? documentSmoke
-          : reportMode
-            ? reportSmoke
-            : configuration
-              ? configurationSmoke
-              : directSmoke;
+  const smoke = detailsMode
+    ? detailsSmoke
+    : shellMode
+      ? shellSmoke
+      : workflowMode
+        ? workflowSmoke
+        : voucherMode
+          ? voucherSmoke
+          : documentMode
+            ? documentSmoke
+            : reportMode
+              ? reportSmoke
+              : configuration
+                ? configurationSmoke
+                : directSmoke;
   await smoke(page);
-  const exampleName = shellMode
-    ? "shell"
-    : workflowMode
-      ? "workflow"
-      : voucherMode
-        ? "voucher"
-        : documentMode
-          ? "document"
-          : reportMode
-            ? "report"
-            : configuration
-              ? "configuration"
-              : "direct";
+  const exampleName = detailsMode
+    ? "details"
+    : shellMode
+      ? "shell"
+      : workflowMode
+        ? "workflow"
+        : voucherMode
+          ? "voucher"
+          : documentMode
+            ? "document"
+            : reportMode
+              ? "report"
+              : configuration
+                ? "configuration"
+                : "direct";
   const exampleRoot = join(root, "examples", exampleName);
   const exampleServer = await preview({
     root: exampleRoot,
@@ -339,34 +351,38 @@ try {
       "public exports",
       "single Vue/Vuetify/Router host resolution and npm installation tree",
       "no failed browser assets",
-      ...(shellMode
+      ...(detailsMode
         ? [
-            "auth flows, app themes/defaults, all six view consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
+            "grouped raw facts, historical references, read-only child keyboard inspection, local draft leave confirmation, write locks, authentication cleanup and host beforeunload cleanup in both consumer contexts",
           ]
-        : workflowMode
+        : shellMode
           ? [
-              "workflow node/target eligibility, exact audit reconciliation, voucher/runtime consumer routing and refresh-only retry in both contexts",
+              "auth flows, app themes/defaults, all six view consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
             ]
-          : voucherMode
+          : workflowMode
             ? [
-                "voucher header/detail/child dialog, local and outer draft cancellation, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
+                "workflow node/target eligibility, exact audit reconciliation, voucher/runtime consumer routing and refresh-only retry in both contexts",
               ]
-            : documentMode
+            : voucherMode
               ? [
-                  "document official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
+                  "voucher header/detail/child dialog, local and outer draft cancellation, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
                 ]
-              : reportMode
+              : documentMode
                 ? [
-                    "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
+                    "document official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
                   ]
-                : configuration
+                : reportMode
                   ? [
-                      "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                      "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
                     ]
-                  : [
-                      "browser create/edit and 20 examples",
-                      "mobile card surface",
-                    ]),
+                  : configuration
+                    ? [
+                        "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                      ]
+                    : [
+                        "browser create/edit and 20 examples",
+                        "mobile card surface",
+                      ]),
     ],
     exitCode: 0,
   };

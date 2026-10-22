@@ -58,6 +58,7 @@ const slices = [
     build: `build:${name}`,
     flag: [`--${name}`],
   })),
+  { issue: 26, name: "details", build: "build:details", flag: ["--details"] },
 ];
 for (const slice of slices) run("pnpm", [slice.build]);
 if (artifactIndex < 0) run("pnpm", ["pack", "--pack-destination", dir]);

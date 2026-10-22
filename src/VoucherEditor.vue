@@ -13,6 +13,8 @@ import {
 } from "vue";
 import { clone } from "./clone";
 import DynamicForm from "./DynamicForm.vue";
+import FactFields from "./FactFields.vue";
+import { formFacts, factText } from "./details";
 import type { Fields } from "./contracts";
 import type {
   VoucherEditorChildColumn,
@@ -55,7 +57,11 @@ const childPending = ref(false);
 function pending() {
   emit(
     "pending",
-    headerPending.value || rowPending.value || childPending.value,
+    headerPending.value ||
+      rowPending.value ||
+      childPending.value ||
+      !!editing.value ||
+      (writable.value && !!childEditing.value),
   );
 }
 function setHeader(value: H) {
@@ -68,16 +74,7 @@ function display(row: R, column: VoucherEditorColumn<R, C>) {
     return column.summary(Array.isArray(children) ? (children as C[]) : []);
   }
   const value = row[column.key];
-  return value === null || value === undefined
-    ? "—"
-    : column.type === "boolean"
-      ? value
-        ? "是"
-        : "否"
-      : column.type === "enum"
-        ? (column.options?.find((option) => option.value === value)?.label ??
-          String(value))
-        : String(value);
+  return factText(value, { ...column, type: column.type ?? "text" });
 }
 function beginChild(
   row: R,
@@ -92,6 +89,7 @@ function beginChild(
     rows: clone(Array.isArray(row[column.key]) ? (row[column.key] as C[]) : []),
     sourceRows: props.modelValue.rows,
   };
+  pending();
   nextTick(() => childClose.value?.focus());
 }
 const childFields = computed(
@@ -128,9 +126,23 @@ function childKeydown(event: KeyboardEvent) {
   if (event.key !== "Tab" || !childDialog.value) return;
   const focusable = Array.from(
     childDialog.value.querySelectorAll<HTMLElement>(
-      "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)",
+      "summary, button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)",
     ),
-  );
+  ).filter((element) => {
+    for (
+      let parent = element.parentElement;
+      parent && parent !== childDialog.value;
+      parent = parent.parentElement
+    ) {
+      if (
+        parent.tagName === "DETAILS" &&
+        !parent.hasAttribute("open") &&
+        parent.querySelector("summary") !== element
+      )
+        return false;
+    }
+    return true;
+  });
   if (!focusable.length) return;
   const first = focusable[0];
   const last = focusable[focusable.length - 1];
@@ -166,6 +178,7 @@ function begin(row?: R) {
     key: row ? props.rowKey(row) : null,
     value: clone(row ?? props.emptyRow()),
   };
+  pending();
 }
 function finishRow() {
   const draft = editing.value;
@@ -235,7 +248,14 @@ onBeforeUnmount(() => emit("pending", false));
 <template>
   <section class="zerp-voucher-editor" aria-label="单据编辑展示">
     <div class="zerp-voucher-editor__header" aria-label="单据表头">
+      <FactFields
+        v-if="mode === 'read'"
+        :key="`${scope}:${instance}`"
+        :fields="formFacts(headerFields)"
+        :value="modelValue.header"
+      />
       <DynamicForm
+        v-else
         :fields="headerFields"
         :model-value="modelValue.header"
         :scope="scope"
@@ -346,7 +366,13 @@ onBeforeUnmount(() => emit("pending", false));
         :aria-label="`${childEditing.column.label} · 明细行 ${modelValue.rows.findIndex((row) => rowKey(row) === childEditing?.parentKey) + 1}`"
         @keydown="childKeydown"
       >
+        <FactFields
+          v-if="mode === 'read'"
+          :fields="formFacts(childFields)"
+          :value="{ items: childEditing.rows }"
+        />
         <DynamicForm
+          v-else
           :fields="childFields"
           :model-value="{ items: childEditing.rows }"
           :scope="scope"

@@ -246,3 +246,32 @@
 .zerp-report-scroll > .zerp-list--wide {
   overflow: visible;
 }
+
+.zerp-facts > div {
+  margin-block: 0.6rem;
+}
+.zerp-facts dt {
+  font-weight: 600;
+}
+.zerp-facts dd {
+  margin-inline-start: 1rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.zerp-facts summary {
+  cursor: pointer;
+}
+.zerp-edit-guard__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  display: grid;
+  place-items: center;
+  background: rgb(0 0 0 / 40%);
+}
+.zerp-edit-guard__overlay > section {
+  padding: 1.5rem;
+  background: rgb(var(--v-theme-surface, 255, 255, 255));
+  color: rgb(var(--v-theme-on-surface, 0, 0, 0));
+  border-radius: 0.5rem;
+}

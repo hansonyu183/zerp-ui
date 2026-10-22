@@ -71,9 +71,8 @@ it("shows the same details without editing actions in read mode", () => {
   const { wrapper } = editor("read");
   expect(wrapper.find("table").text()).toContain("合成商品");
   expect(wrapper.findAll("button")).toHaveLength(0);
-  expect(
-    wrapper.get('input[aria-label="供应商"]').attributes("disabled"),
-  ).toBeDefined();
+  expect(wrapper.findAll("input")).toHaveLength(0);
+  expect(wrapper.get('[aria-label="单据表头"]').text()).toContain("合成供应商");
   wrapper.unmount();
 });
 it("adds and confirms deletion of a detail row", async () => {
@@ -214,5 +213,16 @@ it("drops a formula draft if the parent rows change while it is open", async () 
     wrapper.find('[role="dialog"][aria-label="配方 · 明细行 1"]').exists(),
   ).toBe(false);
   expect(value.value.rows.map((row) => row.formula)).toEqual([[], []]);
+  wrapper.unmount();
+});
+it("reports unfinished local row input until it is confirmed or discarded", async () => {
+  const { wrapper, value } = editor();
+  await click(wrapper, "编辑明细行 1");
+  const component = wrapper.findComponent({ name: "VoucherEditor" });
+  expect(component.emitted("pending")?.at(-1)).toEqual([true]);
+  await wrapper.get('input[aria-label="品名"]').setValue("未确认的输入");
+  expect(value.value.rows[0].name).toBe("合成商品");
+  await click(wrapper, "取消明细行");
+  expect(component.emitted("pending")?.at(-1)).toEqual([false]);
   wrapper.unmount();
 });

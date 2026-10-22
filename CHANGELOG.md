@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 公共详情与编辑保护（[#26](https://github.com/hansonyu183/zerp-ui/issues/26)，尚未发布）：VoucherEditor read 改用事实展示；新增有限强类型 RecordDetails 和受控 EditGuard 离开接缝，保留历史原值、引用快照、所属子项及身份清理。局部未确认明细计入 pending；放弃仅销毁本地 Draft，写入 pending/unknown 不解锁。
+- 新增公开入口合成页面与同一 tgz 安装/类型/构建/浏览器验收，纳入 release gate。只读 DOM 改变随下次 0.x minor 发布，不代表真实 ZERP/oit-go API/E2E。
+
 - 单据办理（[#25](https://github.com/hansonyu183/zerp-ui/issues/25)，尚未发布）：VoucherView 以 submission/operation 明确判别，提供有限办理动作、完整预览、可靠保存原请求、精确核实/封存、跨重载恢复及刷新清理；旧提交件定义必须增加 protocol，随下次 0.x minor 发布，不保留兼容分支。
 - 将 #24 原型替换为公开入口和单据消费者示例，删除临时运行路径；验收仅使用合成 Adapter 和同一 tgz 独立安装，不代表真实 ZERP/oit-go API/E2E。
 
