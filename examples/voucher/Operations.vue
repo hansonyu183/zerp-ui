@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onBeforeUnmount } from "vue";
-import { VoucherView } from "@zerp/ui";
+import { VoucherView, VoucherEditor, type VoucherEditorValue } from "@zerp/ui";
 import {
   voucherOperationLabels,
   type VoucherOperationAction,
@@ -22,11 +22,43 @@ const action = ref<VoucherOperationAction>("void"),
   recoveryAllowed = ref(true);
 const visible = ref(true),
   events = ref<string[]>([]);
-const identity: Identity = { voucher: "SYN-25" };
+const target = ref("SYN-25"),
+  rows = ref([{ key: "r1", quantity: "9007199254740993.0100" }]),
+  editorPending = ref(false),
+  result = ref<{
+    voucher: string;
+    deleted: boolean;
+    note: string;
+    rows: typeof rows.value;
+  } | null>(null);
+const identity = computed<Identity>(() => ({
+  voucher: action.value === "create" ? null : target.value,
+}));
+const editor = computed<
+  VoucherEditorValue<{ note: string }, { key: string; quantity: string }>
+>({
+  get: () => ({ header: { note: note.value }, rows: rows.value }),
+  set: (value) => {
+    note.value = value.header.note;
+    rows.value = [...value.rows];
+  },
+});
+const emptyContentRow = () => ({ key: crypto.randomUUID(), quantity: "" });
 const definition = synthetic(
   localStorage,
   () => scenario.value,
   (event) => events.value.push(event),
+  ({ request, receipt }) => {
+    if (receipt.status !== "applied" || !("result" in receipt.evidence)) return;
+    if (!receipt.evidence.result.voucher)
+      throw new Error("合成权威结果缺少身份");
+    result.value = {
+      ...receipt.evidence.result,
+      note: request.input.note,
+      voucher: receipt.evidence.result.voucher,
+      rows: "rows" in request.input ? [...request.input.rows] : [],
+    };
+  },
 );
 const durable = operationJournal();
 definition.persistence = {
@@ -53,7 +85,7 @@ async function verifyStorage() {
       operator: "synthetic-check",
       resource: crypto.randomUUID(),
     },
-    identity,
+    identity: identity.value,
     input: { note: "合成存储验证" },
   });
   const receipt = {
@@ -105,17 +137,34 @@ onBeforeUnmount(() => {
   close();
 });
 const intent = computed<VoucherOperationIntent<SyntheticModel, Identity>>(
-  () => ({
-    action: action.value,
-    identity,
-    owner: {
-      operator: operator.value,
-      scope: "synthetic-session",
-      resource: "synthetic-voucher",
-    },
-    input: { note: note.value },
-  }),
+  () => {
+    const base = {
+      identity: identity.value,
+      owner: {
+        operator: operator.value,
+        scope: "synthetic-session",
+        resource: "synthetic-voucher",
+      },
+    };
+    return action.value === "create" || action.value === "edit"
+      ? {
+          ...base,
+          action: action.value,
+          input: {
+            note: note.value,
+            rows: rows.value.map((row) => ({ ...row })),
+          },
+        }
+      : { ...base, action: action.value, input: { note: note.value } };
+  },
 );
+function editResult() {
+  if (!result.value || result.value.deleted) return;
+  target.value = result.value.voucher;
+  note.value = result.value.note;
+  rows.value = [...result.value.rows];
+  action.value = "edit";
+}
 </script>
 <template>
   <section aria-label="单据办理消费者">
@@ -136,6 +185,24 @@ const intent = computed<VoucherOperationIntent<SyntheticModel, Identity>>(
       </select></label
     >
     <label>原输入<input v-model="note" aria-label="原输入" /></label>
+    <label
+      >目标单据<input
+        v-model="target"
+        aria-label="目标单据"
+        :disabled="action === 'create'"
+    /></label>
+    <VoucherEditor
+      v-if="action === 'create' || action === 'edit'"
+      v-model="editor"
+      :header-fields="[{ key: 'note', label: '内容备注', type: 'text' }]"
+      :row-fields="[{ key: 'quantity', label: '内容数量', type: 'decimal' }]"
+      :columns="[{ key: 'quantity', label: '内容数量', type: 'decimal' }]"
+      :row-key="(row) => row.key"
+      :empty-row="emptyContentRow"
+      scope="synthetic-session"
+      mode="edit"
+      @pending="editorPending = $event"
+    />
     <label
       >操作者<select v-model="operator" aria-label="操作者">
         <option>synthetic-a</option>
@@ -171,7 +238,7 @@ const intent = computed<VoucherOperationIntent<SyntheticModel, Identity>>(
     >
     <button
       type="button"
-      @click="definition.adapter.refresh({ owner: intent.owner, identity })"
+      @click="events.push(`read:${identity.voucher ?? 'new'}`)"
     >
       普通读取
     </button>
@@ -182,9 +249,15 @@ const intent = computed<VoucherOperationIntent<SyntheticModel, Identity>>(
       v-if="visible"
       :definition="definition"
       :intent="intent"
-      :eligible="eligible"
+      :eligible="eligible && !editorPending"
       :recovery-allowed="recoveryAllowed"
     />
+    <section v-if="result" aria-label="合成内容结果">
+      <p>{{ result.deleted ? "已删除" : "权威结果" }}：{{ result.voucher }}</p>
+      <p>{{ result.note }}</p>
+      <p v-for="row in result.rows" :key="row.key">{{ row.quantity }}</p>
+      <button v-if="!result.deleted" @click="editResult">编辑此结果</button>
+    </section>
     <details open>
       <summary>合成 Adapter 观察记录</summary>
       <button type="button" @click="verifyStorage">验证合成存储终态</button>

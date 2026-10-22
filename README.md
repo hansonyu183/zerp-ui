@@ -243,3 +243,15 @@ scope、instance、active 或写入状态变化以及卸载，使待决确认返
 `Version` 定义函数及类型更名为 `Document`；原 `Document` 定义函数及类型更名为 `Voucher`。流程动作和事件分别由 `OPEN_DOCUMENT`、`open-document` 改为 `OPEN_VOUCHER`、`open-voucher`，节点及动作载荷的 `document` 改为 `voucher`。`NavigationIcon` 的 `document` 改为 `voucher`。这里的 `Document` 指资料/档案，`Voucher` 指单据。
 
 `AuthPage` 是新增的顶层组件。业务视图不再输出 `<h1>`；由 `AppPage` 或独立消费者提供页面标题。`DynamicForm`、`ReferencePicker`、各 `define*` 的领域契约及六类写入生命周期保持原有语义。
+
+## 内容写入与受控导航（#27、#28，尚未发布）
+
+当前源码在 operation 协议的八种状态动作外增加 `create`（创建）、`edit`（保存修改）、`delete`（删除）。仍通过同一个 `VoucherView`、强类型原输入和消费者的完整权威预览办理；`VoucherEditor` 只编辑本地表头/明细，不拥有写入或解锁。动作、目标或原输入变化使旧预览失效；已发送请求继续按原快照核实。
+
+`adapter.refresh` 改接 `VoucherOperationSettlement<Model, Identity, Baseline>`，包含按动作配对的 `request` 与 `receipt`。消费者从 `request.identity/input` 读取原目标和完整输入，从已验证的 `receipt.evidence` 读取创建结果身份或删除事实，完成结果展示/读取与删除后清理。终态保存和整页恢复保留这些证据；刷新失败只重读，不再 execute。尚未应用的创建不得伪造新对象身份。不得继续使用 0.3.0 的 `refresh({ owner, identity })` 签名；按下一次 minor 版本一次性迁移，不提供兼容分支。存储版本和已存在 journal 的解码/必要转换归消费者，同一个原请求的 binding、终态和完成事实不能被转换丢弃。
+
+独立单据合成消费者演示内容创建、采用权威结果进行修改、删除及重载恢复。全部为合成数据，不连接真实 API；也不代表 OIT 专用单据、权限或业务规则已验证。
+
+`AppPage` 新增可选 `selectedNavigationKey: string | null`。未传入时使用 RouterLink 的路由派生活跃态；传入时完全按宿主提供的条目 key 呈现唯一高亮和 `aria-current="page"`，null 或不存在的 key 不选中任何项。条目 key 应全局唯一。宿主负责 path/query、目录排序和授权，库保持 href、修饰键、新标签和手机导航行为。同一路径不同 query 的合成入口见外壳示例。
+
+本节能力尚未包含于已发布 `ui-v0.3.0` 工件。当前 manifest 版本的本地 tgz 仅用于验收，不覆盖同名 Release；正式发行另按 minor 升级及既有 release gate 执行。

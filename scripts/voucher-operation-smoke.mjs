@@ -215,4 +215,64 @@ export async function voucherOperationSmoke(page) {
   } finally {
     await peer.close();
   }
+
+  // Content uses the same durable protocol, including a server-assigned result after a real reload.
+  await region.getByLabel("办理动作").selectOption("create");
+  await region.getByLabel("原输入", { exact: true }).fill("创建的完整内容");
+  await region.getByLabel("合成情景").selectOption("unknown");
+  await button("准备创建").click();
+  await button("确认创建").click();
+  await status("结果未知");
+  const originalCreate = await region
+    .locator('section[aria-label="单据办理"] > p')
+    .filter({ hasText: "原请求：" })
+    .textContent();
+  await page.reload();
+  await page.getByText("独立单据办理示例", { exact: true }).click();
+  await status("已恢复原请求");
+  assert.equal(
+    await region
+      .locator('section[aria-label="单据办理"] > p')
+      .filter({ hasText: "原请求：" })
+      .textContent(),
+    originalCreate,
+  );
+  await button("核实原请求").click();
+  await status("可显式准备新请求");
+  const result = region.getByRole("region", {
+    name: "合成内容结果",
+    exact: true,
+  });
+  await result.getByText("创建的完整内容", { exact: true }).waitFor();
+  await result.getByText("9007199254740993.0100", { exact: true }).waitFor();
+  const createdId = (await result.textContent()).match(/SYN-created-[\w-]+/)[0];
+  assert.equal(
+    await region.getByRole("listitem").filter({ hasText: "execute:" }).count(),
+    0,
+    "reload recovery must not execute content again",
+  );
+  await button("编辑此结果").click();
+  assert.equal(await region.getByLabel("目标单据").inputValue(), createdId);
+  await region.getByLabel("原输入", { exact: true }).fill("修改后的完整内容");
+  await button("准备保存修改").click();
+  await button("确认保存修改").click();
+  await status("可显式准备新请求");
+  await result.getByText("修改后的完整内容", { exact: true }).waitFor();
+  await region.getByLabel("办理动作").selectOption("delete");
+  await region.getByLabel("合成情景").selectOption("refresh-failure");
+  await button("准备删除").click();
+  await button("确认删除").click();
+  await status("只允许重读");
+  await page.reload();
+  await page.getByText("独立单据办理示例", { exact: true }).click();
+  await status("已恢复原请求");
+  await button("重试读取").click();
+  await status("可显式准备新请求");
+  await result.getByText(`已删除：${createdId}`, { exact: true }).waitFor();
+  assert.equal(await button("编辑此结果").count(), 0);
+  assert.equal(
+    await region.getByRole("listitem").filter({ hasText: "execute:" }).count(),
+    0,
+    "deletion refresh retry must not execute again",
+  );
 }

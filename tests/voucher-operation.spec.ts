@@ -65,6 +65,57 @@ const click = async (w: ReturnType<typeof mount>, text: string) => {
   await button(w, text).trigger("click");
   await flushPromises();
 };
+
+it("refreshes an authoritative created identity from the settled original request", async () => {
+  const f = setup();
+  const refresh = vi.fn<typeof f.definition.adapter.refresh>(async () => {});
+  f.definition.adapter.refresh = refresh;
+  const w = mount(OperationPrototype as Component, {
+    props: {
+      definition: f.definition,
+      intent: {
+        ...f.intent,
+        action: "create",
+        identity: { voucher: null },
+        input: {
+          note: "新单据",
+          rows: [{ key: "r1", quantity: "9007199254740993.0100" }],
+        },
+      },
+      eligible: true,
+      recoveryAllowed: true,
+    },
+  });
+  await flushPromises();
+  await click(w, "准备创建");
+  expect(w.get('[role="dialog"]').text()).toContain("新单据");
+  await click(w, "确认创建");
+  expect(w.text()).toContain("可显式准备新请求");
+  const settlement = refresh.mock.calls[0]![0];
+  expect(settlement).toMatchObject({
+    request: {
+      action: "create",
+      identity: { voucher: null },
+      input: { note: "新单据" },
+    },
+    receipt: {
+      action: "create",
+      status: "applied",
+      evidence: { result: { deleted: false } },
+    },
+  });
+  if (
+    settlement.receipt.action !== "create" ||
+    settlement.request.action !== "create"
+  )
+    throw new Error("创建契约不匹配");
+  expect(settlement.receipt.evidence.result.voucher).toMatch(/^SYN-created-/);
+  expect(settlement.request.input.rows).toEqual([
+    { key: "r1", quantity: "9007199254740993.0100" },
+  ]);
+  expect(w.text()).toContain("可显式准备新请求");
+  w.unmount();
+});
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((yes) => {
@@ -86,6 +137,45 @@ it("shows a complete authoritative preview and cancels locally without persisten
     f.events.some((e) => e.startsWith("save:") || e.startsWith("execute:")),
   ).toBe(false);
   expect(w.text()).toContain("未发送写入");
+  w.unmount();
+});
+
+it("invalidates a content preview when its input changes but keeps an executed original recoverable", async () => {
+  const f = setup();
+  const intent = reactive<
+    VoucherOperationIntent<SyntheticModel, Identity, "edit">
+  >({
+    action: "edit",
+    owner: f.intent.owner,
+    identity: { voucher: "content-one" },
+    input: { note: "原内容", rows: [{ key: "r1", quantity: "1.0100" }] },
+  });
+  const w = mount(OperationPrototype as Component, {
+    props: {
+      definition: f.definition,
+      intent,
+      eligible: true,
+      recoveryAllowed: true,
+    },
+  });
+  await flushPromises();
+  await click(w, "准备保存修改");
+  intent.input.rows[0]!.quantity = "2.0200";
+  await flushPromises();
+  expect(w.find('[role="dialog"]').exists()).toBe(false);
+  expect(f.events.some((event) => event.startsWith("execute:"))).toBe(false);
+  f.scenario("unknown");
+  await click(w, "准备保存修改");
+  await click(w, "确认保存修改");
+  const original = (await f.definition.persistence.load(intent.owner))!.request;
+  intent.input.note = "尚未采用的新输入";
+  await flushPromises();
+  expect(button(w, "准备保存修改").attributes("disabled")).toBeDefined();
+  await click(w, "核实原请求");
+  expect(f.definition.adapter.reconcile).toHaveBeenCalledWith(original);
+  expect(f.events.some((event) => event === "content:content-one:原内容")).toBe(
+    true,
+  );
   w.unmount();
 });
 it("saves the original request before execution and blocks sending when persistence fails", async () => {
@@ -117,10 +207,7 @@ it("recovers the exact original input after remount, isolates another operator a
   const original = (await f.definition.persistence.load(f.intent.owner))!
     .request;
   expect(w.text()).toContain("结果未知");
-  await f.definition.adapter.refresh({
-    owner: f.intent.owner,
-    identity: f.intent.identity,
-  });
+  await f.definition.adapter.prepare(f.intent);
   expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
   w.unmount();
   w = f.start();
@@ -305,11 +392,10 @@ it.each(["replacement", "mutation"])(
         intent.input.note = "changed";
         return prepare(intent);
       }
-      return prepare({
-        ...intent,
-        identity: { voucher: "another" },
-        input: { note: "changed" },
-      });
+      const replaced = structuredClone(intent);
+      replaced.identity.voucher = "another";
+      replaced.input.note = "changed";
+      return prepare(replaced);
     };
     const w = f.start();
     await flushPromises();

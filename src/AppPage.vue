@@ -30,6 +30,7 @@ const props = withDefaults(
     brandState: LoadState;
     navigation: readonly NavigationGroup[];
     navigationState: LoadState;
+    selectedNavigationKey?: string | null;
     pageTitle: string;
     footer: string;
     account?: ShellAccount;
@@ -46,6 +47,11 @@ const emit = defineEmits<{
 const { mobile } = useDisplay();
 const drawer = ref<boolean | null>(null);
 const defaults = computed(() => shellDefaults(props.theme));
+const selectedItem = computed(() =>
+  props.navigation
+    .flatMap((group) => group.items)
+    .find((item) => item.key === props.selectedNavigationKey),
+);
 const labels: Record<AccountIntent, string> = {
   profile: "个人资料",
   "change-password": "修改密码",
@@ -150,14 +156,42 @@ function navigated() {
                   v-for="item in group.items"
                   :key="item.key"
                   :to="item.to"
-                  @click="navigated"
-                  ><span
-                    v-if="item.icon"
-                    aria-hidden="true"
-                    class="zerp-ui-icon"
-                    >{{ navigationGlyph(item.icon) }}</span
-                  >{{ item.caption }}</RouterLink
+                  custom
+                  v-slot="{ href, navigate, isActive, isExactActive }"
                 >
+                  <a
+                    :href="href"
+                    :class="{
+                      'router-link-active':
+                        selectedNavigationKey === undefined
+                          ? isActive
+                          : selectedItem === item,
+                      'router-link-exact-active':
+                        selectedNavigationKey === undefined
+                          ? isExactActive
+                          : selectedItem === item,
+                    }"
+                    :aria-current="
+                      (
+                        selectedNavigationKey === undefined
+                          ? isExactActive
+                          : selectedItem === item
+                      )
+                        ? 'page'
+                        : undefined
+                    "
+                    @click="
+                      navigate($event);
+                      navigated();
+                    "
+                    ><span
+                      v-if="item.icon"
+                      aria-hidden="true"
+                      class="zerp-ui-icon"
+                      >{{ navigationGlyph(item.icon) }}</span
+                    >{{ item.caption }}</a
+                  >
+                </RouterLink>
               </details>
             </template>
           </nav>

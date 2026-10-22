@@ -1048,6 +1048,27 @@ async function shellSmoke(page) {
     assert.equal(await page.locator("h1").count(), 1);
     assert.equal(await link.getAttribute("aria-current"), "page");
   }
+  for (const name of ["资料一", "资料二"]) {
+    await page.getByRole("link", { name, exact: true }).click();
+    assert.equal(
+      await page
+        .locator('nav[aria-label="主导航"] a[aria-current="page"]')
+        .count(),
+      1,
+    );
+    assert.equal(
+      await page
+        .getByRole("link", { name, exact: true })
+        .getAttribute("aria-current"),
+      "page",
+    );
+    assert.equal(
+      await page
+        .locator('nav[aria-label="主导航"] a.router-link-exact-active')
+        .count(),
+      1,
+    );
+  }
   const originalURL = page.url();
   await page
     .getByRole("link", { name: "报表", exact: true })

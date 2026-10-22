@@ -12,6 +12,7 @@ import type {
   VoucherOperationRequest as Request,
   VoucherOperationJournal as Journal,
   VoucherOperationReceipt as Receipt,
+  VoucherOperationSettlement as Settlement,
 } from "./voucher-operation";
 type Phase =
   | "loading"
@@ -186,13 +187,18 @@ function createSession<M extends Model, I, B>(
   }
   async function refresh(record: Journal<M, I, B>, live: () => boolean) {
     if (!live()) return;
+    if (
+      !record.receipt ||
+      (record.receipt.status === "not-applied" && !record.receipt.sealed)
+    )
+      throw new Error("未取得已应用或已封存的终态，不能刷新或解除原请求。");
     let completed = record;
     if (!record.refreshed) {
       await adapter.refresh(
         clone({
-          owner: record.request.owner,
-          identity: record.request.identity,
-        }),
+          request: record.request,
+          receipt: record.receipt,
+        }) as Settlement<M, I, B>,
       );
       completed = { ...record, refreshed: true };
       state.journal = completed;

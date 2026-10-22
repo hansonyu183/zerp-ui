@@ -5,6 +5,7 @@ import type {
   VoucherOperationReceipt,
   VoucherOperationRequest,
   VoucherOperationJournal,
+  VoucherOperationSettlement,
 } from "../src/index";
 import type {
   SyntheticModel,
@@ -147,3 +148,55 @@ const paired: VoucherOperationJournal<
   receipt: foreignReceipt,
 };
 void paired;
+
+const create: VoucherOperationIntent<SyntheticModel, Identity, "create"> = {
+  action: "create",
+  owner: intent.owner,
+  identity: { voucher: null },
+  input: { note: "新内容", rows: [{ key: "r1", quantity: "1.0100" }] },
+};
+const createdRequest: VoucherOperationRequest<
+  SyntheticModel,
+  Identity,
+  Baseline,
+  "create"
+> = {
+  ...create,
+  requestId: "create-original",
+  binding: "create-binding",
+  concurrency: request.concurrency,
+  preview: { action: "create", title: "创建预览", sections: [] },
+};
+const createdReceipt: VoucherOperationReceipt<SyntheticModel, "create"> = {
+  action: "create",
+  status: "applied",
+  owner: intent.owner,
+  requestId: "create-original",
+  binding: "create-binding",
+  evidence: {
+    action: "create",
+    receipt: "created-proof",
+    result: { voucher: "new-server-identity", deleted: false },
+  },
+};
+const settled: VoucherOperationSettlement<SyntheticModel, Identity, Baseline> =
+  {
+    request: createdRequest,
+    receipt: createdReceipt,
+  };
+// @ts-expect-error A state receipt cannot settle a content create request.
+const mismatchedSettlement: VoucherOperationSettlement<
+  SyntheticModel,
+  Identity,
+  Baseline
+> = { request: createdRequest, receipt: foreignReceipt };
+const invalidCreate: VoucherOperationIntent<
+  SyntheticModel,
+  Identity,
+  "create"
+> = {
+  ...create,
+  // @ts-expect-error Content requests require their complete typed input, not a reason-only state input.
+  input: { note: "missing rows" },
+};
+void [settled, mismatchedSettlement, invalidCreate];

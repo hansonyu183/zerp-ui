@@ -8,15 +8,21 @@ import type {
   VoucherOperationReceipt,
   VoucherOperationRequest,
   VoucherOperationOwner,
+  VoucherOperationSettlement,
 } from "@zerp/ui";
 export type SyntheticModel = {
   [A in VoucherOperationAction]: {
-    input: { note: string };
+    input: { note: string } & (A extends "create" | "edit"
+      ? { rows: readonly { key: string; quantity: string }[] }
+      : object);
     preview: VoucherOperationPreview & { action: A };
-    evidence: { action: A; receipt: string };
+    evidence: { action: A; receipt: string } & (A extends
+      "create" | "edit" | "delete"
+      ? { result: { voucher: string | null; deleted: boolean } }
+      : object);
   };
 };
-export type Identity = { voucher: string };
+export type Identity = { voucher: string | null };
 export type Baseline = { revision: string; configuration: string };
 export type SyntheticRequest = VoucherOperationRequest<
   SyntheticModel,
@@ -65,7 +71,6 @@ export function decodeJournal(value: unknown): SyntheticJournal {
       r.owner.resource,
       r.requestId,
       r.binding,
-      r.identity?.voucher,
       r.input?.note,
       r.concurrency?.revision,
       r.concurrency?.configuration,
@@ -73,6 +78,16 @@ export function decodeJournal(value: unknown): SyntheticJournal {
     !r.requestId ||
     !r.binding ||
     !Object.hasOwn(voucherOperationLabels, r.action) ||
+    !r.identity ||
+    (r.action === "create"
+      ? r.identity.voucher !== null
+      : typeof r.identity.voucher !== "string") ||
+    ((r.action === "create" || r.action === "edit") &&
+      (!Array.isArray(r.input.rows) ||
+        !r.input.rows.every(
+          (row) =>
+            typeof row.key === "string" && typeof row.quantity === "string",
+        ))) ||
     r.preview?.action !== r.action ||
     typeof r.preview.title !== "string" ||
     !Array.isArray(r.preview.sections)
@@ -115,6 +130,18 @@ export function decodeJournal(value: unknown): SyntheticJournal {
   )
     fail();
   if (
+    proof &&
+    ["create", "edit", "delete"].includes(proof.action) &&
+    (!("result" in proof.evidence) ||
+      (proof.status === "applied" &&
+        (typeof proof.evidence.result.voucher !== "string" ||
+          !proof.evidence.result.voucher)) ||
+      (proof.evidence.result.voucher !== null &&
+        typeof proof.evidence.result.voucher !== "string") ||
+      typeof proof.evidence.result.deleted !== "boolean")
+  )
+    fail();
+  if (
     record.refreshed !== undefined &&
     (record.refreshed !== true ||
       !proof ||
@@ -132,6 +159,9 @@ export function synthetic(
   storage: Store,
   scenario: () => Scenario,
   log: (message: string) => void = () => {},
+  onRefresh: (
+    settlement: VoucherOperationSettlement<SyntheticModel, Identity, Baseline>,
+  ) => void = () => {},
 ) {
   const key = (owner: VoucherOperationOwner) =>
     `SYNTHETIC-OPERATIONS-wipe-me:${JSON.stringify([owner.scope, owner.operator, owner.resource])}`;
@@ -158,6 +188,18 @@ export function synthetic(
       evidence: {
         action: request.action,
         receipt: `authority:${request.requestId}`,
+        ...(["create", "edit", "delete"].includes(request.action)
+          ? {
+              result: {
+                voucher:
+                  request.identity.voucher ??
+                  (status === "applied"
+                    ? `SYN-created-${request.requestId}`
+                    : null),
+                deleted: request.action === "delete" && status === "applied",
+              },
+            }
+          : {}),
       },
       ...(status === "applied" ? { status } : { status, sealed }),
     }) as VoucherOperationReceipt<SyntheticModel>;
@@ -250,7 +292,10 @@ export function synthetic(
                   {
                     key: "header",
                     fields: [
-                      { label: "单号", value: intent.identity.voucher },
+                      {
+                        label: "单号",
+                        value: intent.identity.voucher ?? "待创建",
+                      },
                       { label: "办理原输入", value: intent.input.note },
                       { label: "并发基线", value: "r7 / c3" },
                     ],
@@ -292,6 +337,16 @@ export function synthetic(
           binding: "",
         } as SyntheticRequest;
         log(`prepare:${request.requestId}`);
+        if ("rows" in intent.input) {
+          base.preview.sections.push({
+            key: "content",
+            title: "内容明细",
+            rows: intent.input.rows.map((row) => ({
+              key: row.key,
+              fields: [{ label: "数量", value: row.quantity }],
+            })),
+          });
+        }
         return { ...request, binding: operationBinding(request) };
       },
       acceptsPreparation(intent, prepared) {
@@ -299,6 +354,7 @@ export function synthetic(
           intent.action === prepared.action &&
           intent.identity.voucher === prepared.identity.voucher &&
           intent.input.note === prepared.input.note &&
+          JSON.stringify(intent.input) === JSON.stringify(prepared.input) &&
           prepared.binding === operationBinding(prepared)
         );
       },
@@ -355,17 +411,33 @@ export function synthetic(
         );
         return proof;
       },
-      async refresh({ owner, identity }) {
-        log(`refresh:${owner.operator}:${identity.voucher}`);
+      async refresh({ request, receipt }) {
+        const result =
+          "result" in receipt.evidence ? receipt.evidence.result : null;
+        log(
+          `refresh:${request.owner.operator}:${result?.voucher ?? request.identity.voucher}`,
+        );
         if (scenario() === "refresh-failure")
           throw new Error("合成刷新失败；只允许重读，不再执行");
+        if (result && receipt.status === "applied")
+          log(
+            `${result.deleted ? "deleted" : "content"}:${result.voucher}:${request.input.note}`,
+          );
+        onRefresh({ request, receipt } as VoucherOperationSettlement<
+          SyntheticModel,
+          Identity,
+          Baseline
+        >);
       },
       accepts(request, proof) {
         return (
           request.binding === operationBinding(request) &&
           proof.binding === request.binding &&
           proof.evidence.action === request.action &&
-          proof.evidence.receipt === `authority:${request.requestId}`
+          proof.evidence.receipt === `authority:${request.requestId}` &&
+          (!("result" in proof.evidence) ||
+            JSON.stringify(proof.evidence) ===
+              JSON.stringify(storedProof(request)?.evidence))
         );
       },
     },

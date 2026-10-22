@@ -91,3 +91,60 @@ it("renders consumer links, retries and controlled theme intents without owning 
   expect(wrapper.find(".v-theme--zerp-md3-light").exists()).toBe(true);
   wrapper.unmount();
 });
+
+it("uses the consumer's current key for same-path query links without changing navigation", async () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/catalog", component: { template: "<p>资料</p>" } }],
+  });
+  await router.push("/catalog?kind=one");
+  const plugins = config.global.plugins;
+  config.global.plugins = [createVuetify({ theme: createShellThemes() })];
+  const wrapper = mount(AppPage, {
+    props: {
+      brand: {
+        productName: "产品",
+        enterpriseName: "企业",
+        mark: { kind: "text", text: "星" },
+      },
+      brandState: { kind: "ready" },
+      navigationState: { kind: "ready" },
+      selectedNavigationKey: "one",
+      navigation: [
+        {
+          key: "catalogs",
+          caption: "资料",
+          items: [
+            { key: "one", caption: "资料一", to: "/catalog?kind=one" },
+            { key: "two", caption: "资料二", to: "/catalog?kind=two" },
+          ],
+        },
+      ],
+      pageTitle: "资料",
+      footer: "合成消费者",
+    },
+    global: { plugins: [router] },
+  });
+  config.global.plugins = plugins;
+  const current = () => wrapper.findAll('a[aria-current="page"]');
+  expect(current().map((link) => link.text())).toEqual(["资料一"]);
+  expect(
+    wrapper.findAll("a.router-link-exact-active").map((link) => link.text()),
+  ).toEqual(["资料一"]);
+  const second = wrapper.get('a[href="/catalog?kind=two"]');
+  await second.trigger("click", { metaKey: true, button: 0 });
+  expect(router.currentRoute.value.query.kind).toBe("one");
+  await second.trigger("click");
+  await flushPromises();
+  expect(router.currentRoute.value.query.kind).toBe("two");
+  // The host owns selection; a completed route change does not override it.
+  expect(current().map((link) => link.text())).toEqual(["资料一"]);
+  await wrapper.setProps({ selectedNavigationKey: "two" });
+  expect(current().map((link) => link.text())).toEqual(["资料二"]);
+  for (const key of [null, "removed"]) {
+    await wrapper.setProps({ selectedNavigationKey: key });
+    expect(current()).toHaveLength(0);
+    expect(wrapper.findAll("a.router-link-active")).toHaveLength(0);
+  }
+  wrapper.unmount();
+});

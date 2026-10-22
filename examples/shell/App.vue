@@ -42,7 +42,30 @@ const navigation: NavigationGroup[] = [
       icon: key === "report" ? "report" : "catalog",
     })),
   },
+  {
+    key: "query-catalogs",
+    caption: "同路径资料",
+    items: [
+      {
+        key: "direct-one",
+        caption: "资料一",
+        to: "/direct?kind=one",
+        icon: "catalog",
+      },
+      {
+        key: "direct-two",
+        caption: "资料二",
+        to: "/direct?kind=two",
+        icon: "catalog",
+      },
+    ],
+  },
 ];
+const selectedNavigationKey = computed(() =>
+  route.path === "/direct" && ["one", "two"].includes(String(route.query.kind))
+    ? `direct-${route.query.kind}`
+    : current.value[0],
+);
 const brand = {
   productName: "星河演示",
   enterpriseName: "合成公司",
@@ -159,6 +182,7 @@ function finishAccount() {
     :brand-state="brandState"
     :navigation="navigation"
     :navigation-state="navigationState"
+    :selected-navigation-key="selectedNavigationKey"
     :page-title="current[1]"
     footer="合成数据演示 · 非真实后端"
     :account="{

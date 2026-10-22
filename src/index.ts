@@ -123,6 +123,7 @@ export type {
   VoucherOperationRequest,
   VoucherOperationReceipt,
   VoucherOperationOutcome,
+  VoucherOperationSettlement,
   VoucherOperationJournal,
   VoucherOperationPersistence,
   VoucherOperationDefinition,

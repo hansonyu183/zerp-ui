@@ -35,7 +35,11 @@ watch(
   { immediate: true, flush: "sync" },
 );
 watch(
-  () => props.intent.identity,
+  [
+    () => props.intent.identity,
+    () => props.intent.input,
+    () => props.intent.action,
+  ],
   () => {
     generation++;
     session.value.cancelPreview();

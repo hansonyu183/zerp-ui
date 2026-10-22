@@ -1,5 +1,8 @@
 // Finite operation protocol decided in #24; domain facts and durable storage belong to consumers.
 export const voucherOperationLabels = {
+  create: "创建",
+  edit: "保存修改",
+  delete: "删除",
   send: "送审",
   withdraw: "撤回",
   approve: "审核",
@@ -78,6 +81,17 @@ export type VoucherOperationReceipt<
 }[A];
 export type VoucherOperationOutcome<M extends VoucherOperationModel> =
   VoucherOperationReceipt<M> | { status: "unknown" };
+/** The authoritative outcome stays paired with its original action and input. */
+export type VoucherOperationSettlement<
+  M extends VoucherOperationModel,
+  I,
+  B,
+> = {
+  [A in VoucherOperationAction]: Readonly<{
+    request: VoucherOperationRequest<M, I, B, A>;
+    receipt: VoucherOperationReceipt<M, A>;
+  }>;
+}[VoucherOperationAction];
 export type VoucherOperationJournal<
   M extends VoucherOperationModel,
   I,
@@ -135,10 +149,8 @@ export type VoucherOperationDefinition<
       request: VoucherOperationRequest<M, I, B>,
       receipt: VoucherOperationReceipt<M>,
     ): Promise<VoucherOperationOutcome<M>>;
-    refresh(context: {
-      owner: VoucherOperationOwner;
-      identity: I;
-    }): Promise<void>;
+    /** Read/display the authoritative result, including created identity or deletion. Never execute again. */
+    refresh(settlement: VoucherOperationSettlement<M, I, B>): Promise<void>;
     /** Consumer validates authoritative protocol evidence, full original payload and binding. */
     accepts(
       request: VoucherOperationRequest<M, I, B>,
