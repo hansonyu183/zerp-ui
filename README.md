@@ -1,6 +1,6 @@
 # ZERP UI
 
-独立的 Vue/Vuetify 组件库 `@zerp/ui@0.2.1`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
+独立的 Vue/Vuetify 组件库 `@zerp/ui@0.3.0`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
 
 ## 公开组件层级
 
@@ -8,17 +8,17 @@
 | -------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
 | 顶层页面 | `AuthPage`、`AppPage`                                                                        | 登录/注册/密码找回；登录后的导航、品牌、主题和主内容 |
 | 业务视图 | `CrudView`、`ConfigurationView`、`ReportView`、`DocumentView`、`VoucherView`、`WorkflowView` | 查询、编辑、写入及核实等固定业务交互；可脱离外壳使用 |
-| 复合交互 | `DynamicForm`、`ReferencePicker`、`DataList`、`RecordDetails`、`EditGuard`                   | 可独立使用的表单、引用选择及响应式数据列表           |
+| 复合交互 | `DynamicForm`、`ReferencePicker`、`DataList`、`RecordDetails`、`EditGuard`、`VoucherEditor`  | 可独立使用的表单、引用选择及响应式数据列表           |
 
 `SubmissionRuntime` 和认证子表单仅供库内部复用；消费者的领域 `*Block` 不属于库组件。`define*`、Adapter 类型和主题函数属于非组件 API。`0.1.0` 的组件导入名在 `0.2.0` 中更改，见 [迁移说明](#从-010-迁移)。
 
 ## 固定版本安装
 
-从 [ui-v0.2.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.2.1) 下载 `zerp-ui-0.2.1.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
+从 [ui-v0.3.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.3.0) 下载 `zerp-ui-0.3.0.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-npm install --save-exact ./zerp-ui-0.2.1.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
+npm install --save-exact ./zerp-ui-0.3.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
 ```
 
 将 tgz 放在消费者项目的固定路径并提交相应 lockfile；不要使用 latest、源码别名或 registry 同名包。首发基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0，peer 范围分别为 `~3.5.40`、`~4.1.5`、`~5.2.0`。宿主各提供唯一实例；MDI 字体是已声明的直接依赖，发布包自带所需 woff2 及字体许可证，无需 CDN。Node 26 是本库与独立消费者构建验收基线；消费的是编译后 ESM、声明和 CSS，不需要克隆 ZERP、编译库源码或安装自动导入插件。
@@ -31,7 +31,7 @@ npm install --save-exact ./zerp-ui-0.2.1.tgz vue@3.5.40 vuetify@4.1.5 vue-router
 
 测试仅使用合成资料与模拟 Adapter，不连接 ZERP API、数据库或生产数据，也不代表真实 ZERP E2E。ZERP 源码、依赖与部署保持原状；真实接入由发布后的[独立工单](https://github.com/hansonyu183/zerp/issues/520)完成。
 
-`pnpm check:release` 必须从干净 commit 运行：执行本库静态检查、完整组件测试、库及八个示例构建，只 pack 一次，再对同一个 tgz 执行八类独立安装/类型/浏览器验收。产物审计拒绝源码/额外文件、缺失声明引用及未声明模块依赖；安装树检查 Vue/Vuetify/Router 的宿主解析相同。CI 执行相同命令并上传证据。结果保留在 `.scratch/release/<SHA>/`；用 `pnpm check:release --tgz <下载工件绝对路径>` 对分发包再次执行全部安装 smoke（不重复组件测试、不重新 pack）。脚本失败不会发布。发布使用验收包原文件，附源码 SHA、变更、SHA256SUMS 和 evidence.json；上传后下载、比对校验并运行分发 smoke。不要重建或覆盖已发布版本。
+`pnpm check:release` 必须从干净 commit 运行：执行本库静态检查、完整组件测试、库及八个示例构建，只 pack 一次，再对同一个 tgz 执行八类独立安装/类型/浏览器验收。产物审计拒绝源码/额外文件、缺失声明引用及未声明模块依赖；安装树检查 Vue/Vuetify/Router 的宿主解析相同。CI 执行相同命令并上传证据。结果保留在 `.scratch/release/<SHA>/`；分发复验须在同一干净源码 commit 下保留 `.scratch/release/<SHA>/evidence.json`，再用 `pnpm check:release --tgz <下载工件绝对路径>` 对下载的同一包复验（不重复组件测试、不重新 pack），核对原证据的源码 SHA 和工件 SHA-256。脚本失败不会发布。发布使用验收包原文件，附源码 SHA、变更、SHA256SUMS 和 evidence.json；上传后下载、比对校验并运行分发 smoke。不要重建或覆盖已发布版本。
 
 ## 独立消费者
 
@@ -53,7 +53,7 @@ createApp(App)
   .mount("#app");
 ```
 
-完整的强类型定义、合成 Adapter 与可运行装配见 [独立示例](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.2.1/examples)，`examples/shell` 组合全部运行时；消费者可按需复制示例装配，而无需编译库源码。包包含 ESM、完整声明、限定作用域的 CSS、字体及字体授权。消费者无需编译库内 Vue/TS，也无需自动导入插件。所有示例均使用公开导出。
+完整的强类型定义、合成 Adapter 与可运行装配见 [独立示例](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.3.0/examples)，`examples/shell` 组合全部运行时；消费者可按需复制示例装配，而无需编译库源码。包包含 ESM、完整声明、限定作用域的 CSS、字体及字体授权。消费者无需编译库内 Vue/TS，也无需自动导入插件。所有示例均使用公开导出。
 
 ## 顶层页面
 
@@ -122,7 +122,7 @@ createApp(App)
 
 ## 报表运行时（#10、#23）
 
-当前源码按 [#23](https://github.com/hansonyu183/zerp-ui/issues/23) 增强，尚未发布；不包含在 `ui-v0.2.1` 工件中。`defineReport<P, R, ResultId, RowId, Target>` 使用 `kind: "parameter" | "fixed"` 判别。两种定义均提供 `resource/title/parameters/initialParameters/columns/rowKey/adapter`；`rowKey(row)` 必须是稳定且页内唯一的字符串或数字。组件接收 `definition`、含操作者/会话代次的 `scope`、`permissions.query/export`、可选 `pageSize`（默认 20）。作用域、资源、报表种类、资格或分页大小切换清除状态并使迟到响应失效。读取资格及服务端授权事实仍由消费者提供和重验。
+0.3.0 按 [#23](https://github.com/hansonyu183/zerp-ui/issues/23) 增强报表契约。`defineReport<P, R, ResultId, RowId, Target>` 使用 `kind: "parameter" | "fixed"` 判别。两种定义均提供 `resource/title/parameters/initialParameters/columns/rowKey/adapter`；`rowKey(row)` 必须是稳定且页内唯一的字符串或数字。组件接收 `definition`、含操作者/会话代次的 `scope`、`permissions.query/export`、可选 `pageSize`（默认 20）。作用域、资源、报表种类、资格或分页大小切换清除状态并使迟到响应失效。读取资格及服务端授权事实仍由消费者提供和重验。
 
 参数支持有限的 text、integer、decimal、boolean、date、date-range、enum、multi-enum 和引用；字段键和值类型配对，不接受递归编辑、任意模板或命令。日期范围用 `[起日, 止日]`，可选范围以 null 表示不限制；日期、顺序和未完成输入会校验。十进制不转浮点数，null、0、false 原样传给 Adapter，引用复用 ReferencePicker。编辑输入不会触发查询；画面单独显示成功结果对应的已采用条件。
 
@@ -140,7 +140,7 @@ createApp(App)
 
 两种导出均返回 `{content: Blob, filename: string}`；消费者拥有格式及完整数据协议，库负责互斥、下载、错误提示及 Blob URL 回收。`examples/report` 提供 BatchDTO→hasMore、LedgerDTO→total 和固定结果消费者；固定示例支持宽表、三类下钻、精确结果导出、失败保留、可控待决查询/取消、离开/返回、重验失效和会话切换。运行/构建/同一 tgz 的独立安装验证使用 `dev:report`、`build:report`、`check:report`。验收仅使用本库公开入口和合成 Adapter，不代表真实 ZERP/oit-go API、权限或 E2E。
 
-迁移：原无判别的报表定义必须增加 `kind: "parameter"` 和 `rowKey`；旧签名不保留兼容分支。要取得固定结果语义，显式采用 `kind: "fixed"` 并实现 query/page/revalidate，导出改接 resultId，不能沿用参数型 export 或 Adapter 私有的“最后一次结果”。这属于下次 0.x minor 发布的破坏接口；完整发布仍走现行 release gate，本票只交付本地源码与验证工件。
+迁移：原无判别的报表定义必须增加 `kind: "parameter"` 和 `rowKey`；旧签名不保留兼容分支。要取得固定结果语义，显式采用 `kind: "fixed"` 并实现 query/page/revalidate，导出改接 resultId，不能沿用参数型 export 或 Adapter 私有的“最后一次结果”。这是 0.3.0 的破坏接口；安装时采用本版本示例及迁移说明。
 
 ## 资料档案与附件（#11）
 
@@ -174,9 +174,9 @@ createApp(App)
 
 运行/构建/独立 tgz 安装验收使用 `dev:voucher`、`build:voucher`、`check:voucher`。验收覆盖公开声明配对及错误拒绝、两个消费者上下文的真实浏览器创建/克隆/专用录入/来源/递归取消、附件 stage/核实/下载、审批/历史/审计、独立脚本锁与错误恢复，并检查生产构建和 CSS/字体。只读参考为原 ZERP `frontend/src/target/components/document-page/DocumentPage.vue` 的本地 Draft、克隆新身份、专用期初来源、独立脚本保存及提交核实；应用 DTO、载荷全集、编辑器和真实 API 接入留给发布后工单。
 
-### 办理协议与原请求恢复（#24、#25，未发布）
+### 办理协议与原请求恢复（#24、#25，0.3.0）
 
-`VoucherView` 保持一个公开门面，定义通过 `protocol: "submission" | "operation"` 判别；不新增第七类运行时，不把办理映射为假 Submission。已有 `defineVoucher`/`VoucherDefinition` 定义现在必须增加 `protocol: "submission"`，保留原提交件、附件、审批和独立脚本语义。办理定义通过 `defineVoucherOperation<Model, Identity, Concurrency>` 创建，组件仅接收 `definition`、强类型 `intent`、`eligible` 和 `recoveryAllowed`；两种 props 不能混用，无旧签名 fallback。这是下次 0.x minor 的破坏契约，目前不在已发布 ui-v0.2.1 中。
+`VoucherView` 保持一个公开门面，定义通过 `protocol: "submission" | "operation"` 判别；不新增第七类运行时，不把办理映射为假 Submission。已有 `defineVoucher`/`VoucherDefinition` 定义现在必须增加 `protocol: "submission"`，保留原提交件、附件、审批和独立脚本语义。办理定义通过 `defineVoucherOperation<Model, Identity, Concurrency>` 创建，组件仅接收 `definition`、强类型 `intent`、`eligible` 和 `recoveryAllowed`；两种 props 不能混用，无旧签名 fallback。这是 0.3.0 的破坏契约，消费者须显式迁移。
 
 `VoucherOperationModel` 按闭合动作配对 input、完整 preview、evidence；动作及中文表达由 `voucherOperationLabels` 固定：send 送审、withdraw 撤回、approve 审核、unapprove 反审核、complete 完成、uncomplete 反完成、void 作废、unvoid 反作废。Intent 带 `{action, owner:{scope,operator,resource}, identity, input}`；scope 须含会话代次。Request 增加消费者产生的稳定 requestId、并发/配置事实、完整有限区块预览和权威 binding；Journal 将原请求和回执按动作配对。公司 DTO、资格、业务逆转及基线计算仍由消费者拥有，字段和独立 VoucherEditor 只持有值与 pending。
 
@@ -214,7 +214,7 @@ execute/reconcile/seal 返回 unknown 或 Receipt；applied 是权威成功，no
 
 使用 `dev:shell`、`build:shell`、`check:shell`。tgz 检查在独立安装树验证类型/非法配对、生产构建、CSS/字体，并在源示例和安装消费者执行六主题、各 runtime 装配、导航链接选中/新标签、错误重试、账户取消/退出/恢复和窄屏导航交互。原 ZERP 仅只读参考 themes.ts 和 App.vue 的官方主题/defaults 选取，本片不改变其账户、主题或部署。
 
-## 公共详情与编辑保护（#26，未发布）
+## 公共详情与编辑保护（#26，0.3.0）
 
 `VoucherEditor` 的 `mode: "read"` 复用表头、明细与所属行子项布局，表头和子项采用只读事实呈现，不挂载禁用表单或执行新建校验；编辑模式继续使用现有字段。打开未确认的明细或子项编辑时 `pending` 为 true，确认、取消或切换上下文后清理；这是局部未完成输入，不是业务写入状态。
 
@@ -226,7 +226,7 @@ scope、instance、active 或写入状态变化以及卸载，使待决确认返
 
 独立页面 [examples/details](examples/details) 仅经公开包入口装配 VoucherEditor、RecordDetails、EditGuard 与强类型合成 Adapter，演示查看→展开所属子项→编辑→继续/放弃→离开，以及身份清理、写入锁和宿主 beforeunload 的注册/撤销。使用 `dev:details`、`build:details`、`check:details`；后者对同一 tgz 的全新安装树和本库示例执行相同键盘、焦点、原值与保护行为，检查声明和生产构建。完整 release gate 也纳入此示例。全部仅为本库合成证据，不代表真实 ZERP/oit-go API/E2E。
 
-迁移：只读 VoucherEditor 不再提供禁用 input 作为读取方式，应依赖可见事实或原值；调用方不得依赖其旧 DOM。独立编辑宿主应将局部 pending 合并进 dirty，并将真正的写入 pending/unknown 单独传给 EditGuard；既有 VoucherView 的锁仍由其运行时持有。新增能力尚未包含于 ui-v0.2.1，随下一次 0.x minor 发布，本任务不执行发布或真实应用接入。
+迁移：只读 VoucherEditor 不再提供禁用 input 作为读取方式，应依赖可见事实或原值；调用方不得依赖其旧 DOM。独立编辑宿主应将局部 pending 合并进 dirty，并将真正的写入 pending/unknown 单独传给 EditGuard；既有 VoucherView 的锁仍由其运行时持有。上述能力包含于 ui-v0.3.0；真实应用接入仍由独立工单完成。
 
 ## 从 0.1.0 迁移
 
