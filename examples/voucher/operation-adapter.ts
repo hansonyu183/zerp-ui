@@ -8,7 +8,6 @@ import type {
   VoucherOperationReceipt,
   VoucherOperationRequest,
   VoucherOperationOwner,
-  VoucherOperationSettlement,
 } from "@zerp/ui";
 export type SyntheticModel = {
   [A in VoucherOperationAction]: {
@@ -43,7 +42,9 @@ export type Scenario =
   | "save-failure"
   | "seal-failure"
   | "no-evidence"
-  | "verification-failure";
+  | "verification-failure"
+  | "cleanup-failure";
+// Cleanup failure is injected by the consumer persistence port.
 export type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 function operationBinding(request: SyntheticRequest) {
   const base = {
@@ -159,9 +160,6 @@ export function synthetic(
   storage: Store,
   scenario: () => Scenario,
   log: (message: string) => void = () => {},
-  onRefresh: (
-    settlement: VoucherOperationSettlement<SyntheticModel, Identity, Baseline>,
-  ) => void = () => {},
 ) {
   const key = (owner: VoucherOperationOwner) =>
     `SYNTHETIC-OPERATIONS-wipe-me:${JSON.stringify([owner.scope, owner.operator, owner.resource])}`;
@@ -423,11 +421,6 @@ export function synthetic(
           log(
             `${result.deleted ? "deleted" : "content"}:${result.voucher}:${request.input.note}`,
           );
-        onRefresh({ request, receipt } as VoucherOperationSettlement<
-          SyntheticModel,
-          Identity,
-          Baseline
-        >);
       },
       accepts(request, proof) {
         return (

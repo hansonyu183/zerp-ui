@@ -33,6 +33,7 @@ import type {
   VoucherOperationDefinition,
   VoucherOperationIntent,
   VoucherOperationModel,
+  VoucherOperationSettlement,
 } from "./voucher-operation";
 type SubmissionProps = {
   definition: VoucherDefinition<D, I, R, U, S, O, H, A, E>;
@@ -59,6 +60,9 @@ type OperationProps = {
 };
 type Props = SubmissionProps | OperationProps;
 const props = defineProps<Props>();
+const emit = defineEmits<{
+  settled: [settlement: VoucherOperationSettlement<M, OI, B>];
+}>();
 function isOperation(value: Props): value is OperationProps {
   return value.definition.protocol === "operation";
 }
@@ -82,6 +86,7 @@ const submission = computed(() => {
     :intent="operation.intent"
     :eligible="operation.eligible"
     :recovery-allowed="operation.recoveryAllowed"
+    @settled="emit('settled', $event)"
   />
   <VoucherSubmission
     v-if="submission"

@@ -1050,6 +1050,10 @@ async function shellSmoke(page) {
   }
   for (const name of ["资料一", "资料二"]) {
     await page.getByRole("link", { name, exact: true }).click();
+    await page
+      .locator('nav[aria-label="主导航"] a[aria-current="page"]')
+      .filter({ hasText: name })
+      .waitFor();
     assert.equal(
       await page
         .locator('nav[aria-label="主导航"] a[aria-current="page"]')

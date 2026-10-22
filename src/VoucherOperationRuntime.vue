@@ -1,11 +1,13 @@
 <script setup lang="ts" generic="M extends VoucherOperationModel, I, B">
 import { computed, watch, onBeforeUnmount } from "vue";
 import { operationSession } from "./voucher-operation-session";
+import { clone } from "./clone";
 import { voucherOperationLabels } from "./voucher-operation";
 import type {
   VoucherOperationModel,
   VoucherOperationDefinition,
   VoucherOperationIntent,
+  VoucherOperationSettlement,
 } from "./voucher-operation";
 const props = defineProps<{
   definition: VoucherOperationDefinition<M, I, B>;
@@ -13,12 +15,33 @@ const props = defineProps<{
   eligible: boolean;
   recoveryAllowed: boolean;
 }>();
+const emit = defineEmits<{
+  settled: [settlement: VoucherOperationSettlement<M, I, B>];
+}>();
 const session = computed(() =>
   operationSession(props.definition, props.intent.owner),
 );
 const state = computed(() => session.value.state);
 let generation = 0;
 let attached: ReturnType<typeof operationSession<M, I, B>> | undefined;
+function publish(
+  current: number,
+  target: ReturnType<typeof operationSession<M, I, B>>,
+) {
+  if (
+    current === generation &&
+    target === session.value &&
+    (props.eligible || props.recoveryAllowed) &&
+    target.state.settlement
+  )
+    emit("settled", clone(target.state.settlement));
+}
+async function restore(force = false) {
+  const current = generation,
+    target = session.value;
+  await target.restore(force);
+  publish(current, target);
+}
 watch(
   [
     () => props.intent.owner.scope,
@@ -30,7 +53,7 @@ watch(
     generation++;
     attached?.cancelPreview();
     attached = session.value;
-    void attached.restore();
+    void restore();
   },
   { immediate: true, flush: "sync" },
 );
@@ -64,19 +87,19 @@ function live() {
 function prepare() {
   if (props.eligible) void session.value.prepare(props.intent, live());
 }
-function confirm() {
-  const current = generation;
-  void session.value.confirm(
-    live(),
-    () => current === generation && props.eligible,
-  );
+async function confirm() {
+  const current = generation,
+    target = session.value;
+  await target.confirm(live(), () => current === generation && props.eligible);
+  publish(current, target);
 }
-function resume() {
-  const current = generation;
-  if (props.recoveryAllowed)
-    void session.value.resume(
-      () => current === generation && props.recoveryAllowed,
-    );
+async function resume() {
+  const current = generation,
+    target = session.value;
+  if (props.recoveryAllowed) {
+    await target.resume(() => current === generation && props.recoveryAllowed);
+    publish(current, target);
+  }
 }
 onBeforeUnmount(() => {
   generation++;
@@ -102,7 +125,7 @@ onBeforeUnmount(() => {
       v-if="state.phase === 'blocked'"
       type="button"
       :disabled="state.busy || !recoveryAllowed"
-      @click="session.restore(true)"
+      @click="restore(true)"
     >
       重试恢复
     </button>

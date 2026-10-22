@@ -116,6 +116,47 @@ it("refreshes an authoritative created identity from the settled original reques
   expect(w.text()).toContain("可显式准备新请求");
   w.unmount();
 });
+
+it("delivers a durable created result on a fresh mount without repeating completed refresh", async () => {
+  const f = setup();
+  const remove = f.definition.persistence.remove;
+  f.definition.persistence.remove = async () => {
+    throw new Error("清理响应失败");
+  };
+  const refresh = vi.spyOn(f.definition.adapter, "refresh");
+  const props = {
+    definition: f.definition,
+    intent: {
+      action: "create",
+      owner: f.intent.owner,
+      identity: { voucher: null },
+      input: { note: "可恢复结果", rows: [{ key: "r1", quantity: "1.0100" }] },
+    },
+    eligible: true,
+    recoveryAllowed: true,
+  };
+  let w = mount(OperationPrototype as Component, { props });
+  await flushPromises();
+  await click(w, "准备创建");
+  await click(w, "确认创建");
+  const record = (await f.definition.persistence.load(f.intent.owner))!;
+  expect(record.refreshed).toBe(true);
+  w.unmount();
+  // A fresh port over the same durable journal models a new JS session.
+  props.definition = {
+    ...f.definition,
+    persistence: { ...f.definition.persistence, remove },
+  };
+  w = mount(OperationPrototype as Component, { props });
+  await flushPromises();
+  expect(w.emitted("settled")?.[0]).toEqual([
+    { request: record.request, receipt: record.receipt },
+  ]);
+  await click(w, "重试读取");
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(w.text()).toContain("可显式准备新请求");
+  w.unmount();
+});
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((yes) => {

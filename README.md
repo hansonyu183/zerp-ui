@@ -248,7 +248,7 @@ scope、instance、active 或写入状态变化以及卸载，使待决确认返
 
 当前源码在 operation 协议的八种状态动作外增加 `create`（创建）、`edit`（保存修改）、`delete`（删除）。仍通过同一个 `VoucherView`、强类型原输入和消费者的完整权威预览办理；`VoucherEditor` 只编辑本地表头/明细，不拥有写入或解锁。动作、目标或原输入变化使旧预览失效；已发送请求继续按原快照核实。
 
-`adapter.refresh` 改接 `VoucherOperationSettlement<Model, Identity, Baseline>`，包含按动作配对的 `request` 与 `receipt`。消费者从 `request.identity/input` 读取原目标和完整输入，从已验证的 `receipt.evidence` 读取创建结果身份或删除事实，完成结果展示/读取与删除后清理。终态保存和整页恢复保留这些证据；刷新失败只重读，不再 execute。尚未应用的创建不得伪造新对象身份。不得继续使用 0.3.0 的 `refresh({ owner, identity })` 签名；按下一次 minor 版本一次性迁移，不提供兼容分支。存储版本和已存在 journal 的解码/必要转换归消费者，同一个原请求的 binding、终态和完成事实不能被转换丢弃。
+`adapter.refresh` 改接 `VoucherOperationSettlement<Model, Identity, Baseline>`，包含按动作配对的 `request` 与 `receipt`。消费者从 `request.identity/input` 读取原目标和完整输入，从已验证的 `receipt.evidence` 读取创建结果身份或删除事实，完成结果展示/读取与删除后清理。终态保存和整页恢复保留这些证据；刷新失败只重读，不再 execute。 operation 分支同时发出强类型 `settled(settlement)` 通知；消费者通过该通知幂等呈现终态结果或提供已封存原输入恢复。即使 journal 已标记 refreshed/completed，重挂载和整页恢复仍交付已验证终态，避免为找回新建身份重复 refresh；通知本身不执行写入、刷新或解锁。尚未应用的创建不得伪造新对象身份。不得继续使用 0.3.0 的 `refresh({ owner, identity })` 签名；按下一次 minor 版本一次性迁移，不提供兼容分支。存储版本和已存在 journal 的解码/必要转换归消费者，同一个原请求的 binding、终态和完成事实不能被转换丢弃。
 
 独立单据合成消费者演示内容创建、采用权威结果进行修改、删除及重载恢复。全部为合成数据，不连接真实 API；也不代表 OIT 专用单据、权限或业务规则已验证。
 

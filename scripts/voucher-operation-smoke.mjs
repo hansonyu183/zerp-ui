@@ -275,4 +275,29 @@ export async function voucherOperationSmoke(page) {
     0,
     "deletion refresh retry must not execute again",
   );
+  await region.getByLabel("办理动作").selectOption("create");
+  await region.getByLabel("合成情景").selectOption("cleanup-failure");
+  await button("准备创建").click();
+  await button("确认创建").click();
+  await status("合成清理失败");
+  const durableResultId = (await result.textContent()).match(
+    /SYN-created-[\w-]+/,
+  )[0];
+  await page.reload();
+  await page.getByText("独立单据办理示例", { exact: true }).click();
+  await result
+    .getByText(`权威结果：${durableResultId}`, { exact: true })
+    .waitFor();
+  await button("重试读取").click();
+  await status("可显式准备新请求");
+  assert.equal(
+    await region.getByRole("listitem").filter({ hasText: "refresh:" }).count(),
+    0,
+    "result delivery must not repeat a durable completed refresh",
+  );
+  await page.reload();
+  await page.getByText("独立单据办理示例", { exact: true }).click();
+  await result
+    .getByText(`权威结果：${durableResultId}`, { exact: true })
+    .waitFor();
 }

@@ -71,6 +71,7 @@ function createSession<M extends Model, I, B>(
     notice: string;
     prepared?: Request<M, I, B>;
     journal?: Journal<M, I, B>;
+    settlement?: Settlement<M, I, B>;
   }>({ phase: "loading", busy: false, notice: "" });
   let initialized = false;
   function accepted(request: Request<M, I, B>, receipt: Receipt<M>) {
@@ -112,6 +113,15 @@ function createSession<M extends Model, I, B>(
         ? "seal"
         : "refresh";
   }
+  function settlement(record: Journal<M, I, B>) {
+    return record.receipt &&
+      (record.receipt.status === "applied" || record.receipt.sealed)
+      ? (clone({
+          request: record.request,
+          receipt: record.receipt,
+        }) as Settlement<M, I, B>)
+      : undefined;
+  }
   async function run(work: () => Promise<void>) {
     if (state.busy) return;
     state.busy = true;
@@ -136,12 +146,14 @@ function createSession<M extends Model, I, B>(
     if (initialized && !force) return;
     await run(async () => {
       state.phase = "loading";
+      state.settlement = undefined;
       try {
         const record = await persistence.load(clone(owner));
         if (record) check(record);
         if (!record && state.journal)
           throw new Error("原请求持久记录缺失，不能以空查询解除已知请求。");
         state.journal = record && !record.completed ? clone(record) : undefined;
+        state.settlement = record ? settlement(record) : undefined;
         state.prepared = undefined;
         state.phase = record && !record.completed ? phase(record) : "idle";
         initialized = true;
@@ -166,6 +178,7 @@ function createSession<M extends Model, I, B>(
     if (state.phase !== "idle") return;
     await run(async () => {
       state.phase = "preparing";
+      state.settlement = undefined;
       state.notice = "正在准备完整预览。";
       const original = clone(intent),
         value = await adapter.prepare(clone(original));
@@ -232,6 +245,7 @@ function createSession<M extends Model, I, B>(
     state.journal = settled;
     state.prepared = undefined;
     state.phase = phase(settled);
+    state.settlement = settlement(settled);
     state.notice =
       state.phase === "seal"
         ? "已确认未应用，必须封存原请求。"
@@ -282,6 +296,7 @@ function createSession<M extends Model, I, B>(
         throw new Error("原请求记录缺失或已改变，不能以普通空查询解锁。");
       check(latest);
       if (!live()) return;
+      state.settlement = settlement(latest);
       if (latest.completed) {
         state.journal = undefined;
         state.prepared = undefined;

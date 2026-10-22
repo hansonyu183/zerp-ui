@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, onBeforeUnmount } from "vue";
+import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { VoucherView, VoucherEditor, type VoucherEditorValue } from "@zerp/ui";
 import {
   voucherOperationLabels,
   type VoucherOperationAction,
   type VoucherOperationIntent,
+  type VoucherOperationSettlement,
 } from "@zerp/ui";
 import {
   synthetic,
@@ -12,6 +13,7 @@ import {
   type SyntheticModel,
   type Identity,
   type Scenario,
+  type Baseline,
 } from "./operation-adapter";
 import { operationJournal } from "./operation-journal";
 const action = ref<VoucherOperationAction>("void"),
@@ -34,6 +36,13 @@ const target = ref("SYN-25"),
 const identity = computed<Identity>(() => ({
   voucher: action.value === "create" ? null : target.value,
 }));
+const recovered = ref<VoucherOperationIntent<SyntheticModel, Identity> | null>(
+  null,
+);
+watch(operator, () => {
+  result.value = null;
+  recovered.value = null;
+});
 const editor = computed<
   VoucherEditorValue<{ note: string }, { key: string; quantity: string }>
 >({
@@ -48,18 +57,34 @@ const definition = synthetic(
   localStorage,
   () => scenario.value,
   (event) => events.value.push(event),
-  ({ request, receipt }) => {
-    if (receipt.status !== "applied" || !("result" in receipt.evidence)) return;
-    if (!receipt.evidence.result.voucher)
-      throw new Error("合成权威结果缺少身份");
-    result.value = {
-      ...receipt.evidence.result,
-      note: request.input.note,
-      voucher: receipt.evidence.result.voucher,
-      rows: "rows" in request.input ? [...request.input.rows] : [],
-    };
-  },
 );
+function showResult({
+  request,
+  receipt,
+}: VoucherOperationSettlement<SyntheticModel, Identity, Baseline>) {
+  if (receipt.status === "not-applied") {
+    if (request.action === "create" || request.action === "edit")
+      recovered.value = request;
+    return;
+  }
+  if (receipt.status !== "applied" || !("result" in receipt.evidence)) return;
+  if (!receipt.evidence.result.voucher) throw new Error("合成权威结果缺少身份");
+  result.value = {
+    ...receipt.evidence.result,
+    voucher: receipt.evidence.result.voucher,
+    note: request.input.note,
+    rows: "rows" in request.input ? [...request.input.rows] : [],
+  };
+}
+function restoreContent() {
+  const original = recovered.value;
+  if (!original || !("rows" in original.input)) return;
+  target.value = original.identity.voucher ?? "";
+  note.value = original.input.note;
+  rows.value = original.input.rows.map((row) => ({ ...row }));
+  action.value = original.action;
+  recovered.value = null;
+}
 const durable = operationJournal();
 definition.persistence = {
   load: durable.persistence.load,
@@ -70,7 +95,11 @@ definition.persistence = {
       `save:${record.request.requestId}:${record.receipt?.status ?? "unresolved"}`,
     );
   },
-  remove: durable.persistence.remove,
+  remove: async (owner, requestId) => {
+    if (scenario.value === "cleanup-failure")
+      throw new Error("合成清理失败，原终态仍保留");
+    await durable.persistence.remove(owner, requestId);
+  },
 };
 async function verifyStorage() {
   const probe = synthetic(
@@ -220,6 +249,7 @@ function editResult() {
         <option value="seal-failure">封存失败</option>
         <option value="no-evidence">证据不足</option>
         <option value="verification-failure">核实异常</option>
+        <option value="cleanup-failure">读取后清理失败</option>
       </select></label
     >
     <label
@@ -245,12 +275,14 @@ function editResult() {
     <button type="button" @click="visible = !visible">
       {{ visible ? "卸载演示" : "恢复演示" }}
     </button>
+    <button v-if="recovered" @click="restoreContent">恢复原内容</button>
     <VoucherView
       v-if="visible"
       :definition="definition"
       :intent="intent"
       :eligible="eligible && !editorPending"
       :recovery-allowed="recoveryAllowed"
+      @settled="showResult"
     />
     <section v-if="result" aria-label="合成内容结果">
       <p>{{ result.deleted ? "已删除" : "权威结果" }}：{{ result.voucher }}</p>
