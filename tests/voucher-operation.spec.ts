@@ -1,7 +1,7 @@
-import type { Component } from "vue";
+import { reactive, type Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import OperationPrototype from "../examples/voucher-operation-prototype/OperationPrototype.vue";
+import { VoucherView as OperationPrototype } from "../src/index";
 import {
   synthetic,
   type SyntheticModel,
@@ -9,8 +9,15 @@ import {
   type Scenario,
   type Store,
   type SyntheticRequest,
-} from "../examples/voucher-operation-prototype/synthetic";
-import type { Intent } from "../examples/voucher-operation-prototype/contract";
+} from "../examples/voucher/operation-adapter";
+import type { VoucherOperationIntent } from "../src/index";
+// Web Locks is the browser concurrency seam; real cross-page behavior is exercised in the installed consumer.
+Object.defineProperty(navigator, "locks", {
+  configurable: true,
+  value: {
+    request: async (_name: string, work: () => Promise<unknown>) => work(),
+  },
+});
 function setup() {
   const values = new Map<string, string>();
   const storage: Store = {
@@ -29,7 +36,9 @@ function setup() {
     () => scenario,
     (event) => events.push(event),
   );
-  const intent: Intent<SyntheticModel, Identity> = {
+  definition.adapter.reconcile = vi.fn(definition.adapter.reconcile);
+  definition.adapter.execute = vi.fn(definition.adapter.execute);
+  const intent: VoucherOperationIntent<SyntheticModel, Identity> = {
     action: "void",
     owner: { operator: "a", scope: "session-1", resource: "voucher" },
     identity: { voucher: "one" },
@@ -37,7 +46,7 @@ function setup() {
   };
   const start = () =>
     mount(OperationPrototype as Component, {
-      props: { definition, intent, eligible: true },
+      props: { definition, intent, eligible: true, recoveryAllowed: true },
     });
   return {
     definition,
@@ -95,7 +104,7 @@ it("saves the original request before execution and blocks sending when persiste
   const saved = f.events.findIndex((e) => e.startsWith("save:")),
     execute = f.events.findIndex((e) => e.startsWith("execute:"));
   expect(saved).toBeLessThan(execute);
-  expect(w.text()).toContain("可显式开始新请求");
+  expect(w.text()).toContain("可显式准备新请求");
   w.unmount();
 });
 it("recovers the exact original input after remount, isolates another operator and never re-executes", async () => {
@@ -131,7 +140,7 @@ it("recovers the exact original input after remount, isolates another operator a
   await click(w, "核实原请求");
   expect(reconcile).toHaveBeenCalledWith(original);
   expect(f.events.filter((e) => e.startsWith("execute:"))).toHaveLength(1);
-  expect(w.text()).toContain("可显式开始新请求");
+  expect(w.text()).toContain("可显式准备新请求");
   w.unmount();
 });
 it("rejects mismatched terminal proof and retains the original lock", async () => {
@@ -162,7 +171,7 @@ it("requires successful sealing of a not-applied request before a fresh request"
   expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
   f.scenario("not-applied");
   await click(w, "封存原请求");
-  expect(w.text()).toContain("可显式开始新请求");
+  expect(w.text()).toContain("可显式准备新请求");
   await click(w, "准备作废");
   expect(w.text()).not.toContain(original.requestId);
   w.unmount();
@@ -194,10 +203,10 @@ it("keeps a late execution receipt under its original owner instead of refreshin
   const pending =
     deferred<Awaited<ReturnType<typeof f.definition.adapter.execute>>>();
   let request!: SyntheticRequest;
-  f.definition.adapter.execute = async (value) => {
+  vi.mocked(f.definition.adapter.execute).mockImplementation(async (value) => {
     request = value;
     return pending.promise;
-  };
+  });
   await button(w, "确认作废").trigger("click");
   await flushPromises();
   await w.setProps({
@@ -238,24 +247,30 @@ it("keeps recovery failures locked instead of treating unreadable storage as an 
 it("recovers an ambiguously acknowledged reservation without sending a business write", async () => {
   const f = setup(),
     save = f.definition.persistence.save;
-  f.definition.persistence.save = async (record, expected) => {
-    await save(record, expected);
-    throw new Error("保存响应丢失");
-  };
+  const flakySave = vi.fn(
+    async (
+      record: Parameters<typeof save>[0],
+      expected: Parameters<typeof save>[1],
+    ): Promise<void> => {
+      await save(record, expected);
+      throw new Error("保存响应丢失");
+    },
+  );
+  f.definition.persistence.save = flakySave;
   const w = f.start();
   await flushPromises();
   await click(w, "准备作废");
   await click(w, "确认作废");
   expect(w.text()).toContain("本次未发送写入");
   expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
-  f.definition.persistence.save = save;
+  flakySave.mockImplementation(save);
   await click(w, "重试恢复");
   expect(w.text()).toContain("已恢复原请求");
   expect(f.events.some((e) => e.startsWith("execute:"))).toBe(false);
   await click(w, "核实原请求");
   expect(w.text()).toContain("必须封存原请求");
   await click(w, "封存原请求");
-  expect(w.text()).toContain("可显式开始新请求");
+  expect(w.text()).toContain("可显式准备新请求");
   w.unmount();
 });
 it("keeps a sealed original request not-applied when a late delivery attempts execution", async () => {
@@ -275,7 +290,7 @@ it("keeps a sealed original request not-applied when a late delivery attempts ex
     sealed: true,
     requestId: original.requestId,
   });
-  expect(w.text()).toContain("可显式开始新请求");
+  expect(w.text()).toContain("可显式准备新请求");
   w.unmount();
 });
 
@@ -329,3 +344,203 @@ it("finds the same owner's unresolved journal regardless of property constructio
   );
   w.unmount();
 });
+
+it("shares the unresolved lock across mounted consumers and sends/refreshes only once", async () => {
+  const f = setup();
+  f.scenario("unknown");
+  const execute = vi
+    .mocked(f.definition.adapter.execute)
+    .getMockImplementation()!;
+  const response = deferred<Awaited<ReturnType<typeof execute>>>();
+  vi.mocked(f.definition.adapter.execute).mockImplementation(
+    async (request) => {
+      await execute(request);
+      return response.promise;
+    },
+  );
+  const first = f.start(),
+    second = f.start();
+  await flushPromises();
+  await click(first, "准备作废");
+  await Promise.all([
+    button(first, "确认作废").trigger("click"),
+    button(second, "确认作废").trigger("click"),
+  ]);
+  await flushPromises();
+  expect(f.events.filter((e) => e.startsWith("execute:"))).toHaveLength(1);
+  response.resolve({ status: "unknown" });
+  await flushPromises();
+  first.unmount();
+  expect(button(second, "准备作废").attributes("disabled")).toBeDefined();
+  await click(second, "核实原请求");
+  expect(f.events.filter((e) => e.startsWith("refresh:"))).toHaveLength(1);
+  second.unmount();
+});
+it("does not send a reserved request if eligibility is revoked while saving", async () => {
+  const f = setup(),
+    save = f.definition.persistence.save,
+    gate = deferred<void>();
+  f.definition.persistence.save = async (record, expected) => {
+    await save(record, expected);
+    if (expected === null) await gate.promise;
+  };
+  const w = f.start();
+  await flushPromises();
+  await click(w, "准备作废");
+  await button(w, "确认作废").trigger("click");
+  await flushPromises();
+  await w.setProps({ eligible: false });
+  gate.resolve();
+  await flushPromises();
+  expect(f.events.some((e) => e.startsWith("execute:"))).toBe(false);
+  expect(w.text()).toContain("已保存但未发送");
+  expect(await f.definition.persistence.load(f.intent.owner)).not.toBeNull();
+  w.unmount();
+});
+it("keeps the request locked when recovery permission is absent or revoked during verification", async () => {
+  const f = setup();
+  f.scenario("unknown");
+  const reconcile = f.definition.adapter.reconcile,
+    proof = deferred<Awaited<ReturnType<typeof reconcile>>>();
+  vi.mocked(reconcile).mockImplementation(() => proof.promise);
+  const w = f.start();
+  await flushPromises();
+  await click(w, "准备作废");
+  await click(w, "确认作废");
+  await w.setProps({ recoveryAllowed: false });
+  expect(button(w, "核实原请求").attributes("disabled")).toBeDefined();
+  await w.setProps({ recoveryAllowed: true });
+  await button(w, "核实原请求").trigger("click");
+  await flushPromises();
+  await w.setProps({ recoveryAllowed: false });
+  const original = (await f.definition.persistence.load(f.intent.owner))!
+    .request;
+  const raw = [...f.values.entries()].find(
+    ([key]) =>
+      key.startsWith("SYNTHETIC-OPERATIONS-authority:") &&
+      key.endsWith(original.requestId),
+  )![1];
+  proof.resolve(JSON.parse(raw));
+  await flushPromises();
+  expect(f.events.some((e) => e.startsWith("refresh:"))).toBe(false);
+  expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
+  await w.setProps({ recoveryAllowed: true });
+  await click(w, "重试读取");
+  expect(f.events.filter((e) => e.startsWith("execute:"))).toHaveLength(1);
+  w.unmount();
+});
+it("keeps an applied result unresolved if its durable receipt cannot be saved", async () => {
+  const f = setup(),
+    save = f.definition.persistence.save;
+  let fail = true;
+  f.definition.persistence.save = async (record, expected) => {
+    if (record.receipt && fail) {
+      fail = false;
+      throw new Error("终态保存失败");
+    }
+    await save(record, expected);
+  };
+  const w = f.start();
+  await flushPromises();
+  await click(w, "准备作废");
+  await click(w, "确认作废");
+  expect(w.text()).toContain("终态保存失败");
+  expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
+  await click(w, "核实原请求");
+  expect(f.events.filter((e) => e.startsWith("execute:"))).toHaveLength(1);
+  expect(f.events.filter((e) => e.startsWith("refresh:"))).toHaveLength(1);
+  w.unmount();
+});
+it("retries journal cleanup without replaying a completed refresh or business action", async () => {
+  const f = setup(),
+    remove = f.definition.persistence.remove;
+  let fail = true;
+  f.definition.persistence.remove = async (owner, id) => {
+    if (fail) {
+      fail = false;
+      throw new Error("清理失败");
+    }
+    await remove(owner, id);
+  };
+  let w = f.start();
+  await flushPromises();
+  await click(w, "准备作废");
+  await click(w, "确认作废");
+  expect(w.text()).toContain("清理失败");
+  w.unmount();
+  w = f.start();
+  await flushPromises();
+  await click(w, "重试读取");
+  expect(f.events.filter((e) => e.startsWith("refresh:"))).toHaveLength(1);
+  expect(f.events.filter((e) => e.startsWith("execute:"))).toHaveLength(1);
+  w.unmount();
+});
+
+it.each(["no-evidence", "verification-failure"] as const)(
+  "keeps the original request locked for %s",
+  async (scenario) => {
+    const f = setup();
+    f.scenario("unknown");
+    const w = f.start();
+    await flushPromises();
+    await click(w, "准备作废");
+    await click(w, "确认作废");
+    const original = (await f.definition.persistence.load(f.intent.owner))!
+      .request;
+    f.scenario(scenario);
+    await click(w, "核实原请求");
+    expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
+    expect(w.text()).toContain(original.requestId);
+    expect(f.events.filter((e) => e.startsWith("execute:"))).toHaveLength(1);
+    w.unmount();
+  },
+);
+
+it.each(["prepare", "execute"] as const)(
+  "invalidates late %s when the target identity is mutated in place",
+  async (kind) => {
+    const f = setup();
+    const intent = reactive({ ...f.intent, identity: { voucher: "one" } });
+    const gate = deferred<void>();
+    if (kind === "prepare") {
+      const prepare = f.definition.adapter.prepare;
+      f.definition.adapter.prepare = async (intent) => {
+        const result = await prepare(intent);
+        await gate.promise;
+        return result;
+      };
+    } else {
+      const execute = vi
+        .mocked(f.definition.adapter.execute)
+        .getMockImplementation()!;
+      vi.mocked(f.definition.adapter.execute).mockImplementation(
+        async (request) => {
+          const result = await execute(request);
+          await gate.promise;
+          return result;
+        },
+      );
+    }
+    const w = mount(OperationPrototype as Component, {
+      props: {
+        definition: f.definition,
+        intent,
+        eligible: true,
+        recoveryAllowed: true,
+      },
+    });
+    await flushPromises();
+    await button(w, "准备作废").trigger("click");
+    await flushPromises();
+    if (kind === "execute") {
+      await button(w, "确认作废").trigger("click");
+      await flushPromises();
+    }
+    intent.identity.voucher = "two";
+    gate.resolve();
+    await flushPromises();
+    expect(w.find('[role="dialog"]').exists()).toBe(false);
+    expect(f.events.some((e) => e.startsWith("refresh:"))).toBe(false);
+    w.unmount();
+  },
+);

@@ -109,3 +109,21 @@ export type {
   NavigationIcon,
   NavigationGroup,
 } from "./shell";
+
+export {
+  defineVoucherOperation,
+  voucherOperationLabels,
+} from "./voucher-operation";
+export type {
+  VoucherOperationAction,
+  VoucherOperationOwner,
+  VoucherOperationPreview,
+  VoucherOperationModel,
+  VoucherOperationIntent,
+  VoucherOperationRequest,
+  VoucherOperationReceipt,
+  VoucherOperationOutcome,
+  VoucherOperationJournal,
+  VoucherOperationPersistence,
+  VoucherOperationDefinition,
+} from "./voucher-operation";

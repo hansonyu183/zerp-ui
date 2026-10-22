@@ -258,6 +258,7 @@ const voucherAdapter: VoucherAdapter<
   },
 };
 export const voucherDefinition = defineVoucher({
+  protocol: "submission",
   resource: "synthetic-voucher",
   title: "流程单据正文",
   fields: [

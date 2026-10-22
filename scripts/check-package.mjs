@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
+import { voucherOperationSmoke } from "./voucher-operation-smoke.mjs";
 import { chromium } from "@playwright/test";
 const shellMode = process.argv.includes("--shell");
 const workflowMode = process.argv.includes("--workflow");
@@ -160,6 +161,21 @@ await writeFile(
   join(consumer, "contracts.type-test.ts"),
   fixture.replaceAll("../src/index", "@zerp/ui"),
 );
+if (voucherMode) {
+  const operationTypes = await readFile(
+    join(root, "tests/voucher-operation.type-test.ts"),
+    "utf8",
+  );
+  await writeFile(
+    join(consumer, "operations.type-test.ts"),
+    operationTypes
+      .replaceAll("../src/index", "@zerp/ui")
+      .replaceAll(
+        "../examples/voucher/operation-adapter",
+        "./operation-adapter",
+      ),
+  );
+}
 run(
   "npm",
   ["install", "--ignore-scripts", "--no-audit", "--no-fund"],
@@ -234,7 +250,8 @@ try {
   const address = server.httpServer.address();
   assert.ok(address && typeof address !== "string");
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const context = await browser.newContext();
+  const page = await context.newPage();
   const errors = [];
   const observe = (page) => {
     page.on("pageerror", (e) => errors.push(e.message));
@@ -284,11 +301,12 @@ try {
   try {
     const localAddress = exampleServer.httpServer.address();
     assert.ok(localAddress && typeof localAddress !== "string");
-    const examplePage = await browser.newPage();
+    const exampleContext = await browser.newContext();
+    const examplePage = await exampleContext.newPage();
     observe(examplePage);
     await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
     await smoke(examplePage);
-    await examplePage.close();
+    await exampleContext.close();
   } finally {
     await new Promise((yes, no) =>
       exampleServer.httpServer.close((e) => (e ? no(e) : yes())),
@@ -893,6 +911,7 @@ async function voucherSmoke(page) {
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
   await button("关闭编辑").click();
   assert.ok(await button("创建 Draft").isDisabled());
+  await voucherOperationSmoke(page);
 }
 
 async function workflowSmoke(page) {

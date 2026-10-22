@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 单据办理（[#25](https://github.com/hansonyu183/zerp-ui/issues/25)，尚未发布）：VoucherView 以 submission/operation 明确判别，提供有限办理动作、完整预览、可靠保存原请求、精确核实/封存、跨重载恢复及刷新清理；旧提交件定义必须增加 protocol，随下次 0.x minor 发布，不保留兼容分支。
+- 将 #24 原型替换为公开入口和单据消费者示例，删除临时运行路径；验收仅使用合成 Adapter 和同一 tgz 独立安装，不代表真实 ZERP/oit-go API/E2E。
+
 - 报表增强（[#23](https://github.com/hansonyu183/zerp-ui/issues/23)，尚未发布）：定义明确区分 parameter/fixed 并要求稳定 rowKey；共享 DataList 宽表、权威合计、有限类型化下钻、固定结果分页/完整导出、取消反馈和返回重验恢复。原报表定义须迁移；下次 0.x minor 发布，不保留旧契约兼容分支。
 - 合成报表示例和同一 tgz 独立安装覆盖新接口；不代表真实 ZERP/oit-go API/E2E 验收。
 

@@ -35,6 +35,7 @@ const adapter: VoucherAdapter<
   },
 };
 const valid = defineVoucher({
+  protocol: "submission",
   resource: "documents",
   title: "Vouchers",
   fields: [{ key: "amount", type: "decimal", label: "金额" }],
@@ -112,3 +113,7 @@ const stage: VoucherStageAttempt<
   owner: "wrong",
 };
 void stage;
+const { protocol: selectedProtocol, ...legacyDefinition } = valid;
+// @ts-expect-error Submission requires an explicit protocol; no legacy definition fallback.
+defineVoucher(legacyDefinition);
+void selectedProtocol;

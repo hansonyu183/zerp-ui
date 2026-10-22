@@ -76,6 +76,7 @@ export type VoucherDefinition<
   A extends object,
   E = never,
 > = {
+  protocol: "submission";
   resource: string;
   title: string;
   fields: Fields<D>;

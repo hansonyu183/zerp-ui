@@ -210,6 +210,7 @@ export function sample(
     },
   };
   return defineVoucher({
+    protocol: "submission",
     resource: `synthetic-${kind}`,
     title: `合成单据 · ${kind}`,
     fields: [{ key: "name", label: "名称", type: "text", required: true }],

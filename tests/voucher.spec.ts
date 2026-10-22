@@ -73,6 +73,7 @@ function definition() {
     approve: vi.fn(async () => ({ status: "success" as const })),
   };
   return defineVoucher({
+    protocol: "submission",
     resource: "documents",
     title: "合成单据",
     fields: [

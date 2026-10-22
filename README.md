@@ -174,6 +174,24 @@ createApp(App)
 
 运行/构建/独立 tgz 安装验收使用 `dev:voucher`、`build:voucher`、`check:voucher`。验收覆盖公开声明配对及错误拒绝、两个消费者上下文的真实浏览器创建/克隆/专用录入/来源/递归取消、附件 stage/核实/下载、审批/历史/审计、独立脚本锁与错误恢复，并检查生产构建和 CSS/字体。只读参考为原 ZERP `frontend/src/target/components/document-page/DocumentPage.vue` 的本地 Draft、克隆新身份、专用期初来源、独立脚本保存及提交核实；应用 DTO、载荷全集、编辑器和真实 API 接入留给发布后工单。
 
+### 办理协议与原请求恢复（#24、#25，未发布）
+
+`VoucherView` 保持一个公开门面，定义通过 `protocol: "submission" | "operation"` 判别；不新增第七类运行时，不把办理映射为假 Submission。已有 `defineVoucher`/`VoucherDefinition` 定义现在必须增加 `protocol: "submission"`，保留原提交件、附件、审批和独立脚本语义。办理定义通过 `defineVoucherOperation<Model, Identity, Concurrency>` 创建，组件仅接收 `definition`、强类型 `intent`、`eligible` 和 `recoveryAllowed`；两种 props 不能混用，无旧签名 fallback。这是下次 0.x minor 的破坏契约，目前不在已发布 ui-v0.2.1 中。
+
+`VoucherOperationModel` 按闭合动作配对 input、完整 preview、evidence；动作及中文表达由 `voucherOperationLabels` 固定：send 送审、withdraw 撤回、approve 审核、unapprove 反审核、complete 完成、uncomplete 反完成、void 作废、unvoid 反作废。Intent 带 `{action, owner:{scope,operator,resource}, identity, input}`；scope 须含会话代次。Request 增加消费者产生的稳定 requestId、并发/配置事实、完整有限区块预览和权威 binding；Journal 将原请求和回执按动作配对。公司 DTO、资格、业务逆转及基线计算仍由消费者拥有，字段和独立 VoucherEditor 只持有值与 pending。
+
+Adapter 的 prepare/acceptsPreparation 提供并校验与原目标/完整输入配对的预览；取消仅丢本地准备。确认采用原快照，不采用之后编辑的新输入。库分别复制传给 Adapter/持久端口/验证函数的对象，防止回调原地改写运行时原请求。执行前后消费者后端仍须重验资格、完整目标、并发和业务规则；eligible 只表示当前 UI 资格，变为 false 时清除可见准备，不能解除已发送请求。
+
+消费者的 persistence.load/save/remove 持有存储协议和严格解码；不要将不存在、损坏或读取失败混为同一个结果。save(journal, null) 必须耐久且原子保留空槽，后续 save(journal, requestId) 与 remove(owner, requestId) 必须比较原 ID、禁止改写原完整请求或回退终态。成功返回代表可靠落盘。保存失败（包括保存后响应丢失）禁止 execute，先恢复确认原槽；已知未知请求不能靠空存储读取解锁。同一浏览器内，一个 owner/resource 必须复用同一个稳定 persistence 对象和匹配协议/Adapter；库按该对象及 owner 元组共享互斥，跨标签/进程互斥则由消费者耐久原子协议与后端原请求栅栏保证。不要通过换端口对象绕过原请求归属。
+
+execute/reconcile/seal 返回 unknown 或 Receipt；applied 是权威成功，not-applied 且 sealed=false 必须继续封存，sealed=true 才是可结束的未应用终态。库核对 owner/action/requestId/binding，消费者 accepts 必须校验真实权威证据与原完整 identity/input/concurrency/preview 的绑定；不能只看当前值、同类日志或同 ID。查询无记录返回 unknown；确认/封存协议必须对原请求完整载荷建立权威栅栏，阻止迟到执行。封存可能在竞争中返回 applied，不能把已应用回执改成未应用。
+
+未知时普通读取、关闭页面、丢弃 Draft 或取消输入均不解锁，不分配新 ID。组件重挂载及整页重载恢复原 Journal，只核实或重读，不重放 execute；recoveryAllowed 不足、证据错误、核实异常继续锁定。scope/operator/resource/目标切换使旧画面接缝失效，迟到结果只能保存到原请求记录，不能刷新新画面；消费者 refresh({owner,identity}) 也必须严格遵循原上下文。终态先耐久保存，再刷新；刷新失败只允许重读。读取成功后保存 refreshed 标记再比较清理，清理失败不会重发业务或重复已确认读取；如果标记保存结果未知，整页恢复可安全重读，仍不重放业务。只有终态/封存与读取清理完成后才能显式准备新请求。
+
+办理在安全上下文中使用浏览器原生 Web Locks 串行化同源 scope/operator/resource 的恢复与终态刷新；缺少此能力时阻塞办理，不以不安全 fallback 继续。浏览器进程关闭会释放 Web Lock，耐久原请求仍由持久端口恢复。`load(owner, requestId?)` 无 ID 读取当前槽，有 ID 必须读取该精确原请求（包括已经结束的记录）。`remove` 是比较原 ID 后的逻辑完成：持久化 `completed: true` 的配对终态与 `refreshed: true`，供其它迟到恢复者验证，不能直接丢弃最后一份完成证据。已完成槽可被 save(..., null) 替换为新请求，但旧 ID 的完成凭据仍须可读；保留/归档策略由消费者决定。库不硬编码 TTL。该有限完成标记补齐 #24 原型未证明的双页面恢复协调，不引入新协议或通用状态机。
+
+`examples/voucher/Operations.vue` 使用公开包入口装配办理，operation-adapter.ts 提供合成权威协议，operation-journal.ts 演示消费者 IndexedDB 严格事务与原子 compare-and-set；示例存储及回执仅是合成证据，不代表真实业务 API、授权或服务端并发验证。运行/构建/同一 tgz 的独立安装仍使用 `dev:voucher`、`build:voucher`、`check:voucher`，展开“独立单据办理示例”即可演示完整路径和整页恢复。#24 的临时控制器、原型 scripts 与专属测试已删除，设计证据仍在该工单和 Git 历史。正式发布继续走完整 release gate。
+
 ## 流程运行时（#13）
 
 `defineWorkflow<InstanceIdentity, NodeIdentity, Revision, Target, Voucher, Audit, Evidence>` 与 `WorkflowView` 封装固定的实例查询/分页、节点与审计读取、节点动作互斥、反馈、写后刷新和精确核实。Adapter 的 `list/get/audit/act` 各自使用消费者身份，不依赖模型、Session、API 路径或路由注册表。页面传入稳定 definition/Adapter、包含账号和会话代次的 scope，以及 read/audit/reconcile、actions、targets 权限事实。后端返回的节点 `eligible` 与权限 actions 取交集；CREATE_CHILD 再取节点 targets 的 key 与权限 targets 的交集。最终授权和 revision 校验仍归后端。
