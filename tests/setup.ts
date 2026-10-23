@@ -16,3 +16,16 @@ window.matchMedia = vi.fn().mockImplementation(() => ({
 }));
 
 config.global.plugins = [createVuetify()];
+
+vi.stubGlobal(
+  "visualViewport",
+  Object.assign(new EventTarget(), {
+    width: 1024,
+    height: 768,
+    offsetLeft: 0,
+    offsetTop: 0,
+    pageLeft: 0,
+    pageTop: 0,
+    scale: 1,
+  }),
+);

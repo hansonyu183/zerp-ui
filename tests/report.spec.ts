@@ -26,7 +26,9 @@ const definition = () =>
     },
   });
 const button = (w: ReturnType<typeof mount>, name: string) =>
-  w.findAll("button").find((b) => b.text() === name)!;
+  w
+    .findAll("button")
+    .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
 const click = async (w: ReturnType<typeof mount>, name: string) => {
   await button(w, name).trigger("click");
   await flushPromises();

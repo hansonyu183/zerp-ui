@@ -412,6 +412,25 @@ try {
 }
 
 async function directSmoke(page) {
+  const rowActions = page.getByRole("region", { name: "行操作示例" });
+  const more = rowActions.getByRole("button", { name: "更多操作" });
+  await more.focus();
+  await more.press("ArrowDown");
+  const remove = page.getByRole("menuitem", { name: "删除", exact: true });
+  await remove.waitFor();
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute("role") === "menuitem",
+  );
+  await remove.press("Escape");
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute("aria-label") === "更多操作",
+  );
+  await more.click();
+  await remove.click();
+  await rowActions
+    .getByRole("status")
+    .filter({ hasText: "delete:row-actions" })
+    .waitFor();
   await page
     .getByRole("heading", { name: "合成示例 · 账簿", exact: true })
     .waitFor();

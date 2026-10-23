@@ -89,6 +89,21 @@ it("renders consumer links, retries and controlled theme intents without owning 
   ]);
   await flushPromises();
   expect(wrapper.find(".v-theme--zerp-md3-light").exists()).toBe(true);
+  await wrapper.setProps({
+    navigationState: { kind: "ready" },
+    navigation: [
+      {
+        key: "home",
+        caption: "工作台",
+        ungrouped: true,
+        items: [
+          { key: "home", caption: "工作台", to: "/catalog", icon: "home" },
+        ],
+      },
+    ],
+  });
+  expect(wrapper.find("details").exists()).toBe(false);
+  expect(wrapper.get('a[href="/catalog"]').text()).toContain("工作台");
   wrapper.unmount();
 });
 

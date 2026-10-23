@@ -10,6 +10,7 @@ export type {
   Fields,
   Column,
   CrudAction,
+  ListAction,
   Attempt,
   WriteResult,
   ReconcileResult,

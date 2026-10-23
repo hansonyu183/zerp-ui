@@ -25,6 +25,7 @@ export type NavigationIcon =
 export type NavigationGroup = Readonly<{
   key: string;
   caption: string;
+  ungrouped?: boolean;
   items: readonly Readonly<{
     key: string;
     caption: string;

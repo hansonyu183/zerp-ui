@@ -150,8 +150,13 @@ function navigated() {
               }}<VBtn @click="emit('retry-navigation')">重试导航</VBtn>
             </div>
             <template v-else>
-              <details v-for="group in navigation" :key="group.key" open>
-                <summary>{{ group.caption }}</summary>
+              <component
+                :is="group.ungrouped ? 'div' : 'details'"
+                v-for="group in navigation"
+                :key="group.key"
+                :open="group.ungrouped ? undefined : true"
+              >
+                <summary v-if="!group.ungrouped">{{ group.caption }}</summary>
                 <RouterLink
                   v-for="item in group.items"
                   :key="item.key"
@@ -192,7 +197,7 @@ function navigated() {
                     >{{ item.caption }}</a
                   >
                 </RouterLink>
-              </details>
+              </component>
             </template>
           </nav>
         </VNavigationDrawer>

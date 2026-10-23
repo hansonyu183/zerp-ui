@@ -1,14 +1,20 @@
-<script setup lang="ts" generic="R extends object, T = never">
+<script
+  setup
+  lang="ts"
+  generic="R extends object, T = never, A extends ListAction = CrudAction"
+>
 import { computed } from "vue";
+import RowActions from "./RowActions.vue";
 import type { ReportCell, ReportSummary } from "./report";
-import type { Column, Page, CrudAction } from "./contracts";
+import type { Column, Page, CrudAction, ListAction } from "./contracts";
 const props = defineProps<{
   columns: readonly Column<R>[];
   result: Page<R>;
   page: number;
   pageSize: number;
   loading?: boolean;
-  actions?: (row: R) => readonly CrudAction[];
+  actions?: (row: R) => readonly A[];
+  viewHref?: (row: R) => string | undefined;
   disabled?: boolean;
   wide?: boolean;
   rowKey?: (row: R) => string | number;
@@ -18,17 +24,25 @@ const props = defineProps<{
 const emit = defineEmits<{
   cell: [cell: ReportCell<T>, row: R];
   page: [value: number];
-  action: [action: CrudAction, row: R];
+  action: [action: A, row: R];
 }>();
 const visibleColumns = computed(() =>
   props.columns.filter((c) => c.visible !== false),
 );
-const captions = {
-  edit: "编辑",
-  enable: "启用",
-  disable: "停用",
-  delete: "删除",
-};
+const rowActions = computed(() =>
+  props.result.items.map((row) => props.actions?.(row) ?? []),
+);
+const hasActions = computed(() =>
+  rowActions.value.some((actions) => actions.length),
+);
+function dispatch(action: ListAction, row: R) {
+  if (
+    !props.disabled &&
+    !props.loading &&
+    props.actions?.(row).includes(action as A)
+  )
+    emit("action", action as A, row);
+}
 function record(event: MouseEvent, intent: ReportCell<T>, row: R) {
   if (
     !event.ctrlKey &&
@@ -76,7 +90,7 @@ function display(row: Partial<R>, column: Column<R>) {
           >
             {{ column.label }}
           </th>
-          <th v-if="actions" scope="col">操作</th>
+          <th v-if="hasActions" scope="col">操作</th>
         </tr>
       </thead>
       <tbody>
@@ -114,16 +128,13 @@ function display(row: Partial<R>, column: Column<R>) {
               <template v-else>{{ display(row, column) }}</template>
             </template>
           </td>
-          <td v-if="actions" data-label="操作">
-            <button
-              v-for="action in actions?.(row)"
-              :key="action"
-              type="button"
-              :disabled="disabled"
-              @click="emit('action', action, row)"
-            >
-              {{ captions[action] }}
-            </button>
+          <td v-if="hasActions" data-label="操作">
+            <RowActions
+              :actions="rowActions[index]!"
+              :disabled="disabled || loading"
+              :view-href="viewHref?.(row)"
+              @action="dispatch($event, row)"
+            />
           </td>
         </tr>
       </tbody>
@@ -136,7 +147,7 @@ function display(row: Partial<R>, column: Column<R>) {
           >
             {{ display(summary.values, column) }}
           </td>
-          <td v-if="actions"></td>
+          <td v-if="hasActions"></td>
         </tr>
       </tfoot>
     </table>

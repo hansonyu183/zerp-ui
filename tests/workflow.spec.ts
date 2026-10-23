@@ -63,7 +63,9 @@ function definition() {
   });
 }
 const button = (w: ReturnType<typeof mount>, label: string) =>
-  w.findAll("button").find((b) => b.text() === label)!;
+  w
+    .findAll("button")
+    .find((b) => b.text() === label || b.attributes("aria-label") === label)!;
 const click = async (w: ReturnType<typeof mount>, label: string) => {
   await button(w, label).trigger("click");
   await flushPromises();

@@ -6,7 +6,7 @@ import { exampleDefinition, resourceCases } from "../examples/direct/matrix";
 const click = async (w: ReturnType<typeof mount>, name: string) => {
   await w
     .findAll("button")
-    .find((b) => b.text() === name)!
+    .find((b) => b.text() === name || b.attributes("aria-label") === name)!
     .trigger("click");
   await flushPromises();
 };
@@ -24,7 +24,13 @@ it.each(resourceCases)(
     await flushPromises();
     expect(w.text()).toContain(`合成${title}`);
     if (kind === "no-enable" || kind === "save-enable")
-      expect(w.findAll("button").some((b) => b.text() === "停用")).toBe(false);
+      expect(
+        w
+          .findAll("button")
+          .some(
+            (b) => b.text() === "停用" || b.attributes("aria-label") === "停用",
+          ),
+      ).toBe(false);
     await click(w, "编辑");
     await w.get('input[aria-label="名称"]').setValue(`${title}修改`);
     if (kind === "decimal")
@@ -50,7 +56,9 @@ it.each(resourceCases)(
     if (!["no-enable", "save-enable"].includes(kind)) {
       await click(w, "停用");
       await click(w, "确认停用");
-      expect(w.findAll("button").map((b) => b.text())).toContain("启用");
+      expect(
+        w.findAll("button").map((b) => b.attributes("aria-label") ?? b.text()),
+      ).toContain("启用");
     }
     w.unmount();
   },
@@ -101,7 +109,7 @@ it("keeps user assignment readonly when denied and editable when allowed by deta
   await w
     .findAll("tbody tr")[1]
     .findAll("button")
-    .find((b) => b.text() === "编辑")!
+    .find((b) => b.text() === "编辑" || b.attributes("aria-label") === "编辑")!
     .trigger("click");
   await flushPromises();
   for (const label of ["可分配角色", "关联员工"])

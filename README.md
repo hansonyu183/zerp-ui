@@ -255,3 +255,12 @@ scope、instance、active 或写入状态变化以及卸载，使待决确认返
 `AppPage` 新增可选 `selectedNavigationKey: string | null`。未传入时使用 RouterLink 的路由派生活跃态；传入时完全按宿主提供的条目 key 呈现唯一高亮和 `aria-current="page"`，null 或不存在的 key 不选中任何项。条目 key 应全局唯一。宿主负责 path/query、目录排序和授权，库保持 href、修饰键、新标签和手机导航行为。同一路径不同 query 的合成入口见外壳示例。
 
 本节能力包含于 `ui-v0.4.0` 工件，安装入口与示例均固定到该版本。0.3.0 消费者须迁移 refresh 接口；不覆盖既有版本，也不提供旧签名兼容层。
+
+
+## 列表行操作（0.5.0）
+
+DataList 的 actions 按行返回 ListAction，包含 view、edit、enable、disable、delete。最多三个动作使用语义图标直接展示，其余放入“更多操作”菜单；调用者先按业务权限过滤并指定顺序。库提供名称提示、可访问名称及键盘菜单，loading/disabled 阻止派发动作，无可用动作时省略操作列。
+
+查看动作可通过 viewHref(row) 提供现有详情地址，保留链接及修饰键语义；没有地址时派发 view 事件，由消费者打开同页详情或弹窗。修改动作仍由消费者执行原业务确认和提交。rowKey 应使用业务身份，原记录更换时旧菜单失效。
+
+AppPage 的 NavigationGroup 可设置 ungrouped，直接展示其中的一级链接，不生成折叠子菜单。

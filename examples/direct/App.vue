@@ -1,9 +1,10 @@
 <script setup lang="ts">
 const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
-import { shallowRef } from "vue";
+import { shallowRef, ref } from "vue";
 import { VApp, VMain } from "vuetify/components";
-import { CrudView } from "@zerp/ui";
+import { CrudView, DataList } from "@zerp/ui";
 import { exampleDefinition, resourceCases } from "./matrix";
+const lastAction = ref("");
 const selected = shallowRef(
   resourceCases[0][0] as (typeof resourceCases)[number][0],
 );
@@ -30,6 +31,23 @@ function change() {
       <CrudView
         :definition="definition"
         scope="synthetic-session"
-        :permissions="{ query: true, create: true, write: true }" /></VMain
-  ></VApp>
+        :permissions="{ query: true, create: true, write: true }"
+      />
+      <section aria-label="行操作示例">
+        <DataList
+          :columns="[{ key: 'name', label: '名称' }]"
+          :result="{
+            items: [{ id: 'row-actions', name: '合成客户' }],
+            total: 1,
+          }"
+          :page="1"
+          :page-size="20"
+          :row-key="(row) => row.id"
+          :actions="() => ['view', 'edit', 'disable', 'delete']"
+          @action="(action, row) => (lastAction = action + ':' + row.id)"
+        />
+        <p role="status">{{ lastAction }}</p>
+      </section></VMain
+    ></VApp
+  >
 </template>
