@@ -12,7 +12,7 @@ export async function checkArtifact(tgz, expected) {
     .split("\n");
   for (const file of files) {
     assert.ok(
-      /^package\/(?:package\.json|README\.md|CHANGELOG\.md|LICENSE|dist\/(?:[\w.-]+\.(?:js|d\.ts|css|woff2)|MDI-LICENSE\.txt))$/.test(
+      /^package\/(?:package\.json|README\.md|CHANGELOG\.md|LICENSE|dist\/(?:[\w.-]+\.(?:js|d\.ts|css|woff2|woff|ttf|eot)|MDI-LICENSE\.txt))$/.test(
         file,
       ),
       `Unexpected package member: ${file}`,
