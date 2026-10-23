@@ -25,7 +25,7 @@ const captions: Record<ListAction, string> = {
 const icons: Record<ListAction, string> = {
   view: "mdi-eye-outline",
   send: "mdi-send-outline",
-  withdraw: "mdi-send-variant-remove-outline",
+  withdraw: "mdi-email-arrow-left-outline",
   check: "mdi-check-decagram-outline",
   uncheck: "mdi-undo-variant",
   void: "mdi-file-cancel-outline",

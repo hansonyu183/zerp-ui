@@ -427,6 +427,13 @@ async function directSmoke(page) {
     await rowActions.getByLabel("已选记录", { exact: true }).textContent(),
     "",
   );
+  assert.notEqual(
+    await rowActions
+      .getByRole("button", { name: "反送审", exact: true })
+      .locator("i")
+      .evaluate((el) => getComputedStyle(el, "::before").content),
+    "none",
+  );
   const more = rowActions.getByRole("button", { name: "更多操作" });
   await rowActions.getByRole("button", { name: "查看", exact: true }).focus();
   await page.getByRole("tooltip").filter({ hasText: "查看" }).waitFor();

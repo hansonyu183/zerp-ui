@@ -47,7 +47,7 @@ function change() {
           :page-size="20"
           :row-key="(row) => row.id"
           v-model:selected-keys="selectedRows"
-          :actions="() => ['view', 'edit', 'disable', 'delete']"
+          :actions="() => ['view', 'edit', 'withdraw', 'delete']"
           @action="(action, row) => (lastAction = action + ':' + row.id)"
         />
         <p role="status">{{ lastAction }}</p>
