@@ -1140,6 +1140,9 @@ async function shellSmoke(page) {
   await page.getByRole("button", { name: "取消账户修改", exact: true }).click();
   assert.equal(await page.getByLabel("新密码", { exact: true }).count(), 0);
   await page
+    .getByRole("menuitem", { name: "修改密码", exact: true })
+    .waitFor({ state: "hidden" });
+  await page
     .getByRole("button", { name: "账户：演示账户", exact: true })
     .click();
   await page.getByRole("menuitem", { name: "退出登录", exact: true }).click();
