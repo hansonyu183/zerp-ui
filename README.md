@@ -1,6 +1,6 @@
 # ZERP UI
 
-独立的 Vue/Vuetify 组件库 `@zerp/ui@0.4.0`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
+独立的 Vue/Vuetify 组件库 `@zerp/ui@0.5.0`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
 
 ## 公开组件层级
 
@@ -14,11 +14,11 @@
 
 ## 固定版本安装
 
-从 [ui-v0.4.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.4.0) 下载 `zerp-ui-0.4.0.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
+从 [ui-v0.5.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.5.0) 下载 `zerp-ui-0.5.0.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-npm install --save-exact ./zerp-ui-0.4.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
+npm install --save-exact ./zerp-ui-0.5.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
 ```
 
 将 tgz 放在消费者项目的固定路径并提交相应 lockfile；不要使用 latest、源码别名或 registry 同名包。首发基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0，peer 范围分别为 `~3.5.40`、`~4.1.5`、`~5.2.0`。宿主各提供唯一实例；MDI 字体是已声明的直接依赖，发布包自带所需 woff2 及字体许可证，无需 CDN。Node 26 是本库与独立消费者构建验收基线；消费的是编译后 ESM、声明和 CSS，不需要克隆 ZERP、编译库源码或安装自动导入插件。
