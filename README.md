@@ -256,7 +256,6 @@ scope、instance、active 或写入状态变化以及卸载，使待决确认返
 
 本节能力包含于 `ui-v0.4.0` 工件，安装入口与示例均固定到该版本。0.3.0 消费者须迁移 refresh 接口；不覆盖既有版本，也不提供旧签名兼容层。
 
-
 ## 列表行操作（0.5.0）
 
 DataList 的 actions 按行返回 ListAction，包含 view、edit、enable、disable、delete。最多三个动作使用语义图标直接展示，其余放入“更多操作”菜单；调用者先按业务权限过滤并指定顺序。库提供名称提示、可访问名称及键盘菜单，loading/disabled 阻止派发动作，无可用动作时省略操作列。
