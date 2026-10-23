@@ -28,12 +28,14 @@ function change() {
         </select></label
       >
       <h1 v-if="showTitle">{{ definition.title }}</h1>
-      <CrudView
-        :definition="definition"
-        scope="synthetic-session"
-        :permissions="{ query: true, create: true, write: true }"
-      />
-      <section aria-label="行操作示例">
+      <section aria-label="资料示例">
+        <CrudView
+          :definition="definition"
+          scope="synthetic-session"
+          :permissions="{ query: true, create: true, write: true }"
+        />
+      </section>
+      <section v-if="showTitle" aria-label="行操作示例">
         <DataList
           :columns="[{ key: 'name', label: '名称' }]"
           :result="{

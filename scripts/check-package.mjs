@@ -414,10 +414,13 @@ try {
 async function directSmoke(page) {
   const rowActions = page.getByRole("region", { name: "行操作示例" });
   const more = rowActions.getByRole("button", { name: "更多操作" });
+  await rowActions.getByRole("button", { name: "查看", exact: true }).focus();
+  await page.getByRole("tooltip").filter({ hasText: "查看" }).waitFor();
   await more.focus();
   await more.press("ArrowDown");
   const remove = page.getByRole("menuitem", { name: "删除", exact: true });
   await remove.waitFor();
+  await page.keyboard.press("ArrowDown");
   await page.waitForFunction(
     () => document.activeElement?.getAttribute("role") === "menuitem",
   );
@@ -425,22 +428,45 @@ async function directSmoke(page) {
   await page.waitForFunction(
     () => document.activeElement?.getAttribute("aria-label") === "更多操作",
   );
+  await remove.waitFor({ state: "hidden" });
   await more.click();
   await remove.click();
   await rowActions
     .getByRole("status")
     .filter({ hasText: "delete:row-actions" })
     .waitFor();
+  const touchContext = await page
+    .context()
+    .browser()
+    .newContext({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+    });
+  try {
+    const touchPage = await touchContext.newPage();
+    await touchPage.goto(page.url());
+    const touchRow = touchPage.getByRole("region", { name: "行操作示例" });
+    await touchRow.getByRole("button", { name: "更多操作" }).tap();
+    await touchPage.getByRole("menuitem", { name: "删除", exact: true }).tap();
+    await touchRow
+      .getByRole("status")
+      .filter({ hasText: "delete:row-actions" })
+      .waitFor();
+  } finally {
+    await touchContext.close();
+  }
+  const crud = page.getByRole("region", { name: "资料示例" });
   await page
     .getByRole("heading", { name: "合成示例 · 账簿", exact: true })
     .waitFor();
-  await page.getByRole("button", { name: "新增", exact: true }).click();
+  await crud.getByRole("button", { name: "新增", exact: true }).click();
   await page
     .getByRole("textbox", { name: "名称", exact: true })
     .fill("离仓安装新增");
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await crud.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByRole("cell", { name: "离仓安装新增", exact: true }).waitFor();
-  await page
+  await crud
     .getByRole("row")
     .filter({
       has: page.getByRole("cell", { name: "离仓安装新增", exact: true }),
@@ -450,7 +476,7 @@ async function directSmoke(page) {
   await page
     .getByRole("textbox", { name: "名称", exact: true })
     .fill("离仓安装修改");
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await crud.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByRole("cell", { name: "离仓安装修改", exact: true }).waitFor();
   for (const option of await page
     .locator("select")
@@ -460,13 +486,13 @@ async function directSmoke(page) {
     const value = await option.getAttribute("value");
     await page.locator("select").first().selectOption(value);
     await page.getByRole("heading").filter({ hasText: "合成示例" }).waitFor();
-    await page.getByRole("button", { name: "新增", exact: true }).click();
+    await crud.getByRole("button", { name: "新增", exact: true }).click();
     await page.getByRole("textbox", { name: "名称", exact: true }).waitFor();
-    await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+    await crud.getByRole("button", { name: "取消编辑", exact: true }).click();
   }
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
-    await page.locator("thead").evaluate((el) => getComputedStyle(el).display),
+    await crud.locator("thead").evaluate((el) => getComputedStyle(el).display),
     "none",
   );
 }
