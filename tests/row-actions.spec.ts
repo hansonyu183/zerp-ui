@@ -124,3 +124,29 @@ it("supports keyboard menu access and discards a menu when the original row is r
     wrapper.unmount();
   }
 });
+
+it("provides semantic names for workflow operations", async () => {
+  const w = mount(DataList as Component, {
+    attachTo: document.body,
+    props: {
+      ...props,
+      actions: () => ["send", "withdraw", "check", "uncheck", "void", "unvoid"],
+    },
+  });
+  try {
+    for (const label of ["送审", "反送审", "审核"])
+      expect(
+        w.get(`[aria-label="${label}"]`).find('[aria-hidden="true"]').exists(),
+      ).toBe(true);
+    await w.get('[aria-label="更多操作"]').trigger("click");
+    await flushPromises();
+    for (const label of ["反审核", "作废", "反作废"])
+      expect(
+        [...document.querySelectorAll('[role="menuitem"]')].some((n) =>
+          n.textContent?.includes(label),
+        ),
+      ).toBe(true);
+  } finally {
+    w.unmount();
+  }
+});

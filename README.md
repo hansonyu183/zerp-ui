@@ -1,6 +1,6 @@
 # ZERP UI
 
-独立的 Vue/Vuetify 组件库 `@zerp/ui@0.5.0`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
+独立的 Vue/Vuetify 组件库 `@zerp/ui@0.6.0`，提供认证页、应用页、六类业务视图及公共表单/列表/引用交互，遵循[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)与[组件层级更新 #16](https://github.com/hansonyu183/zerp-ui/issues/16)。仅通过 GitHub Release 分发，版本不可覆盖；0.x 破坏接口升 minor，修复升 patch。
 
 ## 公开组件层级
 
@@ -14,11 +14,11 @@
 
 ## 固定版本安装
 
-从 [ui-v0.5.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.5.0) 下载 `zerp-ui-0.5.0.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
+从 [ui-v0.6.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.6.0) 下载 `zerp-ui-0.6.0.tgz` 和 `SHA256SUMS`，在同一目录校验后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-npm install --save-exact ./zerp-ui-0.5.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
+npm install --save-exact ./zerp-ui-0.6.0.tgz vue@3.5.40 vuetify@4.1.5 vue-router@5.2.0
 ```
 
 将 tgz 放在消费者项目的固定路径并提交相应 lockfile；不要使用 latest、源码别名或 registry 同名包。首发基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0，peer 范围分别为 `~3.5.40`、`~4.1.5`、`~5.2.0`。宿主各提供唯一实例；MDI 字体是已声明的直接依赖，发布包自带所需 woff2 及字体许可证，无需 CDN。Node 26 是本库与独立消费者构建验收基线；消费的是编译后 ESM、声明和 CSS，不需要克隆 ZERP、编译库源码或安装自动导入插件。
@@ -263,3 +263,9 @@ DataList 的 actions 按行返回 ListAction，包含 view、edit、enable、dis
 查看动作可通过 viewHref(row) 提供现有详情地址，保留链接及修饰键语义；没有地址时派发 view 事件，由消费者打开同页详情或弹窗。修改动作仍由消费者执行原业务确认和提交。rowKey 应使用业务身份，原记录更换时旧菜单失效。
 
 AppPage 的 NavigationGroup 可设置 ungrouped，直接展示其中的一级链接，不生成折叠子菜单。
+
+## 列表流程与勾选（0.6.0）
+
+ListAction增加send、withdraw、check、uncheck、void、unvoid，对应送审、反送审、审核、反审核、作废、反作废；仍最多三个直接图标，其余进入更多菜单。业务资格由消费者过滤。
+
+DataList通过selectedKeys及update:selectedKeys受控勾选记录，启用时必须提供稳定rowKey。selectable按行限制勾选，表头仅全选当前页的可选记录；loading/disabled阻止变更。消费者负责翻页/筛选清理及批量请求，不由组件推断业务或提交。

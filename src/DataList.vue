@@ -13,6 +13,8 @@ const props = defineProps<{
   page: number;
   pageSize: number;
   loading?: boolean;
+  selectedKeys?: readonly (string | number)[];
+  selectable?: (row: R) => boolean;
   actions?: (row: R) => readonly A[];
   viewHref?: (row: R) => string | undefined;
   disabled?: boolean;
@@ -22,6 +24,7 @@ const props = defineProps<{
   cell?: (row: R, key: Extract<keyof R, string>) => ReportCell<T> | undefined;
 }>();
 const emit = defineEmits<{
+  "update:selectedKeys": [keys: (string | number)[]];
   cell: [cell: ReportCell<T>, row: R];
   page: [value: number];
   action: [action: A, row: R];
@@ -35,6 +38,33 @@ const rowActions = computed(() =>
 const hasActions = computed(() =>
   rowActions.value.some((actions) => actions.length),
 );
+function identity(row: R) {
+  if (!props.rowKey) throw Error("Selectable DataList requires rowKey");
+  return props.rowKey(row);
+}
+const eligible = computed(() =>
+  props.result.items.filter((row) => props.selectable?.(row) !== false),
+);
+const allSelected = computed(
+  () =>
+    eligible.value.length > 0 &&
+    eligible.value.every((row) => props.selectedKeys?.includes(identity(row))),
+);
+function selectRows(rows: readonly R[], selected: boolean) {
+  if (props.disabled || props.loading) return;
+  const keys = new Set(props.selectedKeys ?? []);
+  for (const row of rows) {
+    if (props.selectable?.(row) === false) continue;
+    const key = identity(row);
+    if (selected) keys.add(key);
+    else keys.delete(key);
+  }
+  const visible = new Set(eligible.value.map(identity));
+  emit(
+    "update:selectedKeys",
+    [...keys].filter((key) => visible.has(key)),
+  );
+}
 function dispatch(action: ListAction, row: R) {
   if (
     !props.disabled &&
@@ -79,6 +109,24 @@ function display(row: Partial<R>, column: Column<R>) {
     <table>
       <thead>
         <tr>
+          <th v-if="selectedKeys !== undefined" scope="col">
+            <input
+              type="checkbox"
+              aria-label="全选当前页"
+              :checked="allSelected"
+              :indeterminate="
+                !allSelected &&
+                eligible.some((row) => selectedKeys?.includes(identity(row)))
+              "
+              :disabled="disabled || loading || !eligible.length"
+              @change="
+                selectRows(
+                  eligible,
+                  ($event.target as HTMLInputElement).checked,
+                )
+              "
+            />
+          </th>
           <th
             v-for="column in visibleColumns"
             :key="column.key"
@@ -98,6 +146,17 @@ function display(row: Partial<R>, column: Column<R>) {
           v-for="(row, index) in result.items"
           :key="rowKey ? rowKey(row) : index"
         >
+          <td v-if="selectedKeys !== undefined" data-label="选择">
+            <input
+              type="checkbox"
+              :aria-label="`选择 ${identity(row)}`"
+              :checked="selectedKeys.includes(identity(row))"
+              :disabled="disabled || loading || selectable?.(row) === false"
+              @change="
+                selectRows([row], ($event.target as HTMLInputElement).checked)
+              "
+            />
+          </td>
           <td
             v-for="column in visibleColumns"
             :key="column.key"
@@ -140,6 +199,7 @@ function display(row: Partial<R>, column: Column<R>) {
       </tbody>
       <tfoot v-if="summary">
         <tr>
+          <td v-if="selectedKeys !== undefined"></td>
           <td
             v-for="column in visibleColumns"
             :key="column.key"

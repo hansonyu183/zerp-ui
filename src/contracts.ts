@@ -85,7 +85,15 @@ export type Column<R> = {
   width?: string;
 };
 export type CrudAction = "edit" | "enable" | "disable" | "delete";
-export type ListAction = "view" | CrudAction;
+export type ListAction =
+  | "view"
+  | "send"
+  | "withdraw"
+  | "check"
+  | "uncheck"
+  | "void"
+  | "unvoid"
+  | CrudAction;
 export type Attempt<D, I> = Readonly<{
   id: string;
   scope: string;

@@ -11,6 +11,12 @@ const emit = defineEmits<{ action: [action: ListAction] }>();
 const menu = ref(false);
 const captions: Record<ListAction, string> = {
   view: "查看",
+  send: "送审",
+  withdraw: "反送审",
+  check: "审核",
+  uncheck: "反审核",
+  void: "作废",
+  unvoid: "反作废",
   edit: "编辑",
   enable: "启用",
   disable: "停用",
@@ -18,6 +24,12 @@ const captions: Record<ListAction, string> = {
 };
 const icons: Record<ListAction, string> = {
   view: "mdi-eye-outline",
+  send: "mdi-send-outline",
+  withdraw: "mdi-send-variant-remove-outline",
+  check: "mdi-check-decagram-outline",
+  uncheck: "mdi-undo-variant",
+  void: "mdi-file-cancel-outline",
+  unvoid: "mdi-file-restore-outline",
   edit: "mdi-pencil-outline",
   enable: "mdi-check-circle-outline",
   disable: "mdi-cancel",

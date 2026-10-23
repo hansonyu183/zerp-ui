@@ -413,6 +413,20 @@ try {
 
 async function directSmoke(page) {
   const rowActions = page.getByRole("region", { name: "行操作示例" });
+  await rowActions
+    .getByRole("checkbox", { name: "选择 row-actions", exact: true })
+    .check();
+  await rowActions
+    .getByLabel("已选记录", { exact: true })
+    .filter({ hasText: "row-actions" })
+    .waitFor();
+  await rowActions
+    .getByRole("checkbox", { name: "全选当前页", exact: true })
+    .uncheck();
+  assert.equal(
+    await rowActions.getByLabel("已选记录", { exact: true }).textContent(),
+    "",
+  );
   const more = rowActions.getByRole("button", { name: "更多操作" });
   await rowActions.getByRole("button", { name: "查看", exact: true }).focus();
   await page.getByRole("tooltip").filter({ hasText: "查看" }).waitFor();

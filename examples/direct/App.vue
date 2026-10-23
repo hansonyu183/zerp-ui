@@ -5,6 +5,7 @@ import { VApp, VMain } from "vuetify/components";
 import { CrudView, DataList } from "@zerp/ui";
 import { exampleDefinition, resourceCases } from "./matrix";
 const lastAction = ref("");
+const selectedRows = ref<(string | number)[]>([]);
 const selected = shallowRef(
   resourceCases[0][0] as (typeof resourceCases)[number][0],
 );
@@ -45,10 +46,12 @@ function change() {
           :page="1"
           :page-size="20"
           :row-key="(row) => row.id"
+          v-model:selected-keys="selectedRows"
           :actions="() => ['view', 'edit', 'disable', 'delete']"
           @action="(action, row) => (lastAction = action + ':' + row.id)"
         />
         <p role="status">{{ lastAction }}</p>
+        <p aria-label="已选记录">{{ selectedRows.join(",") }}</p>
       </section></VMain
     ></VApp
   >
