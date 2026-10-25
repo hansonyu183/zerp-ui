@@ -516,6 +516,61 @@ async function directSmoke(page) {
     await crud.locator("thead").evaluate((el) => getComputedStyle(el).display),
     "none",
   );
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.getByRole("button", { name: "领域区块示例", exact: true }).click();
+  const domain = page.getByRole("region", {
+    name: "领域资料示例",
+    exact: true,
+  });
+  await domain.getByRole("button", { name: "查看", exact: true }).click();
+  assert.equal(
+    await domain
+      .getByLabel("精确数量", { exact: true })
+      .getAttribute("readonly"),
+    "",
+  );
+  assert.equal(
+    await domain.getByRole("button", { name: "保存", exact: true }).count(),
+    0,
+  );
+  await domain.getByRole("button", { name: "关闭详情", exact: true }).click();
+  await domain.getByRole("button", { name: "编辑", exact: true }).click();
+  await domain
+    .getByLabel("精确数量", { exact: true })
+    .fill("9007199254740993.01");
+  await domain.getByRole("button", { name: "取消编辑", exact: true }).click();
+  await page.getByRole("dialog", { name: "未保存修改" }).waitFor();
+  await page.getByRole("button", { name: "继续编辑", exact: true }).click();
+  assert.equal(
+    await domain.getByLabel("精确数量", { exact: true }).inputValue(),
+    "9007199254740993.01",
+  );
+  await domain.getByRole("checkbox", { name: "模拟回复不确定" }).check();
+  await domain.getByRole("button", { name: "保存", exact: true }).click();
+  await domain
+    .getByRole("button", { name: "核实本次请求", exact: true })
+    .waitFor();
+  assert.equal(
+    await domain
+      .getByRole("button", { name: "保存", exact: true })
+      .isDisabled(),
+    true,
+  );
+  await domain
+    .getByRole("button", { name: "核实本次请求", exact: true })
+    .click();
+  await domain
+    .getByLabel("精确数量", { exact: true })
+    .waitFor({ state: "hidden" });
+  assert.equal(
+    await domain.getByLabel("最近保存数量", { exact: true }).textContent(),
+    "9007199254740993.01",
+  );
+  await domain.getByRole("button", { name: "删除", exact: true }).click();
+  await domain.getByRole("button", { name: "确认删除", exact: true }).click();
+  await domain
+    .getByRole("cell", { name: "合成物资", exact: true })
+    .waitFor({ state: "hidden" });
 }
 
 async function configurationSmoke(page) {

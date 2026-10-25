@@ -3,7 +3,7 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, ref, shallowRef, watch, toRaw } from "vue";
 import { VAlert, VProgressLinear } from "vuetify/components";
 import type {
   CrudDefinition,
@@ -12,7 +12,10 @@ import type {
   Attempt,
   AnyField,
 } from "./contracts";
+import type { ConfigurationBlock } from "./configuration";
 import DynamicForm from "./DynamicForm.vue";
+import EditGuard from "./EditGuard.vue";
+import type { EditGuardHandle } from "./edit-guard";
 import DataList from "./DataList.vue";
 import { clone, message } from "./clone";
 import { validate } from "./validation";
@@ -20,6 +23,7 @@ import { writeLock } from "./write-lock";
 const props = defineProps<{
   definition: CrudDefinition<D, F, R, I, E>;
   scope: string;
+  blocks?: readonly ConfigurationBlock<D>[];
   permissions: {
     query: boolean;
     create: boolean;
@@ -39,22 +43,85 @@ const editor = shallowRef<{
     identity?: I;
     row?: R;
     readonlyFields?: readonly Extract<keyof D, string>[];
+    readonly?: boolean;
   } | null>(null),
   formPending = ref(false),
+  blockPending = ref<Record<string, boolean>>({}),
   detailLoading = ref(false),
   confirming = shallowRef<{
     row: R;
-    action: Exclude<CrudAction, "edit">;
+    action: Exclude<CrudAction, "edit" | "view">;
   } | null>(null),
   verifying = ref(false);
+const guard = ref<EditGuardHandle>();
+const baseline = shallowRef<D | null>(null);
+const dirty = computed(
+  () =>
+    !!editor.value &&
+    !editor.value.readonly &&
+    JSON.stringify(editor.value.values) !== JSON.stringify(baseline.value),
+);
 const readonlyFields = shallowRef<readonly Extract<keyof D, string>[]>([]);
 const editFields = computed(
   () =>
-    props.definition.fields.map((field) => ({
-      ...field,
-      readonly:
-        field.readonly || readonlyFields.value.some((key) => key === field.key),
-    })) as typeof props.definition.fields,
+    props.definition.fields
+      .filter(
+        (field) => !props.blocks?.some((block) => block.key === field.key),
+      )
+      .map((field) => ({
+        ...field,
+        readonly:
+          field.readonly ||
+          editor.value?.readonly ||
+          readonlyFields.value.some((key) => key === field.key),
+      })) as unknown as typeof props.definition.fields,
+);
+const blocks = computed(() => {
+  const v = version,
+    e = editVersion;
+  const live = () => current(v) && e === editVersion && !!editor.value;
+  return (
+    props.blocks?.map((block) => ({
+      key: block.key,
+      component: toRaw(block.component),
+      props: {
+        modelValue: clone(editor.value?.values[block.key]),
+        catalog: clone(block.catalog),
+        mode:
+          blocked.value ||
+          !props.permissions.write ||
+          editor.value?.readonly ||
+          readonlyFields.value.includes(block.key)
+            ? ("read" as const)
+            : ("edit" as const),
+        disabled:
+          blocked.value ||
+          !props.permissions.write ||
+          editor.value?.readonly ||
+          readonlyFields.value.includes(block.key),
+        "onUpdate:modelValue": (value: D[typeof block.key]) => {
+          if (
+            live() &&
+            !blocked.value &&
+            props.permissions.write &&
+            !editor.value?.readonly &&
+            !readonlyFields.value.includes(block.key)
+          )
+            editor.value = {
+              ...editor.value!,
+              values: { ...editor.value!.values, [block.key]: clone(value) },
+            };
+        },
+        onPending: (value: boolean) => {
+          if (live())
+            blockPending.value = { ...blockPending.value, [block.key]: value };
+        },
+      },
+    })) ?? []
+  );
+});
+const pending = computed(
+  () => formPending.value || Object.values(blockPending.value).some(Boolean),
 );
 const moreFilters = ref(false);
 const shownFilters = computed(() =>
@@ -123,14 +190,15 @@ async function query(next = 1, submit = false) {
     if (current(v) && q === queryVersion) loading.value = false;
   }
 }
-async function begin(row?: R) {
+async function begin(row?: R, readonly = false) {
   if (
     blocked.value ||
     detailLoading.value ||
     editor.value ||
-    !props.permissions.write ||
+    !props.permissions.query ||
+    (!readonly && !props.permissions.write) ||
     (row
-      ? !props.definition.actions(row).includes("edit")
+      ? !props.definition.actions(row).includes(readonly ? "view" : "edit")
       : !props.permissions.create)
   )
     return;
@@ -138,6 +206,7 @@ async function begin(row?: R) {
     e = ++editVersion;
   error.value = "";
   formPending.value = false;
+  blockPending.value = {};
   readonlyFields.value = [];
   if (!row) {
     editor.value = {
@@ -148,6 +217,7 @@ async function begin(row?: R) {
         }),
       ),
     };
+    baseline.value = clone(editor.value.values);
     return;
   }
   detailLoading.value = true;
@@ -164,7 +234,9 @@ async function begin(row?: R) {
         identity: clone(detail.identity),
         row,
         readonlyFields: detail.readonlyFields,
+        readonly: readonly || detail.writable === false,
       };
+      baseline.value = clone(editor.value.values);
     }
   } catch (e) {
     if (current(v)) error.value = message(e);
@@ -172,14 +244,29 @@ async function begin(row?: R) {
     if (current(v) && e === editVersion) detailLoading.value = false;
   }
 }
-function cancel() {
-  if (lock.value.phase === "pending") return;
+async function requestLeave() {
+  if (lock.value.phase === "pending" || lock.value.phase === "unknown")
+    return false;
+  if (!editor.value || editor.value.readonly || !props.permissions.query)
+    return true;
+  return guard.value?.requestLeave() ?? true;
+}
+defineExpose<EditGuardHandle>({ requestLeave });
+async function cancel() {
+  if (!(await requestLeave())) return;
   editor.value = null;
   formPending.value = false;
+  blockPending.value = {};
   editVersion++;
 }
 async function write(operation: Attempt<D, I>["operation"], row?: R) {
-  if (blocked.value || formPending.value || !props.permissions.write) return;
+  if (
+    blocked.value ||
+    pending.value ||
+    !props.permissions.write ||
+    editor.value?.readonly
+  )
+    return;
   if (operation === "create" && !props.permissions.create) return;
   if (
     row &&
@@ -197,7 +284,7 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       : undefined;
   if (input) {
     const invalid = validate(
-      definition.fields as readonly AnyField[],
+      editFields.value as readonly AnyField[],
       input,
       operation === "create" ? "create" : "edit",
     );
@@ -299,18 +386,20 @@ async function reconcile() {
   }
 }
 function actions(row: R) {
-  return props.permissions.write
-    ? props.definition
-        .actions(row)
-        .filter((a) => a !== "delete" || props.definition.adapter.delete)
-        .filter(
-          (a) =>
-            (a !== "enable" && a !== "disable") ||
-            props.definition.adapter.setEnabled,
-        )
-    : [];
+  return props.definition
+    .actions(row)
+    .filter((action) =>
+      action === "view" ? props.permissions.query : props.permissions.write,
+    )
+    .filter((a) => a !== "delete" || props.definition.adapter.delete)
+    .filter(
+      (a) =>
+        (a !== "enable" && a !== "disable") ||
+        props.definition.adapter.setEnabled,
+    );
 }
 const captions = {
+  view: "查看",
   edit: "编辑",
   enable: "启用",
   disable: "停用",
@@ -331,6 +420,7 @@ watch(
     loading.value = false;
     detailLoading.value = false;
     formPending.value = false;
+    blockPending.value = {};
     verifying.value = false;
     error.value = "";
     notice.value = "";
@@ -405,7 +495,11 @@ onBeforeUnmount(() => {
       @page="query($event)"
       @action="
         (action, row) =>
-          action === 'edit' ? begin(row) : (confirming = { row, action })
+          action === 'view'
+            ? begin(row, true)
+            : action === 'edit'
+              ? begin(row)
+              : (confirming = { row, action })
       "
     />
     <section v-if="confirming" role="dialog" aria-label="确认操作">
@@ -419,28 +513,54 @@ onBeforeUnmount(() => {
         确认{{ captions[confirming.action] }}
       </button>
     </section>
-    <section v-if="editor" role="dialog" aria-label="编辑资料">
+    <section
+      v-if="editor"
+      role="dialog"
+      :aria-label="editor.readonly ? '查看资料' : '编辑资料'"
+    >
       <DynamicForm
         :fields="editFields"
         :model-value="editor.values"
         :scope="scope"
-        :disabled="blocked || !permissions.write"
+        :disabled="blocked || !permissions.write || editor.readonly"
         :mode="editor.row ? 'edit' : 'create'"
         @update:model-value="editor = { ...editor!, values: $event }"
         @pending="formPending = $event"
-      /><button
+      />
+      <component
+        v-for="block in blocks"
+        :key="block.key"
+        :is="block.component"
+        v-bind="block.props"
+      />
+      <button
         type="button"
         :disabled="lock.phase === 'pending'"
         @click="cancel"
       >
-        取消编辑</button
+        {{ editor.readonly ? "关闭详情" : "取消编辑" }}</button
       ><button
         type="button"
-        :disabled="blocked || formPending || !permissions.write"
+        v-if="!editor.readonly"
+        :disabled="blocked || pending || !permissions.write"
         @click="write(editor.row ? 'save' : 'create', editor.row)"
       >
         保存
       </button>
     </section>
+    <EditGuard
+      ref="guard"
+      :scope="scope"
+      :instance="editVersion"
+      :active="permissions.query && !!editor && !editor.readonly"
+      :dirty="dirty"
+      :write-state="
+        lock.phase === 'pending'
+          ? 'pending'
+          : lock.phase === 'unknown'
+            ? 'unknown'
+            : 'idle'
+      "
+    />
   </section>
 </template>

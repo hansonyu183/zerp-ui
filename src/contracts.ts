@@ -84,7 +84,7 @@ export type Column<R> = {
   visible?: boolean;
   width?: string;
 };
-export type CrudAction = "edit" | "enable" | "disable" | "delete";
+export type CrudAction = "view" | "edit" | "enable" | "disable" | "delete";
 export type ListAction =
   | "view"
   | "send"
@@ -125,6 +125,7 @@ export type CrudAdapter<
     values: D;
     identity: I;
     readonlyFields?: readonly Extract<keyof D, string>[];
+    writable?: boolean;
   }>;
   empty(input: { scope: string; filters: F }): D;
   create(attempt: Attempt<D, I>): Promise<WriteResult>;

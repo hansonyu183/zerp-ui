@@ -1,3 +1,8 @@
+# 0.7.0（本地候选，未发布）
+
+- CrudView增加公开typed领域区块、view只读动作和有限离开确认句柄；复用ConfigurationBlock/EditGuard及原写入回执生命周期。
+- 不包含报表条件/样式/分组扩展，不宣称真实应用验收或远端发布。
+
 # Changelog
 
 ## 0.6.0

@@ -269,3 +269,7 @@ AppPage 的 NavigationGroup 可设置 ungrouped，直接展示其中的一级链
 ListAction增加send、withdraw、check、uncheck、void、unvoid，对应送审、反送审、审核、反审核、作废、反作废；仍最多三个直接图标，其余进入更多菜单。业务资格由消费者过滤。
 
 DataList通过selectedKeys及update:selectedKeys受控勾选记录，启用时必须提供稳定rowKey。selectable按行限制勾选，表头仅全选当前页的可选记录；loading/disabled阻止变更。消费者负责翻页/筛选清理及批量请求，不由组件推断业务或提交。
+
+## 0.7.0 本地候选：直接维护领域区块
+
+CrudView的可选blocks复用公开configurationBlock/ConfigurationBlockProps；同key字段由局部块承接，块只收分离值/catalog/read或edit/disabled并回传值及pending。运行时持有保存/删除/刷新/unknown锁，旧scope或编辑实例事件无效。actions增加view，只读详情不显示保存；get.writable=false拒绝编辑。CrudView公开EditGuardHandle.requestLeave给宿主接路由/beforeunload，内部取消复用EditGuard，身份撤销先清理。领域块不能拿整页提交或解锁控制器。examples/direct“领域区块示例”使用纯合成Adapter演示精确值/只读/异步pending/未知核实，非OIT真实API证据。本候选未推送、未发布；不覆盖0.6.0发布工件。
