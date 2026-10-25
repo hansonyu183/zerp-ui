@@ -215,3 +215,44 @@ it("block pending disables the owning save and stale callbacks cannot change the
   );
   w.unmount();
 });
+it("changing create capability alone preserves the active draft and write receipt", async () => {
+  const definition = make();
+  let complete!: (r: { status: "success" }) => void;
+  definition.adapter.save = vi.fn(
+    () => new Promise<{ status: "success" }>((r) => (complete = r)),
+  );
+  const w = mount(CrudView as Component, {
+    props: {
+      definition,
+      scope: "actor-a",
+      permissions: { query: true, create: true, write: true },
+      blocks: [
+        configurationBlock<Draft>()({
+          key: "native",
+          component: NativeBlock,
+          catalog: {},
+        }),
+      ],
+    },
+  });
+  await flushPromises();
+  await button(w, "编辑").trigger("click");
+  await flushPromises();
+  await w.get('input[aria-label="精确数量"]').setValue("1.005");
+  await w.setProps({
+    permissions: { query: true, create: false, write: true },
+  });
+  await flushPromises();
+  expect(w.get('input[aria-label="精确数量"]').element).toHaveProperty(
+    "value",
+    "1.005",
+  );
+  await button(w, "保存").trigger("click");
+  await flushPromises();
+  await w.setProps({ permissions: { query: true, create: true, write: true } });
+  complete({ status: "success" });
+  await flushPromises();
+  expect(w.text()).toContain("写入成功");
+  expect(w.find('input[aria-label="精确数量"]').exists()).toBe(false);
+  w.unmount();
+});

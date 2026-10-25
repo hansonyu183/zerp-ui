@@ -406,7 +406,7 @@ const captions = {
   delete: "删除",
 } as const;
 watch(
-  () => [props.scope, props.definition, props.permissions.query],
+  [() => props.scope, () => props.definition, () => props.permissions.query],
   () => {
     version++;
     queryVersion++;
