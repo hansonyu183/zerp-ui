@@ -264,7 +264,7 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
     blocked.value ||
     pending.value ||
     !props.permissions.write ||
-    editor.value?.readonly
+    ((operation === "save" || operation === "create") && editor.value?.readonly)
   )
     return;
   if (operation === "create" && !props.permissions.create) return;
@@ -539,6 +539,18 @@ onBeforeUnmount(() => {
         @click="cancel"
       >
         {{ editor.readonly ? "关闭详情" : "取消编辑" }}</button
+      ><button
+        v-if="
+          editor.row &&
+          permissions.write &&
+          definition.adapter.delete &&
+          definition.actions(editor.row).includes('delete')
+        "
+        type="button"
+        :disabled="blocked"
+        @click="confirming = { row: editor.row!, action: 'delete' }"
+      >
+        删除</button
       ><button
         type="button"
         v-if="!editor.readonly"

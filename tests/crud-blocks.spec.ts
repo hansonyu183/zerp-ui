@@ -256,3 +256,41 @@ it("changing create capability alone preserves the active draft and write receip
   expect(w.find('input[aria-label="精确数量"]').exists()).toBe(false);
   w.unmount();
 });
+it("read detail keeps a separately authorized delete action when get forbids editing", async () => {
+  const definition = make();
+  definition.actions = () => ["view", "delete"];
+  definition.adapter.get = async () => ({
+    identity: "one",
+    values: { native: { amount: "0.10" } },
+    writable: false,
+  });
+  const w = mount(CrudView as Component, {
+    props: {
+      definition,
+      scope: "actor-a",
+      permissions: { query: true, create: false, write: true },
+      blocks: [
+        configurationBlock<Draft>()({
+          key: "native",
+          component: NativeBlock,
+          catalog: {},
+        }),
+      ],
+    },
+  });
+  await flushPromises();
+  await button(w, "查看").trigger("click");
+  await flushPromises();
+  const dialog = w.get('[role="dialog"][aria-label="查看资料"]');
+  expect(dialog.text()).not.toContain("保存");
+  await dialog
+    .findAll("button")
+    .find((b) => b.text() === "删除")!
+    .trigger("click");
+  await button(w, "确认删除").trigger("click");
+  await flushPromises();
+  expect(definition.adapter.delete).toHaveBeenCalledWith(
+    expect.objectContaining({ identity: "one", operation: "delete" }),
+  );
+  w.unmount();
+});
