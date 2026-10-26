@@ -287,3 +287,13 @@ ConfigurationView 公开 `EditGuardHandle.requestLeave()` 供宿主导航保护�
 `emptyRow: () => R | Promise<R>` 仅在新增时调用，成功后打开原明细编辑框。可选 `transformRow({ value, previous }): R | Promise<R>` 接收克隆的本次输入与前值，成功才采用返回行；失败保留前值并显示错误。计算不写入外层业务记录；确定明细行仍沿原局部编辑流程。准备和计算期间 `pending=true`，禁止并发编辑与确定；取消、scope/instance/mode/disabled、外部 model 变化、撤权或卸载使旧结果失效。消费者应保留行的稳定标识。
 
 可选 `rowOperations: { insert, update, delete }` 独立限定明细动作，省略时沿用既有能力；它不解除 read/disabled。update 关闭时子项采用只读查看。`examples/voucher/AsyncEditor.vue` 演示合成异步默认、计算、失败与作用域失效；本地候选未发布，不代表真实应用接口验收。
+
+### 0.11.0 本地候选：完整行候选
+
+`VoucherEditorDefinition` 明确区分两个互斥端口：简单行编辑使用 `emptyRow` / `transformRow`；完整候选使用 `rowDraft`，不得同时提供前两项。完整路径不使用空的占位默认值，也不会在失败后调用简单端口。
+
+`rowDraft.prepare({ candidate })` 可异步创建真实稳定行、将它放入完整候选并执行初始化，返回 `{ rowKey, candidate }`；行值只从该 candidate 按稳定 key 读取。`rowDraft.change({ value, previous, candidate })` 可异步返回完整 `VoucherEditorValue<H,R>`；输入 candidate 已包含本次行输入，三个输入均为隔离副本。库不解释领域脚本、DTO 或计算公式。
+
+完整候选由既有局部明细编辑持有；表头和其它行按候选只读显示，外层 model 在确定前不变。确定一次采用全部候选，取消全部丢弃；计算可移除当前目标行，此时显示移除提示并保留整体确定/取消，不猜测新行身份。重复的当前行 key 拒绝采用，不重新编排行标识。初始化/计算失败显示错误并保留前一个有效候选；包括整数输入的可见文本也恢复。上下文、权限或外部 model 改变及卸载使迟到结果失效。
+
+`update:modelValue` 第二参数为公开 `VoucherEditorChange`：`{kind:'header'|'row'|'delete'}`，表示用户采用动作的来源，不限制补丁涉及的区域。`row` 采用可能同时改表头和其它行，消费者必须采用全部 value，不应再把计算回填的表头误当用户直接修改而重复触发计算。采用事件先于释放 pending，单参数监听器及 v-model 可自然只消费首参。`examples/voucher/FullDraftEditor.vue` 仅演示合成候选，不代表真实业务/API验收。

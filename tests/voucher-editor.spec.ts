@@ -453,3 +453,284 @@ it.each(["scope", "disabled", "permission", "model", "cancel", "unmount"])(
     }
   },
 );
+
+it("keeps a full prepared candidate local, cancels it all, then adopts header and other rows once", async () => {
+  const events: string[] = [];
+  const wrapper = mount(VoucherEditor<Header, Row>, {
+    props: {
+      modelValue: structuredClone(initial),
+      scope: "full",
+      mode: "edit",
+      headerFields: [{ key: "supplier", label: "供应商", type: "text" }],
+      rowFields: [{ key: "name", label: "品名", type: "text" }],
+      columns: [{ key: "name", label: "品名" }],
+      rowKey: (row: Row) => row.id,
+      rowDraft: {
+        prepare: async ({
+          candidate,
+        }: {
+          candidate: VoucherEditorValue<Header, Row>;
+        }) => ({
+          rowKey: "new-full",
+          candidate: {
+            header: { ...candidate.header, supplier: "候选供应商" },
+            rows: [
+              { ...candidate.rows[0], name: "他行改值" },
+              { id: "new-full", name: "初始化新行", quantity: "0" },
+            ],
+          },
+        }),
+      },
+      "onUpdate:modelValue": () => events.push("update"),
+      onPending: (pending: boolean) => events.push(`pending:${pending}`),
+    },
+  });
+  await click(wrapper, "新增明细行");
+  expect(wrapper.get('[aria-label="单据表头"]').text()).toContain("候选供应商");
+  expect(wrapper.find('input[aria-label="供应商"]').exists()).toBe(false);
+  expect(wrapper.get("table").text()).toContain("他行改值");
+  expect(wrapper.get('input[aria-label="品名"]').element).toHaveProperty(
+    "value",
+    "初始化新行",
+  );
+  expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  await click(wrapper, "取消明细行");
+  expect(wrapper.get('input[aria-label="供应商"]').element).toHaveProperty(
+    "value",
+    "合成供应商",
+  );
+  expect(wrapper.get("table").text()).toContain("合成商品");
+  await click(wrapper, "新增明细行");
+  const actionStart = events.length;
+  await click(wrapper, "确定明细行");
+  expect(wrapper.emitted("update:modelValue")).toHaveLength(1);
+  const adopted = wrapper.emitted(
+    "update:modelValue",
+  )![0][0] as VoucherEditorValue<Header, Row>;
+  expect(adopted.header.supplier).toBe("候选供应商");
+  expect(adopted.rows.map((row) => row.name)).toEqual([
+    "他行改值",
+    "初始化新行",
+  ]);
+  expect(events.slice(actionStart)[0]).toBe("update");
+  expect(events.slice(actionStart)).toContain("pending:false");
+  wrapper.unmount();
+});
+it("restores the visible integer input when a transformation fails", async () => {
+  type CountRow = { id: string; count: number };
+  const wrapper = mount(VoucherEditor<Header, CountRow>, {
+    props: {
+      modelValue: { header: initial.header, rows: [{ id: "count", count: 1 }] },
+      scope: "integer",
+      mode: "edit",
+      headerFields: [],
+      rowFields: [{ key: "count", label: "件数", type: "integer" }],
+      columns: [{ key: "count", label: "件数" }],
+      rowKey: (row: CountRow) => row.id,
+      emptyRow: () => ({ id: "new-count", count: 0 }),
+      transformRow: async () => {
+        throw new Error("件数不可用。");
+      },
+    },
+  });
+  await click(wrapper, "编辑明细行 1");
+  await wrapper.get('input[aria-label="件数"]').setValue("7");
+  await flushPromises();
+  expect(wrapper.get('[role="alert"]').text()).toBe("件数不可用。");
+  expect(wrapper.get('input[aria-label="件数"]').element).toHaveProperty(
+    "value",
+    "1",
+  );
+  expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  wrapper.unmount();
+});
+function fullEditor(
+  change?: (input: {
+    value: Row;
+    previous: Row;
+    candidate: VoucherEditorValue<Header, Row>;
+  }) =>
+    VoucherEditorValue<Header, Row> | Promise<VoucherEditorValue<Header, Row>>,
+) {
+  return mount(VoucherEditor<Header, Row>, {
+    props: {
+      modelValue: {
+        header: structuredClone(initial.header),
+        rows: [
+          ...structuredClone(initial.rows),
+          { id: "peer", name: "另一行", quantity: "2" },
+        ],
+      },
+      scope: "full-change",
+      mode: "edit",
+      headerFields: [{ key: "supplier", label: "供应商", type: "text" }],
+      rowFields: [{ key: "name", label: "品名", type: "text" }],
+      columns: [{ key: "name", label: "品名" }],
+      rowKey: (row: Row) => row.id,
+      rowDraft: {
+        prepare: ({ candidate }) => ({
+          rowKey: "new",
+          candidate: {
+            ...candidate,
+            rows: [
+              ...candidate.rows,
+              { id: "new", name: "新增", quantity: "0" },
+            ],
+          },
+        }),
+        change,
+      },
+    },
+  });
+}
+it("applies a whole calculation candidate and rolls back a rejected visible change without leaking header patches", async () => {
+  let fail = false;
+  const wrapper = fullEditor(async ({ value, previous, candidate }) => {
+    expect(candidate.rows[0].name).toBe(value.name);
+    expect(previous.id).toBe("one");
+    candidate.header.supplier = "不应泄漏";
+    if (fail) throw new Error("重新输入。");
+    return {
+      header: { ...candidate.header, supplier: "计算供应商" },
+      rows: candidate.rows.map((row) =>
+        row.id === "peer" ? { ...row, name: "跨行计算" } : row,
+      ),
+    };
+  });
+  await click(wrapper, "编辑明细行 1");
+  await wrapper.get('input[aria-label="品名"]').setValue("第一修改");
+  await flushPromises();
+  expect(wrapper.get('[aria-label="单据表头"]').text()).toContain("计算供应商");
+  expect(wrapper.get("table").text()).toContain("跨行计算");
+  expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  fail = true;
+  await wrapper.get('input[aria-label="品名"]').setValue("失败修改");
+  await flushPromises();
+  expect(wrapper.get('input[aria-label="品名"]').element).toHaveProperty(
+    "value",
+    "第一修改",
+  );
+  expect(wrapper.get('[aria-label="单据表头"]').text()).toContain("计算供应商");
+  expect(wrapper.get('[aria-label="单据表头"]').text()).not.toContain(
+    "不应泄漏",
+  );
+  await click(wrapper, "确定明细行");
+  const [adopted, origin] = wrapper.emitted("update:modelValue")![0] as [
+    VoucherEditorValue<Header, Row>,
+    { kind: string },
+  ];
+  expect(adopted.header.supplier).toBe("计算供应商");
+  expect(adopted.rows.map((row) => row.name)).toEqual(["第一修改", "跨行计算"]);
+  expect(origin.kind).toBe("row");
+  wrapper.unmount();
+});
+it("keeps a removed target as a full candidate until explicit adoption or cancellation", async () => {
+  const wrapper = fullEditor(({ value, candidate }) => ({
+    header: { ...candidate.header, supplier: "删除后表头" },
+    rows: candidate.rows.filter((row) => row.id !== value.id),
+  }));
+  await click(wrapper, "编辑明细行 1");
+  await wrapper.get('input[aria-label="品名"]').setValue("移除当前行");
+  await flushPromises();
+  expect(wrapper.get('[role="dialog"]').text()).toContain("该明细行已移除。");
+  expect(wrapper.find('input[aria-label="品名"]').exists()).toBe(false);
+  expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  await click(wrapper, "取消明细行");
+  expect(wrapper.get("table").text()).toContain("合成商品");
+  await click(wrapper, "编辑明细行 1");
+  await wrapper.get('input[aria-label="品名"]').setValue("移除当前行");
+  await flushPromises();
+  await click(wrapper, "确定明细行");
+  const adopted = wrapper.emitted(
+    "update:modelValue",
+  )![0][0] as VoucherEditorValue<Header, Row>;
+  expect(adopted.rows.map((row) => row.id)).toEqual(["peer"]);
+  expect(adopted.header.supplier).toBe("删除后表头");
+  wrapper.unmount();
+});
+it.each(["scope", "instance", "model", "permission", "disabled", "unmount"])(
+  "discards all late candidate patches after %s",
+  async (change) => {
+    let resolve!: (value: VoucherEditorValue<Header, Row>) => void;
+    const wrapper = fullEditor(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    await click(wrapper, "编辑明细行 1");
+    await wrapper.get('input[aria-label="品名"]').setValue("等待计算");
+    if (change === "scope") await wrapper.setProps({ scope: "next" });
+    if (change === "instance") await wrapper.setProps({ instance: 2 });
+    if (change === "model")
+      await wrapper.setProps({ modelValue: { ...initial, rows: [] } });
+    if (change === "permission")
+      await wrapper.setProps({
+        rowOperations: { insert: true, update: false, delete: true },
+      });
+    if (change === "disabled") await wrapper.setProps({ disabled: true });
+    if (change === "unmount") wrapper.unmount();
+    const events = wrapper.emitted("pending")?.length;
+    resolve({ header: { ...initial.header, supplier: "迟到表头" }, rows: [] });
+    await flushPromises();
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+    expect(wrapper.emitted("pending")?.length).toBe(events);
+    if (change !== "unmount") {
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+      expect(wrapper.text()).not.toContain("迟到表头");
+      wrapper.unmount();
+    }
+  },
+);
+it("permits init to remove the just-prepared target without losing other candidate changes", async () => {
+  const wrapper = fullEditor();
+  await wrapper.setProps({
+    rowDraft: {
+      prepare: ({
+        candidate,
+      }: {
+        candidate: VoucherEditorValue<Header, Row>;
+      }) => ({
+        rowKey: "removed-new",
+        candidate: {
+          ...candidate,
+          header: { ...candidate.header, supplier: "初始化表头" },
+        },
+      }),
+    },
+  });
+  await click(wrapper, "新增明细行");
+  expect(wrapper.get('[role="dialog"]').text()).toContain("该明细行已移除。");
+  await click(wrapper, "确定明细行");
+  const adopted = wrapper.emitted(
+    "update:modelValue",
+  )![0][0] as VoucherEditorValue<Header, Row>;
+  expect(adopted.rows.map((row) => row.id)).toEqual(["one", "peer"]);
+  expect(adopted.header.supplier).toBe("初始化表头");
+  wrapper.unmount();
+});
+it("labels direct header edits independently of row adoption", async () => {
+  const wrapper = fullEditor();
+  await wrapper.get('input[aria-label="供应商"]').setValue("用户直接修改");
+  expect(wrapper.emitted("update:modelValue")![0][1]).toEqual({
+    kind: "header",
+  });
+  wrapper.unmount();
+});
+it("drops a full local candidate when the external model changes before confirmation", async () => {
+  const wrapper = fullEditor();
+  await click(wrapper, "编辑明细行 1");
+  await wrapper.setProps({
+    modelValue: {
+      ...initial,
+      header: { ...initial.header, supplier: "外部更新" },
+    },
+  });
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  expect(wrapper.get('input[aria-label="供应商"]').element).toHaveProperty(
+    "value",
+    "外部更新",
+  );
+  expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  wrapper.unmount();
+});

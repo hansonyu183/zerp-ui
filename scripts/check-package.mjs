@@ -1138,6 +1138,78 @@ async function voucherSmoke(page) {
   await asyncButton("返回准备结果").click();
   assert.equal(await asyncEditor.getByRole("dialog").count(), 0);
   assert.equal(await asyncEditor.getByRole("status").textContent(), "明细空闲");
+  const full = page.getByRole("region", { name: "完整候选示例", exact: true });
+  const fullButton = (name) => full.getByRole("button", { name, exact: true });
+  await fullButton("新增明细行").click();
+  await fullButton("切换完整候选上下文").click();
+  await fullButton("返回完整初始化").click();
+  assert.equal(await full.getByRole("dialog").count(), 0);
+  assert.equal(
+    await full.getByLabel("采用次数", { exact: true }).textContent(),
+    "0",
+  );
+  await fullButton("新增明细行").click();
+  await fullButton("返回完整初始化").click();
+  assert.ok(
+    (await full.getByLabel("单据表头", { exact: true }).textContent()).includes(
+      "初始化表头",
+    ),
+  );
+  assert.ok(
+    (await full.getByRole("table").textContent()).includes("初始化他行"),
+  );
+  assert.equal(
+    await full.getByLabel("已采用说明", { exact: true }).textContent(),
+    "原表头",
+  );
+  await fullButton("取消明细行").click();
+  assert.ok((await full.getByRole("table").textContent()).includes("其他明细"));
+  await fullButton("新增明细行").click();
+  await fullButton("返回完整初始化").click();
+  await fullButton("确定明细行").click();
+  assert.equal(
+    await full.getByLabel("采用次数", { exact: true }).textContent(),
+    "1",
+  );
+  assert.equal(
+    await full.getByLabel("已采用说明", { exact: true }).textContent(),
+    "初始化表头",
+  );
+  await fullButton("编辑明细行 1").click();
+  await full.getByLabel("明细名称", { exact: true }).fill("当前计算");
+  assert.ok(
+    (await full.getByLabel("单据表头", { exact: true }).textContent()).includes(
+      "计算表头",
+    ),
+  );
+  assert.ok((await full.getByRole("table").textContent()).includes("跨行计算"));
+  await full.getByLabel("件数", { exact: true }).fill("7");
+  await full.getByRole("alert").filter({ hasText: "件数不可用" }).waitFor();
+  assert.equal(
+    await full.getByLabel("件数", { exact: true }).inputValue(),
+    "1",
+  );
+  await fullButton("确定明细行").click();
+  assert.equal(
+    await full.getByLabel("采用来源", { exact: true }).textContent(),
+    "row",
+  );
+  assert.equal(
+    await full.getByLabel("采用次数", { exact: true }).textContent(),
+    "2",
+  );
+  await fullButton("编辑明细行 1").click();
+  await full.getByLabel("明细名称", { exact: true }).fill("移除");
+  await full.getByText("该明细行已移除。", { exact: true }).waitFor();
+  await fullButton("确定明细行").click();
+  assert.equal(
+    await full.getByLabel("采用次数", { exact: true }).textContent(),
+    "3",
+  );
+  assert.ok(
+    !(await full.getByRole("table").textContent()).includes("当前计算"),
+  );
+  assert.ok((await full.getByRole("table").textContent()).includes("跨行计算"));
   await voucherOperationSmoke(page);
 }
 

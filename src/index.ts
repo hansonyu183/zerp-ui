@@ -68,6 +68,8 @@ export { default as VoucherView } from "./VoucherView.vue";
 export { default as VoucherEditor } from "./VoucherEditor.vue";
 export type {
   VoucherEditorValue,
+  VoucherEditorChange,
+  VoucherEditorRowDraft,
   VoucherEditorDefinition,
   VoucherEditorColumn,
   VoucherEditorChildColumn,
