@@ -42,7 +42,7 @@ export type VoucherEditorDefinition<
   C extends object = object,
 > = {
   headerFields: Fields<H>;
-  rowFields: Fields<R>;
+  rowFields: Fields<R> | ((row: R) => Fields<R>);
   columns: readonly VoucherEditorColumn<R, C>[];
   rowKey: (row: R) => string;
   rowOperations?: { insert: boolean; update: boolean; delete: boolean };

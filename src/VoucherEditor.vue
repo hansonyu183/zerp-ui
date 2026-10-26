@@ -62,6 +62,13 @@ const editing = shallowRef<{
   targetKey?: string;
   candidate?: VoucherEditorValue<H, R>;
 } | null>(null);
+const activeRowFields = computed<Fields<R>>(() =>
+  typeof props.rowFields === "function"
+    ? editing.value?.value
+      ? props.rowFields(clone(editing.value.value))
+      : ([] as unknown as Fields<R>)
+    : props.rowFields,
+);
 const visibleValue = computed(
   () => editing.value?.candidate ?? props.modelValue,
 );
@@ -540,7 +547,7 @@ onBeforeUnmount(() => {
       <DynamicForm
         v-else
         :key="rowFormVersion"
-        :fields="rowFields"
+        :fields="activeRowFields"
         :model-value="editing.value"
         :scope="scope"
         :disabled="!writable || preparing"

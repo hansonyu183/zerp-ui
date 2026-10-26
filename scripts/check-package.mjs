@@ -1210,6 +1210,37 @@ async function voucherSmoke(page) {
     !(await full.getByRole("table").textContent()).includes("当前计算"),
   );
   assert.ok((await full.getByRole("table").textContent()).includes("跨行计算"));
+  const active = page.getByRole("region", {
+    name: "逐行字段示例",
+    exact: true,
+  });
+  const activeButton = (name) =>
+    active.getByRole("button", { name, exact: true });
+  await activeButton("编辑明细行 1").click();
+  assert.equal(
+    await active.getByLabel("行数量", { exact: true }).isDisabled(),
+    true,
+  );
+  await activeButton("取消明细行").click();
+  await activeButton("新增明细行").click();
+  assert.equal(
+    await active.getByLabel("行数量", { exact: true }).isDisabled(),
+    false,
+  );
+  await active
+    .getByLabel("行数量", { exact: true })
+    .fill("9007199254740993.1234");
+  await active.getByLabel("行角色", { exact: true }).selectOption("main");
+  await active.getByLabel("行数量", { exact: true }).evaluate((element) => {
+    if (!element.disabled) throw Error("Changed row must be readonly");
+  });
+  assert.equal(await active.getByLabel("子项标识", { exact: true }).count(), 0);
+  await activeButton("确定明细行").click();
+  assert.ok(
+    (
+      await active.getByLabel("逐行采用结果", { exact: true }).textContent()
+    ).includes("detail-1:main:9007199254740993.1234"),
+  );
   await voucherOperationSmoke(page);
 }
 

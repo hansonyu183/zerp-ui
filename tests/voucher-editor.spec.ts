@@ -735,3 +735,142 @@ it("drops a full local candidate when the external model changes before confirma
   expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   wrapper.unmount();
 });
+
+it("resolves new and existing row fields from an isolated active row", async () => {
+  type Item = { id: string; role: string; name: string; quantity: string };
+  const model = ref<VoucherEditorValue<Header, Item>>({
+    header: { ...initial.header },
+    rows: [{ ...initial.rows[0], role: "main" }],
+  });
+  const wrapper = mount(
+    defineComponent({
+      setup: () => () =>
+        h(VoucherEditor as Component, {
+          modelValue: model.value,
+          scope: "active-fields",
+          mode: "edit",
+          headerFields: [],
+          rowFields: (row: Item) => {
+            const locked = row.role === "main";
+            row.name = "callback mutation";
+            return [
+              { key: "name", label: "行名称", type: "text" },
+              {
+                key: "quantity",
+                label: "行数量",
+                type: "decimal",
+                readonly: locked,
+              },
+            ];
+          },
+          columns: [{ key: "name", label: "名称" }],
+          rowKey: (row: Item) => row.id,
+          emptyRow: () => ({
+            id: "new",
+            role: "detail",
+            name: "新行",
+            quantity: "1.0000",
+          }),
+          "onUpdate:modelValue": (next: VoucherEditorValue<Header, Item>) =>
+            (model.value = next),
+        }),
+    }),
+  );
+  await click(wrapper, "编辑明细行 1");
+  expect(
+    wrapper.get('input[aria-label="行数量"]').attributes("disabled"),
+  ).toBeDefined();
+  expect(wrapper.get('input[aria-label="行名称"]').element).toHaveProperty(
+    "value",
+    "合成商品",
+  );
+  await click(wrapper, "取消明细行");
+  expect(model.value.rows[0].name).toBe("合成商品");
+  await click(wrapper, "新增明细行");
+  expect(
+    wrapper.get('input[aria-label="行数量"]').attributes("disabled"),
+  ).toBeUndefined();
+  await wrapper
+    .get('input[aria-label="行数量"]')
+    .setValue("9007199254740993.1234");
+  await click(wrapper, "确定明细行");
+  expect(model.value.rows[1].quantity).toBe("9007199254740993.1234");
+  expect(model.value.rows[1].name).toBe("新行");
+  wrapper.unmount();
+});
+it("re-resolves role visibility and readonly after an asynchronous full-row change", async () => {
+  type Item = { id: string; role: string; quantity: string };
+  let resolve!: (value: VoucherEditorValue<Header, Item>) => void;
+  let candidate!: VoucherEditorValue<Header, Item>;
+  const wrapper = mount(VoucherEditor as Component, {
+    props: {
+      scope: "role-change",
+      mode: "edit",
+      modelValue: {
+        header: { ...initial.header },
+        rows: [{ id: "one", role: "detail", quantity: "1.0000" }],
+      },
+      headerFields: [],
+      rowKey: (row: Item) => row.id,
+      columns: [{ key: "quantity", label: "数量" }],
+      rowFields: (row: Item) => [
+        {
+          key: "role",
+          label: "行角色",
+          type: "enum",
+          options: [
+            { value: "main", label: "主项" },
+            { value: "detail", label: "子项" },
+          ],
+        },
+        {
+          key: "quantity",
+          label: "行数量",
+          type: "decimal",
+          readonly: row.role === "main",
+        },
+        ...(row.role === "detail"
+          ? [{ key: "id", label: "子项标识", type: "text", readonly: true }]
+          : []),
+      ],
+      rowDraft: {
+        prepare: () => ({
+          rowKey: "new",
+          candidate: {
+            header: { ...initial.header },
+            rows: [{ id: "new", role: "detail", quantity: "1.0000" }],
+          },
+        }),
+        change: (change: { candidate: VoucherEditorValue<Header, Item> }) => {
+          candidate = change.candidate;
+          return new Promise((yes) => (resolve = yes));
+        },
+      },
+    },
+  });
+  await click(wrapper, "编辑明细行 1");
+  expect(wrapper.find('input[aria-label="子项标识"]').exists()).toBe(true);
+  await wrapper.get('select[aria-label="行角色"]').setValue("main");
+  expect(
+    wrapper
+      .findAll("button")
+      .find((button) => button.text() === "确定明细行")!
+      .attributes("disabled"),
+  ).toBeDefined();
+  resolve(candidate);
+  await flushPromises();
+  expect(
+    wrapper.get('input[aria-label="行数量"]').attributes("disabled"),
+  ).toBeDefined();
+  expect(wrapper.find('input[aria-label="子项标识"]').exists()).toBe(false);
+  await click(wrapper, "确定明细行");
+  const result = wrapper.emitted(
+    "update:modelValue",
+  )![0][0] as VoucherEditorValue<Header, Item>;
+  expect(result.rows[0]).toEqual({
+    id: "one",
+    role: "main",
+    quantity: "1.0000",
+  });
+  wrapper.unmount();
+});

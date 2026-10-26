@@ -7,6 +7,7 @@ import EntryBlock from "./EntryBlock.vue";
 import Operations from "./Operations.vue";
 import StandaloneEditor from "./StandaloneEditor.vue";
 import AsyncEditor from "./AsyncEditor.vue";
+import ActiveRowFields from "./ActiveRowFields.vue";
 import FullDraftEditor from "./FullDraftEditor.vue";
 const kind = ref<"ordinary" | "opening" | "system">("ordinary"),
   scenario = ref<Scenario>("success");
@@ -59,6 +60,7 @@ const blocks = [
     <StandaloneEditor />
     <AsyncEditor />
     <FullDraftEditor />
+    <ActiveRowFields />
     <details>
       <summary>独立单据办理示例</summary>
       <Operations />

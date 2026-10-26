@@ -125,3 +125,22 @@ const invalidCandidate: VoucherEditorDefinition<Header, Row, Child> = {
   },
 };
 void invalidCandidate;
+
+const activeFields: VoucherEditorDefinition<Header, Row, Child> = {
+  ...valid,
+  rowFields: (row) => [
+    {
+      key: "name",
+      label: row.name,
+      type: "text",
+      readonly: row.id === "locked",
+    },
+  ],
+};
+void activeFields;
+const invalidActiveFields: VoucherEditorDefinition<Header, Row, Child> = {
+  ...valid,
+  // @ts-expect-error factory fields must still name fields of the matching row
+  rowFields: (row) => [{ key: "absent", label: row.name, type: "text" }],
+};
+void invalidActiveFields;
