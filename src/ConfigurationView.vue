@@ -12,6 +12,8 @@ import type {
   ConfigurationBlock,
 } from "./configuration";
 import DynamicForm from "./DynamicForm.vue";
+import EditGuard from "./EditGuard.vue";
+import type { EditGuardHandle } from "./edit-guard";
 import DataList from "./DataList.vue";
 import { clone, message } from "./clone";
 import { validate } from "./validation";
@@ -34,6 +36,14 @@ const editor = shallowRef<{
   identity?: I;
   writable: boolean;
 } | null>(null);
+const guard = ref<EditGuardHandle>();
+const baseline = shallowRef<D | null>(null);
+const dirty = computed(
+  () =>
+    !!editor.value &&
+    editor.value.writable &&
+    JSON.stringify(editor.value.values) !== JSON.stringify(baseline.value),
+);
 const detailLoading = ref(false),
   verifying = ref(false),
   pending = ref<Record<string, boolean>>({});
@@ -63,11 +73,24 @@ let generation = 0,
   editId = 0,
   active = true;
 const current = (g: number) => active && g === generation;
-function close() {
+function clearEditor() {
   if (lock.value.phase === "pending") return;
   editId++;
   editor.value = null;
   pending.value = {};
+}
+async function requestLeave() {
+  if (lock.value.phase === "pending" || lock.value.phase === "unknown")
+    return false;
+  if (!editor.value || !editor.value.writable || !props.permissions.read)
+    return true;
+  return guard.value?.requestLeave() ?? true;
+}
+defineExpose<EditGuardHandle>({ requestLeave });
+async function close() {
+  const g = generation,
+    e = editId;
+  if ((await requestLeave()) && current(g) && e === editId) clearEditor();
 }
 async function query(next = page.value, submit = false) {
   if (!props.permissions.read) return;
@@ -140,6 +163,7 @@ async function begin(row?: R) {
         ),
         writable: true,
       };
+    baseline.value = editor.value ? clone(editor.value.values) : null;
     return;
   }
   detailLoading.value = true;
@@ -148,12 +172,14 @@ async function begin(row?: R) {
       scope: props.scope,
       identity: clone(definition.identity(row)),
     });
-    if (current(g) && e === editId)
+    if (current(g) && e === editId) {
       editor.value = {
         values: clone(detail.values),
         identity: clone(detail.identity),
         writable: detail.writable !== false,
       };
+      baseline.value = clone(editor.value.values);
+    }
   } catch (cause) {
     if (current(g) && e === editId) error.value = message(cause);
   } finally {
@@ -171,7 +197,8 @@ const bindings = computed(() => {
       if (valid()) editor.value = { ...editor.value!, values: clone(value) };
     },
     formPending: (value: boolean) => {
-      if (live()) pending.value = { ...pending.value, form: value };
+      if (live() && pending.value.form !== value)
+        pending.value = { ...pending.value, form: value };
     },
     blocks:
       props.blocks?.map((block) => ({
@@ -190,7 +217,7 @@ const bindings = computed(() => {
               };
           },
           onPending: (value: boolean) => {
-            if (live())
+            if (live() && pending.value[`block:${block.key}`] !== value)
               pending.value = {
                 ...pending.value,
                 [`block:${block.key}`]: value,
@@ -238,7 +265,7 @@ async function save() {
     if (outcome.status === "success") {
       target.phase = "refresh";
       if (current(g)) {
-        close();
+        clearEditor();
         notice.value = "配置已保存。";
         await query();
       }
@@ -281,7 +308,7 @@ async function reconcile() {
       if (outcome.status === "applied") {
         target.phase = "refresh";
         if (current(g)) {
-          close();
+          clearEditor();
           notice.value = "已核实保存成功。";
           await query();
         }
@@ -410,5 +437,19 @@ onBeforeUnmount(() => {
         保存
       </button>
     </section>
+    <EditGuard
+      ref="guard"
+      :scope="scope"
+      :instance="editId"
+      :active="permissions.read && !!editor && editor.writable"
+      :dirty="dirty"
+      :write-state="
+        lock.phase === 'pending'
+          ? 'pending'
+          : lock.phase === 'unknown'
+            ? 'unknown'
+            : 'idle'
+      "
+    />
   </section>
 </template>

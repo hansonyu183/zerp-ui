@@ -587,6 +587,19 @@ async function configurationSmoke(page) {
   await edit();
   await page
     .getByRole("textbox", { name: "名称", exact: true })
+    .fill("未保存条件");
+  await button("请求离开配置").click();
+  await page.getByRole("dialog", { name: "未保存修改", exact: true }).waitFor();
+  await button("继续编辑").click();
+  assert.equal(
+    await page.getByRole("textbox", { name: "名称", exact: true }).inputValue(),
+    "未保存条件",
+  );
+  await button("关闭编辑").click();
+  await button("放弃本地修改").click();
+  await edit();
+  await page
+    .getByRole("textbox", { name: "名称", exact: true })
     .fill("离仓配置");
   await page.getByLabel("映射目标").selectOption("目标乙");
   await save();

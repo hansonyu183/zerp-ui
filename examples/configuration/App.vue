@@ -1,9 +1,20 @@
 <script setup lang="ts">
 const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { ref } from "vue";
-import { ConfigurationView, configurationBlock } from "@zerp/ui";
+import {
+  ConfigurationView,
+  configurationBlock,
+  type EditGuardHandle,
+} from "@zerp/ui";
 import { sample, type Mapping, type Scenario } from "./adapters";
 import RouteBlock from "./RouteBlock.vue";
+const view = ref<EditGuardHandle>();
+const leaveResult = ref("");
+async function leave() {
+  leaveResult.value = (await view.value?.requestLeave())
+    ? "允许离开"
+    : "继续当前配置";
+}
 const resource = ref("mapping"),
   scenario = ref<Scenario>("success");
 const mode = () => scenario.value;
@@ -86,6 +97,7 @@ const permissions = { read: true, write: true, reconcile: true };
       }}
     </h1>
     <ConfigurationView
+      ref="view"
       v-if="resource === 'mapping'"
       :definition="mapping"
       :blocks="blocks"
@@ -93,16 +105,20 @@ const permissions = { read: true, write: true, reconcile: true };
       :permissions="permissions"
     />
     <ConfigurationView
+      ref="view"
       v-else-if="resource === 'period'"
       :definition="period"
       scope="synthetic-session"
       :permissions="permissions"
     />
     <ConfigurationView
+      ref="view"
       v-else
       :definition="report"
       scope="synthetic-session"
       :permissions="permissions"
     />
+    <button type="button" @click="leave">请求离开配置</button>
+    <p v-if="leaveResult" role="status">{{ leaveResult }}</p>
   </main>
 </template>

@@ -293,6 +293,7 @@ it("discards a cancelled draft and honors readonly details and revoked permissio
   await click(w, "编辑");
   await w.get('input[aria-label="名称"]').setValue("取消的输入");
   await click(w, "关闭编辑");
+  await click(w, "放弃本地修改");
   await click(w, "编辑");
   expect(w.get('input[aria-label="名称"]').element).toHaveProperty(
     "value",
@@ -355,5 +356,46 @@ it("keeps explicit filters and latest query results isolated from older reads", 
     expect.objectContaining({ filters: { keyword: "显式条件" } }),
   );
   expect(w.text()).toContain("筛选后");
+  w.unmount();
+});
+it("guards unsaved configuration close through the public edit guard", async () => {
+  const d = definition(),
+    w = await start(d);
+  await click(w, "编辑");
+  await w.get('input[aria-label="名称"]').setValue("未保存");
+  await click(w, "关闭编辑");
+  expect(w.find('[aria-label="未保存修改"]').exists()).toBe(true);
+  await click(w, "继续编辑");
+  expect(w.get('input[aria-label="名称"]').element).toHaveProperty(
+    "value",
+    "未保存",
+  );
+  const leave = (
+    w.vm as unknown as import("../src/index").EditGuardHandle
+  ).requestLeave();
+  await flushPromises();
+  await click(w, "放弃本地修改");
+  expect(await leave).toBe(true);
+  await click(w, "关闭编辑");
+  await click(w, "放弃本地修改");
+  expect(w.find('input[aria-label="名称"]').exists()).toBe(false);
+  w.unmount();
+});
+it("invalidates an old leave confirmation on scope change and refuses unknown writes", async () => {
+  const d = definition(),
+    w = await start(d);
+  await click(w, "编辑");
+  await w.get('input[aria-label="名称"]').setValue("旧输入");
+  const handle = w.vm as unknown as import("../src/index").EditGuardHandle;
+  const leave = handle.requestLeave();
+  await flushPromises();
+  await w.setProps({ scope: "new" });
+  await flushPromises();
+  expect(await leave).toBe(false);
+  expect(w.find('[aria-label="未保存修改"]').exists()).toBe(false);
+  await click(w, "编辑");
+  vi.mocked(d.adapter.save).mockResolvedValueOnce({ status: "unknown" });
+  await click(w, "保存");
+  expect(await handle.requestLeave()).toBe(false);
   w.unmount();
 });
