@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DirectCrud from "./DirectCrud.vue";
 import { computed, onBeforeUnmount, ref, shallowRef, watchEffect } from "vue";
 import {
   EditGuard,
@@ -158,5 +159,6 @@ onBeforeUnmount(() => {
     </template>
     <h2 v-else-if="!active">身份已失效，资料已清理</h2>
     <h2 v-else>已离开资料</h2>
+    <DirectCrud />
   </main>
 </template>

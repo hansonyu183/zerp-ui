@@ -24,6 +24,7 @@ const props = defineProps<{
   definition: CrudDefinition<D, F, R, I, E>;
   scope: string;
   blocks?: readonly ConfigurationBlock<D>[];
+  open?: { identity: I; readonly?: boolean };
   permissions: {
     query: boolean;
     create: boolean;
@@ -42,6 +43,7 @@ const editor = shallowRef<{
     values: D;
     identity?: I;
     row?: R;
+    existing?: boolean;
     readonlyFields?: readonly Extract<keyof D, string>[];
     readonly?: boolean;
   } | null>(null),
@@ -143,6 +145,7 @@ const blocked = computed(() => lock.value.phase !== "idle");
 let version = 0,
   queryVersion = 0,
   editVersion = 0,
+  openVersion = 0,
   active = true;
 const current = (v: number) => active && v === version;
 async function query(next = 1, submit = false) {
@@ -220,29 +223,66 @@ async function begin(row?: R, readonly = false) {
     baseline.value = clone(editor.value.values);
     return;
   }
+  await loadIdentity(props.definition.identity(row), readonly, row, v, e);
+}
+async function loadIdentity(
+  identity: I,
+  readonly: boolean,
+  row?: R,
+  v = version,
+  e = ++editVersion,
+) {
   detailLoading.value = true;
+  error.value = "";
+  formPending.value = false;
+  blockPending.value = {};
+  readonlyFields.value = [];
   try {
-    const identity = clone(props.definition.identity(row)),
-      detail = await props.definition.adapter.get({
-        scope: props.scope,
-        identity,
-      });
+    const detail = await props.definition.adapter.get({
+      scope: props.scope,
+      identity: clone(identity),
+    });
     if (current(v) && e === editVersion) {
       readonlyFields.value = detail.readonlyFields ?? [];
       editor.value = {
         values: clone(detail.values),
         identity: clone(detail.identity),
         row,
+        existing: true,
         readonlyFields: detail.readonlyFields,
         readonly: readonly || detail.writable === false,
       };
       baseline.value = clone(editor.value.values);
     }
-  } catch (e) {
-    if (current(v)) error.value = message(e);
+  } catch (errorValue) {
+    if (current(v) && e === editVersion) error.value = message(errorValue);
   } finally {
     if (current(v) && e === editVersion) detailLoading.value = false;
   }
+}
+async function openIdentity(
+  request: { identity: I; readonly?: boolean } | undefined,
+) {
+  const token = ++openVersion,
+    v = version;
+  if (
+    !request ||
+    blocked.value ||
+    !props.permissions.query ||
+    (!request.readonly && !props.permissions.write)
+  )
+    return;
+  const identity = clone(request.identity),
+    readonly = request.readonly === true;
+  if (
+    !(await requestLeave()) ||
+    !current(v) ||
+    token !== openVersion ||
+    blocked.value
+  )
+    return;
+  editor.value = null;
+  await loadIdentity(identity, readonly);
 }
 async function requestLeave() {
   if (lock.value.phase === "pending" || lock.value.phase === "unknown")
@@ -405,12 +445,14 @@ const captions = {
   disable: "停用",
   delete: "删除",
 } as const;
+let initialized = false;
 watch(
   [() => props.scope, () => props.definition, () => props.permissions.query],
   () => {
     version++;
     queryVersion++;
     editVersion++;
+    openVersion++;
     filters.value = props.definition.initialFilters();
     applied.value = clone(filters.value);
     result.value = { items: [], total: 0 };
@@ -425,8 +467,18 @@ watch(
     error.value = "";
     notice.value = "";
     void query();
+    if (!initialized) {
+      initialized = true;
+      void openIdentity(props.open);
+    }
   },
   { immediate: true },
+);
+watch(
+  () => props.open,
+  (request) => {
+    void openIdentity(request);
+  },
 );
 onBeforeUnmount(() => {
   active = false;
@@ -523,7 +575,7 @@ onBeforeUnmount(() => {
         :model-value="editor.values"
         :scope="scope"
         :disabled="blocked || !permissions.write || editor.readonly"
-        :mode="editor.row ? 'edit' : 'create'"
+        :mode="editor.existing ? 'edit' : 'create'"
         @update:model-value="editor = { ...editor!, values: $event }"
         @pending="formPending = $event"
       />
@@ -555,7 +607,7 @@ onBeforeUnmount(() => {
         type="button"
         v-if="!editor.readonly"
         :disabled="blocked || pending || !permissions.write"
-        @click="write(editor.row ? 'save' : 'create', editor.row)"
+        @click="write(editor.existing ? 'save' : 'create', editor.row)"
       >
         保存
       </button>

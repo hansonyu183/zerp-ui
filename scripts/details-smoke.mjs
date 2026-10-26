@@ -104,4 +104,34 @@ export async function detailsSmoke(page) {
   await page
     .getByRole("heading", { name: "已离开资料", exact: true })
     .waitFor();
+  const direct = page.getByRole("region", {
+    name: "公共身份详情",
+    exact: true,
+  });
+  await direct
+    .getByRole("button", { name: "打开公共只读详情", exact: true })
+    .click();
+  const directDialog = direct.getByRole("dialog", {
+    name: "查看资料",
+    exact: true,
+  });
+  await directDialog.waitFor();
+  assert.equal(
+    await directDialog.getByLabel("详情名称", { exact: true }).inputValue(),
+    "原生身份 direct-one",
+  );
+  assert.equal(
+    await directDialog.getByLabel("详情名称", { exact: true }).isDisabled(),
+    true,
+  );
+  assert.equal(
+    await directDialog
+      .getByRole("button", { name: "保存", exact: true })
+      .count(),
+    0,
+  );
+  await directDialog
+    .getByRole("button", { name: "关闭详情", exact: true })
+    .click();
+  await directDialog.waitFor({ state: "hidden" });
 }

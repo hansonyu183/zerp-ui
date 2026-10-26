@@ -294,3 +294,151 @@ it("read detail keeps a separately authorized delete action when get forbids edi
   );
   w.unmount();
 });
+it("opens a public identity directly through get without manufacturing a list row", async () => {
+  const definition = make();
+  definition.adapter.get = vi.fn(async ({ identity }) => ({
+    identity,
+    values: { native: { amount: "7.00" } },
+    writable: false,
+  }));
+  const w = mount(CrudView as Component, {
+    props: {
+      definition,
+      scope: "actor",
+      permissions: { query: true, create: false, write: true },
+      open: { identity: "direct", readonly: false },
+      blocks: [
+        configurationBlock<Draft>()({
+          key: "native",
+          component: NativeBlock,
+          catalog: {},
+        }),
+      ],
+    },
+  });
+  await flushPromises();
+  expect(definition.adapter.get).toHaveBeenCalledWith({
+    scope: "actor",
+    identity: "direct",
+  });
+  expect(w.find('[aria-label="查看资料"]').exists()).toBe(true);
+  expect(
+    w.get('input[aria-label="精确数量"]').attributes("disabled"),
+  ).toBeDefined();
+  expect(w.text()).not.toContain("保存");
+  w.unmount();
+});
+it("guards a new external identity and ignores a late prior-scope get", async () => {
+  const definition = make();
+  const get = vi.fn(async ({ identity }: { identity: string }) => ({
+    identity,
+    values: { native: { amount: identity } },
+  }));
+  definition.adapter.get = get;
+  const w = mount(CrudView as Component, {
+    props: {
+      definition,
+      scope: "first",
+      permissions: { query: true, create: true, write: true },
+      open: { identity: "1.00" },
+      blocks: [
+        configurationBlock<Draft>()({
+          key: "native",
+          component: NativeBlock,
+          catalog: {},
+        }),
+      ],
+    },
+  });
+  await flushPromises();
+  await w.get('input[aria-label="精确数量"]').setValue("9.00");
+  await w.setProps({ open: { identity: "2.00", readonly: true } });
+  await flushPromises();
+  expect(w.find('[aria-label="未保存修改"]').exists()).toBe(true);
+  expect(get).toHaveBeenCalledTimes(1);
+  await button(w, "继续编辑").trigger("click");
+  await flushPromises();
+  expect(w.get('input[aria-label="精确数量"]').element).toHaveProperty(
+    "value",
+    "9.00",
+  );
+  await w.setProps({ open: { identity: "3.00", readonly: true } });
+  await flushPromises();
+  await button(w, "放弃本地修改").trigger("click");
+  await flushPromises();
+  expect(w.get('input[aria-label="精确数量"]').element).toHaveProperty(
+    "value",
+    "3.00",
+  );
+  let done!: (v: Awaited<ReturnType<typeof get>>) => void;
+  get.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        done = resolve;
+      }),
+  );
+  await w.setProps({ open: { identity: "late", readonly: true } });
+  await flushPromises();
+  await w.setProps({ scope: "second" });
+  await flushPromises();
+  done({ identity: "late", values: { native: { amount: "OLD" } } });
+  await flushPromises();
+  expect(w.find('input[aria-label="精确数量"]').exists()).toBe(false);
+  w.unmount();
+});
+it("saves the authoritative get identity for a directly opened editable record", async () => {
+  const definition = make();
+  definition.adapter.get = async () => ({
+    identity: "authoritative-baseline",
+    values: { native: { amount: "1.00" } },
+  });
+  const w = mount(CrudView as Component, {
+    props: {
+      definition,
+      scope: "actor",
+      permissions: { query: true, create: false, write: true },
+      open: { identity: "lookup" },
+      blocks: [
+        configurationBlock<Draft>()({
+          key: "native",
+          component: NativeBlock,
+          catalog: {},
+        }),
+      ],
+    },
+  });
+  await flushPromises();
+  await w.get('input[aria-label="精确数量"]').setValue("2.00");
+  await button(w, "保存").trigger("click");
+  await flushPromises();
+  expect(definition.adapter.save).toHaveBeenCalledWith(
+    expect.objectContaining({
+      operation: "save",
+      identity: "authoritative-baseline",
+    }),
+  );
+  expect(definition.adapter.create).not.toHaveBeenCalled();
+  w.unmount();
+});
+it.each([
+  { query: false, write: true, readonly: true },
+  { query: true, write: false, readonly: false },
+])(
+  "denies external opens without the owning capability %o",
+  async ({ query, write, readonly }) => {
+    const definition = make();
+    const get = vi.spyOn(definition.adapter, "get");
+    const w = mount(CrudView as Component, {
+      props: {
+        definition,
+        scope: "actor",
+        permissions: { query, write, create: false },
+        open: { identity: "denied", readonly },
+      },
+    });
+    await flushPromises();
+    expect(get).not.toHaveBeenCalled();
+    expect(w.find('[role="dialog"]').exists()).toBe(false);
+    w.unmount();
+  },
+);

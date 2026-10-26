@@ -277,3 +277,5 @@ DataList通过selectedKeys及update:selectedKeys受控勾选记录，启用时�
 ## 0.7.0 本地候选：直接维护领域区块
 
 CrudView的可选blocks复用公开configurationBlock/ConfigurationBlockProps；同key字段由局部块承接，块只收分离值/catalog/read或edit/disabled并回传值及pending。运行时持有保存/删除/刷新/unknown锁，旧scope或编辑实例事件无效。actions增加view，只读详情不显示保存；get.writable=false拒绝编辑。CrudView公开EditGuardHandle.requestLeave给宿主接路由/beforeunload，内部取消复用EditGuard，身份撤销先清理。领域块不能拿整页提交或解锁控制器。examples/direct“领域区块示例”使用纯合成Adapter演示精确值/只读/异步pending/未知核实，非OIT真实API证据。本候选未推送、未发布；不覆盖0.6.0发布工件。
+
+CrudView 可选 `open: {identity: I, readonly?: boolean}` 从公开身份直接调用现有 adapter.get，不必伪造列表行。readonly 详情仍要求 query 能力；编辑另要求 write，且 get.writable=false 或 readonlyFields 继续生效。保存使用 get 返回的权威 identity，不将查找身份当写入基线。宿主以新对象发出请求；现有未保存修改先走 EditGuard，未知写入不允许切换。scope/definition 变化清除旧请求和迟到详情，宿主需要在新上下文显式发出新 open 对象。仅列表行拥有的动作仍由该行 actions 决定；无行身份打开不会伪造删除资格。
