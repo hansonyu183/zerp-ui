@@ -11,7 +11,7 @@ import {
   shallowRef,
   watch,
 } from "vue";
-import { clone } from "./clone";
+import { clone, message } from "./clone";
 import DynamicForm from "./DynamicForm.vue";
 import FactFields from "./FactFields.vue";
 import { formFacts, factText } from "./details";
@@ -37,11 +37,27 @@ const emit = defineEmits<{
   pending: [value: boolean];
 }>();
 const writable = computed(() => props.mode === "edit" && !props.disabled);
+const canInsert = computed(
+  () => writable.value && props.rowOperations?.insert !== false,
+);
+const canUpdate = computed(
+  () => writable.value && props.rowOperations?.update !== false,
+);
+const canDelete = computed(
+  () => writable.value && props.rowOperations?.delete !== false,
+);
+function canEditRow(key: string | null) {
+  return key === null ? canInsert.value : canUpdate.value;
+}
 const visibleColumns = computed(() =>
   props.columns.filter((c) => c.visible !== false),
 );
 const editing = shallowRef<{ key: string | null; value: R } | null>(null);
 const deleting = ref<string | null>(null);
+const preparing = ref(false);
+const error = ref("");
+let preparation = 0;
+let disposed = false;
 const childEditing = shallowRef<{
   parentKey: string;
   column: VoucherEditorChildColumn<R, C>;
@@ -57,11 +73,12 @@ const childPending = ref(false);
 function pending() {
   emit(
     "pending",
-    headerPending.value ||
+    preparing.value ||
+      headerPending.value ||
       rowPending.value ||
       childPending.value ||
       !!editing.value ||
-      (writable.value && !!childEditing.value),
+      (canUpdate.value && !!childEditing.value),
   );
 }
 function setHeader(value: H) {
@@ -81,7 +98,7 @@ function beginChild(
   column: VoucherEditorChildColumn<R, C>,
   event: MouseEvent,
 ) {
-  if (childEditing.value || editing.value) return;
+  if (preparing.value || childEditing.value || editing.value) return;
   childTrigger = event.currentTarget as HTMLButtonElement;
   childEditing.value = {
     parentKey: props.rowKey(row),
@@ -156,7 +173,7 @@ function childKeydown(event: KeyboardEvent) {
 }
 function finishChild() {
   const draft = childEditing.value;
-  if (!draft || !writable.value || childPending.value) return;
+  if (!draft || !canUpdate.value || childPending.value) return;
   if (props.modelValue.rows !== draft.sourceRows) {
     cancelChild();
     return;
@@ -171,18 +188,74 @@ function finishChild() {
   cancelChild();
   emit("update:modelValue", { ...props.modelValue, rows });
 }
-function begin(row?: R) {
-  if (!writable.value) return;
+async function begin(row?: R) {
+  if (
+    !(row ? canUpdate.value : canInsert.value) ||
+    preparing.value ||
+    editing.value ||
+    childEditing.value
+  )
+    return;
   deleting.value = null;
-  editing.value = {
-    key: row ? props.rowKey(row) : null,
-    value: clone(row ?? props.emptyRow()),
-  };
+  error.value = "";
+  if (row) {
+    editing.value = { key: props.rowKey(row), value: clone(row) };
+    pending();
+    return;
+  }
+  const token = ++preparation;
+  preparing.value = true;
   pending();
+  try {
+    const value = await props.emptyRow();
+    if (disposed || token !== preparation || !canInsert.value) return;
+    editing.value = { key: null, value: clone(value) };
+  } catch (cause) {
+    if (!disposed && token === preparation) error.value = message(cause);
+  } finally {
+    if (!disposed && token === preparation) {
+      preparing.value = false;
+      pending();
+    }
+  }
+}
+async function changeRow(value: R) {
+  const draft = editing.value;
+  if (!draft || !canEditRow(draft.key) || preparing.value) return;
+  if (!props.transformRow) {
+    editing.value = { ...draft, value: clone(value) };
+    return;
+  }
+  const token = ++preparation;
+  preparing.value = true;
+  error.value = "";
+  pending();
+  try {
+    const next = await props.transformRow({
+      value: clone(value),
+      previous: clone(draft.value),
+    });
+    if (
+      disposed ||
+      token !== preparation ||
+      !canEditRow(draft.key) ||
+      editing.value !== draft
+    )
+      return;
+    editing.value = { ...draft, value: clone(next) };
+  } catch (cause) {
+    if (!disposed && token === preparation) error.value = message(cause);
+  } finally {
+    if (!disposed && token === preparation) {
+      preparing.value = false;
+      pending();
+    }
+  }
 }
 function finishRow() {
   const draft = editing.value;
-  if (!draft || !writable.value || rowPending.value) return;
+  if (!draft || !canEditRow(draft.key) || preparing.value || rowPending.value)
+    return;
   const rows = [...props.modelValue.rows];
   if (draft.key === null) {
     if (rows.some((row) => props.rowKey(row) === props.rowKey(draft.value)))
@@ -204,7 +277,7 @@ function finishRow() {
   emit("update:modelValue", { ...props.modelValue, rows });
 }
 function removeRow() {
-  if (!writable.value || deleting.value === null) return;
+  if (!canDelete.value || preparing.value || deleting.value === null) return;
   const rows = props.modelValue.rows.filter(
     (row) => props.rowKey(row) !== deleting.value,
   );
@@ -212,6 +285,9 @@ function removeRow() {
   emit("update:modelValue", { ...props.modelValue, rows });
 }
 function reset() {
+  preparation++;
+  preparing.value = false;
+  error.value = "";
   editing.value = null;
   deleting.value = null;
   cancelChild(false);
@@ -220,11 +296,37 @@ function reset() {
   emit("pending", false);
 }
 function cancelRow() {
+  preparation++;
+  preparing.value = false;
+  error.value = "";
   editing.value = null;
   rowPending.value = false;
   pending();
 }
-watch(() => [props.scope, props.instance, props.mode], reset);
+watch(() => [props.scope, props.instance, props.mode, props.disabled], reset, {
+  flush: "sync",
+});
+watch(
+  () => props.modelValue,
+  () => {
+    if (preparing.value) reset();
+  },
+  { deep: true, flush: "sync" },
+);
+watch(
+  () => [canInsert.value, canUpdate.value, canDelete.value],
+  () => {
+    if (
+      (preparing.value && !editing.value && !canInsert.value) ||
+      (editing.value && !canEditRow(editing.value.key))
+    )
+      reset();
+    if (!canDelete.value) deleting.value = null;
+    if (props.mode === "edit" && !canUpdate.value && childEditing.value)
+      cancelChild(false);
+  },
+  { flush: "sync" },
+);
 watch(
   () => props.modelValue.rows,
   (rows) => {
@@ -242,7 +344,11 @@ watch(
       deleting.value = null;
   },
 );
-onBeforeUnmount(() => emit("pending", false));
+onBeforeUnmount(() => {
+  disposed = true;
+  preparation++;
+  emit("pending", false);
+});
 </script>
 
 <template>
@@ -259,7 +365,7 @@ onBeforeUnmount(() => emit("pending", false));
         :fields="headerFields"
         :model-value="modelValue.header"
         :scope="scope"
-        :disabled="!writable"
+        :disabled="!writable || preparing"
         @update:model-value="setHeader"
         @pending="
           headerPending = $event;
@@ -267,6 +373,7 @@ onBeforeUnmount(() => emit("pending", false));
         "
       />
     </div>
+    <p v-if="error" role="alert">{{ error }}</p>
     <div class="zerp-voucher-editor__table">
       <table aria-label="单据明细">
         <thead>
@@ -288,13 +395,14 @@ onBeforeUnmount(() => emit("pending", false));
                 <button
                   type="button"
                   :disabled="
+                    preparing ||
                     !!editing ||
                     !!childEditing ||
                     (mode === 'edit' && !!disabled)
                   "
                   @click="beginChild(row, column, $event)"
                 >
-                  {{ writable ? "编辑" : "查看" }}{{ column.label }} · 明细行
+                  {{ canUpdate ? "编辑" : "查看" }}{{ column.label }} · 明细行
                   {{ index + 1 }}
                 </button>
                 <span>{{ display(row, column) }}</span>
@@ -303,15 +411,17 @@ onBeforeUnmount(() => emit("pending", false));
             </td>
             <td v-if="writable" data-label="操作">
               <button
+                v-if="canUpdate"
                 type="button"
-                :disabled="!!editing || !!childEditing"
+                :disabled="preparing || !!editing || !!childEditing"
                 @click="begin(row)"
               >
                 编辑明细行 {{ index + 1 }}
               </button>
               <button
+                v-if="canDelete"
                 type="button"
-                :disabled="!!editing || !!childEditing"
+                :disabled="preparing || !!editing || !!childEditing"
                 @click="deleting = rowKey(row)"
               >
                 删除明细行 {{ index + 1 }}
@@ -329,9 +439,9 @@ onBeforeUnmount(() => emit("pending", false));
       </table>
       <p v-if="modelValue.rows.length === 0">暂无明细行</p>
       <button
-        v-if="writable"
+        v-if="canInsert"
         type="button"
-        :disabled="!!editing || !!childEditing"
+        :disabled="preparing || !!editing || !!childEditing"
         @click="begin()"
       >
         新增明细行
@@ -342,8 +452,8 @@ onBeforeUnmount(() => emit("pending", false));
         :fields="rowFields"
         :model-value="editing.value"
         :scope="scope"
-        :disabled="!writable"
-        @update:model-value="editing = { ...editing!, value: $event }"
+        :disabled="!writable || preparing"
+        @update:model-value="changeRow"
         @pending="
           rowPending = $event;
           pending();
@@ -351,7 +461,7 @@ onBeforeUnmount(() => emit("pending", false));
       />
       <button
         type="button"
-        :disabled="!writable || rowPending"
+        :disabled="!writable || preparing || rowPending"
         @click="finishRow"
       >
         确定明细行
@@ -367,7 +477,7 @@ onBeforeUnmount(() => emit("pending", false));
         @keydown="childKeydown"
       >
         <FactFields
-          v-if="mode === 'read'"
+          v-if="!canUpdate"
           :fields="formFacts(childFields)"
           :value="{ items: childEditing.rows }"
         />
@@ -376,7 +486,7 @@ onBeforeUnmount(() => emit("pending", false));
           :fields="childFields"
           :model-value="{ items: childEditing.rows }"
           :scope="scope"
-          :disabled="!writable"
+          :disabled="!writable || preparing"
           @update:model-value="
             childEditing = { ...childEditing!, rows: $event.items }
           "
@@ -386,7 +496,7 @@ onBeforeUnmount(() => emit("pending", false));
           "
         />
         <button
-          v-if="writable"
+          v-if="canUpdate"
           type="button"
           :disabled="childPending"
           @click="finishChild"
@@ -394,7 +504,7 @@ onBeforeUnmount(() => emit("pending", false));
           确定{{ childEditing.column.label }}
         </button>
         <button ref="childClose" type="button" @click="cancelChild()">
-          {{ writable ? "取消" : "关闭" }}{{ childEditing.column.label }}
+          {{ canUpdate ? "取消" : "关闭" }}{{ childEditing.column.label }}
         </button>
       </section>
     </div>

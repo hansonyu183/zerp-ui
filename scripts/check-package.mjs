@@ -170,6 +170,12 @@ await writeFile(
     .replaceAll("../examples/details/adapters", "./adapters"),
 );
 if (voucherMode) {
+  await writeFile(
+    join(consumer, "editor.type-test.ts"),
+    (
+      await readFile(join(root, "tests/voucher-editor.type-test.ts"), "utf8")
+    ).replaceAll("../src/index", "@zerp/ui"),
+  );
   const operationTypes = await readFile(
     join(root, "tests/voucher-operation.type-test.ts"),
     "utf8",
@@ -1094,6 +1100,44 @@ async function voucherSmoke(page) {
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
   await button("关闭编辑").click();
   assert.ok(await button("创建 Draft").isDisabled());
+  const asyncEditor = page.getByRole("region", {
+    name: "异步明细示例",
+    exact: true,
+  });
+  const asyncButton = (name) =>
+    asyncEditor.getByRole("button", { name, exact: true });
+  await asyncButton("新增明细行").click();
+  assert.equal(await asyncEditor.getByRole("dialog").count(), 0);
+  assert.equal(await asyncButton("新增明细行").isDisabled(), true);
+  assert.equal(await asyncButton("编辑明细行 1").isDisabled(), true);
+  await asyncButton("返回准备结果").click();
+  assert.equal(
+    await asyncEditor.getByLabel("名称", { exact: true }).inputValue(),
+    "异步默认行",
+  );
+  await asyncEditor.getByLabel("名称", { exact: true }).fill("计算后的行");
+  assert.equal(await asyncButton("确定明细行").isDisabled(), true);
+  await asyncButton("返回准备结果").click();
+  assert.equal(
+    await asyncEditor.getByLabel("数量", { exact: true }).inputValue(),
+    "123.4500",
+  );
+  await asyncButton("确定明细行").click();
+  assert.ok(
+    (await asyncEditor.getByRole("table").textContent()).includes("计算后的行"),
+  );
+  await asyncButton("新增明细行").click();
+  await asyncButton("模拟准备失败").click();
+  await asyncEditor
+    .getByRole("alert")
+    .filter({ hasText: "请重新选择产品。" })
+    .waitFor();
+  assert.equal(await asyncEditor.getByRole("dialog").count(), 0);
+  await asyncButton("新增明细行").click();
+  await asyncButton("切换明细上下文").click();
+  await asyncButton("返回准备结果").click();
+  assert.equal(await asyncEditor.getByRole("dialog").count(), 0);
+  assert.equal(await asyncEditor.getByRole("status").textContent(), "明细空闲");
   await voucherOperationSmoke(page);
 }
 

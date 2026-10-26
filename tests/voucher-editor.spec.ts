@@ -226,3 +226,230 @@ it("reports unfinished local row input until it is confirmed or discarded", asyn
   expect(component.emitted("pending")?.at(-1)).toEqual([false]);
   wrapper.unmount();
 });
+
+function asyncEditor(emptyRow: () => Row | Promise<Row>) {
+  return mount(VoucherEditor<Header, Row>, {
+    props: {
+      modelValue: structuredClone(initial),
+      scope: "first",
+      mode: "edit",
+      headerFields: [],
+      rowFields: [{ key: "name", label: "品名", type: "text" }],
+      columns: [{ key: "name", label: "品名" }],
+      rowKey: (row: Row) => row.id,
+      emptyRow,
+    },
+  });
+}
+it("awaits a new row before opening and locks concurrent row actions", async () => {
+  let resolve!: (row: Row) => void;
+  let calls = 0;
+  const wrapper = asyncEditor(() => {
+    calls++;
+    return new Promise<Row>((done) => {
+      resolve = done;
+    });
+  });
+  await click(wrapper, "编辑明细行 1");
+  expect(calls).toBe(0);
+  await click(wrapper, "取消明细行");
+  await click(wrapper, "新增明细行");
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  expect(wrapper.emitted("pending")?.at(-1)).toEqual([true]);
+  for (const name of ["新增明细行", "编辑明细行 1", "删除明细行 1"]) {
+    expect(
+      wrapper
+        .findAll("button")
+        .find((b) => b.text() === name)!
+        .attributes("disabled"),
+    ).toBeDefined();
+  }
+  resolve({ id: "stable-new", name: "异步默认", quantity: "0.0000" });
+  await flushPromises();
+  expect(wrapper.get('input[aria-label="品名"]').element).toHaveProperty(
+    "value",
+    "异步默认",
+  );
+  await click(wrapper, "确定明细行");
+  expect(
+    (
+      wrapper.emitted("update:modelValue")!.at(-1)![0] as VoucherEditorValue<
+        Header,
+        Row
+      >
+    ).rows.at(-1)?.id,
+  ).toBe("stable-new");
+  wrapper.unmount();
+});
+it("shows a failed row preparation without inserting and permits retry", async () => {
+  let attempts = 0;
+  const wrapper = asyncEditor(async () => {
+    if (!attempts++) throw new Error("请选择仓库后重试。");
+    return { id: "retry", name: "默认", quantity: "0" };
+  });
+  await click(wrapper, "新增明细行");
+  expect(wrapper.get('[role="alert"]').text()).toBe("请选择仓库后重试。");
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  expect(wrapper.emitted("pending")?.at(-1)).toEqual([false]);
+  expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  await click(wrapper, "新增明细行");
+  expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+  expect(wrapper.get('input[aria-label="品名"]').element).toHaveProperty(
+    "value",
+    "默认",
+  );
+  wrapper.unmount();
+});
+it.each(["scope", "instance", "mode", "disabled", "model", "unmount"])(
+  "ignores late row preparation after %s changes",
+  async (change) => {
+    let resolve!: (row: Row) => void;
+    const wrapper = asyncEditor(
+      () =>
+        new Promise<Row>((done) => {
+          resolve = done;
+        }),
+    );
+    await click(wrapper, "新增明细行");
+    if (change === "scope") await wrapper.setProps({ scope: "second" });
+    if (change === "instance") await wrapper.setProps({ instance: 2 });
+    if (change === "mode") await wrapper.setProps({ mode: "read" });
+    if (change === "disabled") await wrapper.setProps({ disabled: true });
+    if (change === "model")
+      await wrapper.setProps({
+        modelValue: {
+          ...initial,
+          header: { ...initial.header, date: "2026-10-27" },
+        },
+      });
+    if (change === "unmount") wrapper.unmount();
+    const pendingCount = wrapper.emitted("pending")?.length;
+    resolve({ id: "late", name: "旧默认", quantity: "1" });
+    await flushPromises();
+    expect(wrapper.emitted("pending")?.length).toBe(pendingCount);
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+    if (change !== "unmount") {
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+      expect(wrapper.emitted("pending")?.at(-1)).toEqual([false]);
+      wrapper.unmount();
+    }
+  },
+);
+it("awaits a row transformation before adoption and retains previous input on failure", async () => {
+  const wrapper = asyncEditor(() => ({ id: "new", name: "", quantity: "0" }));
+  let resolve!: (row: Row) => void;
+  await wrapper.setProps({
+    transformRow: ({ value, previous }: { value: Row; previous: Row }) => {
+      expect(previous.name).toBe("合成商品");
+      return new Promise<Row>((done) => {
+        resolve = () => done({ ...value, name: "权威结果" });
+      });
+    },
+  });
+  await click(wrapper, "编辑明细行 1");
+  await wrapper.get('input[aria-label="品名"]').setValue("修改");
+  expect(
+    wrapper
+      .findAll("button")
+      .find((b) => b.text() === "确定明细行")!
+      .attributes("disabled"),
+  ).toBeDefined();
+  expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+  resolve({ id: "one", name: "unused", quantity: "0" });
+  await flushPromises();
+  expect(wrapper.get('input[aria-label="品名"]').element).toHaveProperty(
+    "value",
+    "权威结果",
+  );
+  await wrapper.setProps({
+    transformRow: async () => {
+      throw new Error("价格不可用。");
+    },
+  });
+  await wrapper.get('input[aria-label="品名"]').setValue("失败修改");
+  await flushPromises();
+  expect(wrapper.get('[role="alert"]').text()).toBe("价格不可用。");
+  expect(wrapper.get('input[aria-label="品名"]').element).toHaveProperty(
+    "value",
+    "权威结果",
+  );
+  wrapper.unmount();
+});
+it("honors separate row operations and cancels a late default when insertion is revoked", async () => {
+  let resolve!: (row: Row) => void;
+  const wrapper = asyncEditor(
+    () =>
+      new Promise<Row>((done) => {
+        resolve = done;
+      }),
+  );
+  await wrapper.setProps({
+    rowOperations: { insert: true, update: false, delete: false },
+  });
+  expect(
+    wrapper.findAll("button").some((b) => b.text() === "编辑明细行 1"),
+  ).toBe(false);
+  expect(
+    wrapper.findAll("button").some((b) => b.text() === "删除明细行 1"),
+  ).toBe(false);
+  await click(wrapper, "新增明细行");
+  await wrapper.setProps({
+    rowOperations: { insert: false, update: true, delete: true },
+  });
+  resolve({ id: "late", name: "已撤销", quantity: "0" });
+  await flushPromises();
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  expect(wrapper.findAll("button").some((b) => b.text() === "新增明细行")).toBe(
+    false,
+  );
+  await click(wrapper, "编辑明细行 1");
+  await wrapper.setProps({
+    rowOperations: { insert: false, update: false, delete: true },
+  });
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  await click(wrapper, "删除明细行 1");
+  await click(wrapper, "确认删除明细行 1");
+  expect(
+    (
+      wrapper.emitted("update:modelValue")!.at(-1)![0] as VoucherEditorValue<
+        Header,
+        Row
+      >
+    ).rows,
+  ).toEqual([]);
+  wrapper.unmount();
+});
+it.each(["scope", "disabled", "permission", "model", "cancel", "unmount"])(
+  "discards a late row transformation after %s",
+  async (change) => {
+    let resolve!: (row: Row) => void;
+    const wrapper = asyncEditor(() => ({ id: "new", name: "", quantity: "0" }));
+    await wrapper.setProps({
+      transformRow: () =>
+        new Promise<Row>((done) => {
+          resolve = done;
+        }),
+    });
+    await click(wrapper, "编辑明细行 1");
+    await wrapper.get('input[aria-label="品名"]').setValue("待核价格");
+    if (change === "scope") await wrapper.setProps({ scope: "next" });
+    if (change === "disabled") await wrapper.setProps({ disabled: true });
+    if (change === "permission")
+      await wrapper.setProps({
+        rowOperations: { insert: true, update: false, delete: true },
+      });
+    if (change === "model")
+      await wrapper.setProps({ modelValue: { ...initial, rows: [] } });
+    if (change === "cancel") await click(wrapper, "取消明细行");
+    if (change === "unmount") wrapper.unmount();
+    const pendingCount = wrapper.emitted("pending")?.length;
+    resolve({ id: "one", name: "旧价格结果", quantity: "1" });
+    await flushPromises();
+    expect(wrapper.emitted("update:modelValue")).toBeUndefined();
+    expect(wrapper.emitted("pending")?.length).toBe(pendingCount);
+    if (change !== "unmount") {
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+      wrapper.unmount();
+    }
+  },
+);

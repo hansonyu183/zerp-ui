@@ -53,3 +53,29 @@ const badField: VoucherEditorDefinition<Header, Row, Child> = {
   ],
 };
 void badField;
+const asynchronous: VoucherEditorDefinition<Header, Row, Child> = {
+  ...valid,
+  emptyRow: async () => ({ id: "async", name: "默认", formula: [] }),
+};
+void asynchronous;
+const invalidAsync: VoucherEditorDefinition<Header, Row, Child> = {
+  ...valid,
+  // @ts-expect-error async defaults must return the same complete row
+  emptyRow: async () => ({ id: "missing-fields" }),
+};
+void invalidAsync;
+const transformed: VoucherEditorDefinition<Header, Row, Child> = {
+  ...asynchronous,
+  transformRow: async ({ value, previous }) => ({
+    ...value,
+    name: previous.name,
+  }),
+  rowOperations: { insert: true, update: false, delete: false },
+};
+void transformed;
+const invalidTransform: VoucherEditorDefinition<Header, Row, Child> = {
+  ...valid,
+  // @ts-expect-error transformed rows retain the full row contract
+  transformRow: async () => ({ id: "incomplete" }),
+};
+void invalidTransform;

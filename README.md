@@ -281,3 +281,9 @@ CrudView的可选blocks复用公开configurationBlock/ConfigurationBlockProps；
 CrudView 可选 `open: {identity: I, readonly?: boolean}` 从公开身份直接调用现有 adapter.get，不必伪造列表行。readonly 详情仍要求 query 能力；编辑另要求 write，且 get.writable=false 或 readonlyFields 继续生效。保存使用 get 返回的权威 identity，不将查找身份当写入基线。宿主以新对象发出请求；现有未保存修改先走 EditGuard，未知写入不允许切换。scope/definition 变化清除旧请求和迟到详情，宿主需要在新上下文显式发出新 open 对象。仅列表行拥有的动作仍由该行 actions 决定；无行身份打开不会伪造删除资格。
 
 ConfigurationView 公开 `EditGuardHandle.requestLeave()` 供宿主导航保护，与关闭编辑共用 EditGuard。未保存修改可继续编辑或确认放弃，pending/unknown 保存不可离开；确认应用的保存及核实成功直接关闭编辑而不再次询问。作用域、定义或读取资格变化使旧确认与在途读取失效。宿主先等待句柄返回，再变更路由；无需读取组件私有状态。
+
+### 0.10.0 本地候选：异步明细准备
+
+`emptyRow: () => R | Promise<R>` 仅在新增时调用，成功后打开原明细编辑框。可选 `transformRow({ value, previous }): R | Promise<R>` 接收克隆的本次输入与前值，成功才采用返回行；失败保留前值并显示错误。计算不写入外层业务记录；确定明细行仍沿原局部编辑流程。准备和计算期间 `pending=true`，禁止并发编辑与确定；取消、scope/instance/mode/disabled、外部 model 变化、撤权或卸载使旧结果失效。消费者应保留行的稳定标识。
+
+可选 `rowOperations: { insert, update, delete }` 独立限定明细动作，省略时沿用既有能力；它不解除 read/disabled。update 关闭时子项采用只读查看。`examples/voucher/AsyncEditor.vue` 演示合成异步默认、计算、失败与作用域失效；本地候选未发布，不代表真实应用接口验收。

@@ -30,5 +30,7 @@ export type VoucherEditorDefinition<
   rowFields: Fields<R>;
   columns: readonly VoucherEditorColumn<R, C>[];
   rowKey: (row: R) => string;
-  emptyRow: () => R;
+  emptyRow: () => R | Promise<R>;
+  transformRow?: (change: { value: R; previous: R }) => R | Promise<R>;
+  rowOperations?: { insert: boolean; update: boolean; delete: boolean };
 };
