@@ -15,11 +15,13 @@ type ParameterKind =
   | "multi-enum"
   | "reference"
   | "references";
-type BooleanKey<P> = {
-  [K in Extract<keyof P, string>]-?: NonNullable<P[K]> extends boolean
-    ? K
-    : never;
-}[Extract<keyof P, string>];
+type BooleanKey<P> = keyof P extends never
+  ? string
+  : {
+      [K in Extract<keyof P, string>]-?: NonNullable<P[K]> extends boolean
+        ? K
+        : never;
+    }[Extract<keyof P, string>];
 type ParameterField<F, P> = F extends { type: infer T }
   ? Omit<F, "type" | "condition"> & {
       type: Extract<T, ParameterKind>;

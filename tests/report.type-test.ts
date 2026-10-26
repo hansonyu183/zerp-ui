@@ -192,3 +192,25 @@ const checkedParameters: ReportParameters<{
   },
 ];
 void checkedParameters;
+
+// Dynamic schemas use the same explicit empty-object escape hatch as Fields<{}>.
+const dynamicConditions: ReportParameters<{}> = [
+  {
+    key: "dynamic",
+    label: "动态条件",
+    type: "text",
+    condition: { checkedKey: "useDynamic" },
+  },
+];
+void dynamicConditions;
+const dynamicReport = defineReport<{}, { id: string }>({
+  kind: "parameter",
+  resource: "dynamic",
+  title: "动态报表",
+  parameters: dynamicConditions,
+  initialParameters: () => ({}),
+  columns: [{ key: "id", label: "编号" }],
+  rowKey: (r) => r.id,
+  adapter: { query: async () => ({ items: [], total: 0 }) },
+});
+void dynamicReport;
