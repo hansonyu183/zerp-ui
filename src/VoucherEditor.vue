@@ -461,6 +461,7 @@ onBeforeUnmount(() => {
       />
     </div>
     <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="preparing" role="status">正在更新明细…</p>
     <div class="zerp-voucher-editor__table">
       <table aria-label="单据明细">
         <thead>

@@ -255,6 +255,7 @@ it("awaits a new row before opening and locks concurrent row actions", async () 
   await click(wrapper, "取消明细行");
   await click(wrapper, "新增明细行");
   expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  expect(wrapper.get('[role="status"]').text()).toBe("正在更新明细…");
   expect(wrapper.emitted("pending")?.at(-1)).toEqual([true]);
   for (const name of ["新增明细行", "编辑明细行 1", "删除明细行 1"]) {
     expect(
