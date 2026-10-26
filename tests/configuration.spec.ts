@@ -266,6 +266,9 @@ it("aggregates local pending and rejects events from a closed block instance", a
   events[0].pending(true);
   events[1].pending(true);
   await flushPromises();
+  await click(w, "关闭编辑");
+  expect(w.find('[aria-label="未保存修改"]').exists()).toBe(true);
+  await click(w, "继续编辑");
   events[0].pending(false);
   await flushPromises();
   expect(button(w, "保存").attributes("disabled")).toBeDefined();

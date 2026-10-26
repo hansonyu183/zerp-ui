@@ -42,7 +42,8 @@ const dirty = computed(
   () =>
     !!editor.value &&
     editor.value.writable &&
-    JSON.stringify(editor.value.values) !== JSON.stringify(baseline.value),
+    (Object.values(pending.value).some(Boolean) ||
+      JSON.stringify(editor.value.values) !== JSON.stringify(baseline.value)),
 );
 const detailLoading = ref(false),
   verifying = ref(false),
