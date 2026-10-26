@@ -132,13 +132,17 @@ createApp(App)
 
 列按定义数组顺序展示，支持 text、integer、decimal、boolean、date 和 enum；`visible=false` 隐藏，`width` 在宽表中作为列宽及最小宽度。报表使用同一 `DataList` 的 `wide` 模式，窄屏也保留逐列对齐和横向滚动；普通列表继续使用响应式表格/卡片。null/undefined 显示“—”，空字符串显示“（空字符串）”，0 显示“0”，布尔显示“是/否”，未知枚举保留原值。严格 decimal 校验十进制字符串并保留精度及尾零；需审计的异常原文请明确映射到 text 列，不能伪装 decimal。
 
-固定结果的可选 `cell(row, columnKey)` 只返回 `ReportCell<Target>` 的 `record`（href 链接）、`select`（选择关联记录）或 `detail`（查看明细）。每项含可辨识 label、类型化 target 和可选 disabled。`drill` 事件携带 `{scope, resource, resultId, rowId, cell}`，宿主负责业务读取、选择和路由。record 保留原生链接、键盘及修饰键语义；只有普通主键点击发出 drill，其他开页行为遵循 href。待重验和禁用时移除可用链接并禁用相关操作。
+固定结果的可选 `cell(row, columnKey)` 只返回 `ReportCell<Target>` 的 `record`（href 链接）、`select`（选择关联记录）、`detail`（查看明细）或 `action`（办理）。每项含可辨识 label、类型化 target 和可选 disabled。`drill` 事件携带 `{scope, resource, resultId, rowId, cell}`，宿主负责业务读取、选择和路由。record 保留原生链接、键盘及修饰键语义；只有普通主键点击发出 drill，其他开页行为遵循 href。待重验和禁用时移除可用链接并禁用相关操作。
 
 停止等待只中止本地接收并提示服务端未确认取消。固定查询可选 `cancel({scope, requestId})`，只有提供此端口才出现主动取消；`ReportCancellation.status` 限定 cancelled/completed/failed/cleanup-unconfirmed，分别反馈已取消、已完成未取消、执行失败及清理未确认；等待取消期间显示进行中。取消与查询的迟到响应均不能替换当前结果。AbortSignal 仅用于停止传输，不构成服务端取消证明。
 
 返回恢复使用 `active` 或 Vue KeepAlive 激活/停用，以及 `snapshot` 事件和 `restore` 属性。宿主保管 `ReportSnapshot<P,R,ResultId,RowId,Target>`，包含输入、已采用条件、结果页、查询时定义和横纵滚动；此快照包含函数引用，供当前会话内存缓存，不是跨整页重载的序列化协议。宿主须按 scope/resource 隔离并在退出会话后丢弃。挂载时或显式恢复匹配的快照，先调用 revalidate；`valid` 才允许分页/导出/下钻，网络失败保留待重验画面和重试入口，expired/forbidden/identity-invalid 清除结果。参数型没有复用结果身份，返回时按已采用条件重读原页。新查询、作用域/资源变化、停用和卸载隔离在途查询、导出及重验。服务端在任一固定结果操作发现权威过期/撤权/身份失效时，抛出公开 `ReportUnavailable(reason, message)`，运行时立即清除不可用事实；普通异常保留仍有效结果。
 
 两种导出均返回 `{content: Blob, filename: string}`；消费者拥有格式及完整数据协议，库负责互斥、下载、错误提示及 Blob URL 回收。`examples/report` 提供 BatchDTO→hasMore、LedgerDTO→total 和固定结果消费者；固定示例支持宽表、三类下钻、精确结果导出、失败保留、可控待决查询/取消、离开/返回、重验失效和会话切换。运行/构建/同一 tgz 的独立安装验证使用 `dev:report`、`build:report`、`check:report`。验收仅使用本库公开入口和合成 Adapter，不代表真实 ZERP/oit-go API、权限或 E2E。
+
+报表参数支持 `type: "month"`，值为 `YYYY-MM`；业务线上的其他编码由消费者转换。`hidden: true` 保留值并随查询提交，但不显示控件或已采用条件；`enabled: false` 保留值并禁用控件。可选 `condition: {checkedKey, required?}` 指向参数内 boolean 字段，复选框与值独立，未启用时保留值且跳过值校验；必需条件启用后不可取消。消费者提供初始布尔值，并在 API 中执行权威条件及权限校验。
+
+固定查询可返回 `presentation: ReportPresentation<R>`（`columns`、可选 `rowStyles`、`group`），同结果身份采用并保存；分页省略它或返回完全相同内容，改变格式会拒绝该页并保留旧结果。列的 `styles` 和 `rowStyles` 仅允许 `eq/ne/lt/lte/gt/gte/empty`、字符串/完整十进制比较、有限 tone 与 bold；十进制使用 decimal.js 精确比较，不转 Number。`group: {key, summaries: [{value, caption, summary}]}` 由适配器提供全组权威合计，库只显示，不按当前页重算；适配器应将分组行连续排列并提供每组摘要。办理动作只发出类型化 drill，不执行字符串命令。
 
 迁移：原无判别的报表定义必须增加 `kind: "parameter"` 和 `rowKey`；旧签名不保留兼容分支。要取得固定结果语义，显式采用 `kind: "fixed"` 并实现 query/page/revalidate，导出改接 resultId，不能沿用参数型 export 或 Adapter 私有的“最后一次结果”。这是 0.3.0 的破坏接口；安装时采用本版本示例及迁移说明。
 

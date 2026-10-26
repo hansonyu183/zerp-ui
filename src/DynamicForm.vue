@@ -18,10 +18,19 @@ const values = computed(() => props.modelValue as Record<string, unknown>);
 const visible = computed(() =>
   (props.fields as readonly AnyField[]).filter(
     (f) =>
+      !f.hidden &&
       (!f.mode || f.mode === props.mode) &&
       (!f.when || values.value[f.when.key] === f.when.equals),
   ),
 );
+function fieldDisabled(field: AnyField) {
+  return (
+    props.disabled ||
+    field.readonly ||
+    field.enabled === false ||
+    !!(field.condition && values.value[field.condition.checkedKey] !== true)
+  );
+}
 function set(key: string, value: unknown) {
   if (props.disabled) return;
   const next = { ...props.modelValue, [key]: value } as Record<string, unknown>;
@@ -55,10 +64,22 @@ const editing = shallowRef<{
 } | null>(null);
 const childPending = ref(false),
   sources = new Set<string>();
+function emitPending() {
+  emit(
+    "pending",
+    [...sources].some((key) => {
+      const fieldKey = key.startsWith("$integer:") ? key.slice(9) : key;
+      const field = (props.fields as readonly AnyField[]).find(
+        (f) => f.key === fieldKey,
+      );
+      return !field || (visible.value.includes(field) && !fieldDisabled(field));
+    }),
+  );
+}
 function pending(key: string, busy: boolean) {
   if (busy) sources.add(key);
   else sources.delete(key);
-  emit("pending", sources.size > 0);
+  emitPending();
 }
 function range(key: string): string[] {
   return Array.isArray(values.value[key])
@@ -109,18 +130,32 @@ watch(
     emit("pending", false);
   },
 );
-watch(visible, (fields) => {
-  const keys = new Set(fields.map((field) => field.key));
-  for (const key of sources)
-    if (key.startsWith("$integer:") && !keys.has(key.slice(9)))
-      sources.delete(key);
-  emit("pending", sources.size > 0);
-});
+watch(() => [visible.value, props.modelValue, props.disabled], emitPending);
 onBeforeUnmount(() => emit("pending", false));
 </script>
 <template>
   <div class="zerp-form">
     <template v-for="field in visible" :key="field.key">
+      <label v-if="field.condition" class="zerp-form-condition">
+        <input
+          type="checkbox"
+          :aria-label="'启用' + field.label + '条件'"
+          :checked="values[field.condition.checkedKey] === true"
+          :disabled="
+            disabled ||
+            field.readonly ||
+            field.enabled === false ||
+            (field.condition.required &&
+              values[field.condition.checkedKey] === true)
+          "
+          @change="
+            set(
+              field.condition.checkedKey,
+              ($event.target as HTMLInputElement).checked,
+            )
+          "
+        />使用{{ field.label }}
+      </label>
       <ReferencePicker
         v-if="field.type === 'reference' || field.type === 'references'"
         :adapter="field.adapter"
@@ -136,12 +171,12 @@ onBeforeUnmount(() => emit("pending", false));
         :scope="scope"
         :label="field.label"
         :multiple="field.type === 'references'"
-        :disabled="disabled || field.readonly"
+        :disabled="fieldDisabled(field)"
         @update:model-value="set(field.key, $event)"
         @pending="pending(field.key, $event)" />
       <fieldset
         v-else-if="field.type === 'rows'"
-        :disabled="disabled || field.readonly"
+        :disabled="fieldDisabled(field)"
       >
         <legend>{{ field.label }}</legend>
         <ol>
@@ -173,7 +208,7 @@ onBeforeUnmount(() => emit("pending", false));
       </fieldset>
       <fieldset
         v-else-if="field.type === 'date-range'"
-        :disabled="disabled || field.readonly"
+        :disabled="fieldDisabled(field)"
       >
         <legend>{{ field.label }}</legend>
         <label v-for="(suffix, index) in ['起', '止']" :key="suffix"
@@ -197,7 +232,7 @@ onBeforeUnmount(() => emit("pending", false));
         }}<textarea
           v-if="field.type === 'textarea'"
           :aria-label="field.label"
-          :disabled="disabled || field.readonly"
+          :disabled="fieldDisabled(field)"
           :value="values[field.key] as string"
           @input="set(field.key, ($event.target as HTMLTextAreaElement).value)"
         />
@@ -205,7 +240,7 @@ onBeforeUnmount(() => emit("pending", false));
           v-else-if="field.type === 'enum' || field.type === 'multi-enum'"
           :multiple="field.type === 'multi-enum'"
           :aria-label="field.label"
-          :disabled="disabled || field.readonly"
+          :disabled="fieldDisabled(field)"
           :value="values[field.key]"
           @change="
             set(
@@ -235,8 +270,8 @@ onBeforeUnmount(() => emit("pending", false));
               ? 'checkbox'
               : field.type === 'password'
                 ? 'password'
-                : field.type === 'date'
-                  ? 'date'
+                : field.type === 'date' || field.type === 'month'
+                  ? field.type
                   : 'text'
           "
           :inputmode="
@@ -247,7 +282,7 @@ onBeforeUnmount(() => emit("pending", false));
                 : undefined
           "
           :aria-label="field.label"
-          :disabled="disabled || field.readonly"
+          :disabled="fieldDisabled(field)"
           :checked="values[field.key] === true"
           :value="
             field.type === 'integer'

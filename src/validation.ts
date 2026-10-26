@@ -7,11 +7,21 @@ export function validate(
   const record = values as Record<string, unknown>;
   for (const field of fields) {
     if (
+      field.hidden ||
+      field.enabled === false ||
       field.readonly ||
       (field.mode && field.mode !== mode) ||
       (field.when && record[field.when.key] !== field.when.equals)
     )
       continue;
+    if (field.condition) {
+      if (
+        field.condition.required &&
+        record[field.condition.checkedKey] !== true
+      )
+        return `请启用${field.label}条件。`;
+      if (record[field.condition.checkedKey] !== true) continue;
+    }
     const value = record[field.key];
     if (
       field.required &&
@@ -39,6 +49,13 @@ export function validate(
       !field.options.some((option) => option.value === value)
     )
       return `${field.label}应为可选值。`;
+    if (
+      field.type === "month" &&
+      (typeof value !== "string" ||
+        !/^\d{4}-(0[1-9]|1[0-2])$/.test(value) ||
+        value.startsWith("0000"))
+    )
+      return `${field.label}应为有效月份。`;
     if (field.type === "date" && !validDate(value))
       return `${field.label}应为有效日期。`;
     if (

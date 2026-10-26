@@ -1,10 +1,11 @@
 <script setup lang="ts">
 const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { computed, ref } from "vue";
+import ExtensionReport from "./ExtensionReport.vue";
 import FixedReport from "./FixedReport.vue";
 import { ReportView } from "@zerp/ui";
 import { reportExample, type Scenario } from "./adapters";
-const kind = ref<"batch" | "ledger" | "fixed">("batch");
+const kind = ref<"batch" | "ledger" | "fixed" | "extensions">("batch");
 const scenario = ref<Scenario>("success");
 const eligibility = ref("both");
 const definitions = {
@@ -26,6 +27,7 @@ const permissions = computed(() => ({
       >报表示例<select v-model="kind" aria-label="报表示例">
         <option value="batch">hasMore 分批 DTO</option>
         <option value="ledger">total 台账 DTO</option>
+        <option value="extensions">月份、条件与分组</option>
         <option value="fixed">固定结果、取消与返回恢复</option>
       </select></label
     >
@@ -45,9 +47,16 @@ const permissions = computed(() => ({
       </select></label
     >
     <h1 v-if="showTitle">
-      {{ kind === "fixed" ? "合成报表 · 固定结果" : definitions[kind].title }}
+      {{
+        kind === "extensions"
+          ? "合成报表 · 参数与分组"
+          : kind === "fixed"
+            ? "合成报表 · 固定结果"
+            : definitions[kind].title
+      }}
     </h1>
-    <FixedReport v-if="kind === 'fixed'" />
+    <ExtensionReport v-if="kind === 'extensions'" />
+    <FixedReport v-else-if="kind === 'fixed'" />
     <ReportView
       v-else
       :definition="definitions[kind]"

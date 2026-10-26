@@ -1,3 +1,4 @@
+import Decimal from "decimal.js";
 import { validDate } from "./validation";
 import type { Fields, Page } from "./contracts";
 
@@ -8,16 +9,26 @@ type ParameterKind =
   | "decimal"
   | "boolean"
   | "date"
+  | "month"
   | "date-range"
   | "enum"
   | "multi-enum"
   | "reference"
   | "references";
-type ParameterField<F> = F extends { type: infer T }
-  ? Omit<F, "type"> & { type: Extract<T, ParameterKind> }
+type BooleanKey<P> = {
+  [K in Extract<keyof P, string>]-?: NonNullable<P[K]> extends boolean
+    ? K
+    : never;
+}[Extract<keyof P, string>];
+type ParameterField<F, P> = F extends { type: infer T }
+  ? Omit<F, "type" | "condition"> & {
+      type: Extract<T, ParameterKind>;
+      condition?: { checkedKey: BooleanKey<P>; required?: boolean };
+    }
   : never;
 export type ReportParameters<P extends object> = readonly ParameterField<
-  Fields<P>[number]
+  Fields<P>[number],
+  P
 >[];
 type ColumnKind<V> =
   NonNullable<V> extends boolean
@@ -31,12 +42,39 @@ type ColumnKind<V> =
               options: readonly { value: string; label: string }[];
             }
         : never;
+export type ReportCondition<R> =
+  | { key: Extract<keyof R, string>; op: "empty" }
+  | {
+      key: Extract<keyof R, string>;
+      op: "eq" | "ne" | "lt" | "lte" | "gt" | "gte";
+      type: "text" | "decimal";
+      value: string;
+    };
+export type ReportStyleRule<R> = {
+  when: ReportCondition<R>;
+  tone?: "positive" | "negative" | "warning" | "muted";
+  bold?: boolean;
+};
+export type ReportGroup<R> = {
+  key: Extract<keyof R, string>;
+  summaries: readonly {
+    value: string;
+    caption: string;
+    summary: ReportSummary<R>;
+  }[];
+};
+export type ReportPresentation<R> = {
+  columns: readonly ReportColumn<R>[];
+  rowStyles?: readonly ReportStyleRule<R>[];
+  group?: ReportGroup<R>;
+};
 export type ReportColumn<R> = {
   [K in Extract<keyof R, string>]: {
     key: K;
     label: string;
     visible?: boolean;
     width?: string;
+    styles?: readonly ReportStyleRule<R>[];
   } & ColumnKind<R[K]>;
 }[Extract<keyof R, string>];
 export type ReportQuery<P> = {
@@ -58,7 +96,12 @@ export type ReportCell<T> =
       label: string;
       disabled?: boolean;
     }
-  | { kind: "select" | "detail"; target: T; label: string; disabled?: boolean };
+  | {
+      kind: "select" | "detail" | "action";
+      target: T;
+      label: string;
+      disabled?: boolean;
+    };
 export type ReportSummary<R> = { caption: string; values: Partial<R> };
 export type ReportResultRequest<I> = {
   scope: string;
@@ -82,10 +125,17 @@ export class ReportUnavailable extends Error {
 export type FixedReportAdapter<P extends object, R extends object, I> = {
   query: (
     input: ReportQuery<P> & { requestId: string; signal: AbortSignal },
-  ) => Promise<Page<R> & { id: I; summary: ReportSummary<R>; context: string }>;
+  ) => Promise<
+    Page<R> & {
+      id: I;
+      summary: ReportSummary<R>;
+      context: string;
+      presentation?: ReportPresentation<R>;
+    }
+  >;
   page: (
     input: ReportResultRequest<I> & { page: number; pageSize: number },
-  ) => Promise<Page<R>>;
+  ) => Promise<Page<R> & { presentation?: ReportPresentation<R> }>;
   export?: (input: ReportResultRequest<I>) => Promise<ReportExport>;
   revalidate: (input: ReportResultRequest<I>) => Promise<ReportValidity>;
   cancel?: (input: {
@@ -103,6 +153,8 @@ type ReportBase<
   parameters: ReportParameters<P>;
   initialParameters: () => P;
   columns: readonly ReportColumn<R>[];
+  rowStyles?: readonly ReportStyleRule<R>[];
+  group?: ReportGroup<R>;
   rowKey: (row: R) => K;
 };
 export type ReportDrill<I, K, T> = {
@@ -199,4 +251,54 @@ export function validateReportRows<R extends object>(
       if (!valid)
         throw new Error(`报表结果列“${column.label}”的值类型不匹配。`);
     }
+}
+
+// Style predicates compare business values, not JavaScript floating point.
+function compareDecimal(a: unknown, b: string) {
+  const complete = /^[+-]?\d+(?:\.\d+)?$/;
+  if (typeof a !== "string" || !complete.test(a) || !complete.test(b)) return;
+  return new Decimal(a).comparedTo(b);
+}
+export function reportStyleClasses<R extends object>(
+  row: R,
+  rules?: readonly ReportStyleRule<R>[],
+) {
+  const classes: string[] = [];
+  for (const rule of rules ?? []) {
+    const condition = rule.when,
+      value = row[condition.key];
+    let matches = false;
+    if (condition.op === "empty")
+      matches = value === null || value === undefined || value === "";
+    else {
+      const comparison =
+        condition.type === "decimal"
+          ? compareDecimal(value, condition.value)
+          : typeof value === "string"
+            ? value === condition.value
+              ? 0
+              : value < condition.value
+                ? -1
+                : 1
+            : undefined;
+      if (comparison !== undefined)
+        matches = {
+          eq: comparison === 0,
+          ne: comparison !== 0,
+          lt: comparison < 0,
+          lte: comparison <= 0,
+          gt: comparison > 0,
+          gte: comparison >= 0,
+        }[condition.op];
+    }
+    if (matches) {
+      if (
+        rule.tone &&
+        ["positive", "negative", "warning", "muted"].includes(rule.tone)
+      )
+        classes.push("zerp-report-" + rule.tone);
+      if (rule.bold) classes.push("zerp-report-bold");
+    }
+  }
+  return classes;
 }

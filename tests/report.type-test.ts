@@ -169,3 +169,26 @@ const wrongRestore: ReportSnapshot<Parameters, Row, ResultId, RowId, Target> = {
   definition: { ...fixed, rowKey: () => 123 },
 };
 void [fixed, wrongResult, wrongRow, wrongTarget, wrongFixed, wrongRestore];
+
+const checkedParameters: ReportParameters<{
+  month: string;
+  checked: boolean;
+  text: string;
+}> = [
+  {
+    key: "month",
+    label: "月份",
+    type: "month",
+    condition: { checkedKey: "checked" },
+    hidden: true,
+    enabled: false,
+  },
+  {
+    key: "text",
+    label: "文字",
+    type: "text",
+    // @ts-expect-error condition keys must identify boolean facts, never a text value.
+    condition: { checkedKey: "text" },
+  },
+];
+void checkedParameters;

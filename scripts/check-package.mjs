@@ -650,6 +650,37 @@ async function configurationSmoke(page) {
 
 async function reportSmoke(page) {
   const button = (name) => page.getByRole("button", { name, exact: true });
+  await page.getByLabel("报表示例", { exact: true }).selectOption("extensions");
+  await page.getByLabel("月份", { exact: true }).fill("2026-11");
+  assert.equal(
+    await page.getByLabel("金额下限", { exact: true }).isDisabled(),
+    true,
+  );
+  assert.equal(await page.getByLabel("内部条件", { exact: true }).count(), 0);
+  await page.getByLabel("启用金额下限条件", { exact: true }).check();
+  await page.getByLabel("金额下限", { exact: true }).fill("0.00000001");
+  await button("查询").click();
+  await page
+    .getByRole("columnheader", { name: "精确金额", exact: true })
+    .waitFor();
+  assert.equal(
+    await page
+      .locator("td.zerp-report-negative.zerp-report-bold")
+      .textContent(),
+    "9007199254740993.0101",
+  );
+  await page
+    .getByRole("rowheader", { name: "全组合计", exact: true })
+    .waitFor();
+  await button("办理 第一行").click();
+  await page.getByText("合成办理：第一行", { exact: true }).waitFor();
+  await button("下一页").click();
+  await page.getByRole("cell", { name: "第二行", exact: true }).waitFor();
+  assert.equal(
+    await page.locator(".zerp-report-group-summary").textContent(),
+    "9007199254740999.9999",
+  );
+  await page.getByLabel("报表示例", { exact: true }).selectOption("batch");
   await page
     .getByRole("heading", { name: "合成报表 · 分批", exact: true })
     .waitFor();

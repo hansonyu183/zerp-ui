@@ -103,6 +103,24 @@ const usable = computed(
 const displayDefinition = computed(() =>
   result.value ? adopted.value : props.definition,
 );
+const shownApplied = computed(() => {
+  if (!applied.value) return {};
+  const facts = applied.value as Record<string, unknown>;
+  return Object.fromEntries(
+    (adopted.value.parameters as readonly AnyField[])
+      .filter(
+        (field) =>
+          !field.hidden &&
+          (!field.when || facts[field.when.key] === field.when.equals),
+      )
+      .map((field) => [
+        field.label,
+        field.condition && facts[field.condition.checkedKey] !== true
+          ? "未启用"
+          : facts[field.key],
+      ]),
+  );
+});
 const resultCell = computed(() =>
   adopted.value.kind === "fixed" ? adopted.value.cell : undefined,
 );
@@ -115,8 +133,11 @@ function copyDefinition(d: Definition): Definition {
   return {
     ...d,
     adapter: { ...d.adapter },
+    ...(d.rowStyles ? { rowStyles: clone(d.rowStyles) } : {}),
+    ...(d.group ? { group: clone(d.group) } : {}),
     columns: d.columns.map((column) => ({
       ...column,
+      ...(column.styles ? { styles: clone(column.styles) } : {}),
       ...("options" in column
         ? { options: column.options.map((option) => ({ ...option })) }
         : {}),
@@ -185,15 +206,26 @@ async function runQuery(values: P, target: number, paging: boolean) {
     let value: Page<R>;
     let metadata: Snapshot["fixed"] = fixed.value;
     if (d.kind === "fixed") {
-      if (paging && fixed.value)
-        value = await d.adapter.page({
+      if (paging && fixed.value) {
+        const paged = await d.adapter.page({
           scope,
           resultId: fixed.value.id,
           page: target,
           pageSize: props.pageSize,
           signal,
         });
-      else {
+        if (
+          paged.presentation &&
+          JSON.stringify(paged.presentation) !==
+            JSON.stringify({
+              columns: d.columns,
+              ...(d.rowStyles ? { rowStyles: d.rowStyles } : {}),
+              ...(d.group ? { group: d.group } : {}),
+            })
+        )
+          throw new Error("分页结果格式与本次查询不一致，请重新查询。");
+        value = paged;
+      } else {
         const requestId = crypto.randomUUID();
         job.value = { requestId, scope, adapter: d.adapter };
         const created = await d.adapter.query({
@@ -204,6 +236,12 @@ async function runQuery(values: P, target: number, paging: boolean) {
           requestId,
           signal,
         });
+        if (created.presentation) {
+          const presentation = clone(created.presentation);
+          d.columns = presentation.columns;
+          d.rowStyles = presentation.rowStyles;
+          d.group = presentation.group;
+        }
         value = created;
         metadata = {
           id: created.id,
@@ -233,6 +271,11 @@ async function runQuery(values: P, target: number, paging: boolean) {
       validateReportRows(
         d.columns.filter((c) => c.key in metadata!.summary.values),
         [metadata.summary.values as R],
+      );
+    for (const group of d.group?.summaries ?? [])
+      validateReportRows(
+        d.columns.filter((c) => c.key in group.summary.values),
+        [group.summary.values as R],
       );
     result.value = clone(value);
     fixed.value = metadata;
@@ -567,7 +610,7 @@ onBeforeUnmount(() => {
     <p v-if="exportError" role="alert">{{ exportError }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
     <div v-if="canQuery && result" ref="scroll" class="zerp-report-scroll">
-      <p>已采用条件：{{ applied }}</p>
+      <p>已采用条件：{{ shownApplied }}</p>
       <p v-if="fixed">{{ fixed.context }}</p>
       <DataList
         :columns="displayDefinition.columns"
@@ -579,6 +622,8 @@ onBeforeUnmount(() => {
         :disabled="!usable || cancelling"
         :wide="true"
         :summary="fixed?.summary"
+        :row-styles="displayDefinition.rowStyles"
+        :group="displayDefinition.group"
         :cell="resultCell"
         @cell="drill"
         @page="changePage"

@@ -275,3 +275,24 @@
   color: rgb(var(--v-theme-on-surface, 0, 0, 0));
   border-radius: 0.5rem;
 }
+
+.zerp-ui .zerp-report-positive {
+  color: rgb(var(--v-theme-success, 46, 125, 50));
+}
+.zerp-ui .zerp-report-negative {
+  color: rgb(var(--v-theme-error, 176, 0, 32));
+}
+.zerp-ui .zerp-report-warning {
+  color: rgb(var(--v-theme-warning, 156, 101, 0));
+}
+.zerp-ui .zerp-report-muted {
+  color: rgb(var(--v-theme-on-surface, 70, 70, 70));
+  opacity: 0.7;
+}
+.zerp-ui .zerp-report-bold {
+  font-weight: 700;
+}
+.zerp-ui .zerp-report-group-header,
+.zerp-ui .zerp-report-group-summary {
+  background: rgba(var(--v-theme-on-surface, 70, 70, 70), 0.06);
+}

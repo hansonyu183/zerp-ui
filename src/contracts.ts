@@ -26,12 +26,15 @@ type Common<K extends string> = {
   label: string;
   required?: boolean;
   readonly?: boolean;
+  hidden?: boolean;
+  enabled?: boolean;
+  condition?: { checkedKey: string; required?: boolean };
   mode?: "create" | "edit";
   when?: { key: string; equals: string | boolean | number | null };
 };
 export type AnyField = Common<string> &
   (
-    | { type: "text" | "textarea" | "password" | "date" | "decimal" }
+    | { type: "text" | "textarea" | "password" | "date" | "month" | "decimal" }
     | { type: "integer"; min?: number; max?: number }
     | { type: "boolean" }
     | { type: "date-range" }
@@ -54,7 +57,13 @@ type Kind<V> =
             AnyField,
             {
               type:
-                "text" | "textarea" | "password" | "date" | "decimal" | "enum";
+                | "text"
+                | "textarea"
+                | "password"
+                | "date"
+                | "month"
+                | "decimal"
+                | "enum";
             }
           >
         : NonNullable<V> extends readonly (infer R)[]

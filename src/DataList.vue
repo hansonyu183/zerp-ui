@@ -5,10 +5,16 @@
 >
 import { computed } from "vue";
 import RowActions from "./RowActions.vue";
-import type { ReportCell, ReportSummary } from "./report";
+import { reportStyleClasses } from "./report";
+import type {
+  ReportCell,
+  ReportSummary,
+  ReportStyleRule,
+  ReportGroup,
+} from "./report";
 import type { Column, Page, CrudAction, ListAction } from "./contracts";
 const props = defineProps<{
-  columns: readonly Column<R>[];
+  columns: readonly (Column<R> & { styles?: readonly ReportStyleRule<R>[] })[];
   result: Page<R>;
   page: number;
   pageSize: number;
@@ -21,6 +27,8 @@ const props = defineProps<{
   wide?: boolean;
   rowKey?: (row: R) => string | number;
   summary?: ReportSummary<R>;
+  rowStyles?: readonly ReportStyleRule<R>[];
+  group?: ReportGroup<R>;
   cell?: (row: R, key: Extract<keyof R, string>) => ReportCell<T> | undefined;
 }>();
 const emit = defineEmits<{
@@ -83,6 +91,32 @@ function record(event: MouseEvent, intent: ReportCell<T>, row: R) {
   )
     emit("cell", intent, row);
 }
+function rowGroup(row: R) {
+  const key = props.group?.key;
+  return key === undefined
+    ? undefined
+    : props.group?.summaries.find((g) => g.value === String(row[key]));
+}
+function groupStart(index: number) {
+  return (
+    index === 0 ||
+    rowGroup(props.result.items[index - 1]!)?.value !==
+      rowGroup(props.result.items[index]!)?.value
+  );
+}
+function groupEnd(index: number) {
+  return (
+    index === props.result.items.length - 1 ||
+    rowGroup(props.result.items[index + 1]!)?.value !==
+      rowGroup(props.result.items[index]!)?.value
+  );
+}
+const columnCount = computed(
+  () =>
+    visibleColumns.value.length +
+    (props.selectedKeys !== undefined ? 1 : 0) +
+    (hasActions.value ? 1 : 0),
+);
 function display(row: Partial<R>, column: Column<R>) {
   const value = row[column.key];
   return value === null || value === undefined
@@ -142,60 +176,92 @@ function display(row: Partial<R>, column: Column<R>) {
         </tr>
       </thead>
       <tbody>
-        <tr
+        <template
           v-for="(row, index) in result.items"
           :key="rowKey ? rowKey(row) : index"
         >
-          <td v-if="selectedKeys !== undefined" data-label="选择">
-            <input
-              type="checkbox"
-              :aria-label="`选择 ${identity(row)}`"
-              :checked="selectedKeys.includes(identity(row))"
-              :disabled="disabled || loading || selectable?.(row) === false"
-              @change="
-                selectRows([row], ($event.target as HTMLInputElement).checked)
-              "
-            />
-          </td>
-          <td
-            v-for="column in visibleColumns"
-            :key="column.key"
-            :data-label="column.label"
+          <tr
+            v-if="groupStart(index) && rowGroup(row)"
+            class="zerp-report-group-header"
           >
-            <template
-              v-for="intent in [cell?.(row, column.key)]"
-              :key="column.key"
-            >
-              <a
-                v-if="
-                  intent?.kind === 'record' && !disabled && !intent.disabled
+            <th :colspan="columnCount" scope="rowgroup">
+              {{ rowGroup(row)!.caption }}
+            </th>
+          </tr>
+          <tr
+            :data-row-id="rowKey ? rowKey(row) : index"
+            :class="reportStyleClasses(row, rowStyles)"
+          >
+            <td v-if="selectedKeys !== undefined" data-label="选择">
+              <input
+                type="checkbox"
+                :aria-label="`选择 ${identity(row)}`"
+                :checked="selectedKeys.includes(identity(row))"
+                :disabled="disabled || loading || selectable?.(row) === false"
+                @change="
+                  selectRows([row], ($event.target as HTMLInputElement).checked)
                 "
-                :href="intent.href"
-                :aria-label="intent.label"
-                @click="record($event, intent, row)"
-                >{{ display(row, column) }}</a
+              />
+            </td>
+            <td
+              v-for="column in visibleColumns"
+              :key="column.key"
+              :data-label="column.label"
+              :class="reportStyleClasses(row, column.styles)"
+            >
+              <template
+                v-for="intent in [cell?.(row, column.key)]"
+                :key="column.key"
               >
-              <button
-                v-else-if="intent"
-                type="button"
-                :aria-label="intent.label"
-                :disabled="disabled || intent.disabled"
-                @click="emit('cell', intent, row)"
+                <a
+                  v-if="
+                    intent?.kind === 'record' && !disabled && !intent.disabled
+                  "
+                  :href="intent.href"
+                  :aria-label="intent.label"
+                  @click="record($event, intent, row)"
+                  >{{ display(row, column) }}</a
+                >
+                <button
+                  v-else-if="intent"
+                  type="button"
+                  :aria-label="intent.label"
+                  :disabled="disabled || intent.disabled"
+                  @click="emit('cell', intent, row)"
+                >
+                  {{ display(row, column) }}
+                </button>
+                <template v-else>{{ display(row, column) }}</template>
+              </template>
+            </td>
+            <td v-if="hasActions" data-label="操作">
+              <RowActions
+                :actions="rowActions[index]!"
+                :disabled="disabled || loading"
+                :view-href="viewHref?.(row)"
+                @action="dispatch($event, row)"
+              />
+            </td>
+          </tr>
+          <template v-if="groupEnd(index) && rowGroup(row)">
+            <tr class="zerp-report-group-caption">
+              <th :colspan="columnCount" scope="rowgroup">
+                {{ rowGroup(row)!.summary.caption }}
+              </th>
+            </tr>
+            <tr class="zerp-report-group-summary">
+              <td v-if="selectedKeys !== undefined"></td>
+              <td
+                v-for="column in visibleColumns"
+                :key="column.key"
+                :data-label="column.label"
               >
-                {{ display(row, column) }}
-              </button>
-              <template v-else>{{ display(row, column) }}</template>
-            </template>
-          </td>
-          <td v-if="hasActions" data-label="操作">
-            <RowActions
-              :actions="rowActions[index]!"
-              :disabled="disabled || loading"
-              :view-href="viewHref?.(row)"
-              @action="dispatch($event, row)"
-            />
-          </td>
-        </tr>
+                {{ display(rowGroup(row)!.summary.values, column) }}
+              </td>
+              <td v-if="hasActions"></td>
+            </tr>
+          </template>
+        </template>
       </tbody>
       <tfoot v-if="summary">
         <tr>
