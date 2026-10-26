@@ -400,3 +400,61 @@ it("does not let an unfinished unchecked integer block the other conditions", as
   expect(query).toHaveBeenCalledTimes(1);
   w.unmount();
 });
+
+it("keeps null and empty-string group identities distinct", async () => {
+  type Row = { id: string; group: string | null; amount: string };
+  const definition = defineReport<{}, Row>({
+    kind: "parameter",
+    resource: "nullable-groups",
+    title: "分组",
+    parameters: [],
+    initialParameters: () => ({}),
+    columns: [
+      { key: "id", label: "编号" },
+      { key: "amount", label: "金额", type: "decimal" },
+    ],
+    rowKey: (row: Row) => row.id,
+    group: {
+      key: "group",
+      summaries: [
+        {
+          value: null,
+          caption: "未填写",
+          summary: { caption: "空值合计", values: { amount: "1.00" } },
+        },
+        {
+          value: "",
+          caption: "空文本",
+          summary: { caption: "空文本合计", values: { amount: "2.00" } },
+        },
+      ],
+    },
+    adapter: {
+      query: async () => ({
+        items: [
+          { id: "null-row", group: null, amount: "1.00" },
+          { id: "empty-row", group: "", amount: "2.00" },
+        ],
+        total: 2,
+      }),
+    },
+  });
+  const wrapper = mount(ReportView as Component, {
+    props: {
+      definition,
+      scope: "actor",
+      permissions: { query: true, export: false },
+    },
+  });
+  await wrapper.get("form").trigger("submit");
+  await flushPromises();
+  expect(
+    wrapper.findAll(".zerp-report-group-header").map((r) => r.text()),
+  ).toEqual(["未填写", "空文本"]);
+  expect(
+    wrapper
+      .findAll(".zerp-report-group-summary")
+      .map((r) => r.get('td[data-label="金额"]').text()),
+  ).toEqual(["1.00", "2.00"]);
+  wrapper.unmount();
+});

@@ -58,7 +58,7 @@ export type ReportStyleRule<R> = {
 export type ReportGroup<R> = {
   key: Extract<keyof R, string>;
   summaries: readonly {
-    value: string;
+    value: string | null;
     caption: string;
     summary: ReportSummary<R>;
   }[];

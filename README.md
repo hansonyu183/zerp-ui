@@ -142,7 +142,7 @@ createApp(App)
 
 报表参数支持 `type: "month"`，值为 `YYYY-MM`；业务线上的其他编码由消费者转换。`hidden: true` 保留值并随查询提交，但不显示控件或已采用条件；`enabled: false` 保留值并禁用控件。可选 `condition: {checkedKey, required?}` 指向参数内 boolean 字段，复选框与值独立，未启用时保留值且跳过值校验；必需条件启用后不可取消。消费者提供初始布尔值，并在 API 中执行权威条件及权限校验。
 
-固定查询可返回 `presentation: ReportPresentation<R>`（`columns`、可选 `rowStyles`、`group`），同结果身份采用并保存；分页省略它或返回完全相同内容，改变格式会拒绝该页并保留旧结果。列的 `styles` 和 `rowStyles` 仅允许 `eq/ne/lt/lte/gt/gte/empty`、字符串/完整十进制比较、有限 tone 与 bold；十进制使用 decimal.js 精确比较，不转 Number。`group: {key, summaries: [{value, caption, summary}]}` 由适配器提供全组权威合计，库只显示，不按当前页重算；适配器应将分组行连续排列并提供每组摘要。办理动作只发出类型化 drill，不执行字符串命令。
+固定查询可返回 `presentation: ReportPresentation<R>`（`columns`、可选 `rowStyles`、`group`），同结果身份采用并保存；分页省略它或返回完全相同内容，改变格式会拒绝该页并保留旧结果。列的 `styles` 和 `rowStyles` 仅允许 `eq/ne/lt/lte/gt/gte/empty`、字符串/完整十进制比较、有限 tone 与 bold；十进制使用 decimal.js 精确比较，不转 Number。`group: {key, summaries: [{value, caption, summary}]}` 由适配器提供全组权威合计，库只显示，不按当前页重算；分组 value 为 string 或 null，严格区分空串与空值；适配器应将分组行连续排列并提供每组摘要。办理动作只发出类型化 drill，不执行字符串命令。
 
 迁移：原无判别的报表定义必须增加 `kind: "parameter"` 和 `rowKey`；旧签名不保留兼容分支。要取得固定结果语义，显式采用 `kind: "fixed"` 并实现 query/page/revalidate，导出改接 resultId，不能沿用参数型 export 或 Adapter 私有的“最后一次结果”。这是 0.3.0 的破坏接口；安装时采用本版本示例及迁移说明。
 

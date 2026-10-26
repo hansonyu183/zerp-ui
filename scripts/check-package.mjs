@@ -675,9 +675,11 @@ async function reportSmoke(page) {
   await button("办理 第一行").click();
   await page.getByText("合成办理：第一行", { exact: true }).waitFor();
   await button("下一页").click();
-  await page.getByRole("cell", { name: "第二行", exact: true }).waitFor();
+  await button("办理 第二行").waitFor();
   assert.equal(
-    await page.locator(".zerp-report-group-summary").textContent(),
+    await page
+      .locator('.zerp-report-group-summary td[data-label="精确金额"]')
+      .textContent(),
     "9007199254740999.9999",
   );
   await page.getByLabel("报表示例", { exact: true }).selectOption("batch");

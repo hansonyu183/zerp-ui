@@ -95,7 +95,7 @@ function rowGroup(row: R) {
   const key = props.group?.key;
   return key === undefined
     ? undefined
-    : props.group?.summaries.find((g) => g.value === String(row[key]));
+    : props.group?.summaries.find((g) => g.value === row[key]);
 }
 function groupStart(index: number) {
   return (
