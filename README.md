@@ -266,7 +266,7 @@ AppPage 的 NavigationGroup 可设置 ungrouped，直接展示其中的一级链
 
 ## 列表流程与勾选（0.6.0）
 
-ListAction增加send、withdraw、check、uncheck、void、unvoid，对应送审、反送审、审核、反审核、作废、反作废；仍最多三个直接图标，其余进入更多菜单。业务资格由消费者过滤。
+ListAction增加send、withdraw、check、uncheck、void、unvoid、finish、finish_r，对应送审、反送审、审核、反审核、作废、反作废、完成、反完成；仍最多三个直接图标，其余进入更多菜单。业务资格由消费者过滤。
 
 DataList通过selectedKeys及update:selectedKeys受控勾选记录，启用时必须提供稳定rowKey。selectable按行限制勾选，表头仅全选当前页的可选记录；loading/disabled阻止变更。消费者负责翻页/筛选清理及批量请求，不由组件推断业务或提交。
 

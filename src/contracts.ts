@@ -91,6 +91,8 @@ export type ListAction =
   | "withdraw"
   | "check"
   | "uncheck"
+  | "finish"
+  | "finish_r"
   | "void"
   | "unvoid"
   | CrudAction;

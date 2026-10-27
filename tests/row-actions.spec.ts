@@ -150,3 +150,21 @@ it("provides semantic names for workflow operations", async () => {
     w.unmount();
   }
 });
+it("exposes finish and reopen as distinct public workflow row actions", async () => {
+  const wrapper = mount(DataList as Component, {
+    props: { ...props, actions: () => ["finish", "finish_r"] },
+  });
+  try {
+    await wrapper.get('[aria-label="完成"]').trigger("click");
+    await wrapper.get('[aria-label="反完成"]').trigger("click");
+    expect(wrapper.emitted("action")).toEqual([
+      ["finish", row],
+      ["finish_r", row],
+    ]);
+    await wrapper.setProps({ loading: true });
+    await wrapper.get('[aria-label="完成"]').trigger("click");
+    expect(wrapper.emitted("action")).toHaveLength(2);
+  } finally {
+    wrapper.unmount();
+  }
+});

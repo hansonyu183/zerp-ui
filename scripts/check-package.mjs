@@ -456,6 +456,27 @@ async function directSmoke(page) {
     .getByRole("status")
     .filter({ hasText: "delete:row-actions" })
     .waitFor();
+  for (const [action, caption] of [
+    ["finish", "完成"],
+    ["finish_r", "反完成"],
+  ]) {
+    await page.getByRole("menu").waitFor({ state: "hidden" });
+    await more.click();
+    const item = page.getByRole("menuitem", { name: caption, exact: true });
+    const glyph = await item
+      .locator("i")
+      .evaluate((el) => getComputedStyle(el, "::before").content);
+    assert.ok(
+      glyph && glyph !== "none" && glyph !== '""',
+      `${caption} must use an installed icon`,
+    );
+    await item.click();
+    await rowActions
+      .getByRole("status")
+      .filter({ hasText: action + ":row-actions" })
+      .waitFor();
+    await item.waitFor({ state: "hidden" });
+  }
   const touchContext = await page
     .context()
     .browser()
