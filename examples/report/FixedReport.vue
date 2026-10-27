@@ -5,6 +5,7 @@ import {
   defineReport,
   ReportUnavailable,
   type ReportSnapshot,
+  type ReportPresentation,
   type ReportDrill,
   type ReportCancellation,
   type ReportValidity,
@@ -57,6 +58,46 @@ const rows: Row[] = [
     audit: "历史原值",
   },
 ];
+function presentation(
+  all: Row[],
+  page: number,
+  pageSize: number,
+): ReportPresentation<Row> {
+  const items = all.slice((page - 1) * pageSize, page * pageSize);
+  return {
+    rows: Object.fromEntries(
+      items.map((row) => [
+        row.id,
+        {
+          cells: {
+            amount: {
+              foreground: "#112233",
+              background: "#fefefe",
+              bold: true,
+            },
+          },
+        },
+      ]),
+    ),
+    groups: items.length
+      ? [
+          {
+            id: "synthetic-group",
+            label: "合成分组",
+            level: 0,
+            firstKey: items[0]!.id,
+            lastKey: items.at(-1)!.id,
+            continuedBefore: page > 1,
+            continuedAfter: page * pageSize < all.length,
+            summary: {
+              caption: "组内合计 · 合成权威值",
+              values: { amount: "9007199254741040.6700" },
+            },
+          },
+        ]
+      : [],
+  };
+}
 const results = new Map<string, Row[]>();
 const jobs = new Map<string, { finish: () => void; cancelled: boolean }>();
 let sequence = 0;
@@ -131,6 +172,7 @@ const definition = defineReport<Parameters, Row, ResultId, string, Target>({
       return {
         id,
         items: all.slice((page - 1) * pageSize, page * pageSize),
+        presentation: presentation(all, page, pageSize),
         total: all.length,
         summary: {
           caption:
@@ -145,6 +187,7 @@ const definition = defineReport<Parameters, Row, ResultId, string, Target>({
       if (scenario.value === "failure") throw new Error("合成翻页失败");
       return {
         items: all.slice((page - 1) * pageSize, page * pageSize),
+        presentation: presentation(all, page, pageSize),
         total: all.length,
       };
     },

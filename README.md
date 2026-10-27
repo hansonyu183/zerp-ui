@@ -269,3 +269,11 @@ AppPage 的 NavigationGroup 可设置 ungrouped，直接展示其中的一级链
 ListAction增加send、withdraw、check、uncheck、void、unvoid，对应送审、反送审、审核、反审核、作废、反作废；仍最多三个直接图标，其余进入更多菜单。业务资格由消费者过滤。
 
 DataList通过selectedKeys及update:selectedKeys受控勾选记录，启用时必须提供稳定rowKey。selectable按行限制勾选，表头仅全选当前页的可选记录；loading/disabled阻止变更。消费者负责翻页/筛选清理及批量请求，不由组件推断业务或提交。
+
+## OIT 固定结果呈现扩展（本地候选）
+
+固定 Adapter 的 query/page 可返回 `presentation: ReportPresentation<Row>`；按稳定行键及列键提供六位十六进制颜色、粗体、斜体与对齐，和当前页组段（标签/层级/首尾身份/续组标记/权威小计）。query 可返回本结果的动态 `columns`；成功采用后与结果及快照冻结，分页不重解释。ReportView 继续负责同结果查询、取消、导出、重验与返回，DataList 为唯一渲染落点。业务分组、规则计算和全结果/组汇总归 Adapter，库不解析业务表达式、任意 CSS 或 HTML。
+
+此候选为 OIT 原生05本地消费构建，尚未推送或正式发布，不替代0.6.0正式Release。
+
+Local report candidate also exposes the `ReportView` `parameters` event with an independent copy of current form values. Consumers may use it for dependent choice queries without implementing a second report lifecycle. Query results can include frozen `columns` so runtime field definitions are adopted with their matching result; paging and restored snapshots keep that interpretation.

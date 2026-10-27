@@ -60,6 +60,79 @@ export type ReportCell<T> =
     }
   | { kind: "select" | "detail"; target: T; label: string; disabled?: boolean };
 export type ReportSummary<R> = { caption: string; values: Partial<R> };
+export type ReportAppearance = {
+  foreground?: string;
+  background?: string;
+  bold?: boolean;
+  italic?: boolean;
+  align?: "left" | "center" | "right";
+};
+export type ReportPresentation<R> = {
+  rows: Record<
+    string,
+    {
+      row?: ReportAppearance;
+      cells?: Partial<Record<Extract<keyof R, string>, ReportAppearance>>;
+    }
+  >;
+  groups: readonly {
+    id: string;
+    label: string;
+    level: number;
+    firstKey: string;
+    lastKey: string;
+    continuedBefore: boolean;
+    continuedAfter: boolean;
+    summary: ReportSummary<R>;
+  }[];
+};
+export type ReportPage<R> = Page<R> & { presentation?: ReportPresentation<R> };
+export function validateReportPresentation<R extends object>(
+  columns: readonly ReportColumn<R>[],
+  rows: readonly R[],
+  rowKey: (row: R) => string | number,
+  presentation: ReportPresentation<R> | undefined,
+) {
+  if (!presentation) return;
+  const keys = new Set(rows.map((row) => String(rowKey(row)))),
+    fields = new Set(columns.map((c) => c.key));
+  const appearance = (value: ReportAppearance) => {
+    if (
+      [value.foreground, value.background].some(
+        (c) => c !== undefined && !/^#[0-9a-fA-F]{6}$/.test(c),
+      )
+    )
+      throw Error("报表颜色须为六位十六进制颜色。");
+    if (
+      value.align !== undefined &&
+      !["left", "center", "right"].includes(value.align)
+    )
+      throw Error("报表对齐方式不正确。");
+  };
+  for (const [key, value] of Object.entries(presentation.rows)) {
+    if (!keys.has(key)) throw Error("报表呈现引用未知行。");
+    if (value.row) appearance(value.row);
+    for (const [key, style] of Object.entries(value.cells ?? {})) {
+      if (!fields.has(key as Extract<keyof R, string>))
+        throw Error("报表呈现引用未知列。");
+      appearance(style as ReportAppearance);
+    }
+  }
+  for (const group of presentation.groups) {
+    if (
+      !keys.has(group.firstKey) ||
+      !keys.has(group.lastKey) ||
+      !Number.isInteger(group.level) ||
+      group.level < 0 ||
+      group.level > 3
+    )
+      throw Error("报表分组范围不正确。");
+    validateReportRows(
+      columns.filter((c) => c.key in group.summary.values),
+      [group.summary.values as R],
+    );
+  }
+}
 export type ReportResultRequest<I> = {
   scope: string;
   resultId: I;
@@ -82,10 +155,17 @@ export class ReportUnavailable extends Error {
 export type FixedReportAdapter<P extends object, R extends object, I> = {
   query: (
     input: ReportQuery<P> & { requestId: string; signal: AbortSignal },
-  ) => Promise<Page<R> & { id: I; summary: ReportSummary<R>; context: string }>;
+  ) => Promise<
+    ReportPage<R> & {
+      id: I;
+      summary: ReportSummary<R>;
+      context: string;
+      columns?: readonly ReportColumn<R>[];
+    }
+  >;
   page: (
     input: ReportResultRequest<I> & { page: number; pageSize: number },
-  ) => Promise<Page<R>>;
+  ) => Promise<ReportPage<R>>;
   export?: (input: ReportResultRequest<I>) => Promise<ReportExport>;
   revalidate: (input: ReportResultRequest<I>) => Promise<ReportValidity>;
   cancel?: (input: {
@@ -102,6 +182,7 @@ type ReportBase<
   title: string;
   parameters: ReportParameters<P>;
   initialParameters: () => P;
+  describeParameters?: (parameters: P) => string;
   columns: readonly ReportColumn<R>[];
   rowKey: (row: R) => K;
 };
@@ -139,7 +220,7 @@ export type ReportSnapshot<
   resource: string;
   input: P;
   applied: P | null;
-  result: Page<R> | null;
+  result: ReportPage<R> | null;
   page: number;
   pageSize: number;
   fixed: { id: I; summary: ReportSummary<R>; context: string } | null;

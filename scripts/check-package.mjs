@@ -640,6 +640,15 @@ async function reportSmoke(page) {
   await page.getByLabel("报表示例").selectOption("fixed");
   await button("查询").click();
   await page.getByText("服务端全结果合计", { exact: false }).waitFor();
+  await page
+    .getByRole("rowheader", { name: "合成分组", exact: true })
+    .waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "明细 合成记录甲", exact: true })
+      .evaluate((cell) => getComputedStyle(cell).color),
+    "rgb(17, 34, 51)",
+  );
   await page.getByLabel("固定关键字").fill("未查询条件");
   const fixedDownload = page.waitForEvent("download");
   await button("导出").click();

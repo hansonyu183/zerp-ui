@@ -829,3 +829,132 @@ it("requeries a returning parameter report at the applied page and restores both
   );
   w.unmount();
 });
+
+it("adopts fixed group segments and finite cell presentation with each result page and snapshot", async () => {
+  const presentation = (id: string) => ({
+    rows: {
+      [id]: {
+        cells: {
+          amount: { foreground: "#112233", background: "#fefefe", bold: true },
+        },
+      },
+    },
+    groups: [
+      {
+        id: "g",
+        label: "组一",
+        level: 0,
+        firstKey: id,
+        lastKey: id,
+        continuedBefore: id === "r2",
+        continuedAfter: id === "r1",
+        summary: { caption: "组小计", values: { amount: "3.00" } },
+      },
+    ],
+  });
+  const d = defineReport({
+    kind: "fixed",
+    resource: "presentation",
+    title: "分组报表",
+    parameters: [],
+    initialParameters: () => ({}),
+    rowKey: (r: { id: string; amount: string }) => r.id,
+    columns: [{ key: "amount", label: "金额", type: "decimal" }],
+    adapter: {
+      query: async () => ({
+        id: "fixed",
+        items: [{ id: "r1", amount: "1.00" }],
+        total: 2,
+        summary: { caption: "总计", values: { amount: "3.00" } },
+        context: "固定条件",
+        presentation: presentation("r1"),
+      }),
+      page: async () => ({
+        items: [{ id: "r2", amount: "2.00" }],
+        total: 2,
+        presentation: presentation("r2"),
+      }),
+      revalidate: async () => ({ status: "valid" as const }),
+    },
+  });
+  const w = mount(ReportView as Component, {
+    props: {
+      definition: d,
+      scope: "operator",
+      permissions: { query: true, export: false },
+      pageSize: 1,
+    },
+  });
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(w.find(".zerp-report-group").text()).toContain("组一");
+  expect(w.find(".zerp-report-group-summary").text()).toContain("3.00");
+  expect(w.find('tbody td[data-label="金额"]').attributes("style")).toContain(
+    "rgb(17, 34, 51)",
+  );
+  await click(w, "下一页");
+  expect(w.find(".zerp-report-group").text()).toContain("续");
+  await w.setProps({ active: false });
+  const snapshots = w.emitted("snapshot")!;
+  const saved = snapshots.at(-1)![0] as { result: { presentation: unknown } };
+  expect(saved.result.presentation).toEqual(presentation("r2"));
+  w.unmount();
+  const restored = mount(ReportView as Component, {
+    props: {
+      definition: d,
+      scope: "operator",
+      permissions: { query: true, export: false },
+      pageSize: 1,
+      restore: saved,
+    },
+  });
+  await flushPromises();
+  expect(restored.text()).toContain("组一");
+  expect(restored.text()).toContain("3.00");
+  restored.unmount();
+});
+it("rejects an invalid presentation before adopting new rows", async () => {
+  const d = defineReport({
+    kind: "fixed",
+    resource: "bad-style",
+    title: "报表",
+    parameters: [],
+    initialParameters: () => ({}),
+    rowKey: (r: { id: string; amount: string }) => r.id,
+    columns: [{ key: "amount", label: "金额", type: "decimal" }],
+    adapter: {
+      query: async () => ({
+        id: "bad",
+        items: [{ id: "r", amount: "1.00" }],
+        total: 1,
+        summary: { caption: "总计", values: { amount: "1.00" } },
+        context: "",
+        presentation: {
+          rows: { r: { row: { foreground: "url(javascript:bad)" } } },
+          groups: [],
+        },
+      }),
+      page: async () => ({ items: [], total: 0 }),
+      revalidate: async () => ({ status: "valid" as const }),
+    },
+  });
+  const w = mount(ReportView as Component, {
+    props: {
+      definition: d,
+      scope: "a",
+      permissions: { query: true, export: false },
+    },
+  });
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(w.text()).toContain("报表颜色须为六位十六进制颜色");
+  expect(w.find("tbody").exists()).toBe(false);
+  w.unmount();
+});
+
+it("emits current independent parameter edits before querying for dependent candidates", async () => {
+  const w = start(definition());
+  await w.get('input[aria-label="关键字"]').setValue("当前条件");
+  expect(w.emitted("parameters")?.at(-1)).toEqual([{ keyword: "当前条件" }]);
+  w.unmount();
+});

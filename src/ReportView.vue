@@ -19,15 +19,20 @@ import {
   onDeactivated,
   nextTick,
 } from "vue";
-import { ReportUnavailable, validateReportRows } from "./report";
+import {
+  ReportUnavailable,
+  validateReportRows,
+  validateReportPresentation,
+} from "./report";
 import type {
+  ReportPage,
   ReportDefinition,
   ReportSnapshot,
   ReportCell,
   ReportDrill,
   FixedReportAdapter,
 } from "./report";
-import type { Fields, Page, AnyField } from "./contracts";
+import type { Fields, AnyField } from "./contracts";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
 import { clone } from "./clone";
@@ -47,11 +52,12 @@ const props = withDefaults(
 );
 const emit = defineEmits<{
   snapshot: [value: Snapshot];
+  parameters: [value: P];
   drill: [value: ReportDrill<I, K, T>];
 }>();
 const input = shallowRef<P>(clone(props.definition.initialParameters()));
 const applied = shallowRef<P | null>(null);
-const result = shallowRef<Page<R> | null>(null);
+const result = shallowRef<ReportPage<R> | null>(null);
 const fixed = shallowRef<Snapshot["fixed"]>(null);
 const adopted = shallowRef<Definition>(props.definition);
 const page = ref(1),
@@ -182,7 +188,7 @@ async function runQuery(values: P, target: number, paging: boolean) {
     void runQuery(clone(values), target, paging);
   };
   try {
-    let value: Page<R>;
+    let value: ReportPage<R>;
     let metadata: Snapshot["fixed"] = fixed.value;
     if (d.kind === "fixed") {
       if (paging && fixed.value)
@@ -204,6 +210,7 @@ async function runQuery(values: P, target: number, paging: boolean) {
           requestId,
           signal,
         });
+        if (created.columns) d.columns = clone(created.columns);
         value = created;
         metadata = {
           id: created.id,
@@ -223,6 +230,12 @@ async function runQuery(values: P, target: number, paging: boolean) {
     }
     if (current !== generation) return;
     validateReportRows(d.columns, value.items);
+    validateReportPresentation(
+      d.columns,
+      value.items,
+      d.rowKey,
+      value.presentation,
+    );
     const keys = value.items.map(d.rowKey);
     if (
       keys.some((key) => typeof key !== "string" && typeof key !== "number") ||
@@ -252,6 +265,7 @@ async function runQuery(values: P, target: number, paging: boolean) {
 }
 function updateInput(value: P) {
   input.value = value;
+  emit("parameters", clone(value));
 }
 function search() {
   if (!canQuery.value) return;
@@ -567,7 +581,13 @@ onBeforeUnmount(() => {
     <p v-if="exportError" role="alert">{{ exportError }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
     <div v-if="canQuery && result" ref="scroll" class="zerp-report-scroll">
-      <p>已采用条件：{{ applied }}</p>
+      <p>
+        已采用条件：{{
+          applied && displayDefinition.describeParameters
+            ? displayDefinition.describeParameters(applied)
+            : applied
+        }}
+      </p>
       <p v-if="fixed">{{ fixed.context }}</p>
       <DataList
         :columns="displayDefinition.columns"
@@ -579,6 +599,7 @@ onBeforeUnmount(() => {
         :disabled="!usable || cancelling"
         :wide="true"
         :summary="fixed?.summary"
+        :presentation="result.presentation"
         :cell="resultCell"
         @cell="drill"
         @page="changePage"

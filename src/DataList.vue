@@ -5,7 +5,12 @@
 >
 import { computed } from "vue";
 import RowActions from "./RowActions.vue";
-import type { ReportCell, ReportSummary } from "./report";
+import type {
+  ReportCell,
+  ReportSummary,
+  ReportPresentation,
+  ReportAppearance,
+} from "./report";
 import type { Column, Page, CrudAction, ListAction } from "./contracts";
 const props = defineProps<{
   columns: readonly Column<R>[];
@@ -21,8 +26,36 @@ const props = defineProps<{
   wide?: boolean;
   rowKey?: (row: R) => string | number;
   summary?: ReportSummary<R>;
+  presentation?: ReportPresentation<R>;
   cell?: (row: R, key: Extract<keyof R, string>) => ReportCell<T> | undefined;
 }>();
+const presentationStyle = (row: R, key?: Extract<keyof R, string>) => {
+  const p = props.presentation?.rows[String(props.rowKey?.(row) ?? "")];
+  const a: ReportAppearance = { ...p?.row, ...(key ? p?.cells?.[key] : {}) };
+  const color = (v: string | undefined) =>
+    v && /^#[0-9a-fA-F]{6}$/.test(v) ? v : undefined;
+  return {
+    color: color(a.foreground),
+    backgroundColor: color(a.background),
+    fontWeight: a.bold ? "bold" : undefined,
+    fontStyle: a.italic ? "italic" : undefined,
+    textAlign: a.align,
+  };
+};
+const groups = (row: R, start: boolean) =>
+  props.presentation?.groups
+    .filter(
+      (g) =>
+        (start ? g.firstKey : g.lastKey) === String(props.rowKey?.(row) ?? ""),
+    )
+    .slice()
+    .sort((a, b) => (start ? a.level - b.level : b.level - a.level)) ?? [];
+const colspan = computed(
+  () =>
+    visibleColumns.value.length +
+    (props.selectedKeys !== undefined ? 1 : 0) +
+    (hasActions.value ? 1 : 0),
+);
 const emit = defineEmits<{
   "update:selectedKeys": [keys: (string | number)[]];
   cell: [cell: ReportCell<T>, row: R];
@@ -142,60 +175,95 @@ function display(row: Partial<R>, column: Column<R>) {
         </tr>
       </thead>
       <tbody>
-        <tr
+        <template
           v-for="(row, index) in result.items"
           :key="rowKey ? rowKey(row) : index"
         >
-          <td v-if="selectedKeys !== undefined" data-label="选择">
-            <input
-              type="checkbox"
-              :aria-label="`选择 ${identity(row)}`"
-              :checked="selectedKeys.includes(identity(row))"
-              :disabled="disabled || loading || selectable?.(row) === false"
-              @change="
-                selectRows([row], ($event.target as HTMLInputElement).checked)
-              "
-            />
-          </td>
-          <td
-            v-for="column in visibleColumns"
-            :key="column.key"
-            :data-label="column.label"
+          <tr
+            v-for="group in groups(row, true)"
+            :key="'group-start:' + group.id"
+            class="zerp-report-group"
           >
-            <template
-              v-for="intent in [cell?.(row, column.key)]"
-              :key="column.key"
-            >
-              <a
-                v-if="
-                  intent?.kind === 'record' && !disabled && !intent.disabled
+            <th :colspan="colspan" scope="rowgroup">
+              {{ group.label }}{{ group.continuedBefore ? "（续）" : "" }}
+            </th>
+          </tr>
+          <tr :style="presentationStyle(row)">
+            <td v-if="selectedKeys !== undefined" data-label="选择">
+              <input
+                type="checkbox"
+                :aria-label="`选择 ${identity(row)}`"
+                :checked="selectedKeys.includes(identity(row))"
+                :disabled="disabled || loading || selectable?.(row) === false"
+                @change="
+                  selectRows([row], ($event.target as HTMLInputElement).checked)
                 "
-                :href="intent.href"
-                :aria-label="intent.label"
-                @click="record($event, intent, row)"
-                >{{ display(row, column) }}</a
+              />
+            </td>
+            <td
+              v-for="column in visibleColumns"
+              :key="column.key"
+              :data-label="column.label"
+              :style="presentationStyle(row, column.key)"
+            >
+              <template
+                v-for="intent in [cell?.(row, column.key)]"
+                :key="column.key"
               >
-              <button
-                v-else-if="intent"
-                type="button"
-                :aria-label="intent.label"
-                :disabled="disabled || intent.disabled"
-                @click="emit('cell', intent, row)"
-              >
-                {{ display(row, column) }}
-              </button>
-              <template v-else>{{ display(row, column) }}</template>
-            </template>
-          </td>
-          <td v-if="hasActions" data-label="操作">
-            <RowActions
-              :actions="rowActions[index]!"
-              :disabled="disabled || loading"
-              :view-href="viewHref?.(row)"
-              @action="dispatch($event, row)"
-            />
-          </td>
-        </tr>
+                <a
+                  v-if="
+                    intent?.kind === 'record' && !disabled && !intent.disabled
+                  "
+                  :style="presentationStyle(row, column.key)"
+                  :href="intent.href"
+                  :aria-label="intent.label"
+                  @click="record($event, intent, row)"
+                  >{{ display(row, column) }}</a
+                >
+                <button
+                  v-else-if="intent"
+                  type="button"
+                  :aria-label="intent.label"
+                  :disabled="disabled || intent.disabled"
+                  @click="emit('cell', intent, row)"
+                >
+                  {{ display(row, column) }}
+                </button>
+                <template v-else>{{ display(row, column) }}</template>
+              </template>
+            </td>
+            <td v-if="hasActions" data-label="操作">
+              <RowActions
+                :actions="rowActions[index]!"
+                :disabled="disabled || loading"
+                :view-href="viewHref?.(row)"
+                @action="dispatch($event, row)"
+              />
+            </td>
+          </tr>
+          <tr
+            v-for="group in groups(row, false)"
+            :key="'group-end:' + group.id"
+            class="zerp-report-group-summary"
+          >
+            <td v-if="selectedKeys !== undefined"></td>
+            <td
+              v-for="(column, index) in visibleColumns"
+              :key="column.key"
+              :data-label="column.label"
+            >
+              {{
+                column.key in group.summary.values
+                  ? display(group.summary.values as R, column)
+                  : index === 0
+                    ? group.summary.caption +
+                      (group.continuedAfter ? "（续）" : "")
+                    : ""
+              }}
+            </td>
+            <td v-if="hasActions"></td>
+          </tr>
+        </template>
       </tbody>
       <tfoot v-if="summary">
         <tr>

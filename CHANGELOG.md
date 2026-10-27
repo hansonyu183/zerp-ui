@@ -1,3 +1,7 @@
+# Local candidate 0.6.1-oit.1
+
+Fixed reports accept typed row/cell appearance and group segments with authoritative subtotals. Query results may carry their frozen columns; ReportView snapshots preserve these together. Current parameter edits are emitted for dependent candidates, and consumers may describe applied parameters in business language. This candidate is verified locally for OIT and has not been published as an upstream Release.
+
 # Changelog
 
 ## 0.6.0
