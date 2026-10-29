@@ -671,3 +671,50 @@ it.each(["prepare", "execute"] as const)(
     w.unmount();
   },
 );
+
+it("exposes preparation and finishes the committed original when refreshed domain input changes", async () => {
+  const f = setup();
+  let w: ReturnType<typeof mount>;
+  const originalRefresh = f.definition.adapter.refresh;
+  f.definition.adapter.refresh = vi.fn(async (settlement) => {
+    await w.setProps({
+      intent: { ...f.intent, input: { note: "回读后的值" } },
+    });
+    await originalRefresh(settlement);
+  });
+  w = f.start();
+  await flushPromises();
+  (w.vm as unknown as { prepare: () => void }).prepare();
+  await flushPromises();
+  expect(w.get('[role="dialog"]').text()).toContain("原输入");
+  await click(w, "确认作废");
+  expect(f.definition.adapter.execute).toHaveBeenCalledTimes(1);
+  expect(f.events.filter((event) => event.startsWith("refresh:"))).toHaveLength(
+    1,
+  );
+  expect(button(w, "准备作废").attributes("disabled")).toBeUndefined();
+  expect([...f.values.values()].join("")).toContain('"completed":true');
+  w.unmount();
+});
+
+it("finishes the immutable unknown request when domain recovery changes current input during lookup", async () => {
+  const f = setup();
+  f.scenario("unknown");
+  const w = f.start();
+  await flushPromises();
+  await click(w, "准备作废");
+  await click(w, "确认作废");
+  const originalLoad = f.definition.persistence.load;
+  f.definition.persistence.load = async (...args) => {
+    const record = await originalLoad(...args);
+    await w.setProps({ intent: { ...f.intent, input: { note: "恢复回填" } } });
+    return record;
+  };
+  f.scenario("success");
+  await click(w, "核实原请求");
+  expect(f.definition.adapter.execute).toHaveBeenCalledTimes(1);
+  expect(f.definition.adapter.reconcile).toHaveBeenCalledTimes(1);
+  expect(w.text()).toContain("可显式准备新请求");
+  expect([...f.values.values()].join("")).toContain('"completed":true');
+  w.unmount();
+});

@@ -357,3 +357,95 @@ it("keeps explicit filters and latest query results isolated from older reads", 
   expect(w.text()).toContain("筛选后");
   w.unmount();
 });
+it("opens an explicit initial row, reports a detached draft and refreshes a retained editor using the saved identity", async () => {
+  const d = definition();
+  let revision = "r1",
+    name = "当前值";
+  d.adapter.get = async () => ({
+    values: { name },
+    identity: { key: "one", revision },
+  });
+  d.adapter.save = vi.fn(async (attempt) => {
+    name = attempt.input.name;
+    revision = "r2";
+    return { status: "success" as const };
+  });
+  const w = mount(ConfigurationView as Component, {
+    props: {
+      definition: d,
+      scope: "retained-editor",
+      permissions,
+      initialRow: { name, revision },
+      retainEditor: true,
+      beforeClose: async () => false,
+    },
+  });
+  await flushPromises();
+  expect(w.find('[role="dialog"]').exists()).toBe(true);
+  expect(w.emitted("protection")?.at(-1)).toEqual([
+    { dirty: false, pending: false },
+  ]);
+  await w.get('input[aria-label="名称"]').setValue("新值");
+  expect(w.emitted("draft")?.at(-1)).toEqual([
+    { values: { name: "新值" }, identity: { key: "one", revision: "r1" } },
+  ]);
+  await click(w, "关闭编辑");
+  expect(w.find('[role="dialog"]').exists()).toBe(true);
+  await click(w, "保存");
+  expect(d.adapter.save).toHaveBeenCalledTimes(1);
+  expect(w.get('input[aria-label="名称"]').element).toHaveProperty(
+    "value",
+    "新值",
+  );
+  expect(w.emitted("draft")?.at(-1)).toEqual([
+    { values: { name: "新值" }, identity: { key: "one", revision: "r2" } },
+  ]);
+  expect(w.emitted("protection")?.at(-1)).toEqual([
+    { dirty: false, pending: false },
+  ]);
+  w.unmount();
+});
+
+it("reads the saved revision into a retained editor after the original unknown request is confirmed", async () => {
+  const d: NonNullable<Parameters<typeof start>[0]> = definition();
+  let revision = "r1",
+    name = "当前值";
+  d.adapter.get = async () => ({
+    values: { name },
+    identity: { key: "one", revision },
+  });
+  d.adapter.save = async (attempt) => {
+    name = attempt.input.name;
+    revision = "r2";
+    return { status: "unknown" };
+  };
+  d.reconcile = async (attempt) => ({
+    status: "applied",
+    attemptId: attempt.id,
+    evidence: { revision },
+  });
+  const w = mount(ConfigurationView as Component, {
+    props: {
+      definition: d,
+      scope: "retained-recovery",
+      permissions,
+      initialRow: { name, revision },
+      retainEditor: true,
+    },
+  });
+  await flushPromises();
+  await w.get('input[aria-label="名称"]').setValue("原请求输入");
+  await click(w, "保存");
+  expect(w.text()).toContain("保存结果未知");
+  await click(w, "核实本次请求");
+  expect(w.emitted("draft")?.at(-1)).toEqual([
+    {
+      values: { name: "原请求输入" },
+      identity: { key: "one", revision: "r2" },
+    },
+  ]);
+  expect(w.emitted("protection")?.at(-1)).toEqual([
+    { dirty: false, pending: false },
+  ]);
+  w.unmount();
+});

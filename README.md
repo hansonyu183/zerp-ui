@@ -277,3 +277,14 @@ DataList通过selectedKeys及update:selectedKeys受控勾选记录，启用时�
 此候选为 OIT 原生05本地消费构建，尚未推送或正式发布，不替代0.6.0正式Release。
 
 Local report candidate also exposes the `ReportView` `parameters` event with an independent copy of current form values. Consumers may use it for dependent choice queries without implementing a second report lifecycle. Query results can include frozen `columns` so runtime field definitions are adopted with their matching result; paging and restored snapshots keep that interpretation.
+
+## OIT 本地消费候选 0.6.1-oit.3
+
+本候选仍通过公开包入口消费，不使用私有路径或运行时句柄。领域 DTO、权限、当前会话和持久回执由消费者负责；嵌套的 Vue Proxy 须在 Adapter 接缝转为保留原字面值的普通 DTO。
+
+- `CrudView` 的 `blocks` 复用 `ConfigurationBlock`。`view` 动作与 `get().writable`、`readonlyFields` 保持只读查看及实际编辑分离；`viewLabel` 提供稳定原身份的查看入口。`protection` 报告编辑与写入保护，`queried` 报告已应用条件，`beforeClose` 可等待公开 EditGuard；`openRow(row, readOnly)` 仍执行本视图的读取与门禁。
+- `ConfigurationView` 的 `draft` 只向宿主提供值及原身份的分离镜像，供发布、调试等领域操作判断资格；不是第二个可写编辑器。`protection`、`beforeClose`、`initialRow`、`retainEditor` 及 `openRow/newDraft/refresh` 承接读取、草稿与关闭生命周期。`saveLabel/createLabel/savedMessage` 仅承接业务文案。
+- operation 协议 `VoucherView.prepare()` 仅启动视图自身的准备流程。`confirmationLabel/reconcileLabel/sealLabel` 仅替换有限按钮文案；动作仍为既有闭合集合。已确认的原回执刷新可以替换输入值；目标身份变化仍使迟到响应失效，未写入的预览仍会因输入变化失效。
+- 固定报表的 `expiresAt` 是服务端绝对期限，替换查询不会延长已采用结果。`adopted` 提供原参数与 resultId 给领域打印等操作；`snapshot` 用于离开/返回，不应回灌为同实例实时参数源。
+
+本地合成测试与消费项目的真实 API 验证分别记录。本候选没有向上游 npm、GitHub Release 或生产环境发布。

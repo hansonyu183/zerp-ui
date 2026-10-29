@@ -21,7 +21,15 @@ const props = defineProps<{
   scope: string;
   permissions: { read: boolean; write: boolean; reconcile?: boolean };
   blocks?: readonly ConfigurationBlock<D>[];
+  beforeClose?: () => Promise<boolean>;
+  initialRow?: R;
+  retainEditor?: boolean;
 }>();
+const emit = defineEmits<{
+  protection: [state: { dirty: boolean; pending: boolean }];
+  draft: [value: { values: D; identity?: I } | null];
+}>();
+const initial = shallowRef<D | null>(null);
 const filters = shallowRef<F>(props.definition.initialFilters()),
   applied = shallowRef<F>(clone(filters.value));
 const result = shallowRef<Page<R>>({ items: [], total: 0 }),
@@ -63,6 +71,18 @@ let generation = 0,
   editId = 0,
   active = true;
 const current = (g: number) => active && g === generation;
+async function requestClose() {
+  const g = generation,
+    e = editId;
+  if (
+    blocked.value ||
+    (props.beforeClose && !(await props.beforeClose())) ||
+    !current(g) ||
+    e !== editId
+  )
+    return;
+  close();
+}
 function close() {
   if (lock.value.phase === "pending") return;
   editId++;
@@ -114,7 +134,7 @@ async function query(next = page.value, submit = false) {
     if (current(g) && q === queryId) loading.value = false;
   }
 }
-async function begin(row?: R) {
+async function begin(row?: R, identityOverride?: I) {
   if (
     blocked.value ||
     editor.value ||
@@ -129,7 +149,7 @@ async function begin(row?: R) {
   error.value = "";
   notice.value = "";
   pending.value = {};
-  if (!row) {
+  if (!row && identityOverride === undefined) {
     if (definition.adapter.empty)
       editor.value = {
         values: clone(
@@ -140,20 +160,27 @@ async function begin(row?: R) {
         ),
         writable: true,
       };
+    initial.value = editor.value ? clone(editor.value.values) : null;
     return;
   }
   detailLoading.value = true;
   try {
     const detail = await definition.adapter.get({
       scope: props.scope,
-      identity: clone(definition.identity(row)),
+      identity: clone(
+        identityOverride === undefined
+          ? definition.identity(row!)
+          : identityOverride,
+      ),
     });
-    if (current(g) && e === editId)
+    if (current(g) && e === editId) {
+      initial.value = clone(detail.values);
       editor.value = {
         values: clone(detail.values),
         identity: clone(detail.identity),
         writable: detail.writable !== false,
       };
+    }
   } catch (cause) {
     if (current(g) && e === editId) error.value = message(cause);
   } finally {
@@ -180,7 +207,7 @@ const bindings = computed(() => {
         props: {
           modelValue: clone(editor.value?.values[block.key]),
           catalog: clone(block.catalog),
-          mode: disabled.value ? ("read" as const) : ("edit" as const),
+          mode: editor.value?.writable ? ("edit" as const) : ("read" as const),
           disabled: disabled.value,
           "onUpdate:modelValue": (value: D[typeof block.key]) => {
             if (valid())
@@ -239,8 +266,17 @@ async function save() {
       target.phase = "refresh";
       if (current(g)) {
         close();
-        notice.value = "配置已保存。";
+        notice.value = definition.savedMessage ?? "配置已保存。";
         await query();
+        if (
+          current(g) &&
+          props.retainEditor &&
+          attempt.identity !== undefined &&
+          !blocked.value
+        )
+          await begin(undefined, attempt.identity);
+        if (current(g))
+          notice.value = definition.savedMessage ?? "配置已保存。";
       }
     } else if (outcome.status === "failure") {
       target.phase = "idle";
@@ -284,6 +320,14 @@ async function reconcile() {
           close();
           notice.value = "已核实保存成功。";
           await query();
+          if (
+            current(g) &&
+            props.retainEditor &&
+            attempt.identity !== undefined &&
+            !blocked.value
+          )
+            await begin(undefined, attempt.identity);
+          if (current(g)) notice.value = "已核实保存成功。";
         }
       } else {
         target.phase = "idle";
@@ -297,6 +341,43 @@ async function reconcile() {
     if (current(g)) verifying.value = false;
   }
 }
+defineExpose({
+  newDraft: async () => {
+    if (editor.value) await requestClose();
+    if (!editor.value) await begin();
+  },
+  openRow: async (row: R) => {
+    if (editor.value) await requestClose();
+    if (!editor.value) await begin(row);
+  },
+  refresh: () => query(1),
+});
+watch(
+  () => [editor.value, lock.value.phase] as const,
+  () => {
+    emit("protection", {
+      dirty:
+        !!editor.value &&
+        JSON.stringify(editor.value.values) !== JSON.stringify(initial.value),
+      pending: blocked.value,
+    });
+  },
+  { immediate: true, flush: "sync" },
+);
+watch(
+  editor,
+  () =>
+    emit(
+      "draft",
+      editor.value
+        ? {
+            values: clone(editor.value.values),
+            identity: clone(editor.value.identity),
+          }
+        : null,
+    ),
+  { immediate: true, flush: "sync" },
+);
 watch(
   [() => props.scope, () => props.definition, () => props.permissions.read],
   () => {
@@ -314,7 +395,10 @@ watch(
     verifying.value = false;
     error.value = "";
     notice.value = "";
-    void query(1);
+    const g = generation;
+    void query(1).then(() => {
+      if (current(g) && props.initialRow) void begin(props.initialRow);
+    });
   },
   { immediate: true, flush: "sync" },
 );
@@ -370,7 +454,7 @@ onBeforeUnmount(() => {
       :disabled="blocked || !!editor || detailLoading"
       @click="begin()"
     >
-      新增配置
+      {{ definition.createLabel ?? "新增配置" }}
     </button>
     <DataList
       :columns="definition.columns"
@@ -399,7 +483,11 @@ onBeforeUnmount(() => {
         :key="block.key"
         v-bind="block.props"
       />
-      <button type="button" :disabled="lock.phase === 'pending'" @click="close">
+      <button
+        type="button"
+        :disabled="lock.phase === 'pending'"
+        @click="requestClose"
+      >
         关闭编辑
       </button>
       <button
@@ -407,7 +495,7 @@ onBeforeUnmount(() => {
         :disabled="disabled || Object.values(pending).some(Boolean)"
         @click="save"
       >
-        保存
+        {{ definition.saveLabel ?? "保存" }}
       </button>
     </section>
   </section>

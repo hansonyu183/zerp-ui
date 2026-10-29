@@ -274,3 +274,36 @@ it("removes old scope candidates even when the new search fails", async () => {
   expect(w.text()).not.toContain("旧范围候选");
   w.unmount();
 });
+
+it("shows all initial multi-enum selections and preserves untouched selected values", async () => {
+  const { w, value } = form<{ states: string[] }>(
+    [
+      {
+        key: "states",
+        label: "状态",
+        type: "multi-enum",
+        options: [
+          { value: "D", label: "已完成" },
+          { value: "U", label: "未完成" },
+        ],
+      },
+    ],
+    { states: ["D", "U"] },
+  );
+  const select = w.get('select[aria-label="状态"]');
+  expect(
+    Array.from(
+      (select.element as HTMLSelectElement).selectedOptions,
+      (option) => option.value,
+    ),
+  ).toEqual(["D", "U"]);
+  await select.setValue(["U"]);
+  expect(value.value.states).toEqual(["U"]);
+  expect(
+    Array.from(
+      (select.element as HTMLSelectElement).selectedOptions,
+      (option) => option.value,
+    ),
+  ).toEqual(["U"]);
+  w.unmount();
+});

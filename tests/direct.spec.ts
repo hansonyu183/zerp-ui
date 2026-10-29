@@ -1,4 +1,4 @@
-import type { Component } from "vue";
+import { defineComponent, h, onMounted, type Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { describe, it, expect, vi } from "vitest";
 import { CrudView, defineCrud } from "../src/index";
@@ -259,6 +259,124 @@ it("rejects an incomplete decimal without calling the write adapter", async () =
   expect(w.get('input[aria-label="金额"]').element).toHaveProperty(
     "value",
     "-",
+  );
+  w.unmount();
+});
+
+it("keeps the original pending write when write permissions change during delivery", async () => {
+  const d = definition(),
+    response = deferred<{ status: "success" }>();
+  vi.mocked(d.adapter.save).mockReturnValueOnce(response.promise);
+  const w = await start(d);
+  await click(w, "编辑");
+  await click(w, "保存");
+  const queryCount = vi.mocked(d.adapter.query).mock.calls.length;
+  await w.setProps({ permissions: { ...permissions, write: false } });
+  await flushPromises();
+  expect(d.adapter.query).toHaveBeenCalledTimes(queryCount);
+  response.resolve({ status: "success" });
+  await flushPromises();
+  await w.setProps({ permissions });
+  await flushPromises();
+  expect(button(w, "新增").attributes("disabled")).toBeUndefined();
+  expect(d.adapter.save).toHaveBeenCalledOnce();
+  w.unmount();
+});
+
+it("opens a readonly native record and protects closing before entering its editor", async () => {
+  const d = definition();
+  d.actions = () => ["view", "edit", "delete"] as never;
+  const beforeClose = vi.fn(async () => false);
+  const w = mount(CrudView as Component, {
+    props: { definition: d, scope: "view", permissions, beforeClose },
+  });
+  await flushPromises();
+  await click(w, "查看");
+  expect(
+    w.get('input[aria-label="名称"]').attributes("disabled"),
+  ).toBeDefined();
+  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({ dirty: false });
+  await click(w, "取消编辑");
+  expect(w.find('[role="dialog"]').exists()).toBe(true);
+  beforeClose.mockResolvedValue(true);
+  await w.get('[role="dialog"]').get("button").trigger("click");
+  await flushPromises();
+  expect(
+    w.get('input[aria-label="名称"]').attributes("disabled"),
+  ).toBeUndefined();
+  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({ dirty: true });
+  w.unmount();
+});
+
+it("keeps native block values, pending validation and late events bound to one CRUD editor", async () => {
+  const callbacks: {
+    update: (value: { name: string }) => void;
+    pending: (value: boolean) => void;
+  }[] = [];
+  const block = defineComponent({
+    props: {
+      modelValue: { type: Object, required: true },
+      disabled: Boolean,
+      mode: String,
+    },
+    emits: ["update:modelValue", "pending"],
+    setup(props, { emit }) {
+      callbacks.push({
+        update: (value) => emit("update:modelValue", value),
+        pending: (value) => emit("pending", value),
+      });
+      onMounted(() => emit("pending", true));
+      return () =>
+        h("input", {
+          "aria-label": "原生名称",
+          value: props.modelValue.name,
+          disabled: props.disabled,
+        });
+    },
+  });
+  const create = vi.fn(async () => ({ status: "success" as const }));
+  const d = {
+    resource: "native-block",
+    title: "原生资料",
+    fields: [],
+    filters: [],
+    initialFilters: () => ({}),
+    columns: [{ key: "name", label: "名称" }],
+    identity: (row: { id: string; name: string }) => row.id,
+    actions: () => ["edit"] as const,
+    adapter: {
+      empty: () => ({ record: { name: "初始" } }),
+      query: async () => ({ items: [], total: 0 }),
+      get: async () => ({
+        identity: "one",
+        values: { record: { name: "旧" } },
+      }),
+      create,
+      save: create,
+    },
+  };
+  const w = mount(CrudView as Component, {
+    props: {
+      definition: d,
+      scope: "blocks",
+      permissions,
+      blocks: [{ key: "record", component: block, catalog: {} }],
+    },
+  });
+  await flushPromises();
+  await click(w, "新增");
+  expect(button(w, "保存").attributes("disabled")).toBeDefined();
+  await click(w, "取消编辑");
+  await click(w, "新增");
+  callbacks[1]!.pending(false);
+  callbacks[1]!.update({ name: "新" });
+  callbacks[0]!.pending(true);
+  callbacks[0]!.update({ name: "迟到" });
+  await flushPromises();
+  expect(button(w, "保存").attributes("disabled")).toBeUndefined();
+  await click(w, "保存");
+  expect(create).toHaveBeenCalledWith(
+    expect.objectContaining({ input: { record: { name: "新" } } }),
   );
   w.unmount();
 });

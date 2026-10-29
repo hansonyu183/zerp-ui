@@ -86,7 +86,11 @@ export type ReportPresentation<R> = {
     summary: ReportSummary<R>;
   }[];
 };
-export type ReportPage<R> = Page<R> & { presentation?: ReportPresentation<R> };
+export type ReportPage<R> = Page<R> & {
+  /** Absolute server-defined expiry in epoch milliseconds. No library TTL. */
+  expiresAt?: number;
+  presentation?: ReportPresentation<R>;
+};
 export function validateReportPresentation<R extends object>(
   columns: readonly ReportColumn<R>[],
   rows: readonly R[],
@@ -139,6 +143,7 @@ export type ReportResultRequest<I> = {
   signal: AbortSignal;
 };
 export type ReportValidity = {
+  expiresAt?: number;
   status: "valid" | "expired" | "forbidden" | "identity-invalid";
 };
 export type ReportCancellation = {
@@ -223,7 +228,12 @@ export type ReportSnapshot<
   result: ReportPage<R> | null;
   page: number;
   pageSize: number;
-  fixed: { id: I; summary: ReportSummary<R>; context: string } | null;
+  fixed: {
+    id: I;
+    summary: ReportSummary<R>;
+    context: string;
+    expiresAt?: number;
+  } | null;
   definition: ReportDefinition<P, R, I, K, T>;
   scroll: { left: number; top: number };
 };

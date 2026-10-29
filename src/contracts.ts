@@ -84,7 +84,7 @@ export type Column<R> = {
   visible?: boolean;
   width?: string;
 };
-export type CrudAction = "edit" | "enable" | "disable" | "delete";
+export type CrudAction = "view" | "edit" | "enable" | "disable" | "delete";
 export type ListAction =
   | "view"
   | "send"
@@ -111,6 +111,9 @@ export type WriteResult =
 export type ReconcileResult<E> =
   | { status: "unknown" }
   | { status: "applied" | "not-applied"; attemptId: string; evidence: E };
+export type FieldKey<D extends object> = keyof D extends never
+  ? string
+  : Extract<keyof D, string>;
 export type CrudAdapter<
   D extends object,
   F extends object,
@@ -126,7 +129,8 @@ export type CrudAdapter<
   get(input: { scope: string; identity: I }): Promise<{
     values: D;
     identity: I;
-    readonlyFields?: readonly Extract<keyof D, string>[];
+    readonlyFields?: readonly FieldKey<D>[];
+    writable?: boolean;
   }>;
   empty(input: { scope: string; filters: F }): D;
   create(attempt: Attempt<D, I>): Promise<WriteResult>;
@@ -148,6 +152,7 @@ export type CrudDefinition<
   initialFilters: () => F;
   columns: readonly Column<R>[];
   identity: (row: R) => I;
+  viewLabel?: (row: R) => string;
   actions: (row: R) => readonly CrudAction[];
   adapter: CrudAdapter<D, F, R, I>;
   reconcile?: (attempt: Attempt<D, I>) => Promise<ReconcileResult<E>>;

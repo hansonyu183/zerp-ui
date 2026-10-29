@@ -1,3 +1,13 @@
+# Local candidate 0.6.1-oit.3
+
+- Fixed results accept an absolute expiry, expire independently of a replacement query, and expose the adopted parameters/result identity without snapshot feedback.
+- CrudView accepts typed domain blocks, readonly record views, original identities and readonly keys, close protection and protection/query events.
+- ConfigurationView exposes detached drafts and protection, guarded record/new-draft entry, explicit initial records and retained editors. Saved notices survive the retained read.
+- VoucherView operation exposes preparation for domain action controls and finite business labels. A committed result may refresh form values; changing the target identity still invalidates late work.
+- Initial enum selection and idempotent report deactivation preserve native values and drill-return position.
+
+This is an OIT local dependency candidate. No upstream release or production deployment is implied.
+
 # Local candidate 0.6.1-oit.1
 
 Fixed reports accept typed row/cell appearance and group segments with authoritative subtotals. Query results may carry their frozen columns; ReportView snapshots preserve these together. Current parameter edits are emitted for dependent candidates, and consumers may describe applied parameters in business language. This candidate is verified locally for OIT and has not been published as an upstream Release.

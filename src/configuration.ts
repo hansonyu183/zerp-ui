@@ -37,6 +37,9 @@ export type ConfigurationDefinition<
 > = {
   resource: string;
   title: string;
+  saveLabel?: string;
+  savedMessage?: string;
+  createLabel?: string;
   fields: Fields<D>;
   filters: Fields<F>;
   initialFilters: () => F;

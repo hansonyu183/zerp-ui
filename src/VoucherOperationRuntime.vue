@@ -16,12 +16,23 @@ const props = defineProps<{
   recoveryAllowed: boolean;
 }>();
 const emit = defineEmits<{
+  protection: [state: { dirty: boolean; pending: boolean }];
   settled: [settlement: VoucherOperationSettlement<M, I, B>];
 }>();
 const session = computed(() =>
   operationSession(props.definition, props.intent.owner),
 );
 const state = computed(() => session.value.state);
+watch(
+  () => [state.value.prepared, state.value.journal, state.value.phase] as const,
+  () => {
+    emit("protection", {
+      dirty: !!state.value.prepared,
+      pending: !!state.value.journal && !state.value.journal.completed,
+    });
+  },
+  { immediate: true, flush: "sync" },
+);
 let generation = 0;
 let attached: ReturnType<typeof operationSession<M, I, B>> | undefined;
 function publish(
@@ -58,13 +69,18 @@ watch(
   { immediate: true, flush: "sync" },
 );
 watch(
-  [
-    () => props.intent.identity,
-    () => props.intent.input,
-    () => props.intent.action,
-  ],
+  () => JSON.stringify(props.intent.identity),
   () => {
     generation++;
+    session.value.cancelPreview();
+  },
+  { flush: "sync" },
+);
+watch(
+  [() => props.intent.input, () => props.intent.action],
+  () => {
+    // Committed result reads may replace form values; the original receipt still owns completion.
+    if (!state.value.journal) generation++;
     session.value.cancelPreview();
   },
   { deep: true, flush: "sync" },
@@ -73,7 +89,7 @@ watch(
   () => props.eligible,
   (allowed) => {
     if (!allowed) {
-      generation++;
+      if (!state.value.journal) generation++;
       session.value.cancelPreview();
     }
   },
@@ -105,6 +121,7 @@ onBeforeUnmount(() => {
   generation++;
   session.value.cancelPreview();
 });
+defineExpose({ prepare });
 </script>
 <template>
   <section class="zerp-ui" aria-label="单据办理">
@@ -166,7 +183,10 @@ onBeforeUnmount(() => {
         :disabled="state.busy || !eligible"
         @click="confirm"
       >
-        确认{{ voucherOperationLabels[state.prepared.action] }}</button
+        {{
+          definition.confirmationLabel ??
+          `确认${voucherOperationLabels[state.prepared.action]}`
+        }}</button
       ><button
         type="button"
         :disabled="state.busy"
@@ -187,8 +207,8 @@ onBeforeUnmount(() => {
         state.phase === "refresh"
           ? "重试读取"
           : state.phase === "seal"
-            ? "封存原请求"
-            : "核实原请求"
+            ? (definition.sealLabel ?? "封存原请求")
+            : (definition.reconcileLabel ?? "核实原请求")
       }}
     </button>
   </section>

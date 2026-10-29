@@ -129,6 +129,9 @@ export type VoucherOperationDefinition<
   B,
 > = {
   protocol: "operation";
+  confirmationLabel?: string;
+  reconcileLabel?: string;
+  sealLabel?: string;
   adapter: {
     prepare(
       intent: VoucherOperationIntent<M, I>,

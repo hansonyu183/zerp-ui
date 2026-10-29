@@ -206,7 +206,6 @@ onBeforeUnmount(() => emit("pending", false));
           :multiple="field.type === 'multi-enum'"
           :aria-label="field.label"
           :disabled="disabled || field.readonly"
-          :value="values[field.key]"
           @change="
             set(
               field.key,
@@ -219,11 +218,22 @@ onBeforeUnmount(() => emit("pending", false));
             )
           "
         >
-          <option value="">请选择</option>
+          <option
+            value=""
+            :selected="field.type !== 'multi-enum' && !values[field.key]"
+          >
+            请选择
+          </option>
           <option
             v-for="option in field.options"
             :key="option.value"
             :value="option.value"
+            :selected="
+              field.type === 'multi-enum'
+                ? Array.isArray(values[field.key]) &&
+                  (values[field.key] as string[]).includes(option.value)
+                : values[field.key] === option.value
+            "
           >
             {{ option.label }}
           </option>

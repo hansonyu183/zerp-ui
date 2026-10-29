@@ -542,6 +542,7 @@ it("restores the applied page and both scroll axes only after revalidation, and 
   const scroller = w.get(".zerp-report-scroll").element;
   scroller.scrollLeft = 231;
   scroller.scrollTop = 83;
+  scroller.dispatchEvent(new Event("scroll"));
   await w.setProps({ active: false });
   const saved = w.emitted("snapshot")!.at(-1)![0];
   w.unmount();
@@ -556,10 +557,10 @@ it("restores the applied page and both scroll axes only after revalidation, and 
       restore: saved,
     },
   });
-  expect(restored.text()).toContain("第二页");
+  expect(restored.text()).not.toContain("第二页");
   expect(restored.text()).toContain("结果待重验");
   expect(button(restored, "导出").attributes("disabled")).toBeDefined();
-  expect(button(restored, "上一页").attributes("disabled")).toBeDefined();
+  expect(restored.find("table").exists()).toBe(false);
   expect(restored.find("a").exists()).toBe(false);
   check.resolve({ status: "valid" });
   await flushPromises();
@@ -585,7 +586,7 @@ it("retains a pending revalidation screen on transport failure and rejects respo
   await w.setProps({ active: true });
   await flushPromises();
   expect(w.text()).toContain("连接中断");
-  expect(w.text()).toContain("异常原值 -.x");
+  expect(w.text()).not.toContain("异常原值 -.x");
   expect(button(w, "导出").attributes("disabled")).toBeDefined();
   const check = deferred<{ status: "valid" }>();
   vi.mocked(d.adapter.revalidate).mockReturnValueOnce(check.promise);
@@ -796,6 +797,7 @@ it("does not restore scroll from a stale revalidation into a replacement scope r
   const scroller = w.get(".zerp-report-scroll").element;
   scroller.scrollLeft = 70;
   scroller.scrollTop = 31;
+  scroller.dispatchEvent(new Event("scroll"));
   check.resolve({ status: "valid" });
   await flushPromises();
   expect(scroller.scrollLeft).toBe(70);
@@ -812,6 +814,7 @@ it("requeries a returning parameter report at the applied page and restores both
   const scroller = w.get(".zerp-report-scroll").element;
   scroller.scrollLeft = 123;
   scroller.scrollTop = 56;
+  scroller.dispatchEvent(new Event("scroll"));
   await w.setProps({ active: false });
   await w.setProps({ active: true });
   await flushPromises();
@@ -957,4 +960,67 @@ it("emits current independent parameter edits before querying for dependent cand
   await w.get('input[aria-label="关键字"]').setValue("当前条件");
   expect(w.emitted("parameters")?.at(-1)).toEqual([{ keyword: "当前条件" }]);
   w.unmount();
+});
+
+it("expires only the adopted fixed result while a replacement query remains in flight", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  const d = fixedDefinition();
+  const original = await d.adapter.query({
+    scope: "a",
+    parameters: { keyword: "初始" },
+    page: 1,
+    pageSize: 1,
+    requestId: "initial",
+    signal: new AbortController().signal,
+  });
+  vi.mocked(d.adapter.query).mockResolvedValueOnce({
+    ...original,
+    expiresAt: Date.now() + 1000,
+  });
+  const w = fixedStart(d);
+  try {
+    await submit(w);
+    const next = deferred<typeof original>();
+    vi.mocked(d.adapter.query).mockReturnValueOnce(next.promise);
+    await w.get("form").trigger("submit");
+    const call = vi.mocked(d.adapter.query).mock.calls.at(-1) as unknown as [
+      { signal: AbortSignal },
+    ];
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(w.find("table").exists()).toBe(false);
+    expect(w.text()).toContain("重新查询");
+    expect(call[0].signal.aborted).toBe(false);
+    expect(w.emitted("snapshot")?.at(-1)?.[0]).toMatchObject({
+      fixed: null,
+      result: null,
+    });
+    next.resolve({ ...original, id: { token: "result-2" } });
+    await flushPromises();
+    expect(w.get("table").text()).toContain("9007199254740993.0100");
+    expect(w.text()).not.toContain("结果已失效");
+  } finally {
+    w.unmount();
+    vi.useRealTimers();
+  }
+});
+
+it("hides retained data until authority revalidation finishes after a failed replacement", async () => {
+  const d = fixedDefinition(),
+    w = fixedStart(d);
+  try {
+    await submit(w);
+    const check = deferred<{ status: "valid" }>();
+    vi.mocked(d.adapter.revalidate).mockReturnValueOnce(check.promise);
+    vi.mocked(d.adapter.query).mockRejectedValueOnce(new Error("普通网络失败"));
+    await w.get("form").trigger("submit");
+    await flushPromises();
+    expect(d.adapter.revalidate).toHaveBeenCalledOnce();
+    expect(w.find("table").exists()).toBe(false);
+    check.resolve({ status: "valid" });
+    await flushPromises();
+    expect(w.get("table").text()).toContain("9007199254740993.0100");
+    expect(w.text()).toContain("普通网络失败");
+  } finally {
+    w.unmount();
+  }
 });

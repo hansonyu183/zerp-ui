@@ -52,6 +52,7 @@ const props = withDefaults(
 );
 const emit = defineEmits<{
   snapshot: [value: Snapshot];
+  adopted: [value: { parameters: P; resultId: I | null } | null];
   parameters: [value: P];
   drill: [value: ReportDrill<I, K, T>];
 }>();
@@ -138,10 +139,41 @@ function parameters() {
   if (pending.value || invalid) throw new Error(invalid ?? "请完成参数输入。");
   return clone(input.value);
 }
+let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+function scheduleExpiry() {
+  clearTimeout(expiryTimer);
+  const expiresAt = fixed.value?.expiresAt;
+  if (expiresAt === undefined) return;
+  if (!Number.isFinite(expiresAt)) throw new Error("报表结果期限无效。");
+  expiryTimer = setTimeout(
+    () => {
+      if (Date.now() < expiresAt) {
+        scheduleExpiry();
+        return;
+      }
+      clearResult();
+      invalidateExport();
+      validationGeneration++;
+      validationController?.abort();
+      checking.value = false;
+      error.value = "结果已失效，请重新查询。";
+      snapshot();
+    },
+    Math.max(0, Math.min(expiresAt - Date.now(), 2147483647)),
+  );
+}
+watch(() => fixed.value?.expiresAt, scheduleExpiry, { flush: "sync" });
+const changedParameters = computed(
+  () =>
+    applied.value !== null &&
+    JSON.stringify(input.value) !== JSON.stringify(applied.value),
+);
 function clearResult() {
+  clearTimeout(expiryTimer);
   result.value = null;
   fixed.value = null;
   applied.value = null;
+  emit("adopted", null);
   page.value = 1;
   valid.value = true;
 }
@@ -149,6 +181,7 @@ function failed(caught: unknown) {
   if (caught instanceof ReportUnavailable) {
     clearResult();
     invalidateExport();
+    snapshot();
   }
   return message(caught);
 }
@@ -216,6 +249,7 @@ async function runQuery(values: P, target: number, paging: boolean) {
           id: created.id,
           summary: clone(created.summary),
           context: created.context,
+          expiresAt: created.expiresAt,
         };
       }
     } else {
@@ -247,15 +281,31 @@ async function runQuery(values: P, target: number, paging: boolean) {
         d.columns.filter((c) => c.key in metadata!.summary.values),
         [metadata.summary.values as R],
       );
+    if (metadata && value.expiresAt !== undefined)
+      metadata = { ...metadata, expiresAt: value.expiresAt };
+    if (
+      metadata?.expiresAt !== undefined &&
+      (!Number.isFinite(metadata.expiresAt) || metadata.expiresAt <= Date.now())
+    )
+      throw new ReportUnavailable("expired", "结果已失效，请重新查询。");
     result.value = clone(value);
     fixed.value = metadata;
     adopted.value = d;
     applied.value = clone(values);
+    emit("adopted", {
+      parameters: clone(values),
+      resultId: metadata?.id ?? null,
+    });
     page.value = target;
     valid.value = true;
     retry = undefined;
+    notice.value = "";
+    error.value = "";
   } catch (caught) {
-    if (current === generation) error.value = failed(caught);
+    if (current === generation) {
+      error.value = failed(caught);
+      if (result.value && fixed.value) await revalidate(false);
+    }
   } finally {
     if (current === generation) {
       loading.value = false;
@@ -302,8 +352,11 @@ async function cancel() {
       notice.value = `服务端取消失败，清理未确认：${message(caught)}`;
   } finally {
     if (current === generation) {
-      cancelling.value = false;
-      job.value = undefined;
+      if (result.value && fixed.value) await revalidate(false);
+      if (current === generation) {
+        cancelling.value = false;
+        job.value = undefined;
+      }
     }
   }
 }
@@ -346,9 +399,13 @@ async function download() {
     if (current === exportGeneration) exporting.value = false;
   }
 }
-function snapshot() {
-  if (scroll.value)
+function capturePosition() {
+  if (scroll.value && enabled.value && usable.value)
     position = { left: scroll.value.scrollLeft, top: scroll.value.scrollTop };
+}
+function snapshot() {
+  if (scroll.value?.isConnected && scroll.value.getClientRects().length)
+    capturePosition();
   emit("snapshot", {
     scope: props.scope,
     resource: props.definition.resource,
@@ -379,11 +436,11 @@ function restorePosition() {
     scroll.value.scrollTop = position.top;
   }
 }
-async function revalidate() {
+async function revalidate(clearError = true) {
   if (!enabled.value || !result.value || !props.permissions.query) return;
   valid.value = false;
   checking.value = true;
-  error.value = "";
+  if (clearError) error.value = "";
   const current = ++validationGeneration;
   validationController?.abort();
   validationController = new AbortController();
@@ -395,9 +452,16 @@ async function revalidate() {
         signal: validationController.signal,
       });
       if (current !== validationGeneration) return;
-      if (outcome.status !== "valid") {
+      if (outcome.expiresAt !== undefined && fixed.value)
+        fixed.value = { ...fixed.value, expiresAt: outcome.expiresAt };
+      if (
+        outcome.status !== "valid" ||
+        (fixed.value?.expiresAt !== undefined &&
+          fixed.value.expiresAt <= Date.now())
+      ) {
         clearResult();
         notice.value = "结果已失效或无权访问，请重新查询。";
+        snapshot();
         return;
       }
     } else {
@@ -422,6 +486,7 @@ async function revalidate() {
   }
 }
 function deactivate() {
+  if (!enabled.value) return;
   snapshot();
   enabled.value = false;
   generation++;
@@ -507,6 +572,7 @@ onActivated(activate);
 onDeactivated(deactivate);
 onBeforeUnmount(() => {
   deactivate();
+  clearTimeout(expiryTimer);
 });
 </script>
 <template>
@@ -562,13 +628,13 @@ onBeforeUnmount(() => {
       <button
         type="button"
         :disabled="checking || !enabled"
-        @click="revalidate"
+        @click="revalidate()"
       >
         重验结果
       </button>
     </p>
     <p v-if="error" role="alert">
-      {{ error }} <span v-if="result">仍显示上次成功结果。</span
+      {{ error }} <span v-if="result && usable">仍显示上次成功结果。</span
       ><button
         v-if="retry && canQuery"
         type="button"
@@ -578,17 +644,25 @@ onBeforeUnmount(() => {
         重试查询
       </button>
     </p>
+    <p v-if="changedParameters">当前条件尚未查询；下方为上次成功结果。</p>
     <p v-if="exportError" role="alert">{{ exportError }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <div v-if="canQuery && result" ref="scroll" class="zerp-report-scroll">
-      <p>
+    <div
+      v-if="canQuery && result && usable"
+      ref="scroll"
+      @scroll="capturePosition"
+      class="zerp-report-scroll"
+      role="region"
+      :aria-label="definition.title + '结果'"
+    >
+      <p role="status">
         已采用条件：{{
           applied && displayDefinition.describeParameters
             ? displayDefinition.describeParameters(applied)
             : applied
         }}
+        <span v-if="fixed">；{{ fixed.context }}</span>
       </p>
-      <p v-if="fixed">{{ fixed.context }}</p>
       <DataList
         :columns="displayDefinition.columns"
         :result="result"
