@@ -125,11 +125,13 @@ export type VoucherOperationPersistence<
   /** Idempotently complete this exact journal, retaining its terminal receipt for other recovering contexts. */
   remove(owner: VoucherOperationOwner, expectedId: string): Promise<void>;
 };
+declare const operationModel: unique symbol;
 export type VoucherOperationDefinition<
   M extends VoucherOperationModel,
   I,
   B,
 > = {
+  readonly [operationModel]?: (model: M) => M;
   protocol: "operation";
   confirmationLabel?: string;
   reconcileLabel?: string;

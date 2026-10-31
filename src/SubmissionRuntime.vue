@@ -3,10 +3,10 @@
   lang="ts"
   generic="D extends object, I, S, O, H, A extends object, E = never"
 >
-import {equalValues} from './editor-values';
-import type {EditProtection} from './edit-guard';
+import { equalValues } from "./editor-values";
+import type { EditProtection } from "./edit-guard";
 import DomainBlockHost from "./DomainBlockHost.vue";
-import {validateDomainBlocks,type DomainBlock} from "./domain-blocks";
+import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
 import { VProgressLinear } from "vuetify/components";
@@ -33,10 +33,10 @@ const props = defineProps<{
   kind?: "document" | "voucher";
   lockAdapter?: object;
   externalDisabled?: boolean;
-  beforeClose?:()=>Promise<boolean>;
-  discardVersion?:number;
+  beforeClose?: () => Promise<boolean>;
+  discardVersion?: number;
 }>();
-const emit=defineEmits<{protection:[state:EditProtection]}>();
+const emit = defineEmits<{ protection: [state: EditProtection] }>();
 const vouchers = computed(() => props.definition.vouchers);
 type Snapshot = DocumentSnapshot<D, I, S, O, H>;
 type Attempt = DocumentAttempt<D, I, S, H> | StageAttempt<I, S, O>;
@@ -118,13 +118,14 @@ function discardUnstaged() {
 }
 const current = (g: number) => active && generation === g;
 async function close() {
-  const g=generation,i=instance;
-  if (lock.value.phase !== 'idle') return;
-  if(editor.value && props.beforeClose && !(await props.beforeClose()))return;
-  if(!current(g)||i!==instance||lock.value.phase!=='idle')return;
+  const g = generation,
+    i = instance;
+  if (lock.value.phase !== "idle") return;
+  if (editor.value && props.beforeClose && !(await props.beforeClose())) return;
+  if (!current(g) || i !== instance || lock.value.phase !== "idle") return;
   finishEditor();
 }
-function finishEditor(){
+function finishEditor() {
   editor.value = false;
   instance++;
   pending.value = {};
@@ -316,14 +317,46 @@ const bindings = computed(() => {
       : [],
   };
 });
-const protection=computed<EditProtection>(()=>({
-  dirty:!!lock.value.context && (!equalValues(lock.value.context.values,lock.value.context.source.values)||lock.value.context.files.length>0),
-  localPending:busy.value,
-  invalid:!!lock.value.context && !!(validate(fields.value,lock.value.context.values,lock.value.context.mode)??validateDomainBlocks(props.blocks,lock.value.context.values,lock.value.context.mode)),
-  writeState:lock.value.phase,
+const protection = computed<EditProtection>(() => ({
+  dirty:
+    !!lock.value.context &&
+    (!equalValues(
+      lock.value.context.values,
+      lock.value.context.source.values,
+    ) ||
+      lock.value.context.files.length > 0),
+  localPending: busy.value,
+  invalid:
+    !!lock.value.context &&
+    !!(
+      validate(
+        fields.value,
+        lock.value.context.values,
+        lock.value.context.mode,
+      ) ??
+      validateDomainBlocks(
+        props.blocks,
+        lock.value.context.values,
+        lock.value.context.mode,
+      )
+    ),
+  writeState: lock.value.phase,
 }));
-watch(protection,value=>emit('protection',value),{immediate:true,flush:'sync'});
-watch(()=>props.discardVersion,()=>{if(lock.value.phase==='idle'){editor.value=false;instance++;pending.value={};discardUnstaged();}});
+watch(protection, (value) => emit("protection", value), {
+  immediate: true,
+  flush: "sync",
+});
+watch(
+  () => props.discardVersion,
+  () => {
+    if (lock.value.phase === "idle") {
+      editor.value = false;
+      instance++;
+      pending.value = {};
+      discardUnstaged();
+    }
+  },
+);
 function addFiles(event: Event) {
   const input = event.target as HTMLInputElement,
     files = Array.from(input.files ?? []);
@@ -354,11 +387,9 @@ function base(source: Snapshot) {
 async function submit() {
   const draft = lock.value.context;
   if (!editor.value || !draft || disabled.value || busy.value) return;
-  const invalid = validate(
-    fields.value as readonly AnyField[],
-    draft.values,
-    draft.mode,
-  ) ?? validateDomainBlocks(props.blocks,draft.values,draft.mode);
+  const invalid =
+    validate(fields.value as readonly AnyField[], draft.values, draft.mode) ??
+    validateDomainBlocks(props.blocks, draft.values, draft.mode);
   if (invalid) {
     error.value = invalid;
     return;

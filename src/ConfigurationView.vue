@@ -4,7 +4,7 @@
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
 import DomainBlockHost from "./DomainBlockHost.vue";
-import {validateDomainBlocks,type DomainBlock} from "./domain-blocks";
+import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
 import { VProgressLinear } from "vuetify/components";
@@ -12,7 +12,6 @@ import type { AnyField, Page } from "./contracts";
 import type {
   ConfigurationDefinition,
   ConfigurationAttempt,
-  
   ConfigurationViewHandle,
   ConfigurationDraft,
 } from "./configuration";
@@ -136,11 +135,18 @@ const protection = computed<EditProtection>(() => ({
   localPending: localPending.value,
   invalid:
     !!editor.value?.writable &&
-    !!(validate(
-      formFields.value as readonly AnyField[],
-      editor.value.values,
-      editor.value.creating ? "create" : "edit",
-    ) ?? validateDomainBlocks(props.blocks,editor.value.values,editor.value.creating ? "create":"edit")),
+    !!(
+      validate(
+        formFields.value as readonly AnyField[],
+        editor.value.values,
+        editor.value.creating ? "create" : "edit",
+      ) ??
+      validateDomainBlocks(
+        props.blocks,
+        editor.value.values,
+        editor.value.creating ? "create" : "edit",
+      )
+    ),
   writeState: lock.value.phase,
 }));
 watch(protection, (value) => emit("protection", value), {
@@ -340,11 +346,17 @@ async function save() {
   const definition = props.definition,
     target = lock.value,
     g = generation;
-  const invalid = validate(
-    formFields.value as readonly AnyField[],
-    editor.value.values,
-    editor.value.creating ? "create" : "edit",
-  ) ?? validateDomainBlocks(props.blocks,editor.value.values,editor.value.creating ? "create":"edit");
+  const invalid =
+    validate(
+      formFields.value as readonly AnyField[],
+      editor.value.values,
+      editor.value.creating ? "create" : "edit",
+    ) ??
+    validateDomainBlocks(
+      props.blocks,
+      editor.value.values,
+      editor.value.creating ? "create" : "edit",
+    );
   if (invalid) {
     error.value = invalid;
     return;
@@ -479,7 +491,12 @@ watch(
     if (row) void enter(row);
   },
 );
-watch(()=>props.discardVersion,()=>{if(lock.value.phase==='idle')clearEditor();});
+watch(
+  () => props.discardVersion,
+  () => {
+    if (lock.value.phase === "idle") clearEditor();
+  },
+);
 defineExpose<ConfigurationViewHandle<R>>({
   newDraft: () => enter(),
   openRow: (row) => enter(row),

@@ -4,7 +4,7 @@
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
 import DomainBlockHost from "./DomainBlockHost.vue";
-import {validateDomainBlocks,type DomainBlock} from "./domain-blocks";
+import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
 import { VProgressLinear } from "vuetify/components";
@@ -264,11 +264,18 @@ const protection = computed<EditProtection>(() => ({
   invalid:
     !!editor.value &&
     !editor.value.readOnly &&
-    !!(validate(
-      editFields.value as readonly AnyField[],
-      editor.value.values,
-      editor.value.row ? "edit" : "create",
-    ) ?? validateDomainBlocks(props.blocks,editor.value.values,editor.value.row ? "edit":"create")),
+    !!(
+      validate(
+        editFields.value as readonly AnyField[],
+        editor.value.values,
+        editor.value.row ? "edit" : "create",
+      ) ??
+      validateDomainBlocks(
+        props.blocks,
+        editor.value.values,
+        editor.value.row ? "edit" : "create",
+      )
+    ),
   writeState: lock.value.phase,
 }));
 watch(protection, (value) => emit("protection", value), {
@@ -353,11 +360,17 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       ? clone(editor.value?.values)
       : undefined;
   if (input) {
-    const invalid = validate(
-      editFields.value as readonly AnyField[],
-      input,
-      operation === "create" ? "create" : "edit",
-    ) ?? validateDomainBlocks(props.blocks,input,operation === "create" ? "create":"edit");
+    const invalid =
+      validate(
+        editFields.value as readonly AnyField[],
+        input,
+        operation === "create" ? "create" : "edit",
+      ) ??
+      validateDomainBlocks(
+        props.blocks,
+        input,
+        operation === "create" ? "create" : "edit",
+      );
     if (invalid) {
       error.value = invalid;
       return;
@@ -539,8 +552,25 @@ watch(
   },
   { immediate: true, flush: "sync" },
 );
-watch(()=>props.discardVersion,()=>{if(lock.value.phase==='idle'){editor.value=null;initial.value=null;formPending.value=false;blockPending.value={};editVersion++;}});
-watch(()=>props.initialRow,row=>{if(row)void openRow(row,props.readOnly??true);},{immediate:true});
+watch(
+  () => props.discardVersion,
+  () => {
+    if (lock.value.phase === "idle") {
+      editor.value = null;
+      initial.value = null;
+      formPending.value = false;
+      blockPending.value = {};
+      editVersion++;
+    }
+  },
+);
+watch(
+  () => props.initialRow,
+  (row) => {
+    if (row) void openRow(row, props.readOnly ?? true);
+  },
+  { immediate: true },
+);
 onBeforeUnmount(() => {
   active = false;
   editor.value = null;

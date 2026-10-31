@@ -26,10 +26,7 @@ import { computed, ref } from "vue";
 import VoucherSubmission from "./VoucherSubmission.vue";
 import VoucherOperationRuntime from "./VoucherOperationRuntime.vue";
 import type { VoucherDefinition } from "./voucher";
-import type {
-  
-  ConfigurationDefinition,
-} from "./configuration";
+import type { ConfigurationDefinition } from "./configuration";
 import type {
   VoucherOperationHandle,
   VoucherOperationDefinition,

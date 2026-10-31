@@ -18,9 +18,9 @@
     SE = never
   "
 >
-import type {EditProtection} from './edit-guard';
+import type { EditProtection } from "./edit-guard";
 import type { DomainBlock } from "./domain-blocks";
-import { computed } from "vue";
+import { computed, shallowRef, watch } from "vue";
 import ConfigurationView from "./ConfigurationView.vue";
 import { writeLock } from "./write-lock";
 import SubmissionRuntime from "./SubmissionRuntime.vue";
@@ -31,15 +31,12 @@ import type {
 } from "./voucher";
 import type { DocumentSnapshot } from "./document";
 import type { SubmissionDefinition } from "./submission";
-import type {
-  
-  ConfigurationDefinition,
-} from "./configuration";
+import type { ConfigurationDefinition } from "./configuration";
 const props = defineProps<{
   definition: VoucherDefinition<D, I, R, U, S, O, H, A, E>;
   scope: string;
-  beforeClose?:()=>Promise<boolean>;
-  discardVersion?:number;
+  beforeClose?: () => Promise<boolean>;
+  discardVersion?: number;
   permissions: { read: boolean; write: boolean; reconcile?: boolean };
   blocks?: readonly DomainBlock<D>[];
   script?: {
@@ -128,7 +125,36 @@ const scriptPermissions = computed(
       write: props.script.permissions.write && !voucherBlocked.value,
     },
 );
-const emit=defineEmits<{protection:[state:EditProtection]}>();
+const emit = defineEmits<{ protection: [state: EditProtection] }>();
+const clean: EditProtection = {
+  dirty: false,
+  localPending: false,
+  invalid: false,
+  writeState: "idle",
+};
+const voucherProtection = shallowRef<EditProtection>(clean),
+  scriptProtection = shallowRef<EditProtection>(clean);
+watch(
+  () => ({
+    dirty: voucherProtection.value.dirty || scriptProtection.value.dirty,
+    localPending:
+      voucherProtection.value.localPending ||
+      scriptProtection.value.localPending,
+    invalid: voucherProtection.value.invalid || scriptProtection.value.invalid,
+    writeState:
+      voucherProtection.value.writeState !== "idle"
+        ? voucherProtection.value.writeState
+        : scriptProtection.value.writeState,
+  }),
+  (value) => emit("protection", value),
+  { immediate: true, flush: "sync" },
+);
+watch(
+  () => props.script,
+  (value) => {
+    if (!value) scriptProtection.value = clean;
+  },
+);
 </script>
 <template>
   <SubmissionRuntime
@@ -140,12 +166,15 @@ const emit=defineEmits<{protection:[state:EditProtection]}>();
     :blocks="blocks"
     :before-close="beforeClose"
     :discard-version="discardVersion"
-    @protection="emit('protection',$event)"
+    @protection="voucherProtection = $event"
     :external-disabled="scriptBlocked"
   /><ConfigurationView
     v-if="script && scriptPermissions"
     :definition="script.definition"
     :scope="scope"
     :permissions="scriptPermissions"
+    :before-close="beforeClose"
+    :discard-version="discardVersion"
+    @protection="scriptProtection = $event"
   />
 </template>
