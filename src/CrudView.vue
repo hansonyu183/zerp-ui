@@ -43,6 +43,7 @@ const emit = defineEmits<{
 const guard = shallowRef<EditGuardHandle | null>(null);
 const initial = shallowRef<D | null>(null);
 const blockPending = ref<Record<string, boolean>>({});
+const filterPending = ref(false);
 const filters = shallowRef<F>(props.definition.initialFilters()),
   applied = shallowRef<F>(clone(filters.value)),
   result = shallowRef<Page<R>>({ items: [], total: 0 }),
@@ -102,6 +103,7 @@ const current = (v: number) => active && v === version;
 async function query(next = 1, submit = false) {
   if (!props.permissions.query) return;
   if (submit) {
+    if (filterPending.value) return;
     const invalid = validate(
       props.definition.filters as readonly AnyField[],
       filters.value,
@@ -479,6 +481,7 @@ watch(
     queryVersion++;
     editVersion++;
     filters.value = props.definition.initialFilters();
+    filterPending.value = false;
     applied.value = clone(filters.value);
     result.value = { items: [], total: 0 };
     editor.value = null;
@@ -523,16 +526,19 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
 
     <form v-if="permissions.query" @submit.prevent="query(1, true)">
       <DynamicForm
+        :key="version"
         :fields="shownFilters"
         v-model="filters"
         :scope="scope"
+        @pending="filterPending = $event"
       /><button
         v-if="definition.filters.length > 1"
         type="button"
+        :disabled="filterPending"
         @click="moreFilters = !moreFilters"
       >
         {{ moreFilters ? "收起条件" : "更多条件" }}</button
-      ><button type="submit" :disabled="loading">查询</button>
+      ><button type="submit" :disabled="loading || filterPending">查询</button>
     </form>
     <VProgressLinear
       v-if="loading || detailLoading"

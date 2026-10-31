@@ -39,6 +39,7 @@ const emit = defineEmits<{
 }>();
 const guard = shallowRef<EditGuardHandle | null>(null);
 const initial = shallowRef<D | null>(null);
+const filterPending = ref(false);
 const filters = shallowRef<F>(props.definition.initialFilters()),
   applied = shallowRef<F>(clone(filters.value));
 const result = shallowRef<Page<R>>({ items: [], total: 0 }),
@@ -159,6 +160,7 @@ watch(
 async function query(next = page.value, submit = false) {
   if (!props.permissions.read) return;
   if (submit) {
+    if (filterPending.value) return;
     const invalid = validate(
       props.definition.filters as readonly AnyField[],
       filters.value,
@@ -451,6 +453,7 @@ watch(
     result.value = { items: [], total: 0 };
     page.value = 1;
     filters.value = props.definition.initialFilters();
+    filterPending.value = false;
     applied.value = clone(filters.value);
     loading.value = false;
     detailLoading.value = false;
@@ -501,11 +504,13 @@ onBeforeUnmount(() => {
 
     <form v-if="permissions.read" @submit.prevent="query(1, true)">
       <DynamicForm
+        :key="generation"
         v-model="filters"
         :fields="definition.filters"
         :scope="scope"
+        @pending="filterPending = $event"
       />
-      <button type="submit" :disabled="loading">查询</button>
+      <button type="submit" :disabled="loading || filterPending">查询</button>
     </form>
     <VProgressLinear
       v-if="loading || detailLoading"
