@@ -1037,7 +1037,11 @@ async function voucherSmoke(page) {
   await page.getByLabel("脚本正文").fill("return 'updated';");
   await scenario("unknown-applied");
   await button("保存").click();
-  await button("关闭编辑").click();
+  assert.ok(
+    await script
+      .getByRole("button", { name: "关闭编辑", exact: true })
+      .isDisabled(),
+  );
   assert.ok(await button("创建 Draft").isDisabled());
   await button("核实本次请求").click();
   await page
