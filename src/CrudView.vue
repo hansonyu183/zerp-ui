@@ -6,7 +6,8 @@
 import DomainBlockHost from "./DomainBlockHost.vue";
 import {validateDomainBlocks,type DomainBlock} from "./domain-blocks";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
-import { VAlert, VProgressLinear } from "vuetify/components";
+import Feedback from "./Feedback.vue";
+import { VProgressLinear } from "vuetify/components";
 import type {
   CrudDefinition,
   CrudAction,
@@ -544,31 +545,42 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         {{ moreFilters ? "收起条件" : "更多条件" }}</button
       ><button type="submit" :disabled="loading || filterPending">查询</button>
     </form>
-    <VProgressLinear
-      v-if="loading || detailLoading"
-      indeterminate
-      aria-label="加载中"
-    />
-    <VAlert v-if="error" type="error" role="alert"
-      >{{ error
-      }}<button v-if="permissions.query" type="button" @click="query(page)">
-        重试读取
-      </button></VAlert
-    >
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="lock.phase === 'unknown'" role="status">
-      写入结果未知。普通查询或关闭编辑不能解除锁定。<button
-        v-if="definition.reconcile && permissions.reconcile"
-        type="button"
-        :disabled="verifying"
-        @click="reconcile"
+    <div class="zerp-progress-reserve">
+      <VProgressLinear
+        v-if="loading || detailLoading"
+        indeterminate
+        aria-label="加载中"
+      />
+    </div>
+    <div class="zerp-feedback-region">
+      <Feedback :message="error" kind="error"
+        ><button v-if="permissions.query" type="button" @click="query(page)">
+          重试读取
+        </button></Feedback
       >
-        核实本次请求
-      </button>
-    </p>
-    <p v-if="lock.phase === 'refresh'" role="status">
-      写入已成功，请重试读取；不会再次提交。
-    </p>
+      <Feedback :message="notice" />
+      <Feedback
+        :message="lock.phase === 'unknown' ? '请求结果未知' : undefined"
+        kind="warning"
+        persistent
+      >
+        写入结果未知。普通查询或关闭编辑不能解除锁定。<button
+          v-if="definition.reconcile && permissions.reconcile"
+          type="button"
+          :disabled="verifying"
+          @click="reconcile"
+        >
+          核实本次请求
+        </button>
+      </Feedback>
+      <Feedback
+        :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
+        kind="warning"
+        persistent
+      >
+        写入已成功，请重试读取；不会再次提交。
+      </Feedback>
+    </div>
     <button
       v-if="permissions.create && permissions.write"
       aria-label="新增"

@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="M extends VoucherOperationModel, I, B">
+import Feedback from "./Feedback.vue";
 import { computed, watch, onBeforeUnmount } from "vue";
 import { operationSession } from "./voucher-operation-session";
 import { clone } from "./clone";
@@ -142,23 +143,30 @@ onBeforeUnmount(() => {
     class="zerp-ui"
     aria-label="单据办理"
   >
-    <p role="status">
-      {{ state.notice }}
-      <span v-if="state.journal">
-        {{
-          state.journal.receipt?.status === "applied"
-            ? "已应用；原请求保持锁定直到读取及完成记录成功。"
-            : state.journal.receipt?.status === "not-applied"
-              ? state.journal.receipt.sealed
-                ? "已确认未应用并封存；等待读取及完成记录。"
-                : "已确认未应用；必须封存原请求。"
-              : state.phase === "pending"
-                ? "原请求处理中，暂不能开始新请求。"
-                : "结果未知；须核实原请求。"
-        }}
-      </span>
-    </p>
-    <p v-if="state.busy" role="status">正在处理办理请求…</p>
+    <div class="zerp-feedback-region">
+      <Feedback :message="state.notice" />
+      <Feedback
+        :message="
+          state.journal
+            ? state.journal.receipt?.status === 'applied'
+              ? '已应用；原请求保持锁定直到读取及完成记录成功。'
+              : state.journal.receipt?.status === 'not-applied'
+                ? state.journal.receipt.sealed
+                  ? '已确认未应用并封存；等待读取及完成记录。'
+                  : '已确认未应用；必须封存原请求。'
+                : state.phase === 'pending'
+                  ? '原请求处理中，暂不能开始新请求。'
+                  : '结果未知；须核实原请求。'
+            : undefined
+        "
+        kind="warning"
+        persistent
+      />
+      <Feedback
+        :message="state.busy ? '正在处理办理请求…' : undefined"
+        persistent
+      />
+    </div>
     <p v-if="state.journal">
       原请求：{{ state.journal.request.requestId }} ·
       {{ voucherOperationLabels[state.journal.request.action] }}
@@ -244,5 +252,5 @@ onBeforeUnmount(() => {
       }}
     </button>
   </section>
-  <p v-else role="status">无办理或核实权限。</p>
+  <Feedback v-else message="无办理或核实权限。" persistent />
 </template>
