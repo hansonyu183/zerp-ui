@@ -1,0 +1,77 @@
+.zerp-shell .zerp-shell-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  padding-inline: 0.5rem;
+}
+.zerp-shell .zerp-shell-brand {
+  color: inherit;
+  text-decoration: none;
+  gap: 0.5rem;
+}
+.zerp-shell-brand-copy {
+  display: grid;
+  min-width: 0;
+}
+.zerp-shell-brand-copy > * {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.zerp-shell .zerp-shell-actions {
+  gap: 0;
+  flex-shrink: 0;
+}
+.zerp-shell-account-button .v-btn__content {
+  gap: 0.5rem;
+}
+.zerp-shell-account-button img,
+.zerp-shell-brand .v-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.zerp-shell-brand-status {
+  position: fixed;
+  top: calc(var(--zerp-app-bar-height) + 0.5rem);
+  right: 0.5rem;
+  max-width: calc(100vw - 1rem);
+  background: rgb(var(--v-theme-surface));
+}
+.zerp-shell-overlays {
+  position: fixed;
+  inset: var(--v-layout-top) 0 0;
+  overflow-y: scroll;
+  scrollbar-width: none;
+  pointer-events: none;
+}
+.zerp-shell-overlays > .v-overlay-container {
+  display: contents;
+}
+.zerp-shell-overlays .v-overlay__content {
+  max-height: 100%;
+  overflow-y: auto;
+}
+.zerp-shell .v-navigation-drawer__scrim {
+  top: var(--zerp-app-bar-height);
+}
+.zerp-shell-content :is([id], input, button, select, textarea, a) {
+  scroll-margin-top: calc(var(--zerp-app-bar-height) + 1rem);
+}
+.zerp-shell-menu,
+.zerp-shell-account {
+  display: grid;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  padding: 0.5rem;
+}
+@media (max-width: 600px) {
+  .zerp-shell .zerp-shell-enterprise,
+  .zerp-shell-account-label {
+    display: none;
+  }
+  .zerp-shell .zerp-shell-account-button {
+    min-width: 40px;
+    padding-inline: 4px;
+  }
+}
