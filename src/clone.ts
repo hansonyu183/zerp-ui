@@ -23,7 +23,8 @@ function rawGraph(value: unknown, seen: WeakMap<object, object>): unknown {
     return target;
   }
   if (Array.isArray(raw)) {
-    const target: unknown[] = new Array(raw.length);
+    const target: unknown[] = [];
+    target.length = raw.length;
     seen.set(raw, target);
     for (const key of Object.keys(raw))
       Object.defineProperty(target, key, {
