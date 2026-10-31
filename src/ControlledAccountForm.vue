@@ -8,19 +8,23 @@ import { validateFields, type FormValidationState } from "./validation";
 import DynamicForm from "./DynamicForm.vue";
 import Feedback from "./Feedback.vue";
 
-const props = defineProps<{
-  scope: string;
-  kind: "profile" | "change-password";
-  values: D;
-  fields: Fields<D>;
-  busy?: boolean;
-  error?: string;
-  notice?: string;
-  submitLabel?: string;
-  cancelLabel?: string;
-  validate?: (values: D) => string | undefined;
-  discardVersion?: number;
-}>();
+const props = withDefaults(
+  defineProps<{
+    scope: string;
+    instance?: string | number;
+    kind: "profile" | "change-password";
+    values: D;
+    fields: Fields<D>;
+    busy?: boolean;
+    error?: string;
+    notice?: string;
+    submitLabel?: string;
+    cancelLabel?: string;
+    validate?: (values: D) => string | undefined;
+    discardVersion?: number;
+  }>(),
+  { instance: 0 },
+);
 const emit = defineEmits<{
   submit: [values: D];
   cancel: [];
@@ -64,7 +68,7 @@ function reset(value: D, replaceBaseline: boolean) {
   };
 }
 watch(
-  () => [props.scope, props.kind],
+  () => [props.scope, props.kind, props.instance],
   () => reset(props.values, true),
   { flush: "sync" },
 );
