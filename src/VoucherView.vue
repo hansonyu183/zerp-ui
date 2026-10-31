@@ -21,7 +21,7 @@
     B = unknown
   "
 >
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import VoucherSubmission from "./VoucherSubmission.vue";
 import VoucherOperationRuntime from "./VoucherOperationRuntime.vue";
 import type { VoucherDefinition } from "./voucher";
@@ -30,11 +30,13 @@ import type {
   ConfigurationDefinition,
 } from "./configuration";
 import type {
+  VoucherOperationHandle,
   VoucherOperationDefinition,
   VoucherOperationIntent,
   VoucherOperationModel,
   VoucherOperationSettlement,
 } from "./voucher-operation";
+import type { EditProtection } from "./edit-guard";
 type SubmissionProps = {
   definition: VoucherDefinition<D, I, R, U, S, O, H, A, E>;
   intent?: never;
@@ -61,6 +63,7 @@ type OperationProps = {
 type Props = SubmissionProps | OperationProps;
 const props = defineProps<Props>();
 const emit = defineEmits<{
+  protection: [state: EditProtection];
   settled: [settlement: VoucherOperationSettlement<M, OI, B>];
 }>();
 function isOperation(value: Props): value is OperationProps {
@@ -78,15 +81,23 @@ const submission = computed(() => {
   const value = props as Props;
   return isSubmission(value) ? value : null;
 });
+const operationView = ref<VoucherOperationHandle>();
+defineExpose<VoucherOperationHandle>({
+  async prepare() {
+    await operationView.value?.prepare();
+  },
+});
 </script>
 <template>
   <VoucherOperationRuntime
+    ref="operationView"
     v-if="operation"
     :definition="operation.definition"
     :intent="operation.intent"
     :eligible="operation.eligible"
     :recovery-allowed="operation.recoveryAllowed"
     @settled="emit('settled', $event)"
+    @protection="emit('protection', $event)"
   />
   <VoucherSubmission
     v-if="submission"

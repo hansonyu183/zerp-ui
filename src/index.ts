@@ -121,6 +121,7 @@ export {
   voucherOperationLabels,
 } from "./voucher-operation";
 export type {
+  VoucherOperationHandle,
   VoucherOperationAction,
   VoucherOperationOwner,
   VoucherOperationPreview,
