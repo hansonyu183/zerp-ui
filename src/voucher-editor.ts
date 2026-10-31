@@ -42,11 +42,12 @@ export function validateVoucherContent<
 >(
   definition: VoucherEditorDefinition<H, R, C>,
   value: VoucherEditorValue<H, R>,
+  mode: "create" | "edit" = "edit",
 ): string | undefined {
-  const header = validate(definition.headerFields, value.header, "edit");
+  const header = validate(definition.headerFields, value.header, mode);
   if (header) return header;
   for (const row of value.rows) {
-    const invalid = validate(definition.rowFields, row, "edit");
+    const invalid = validate(definition.rowFields, row, mode);
     if (invalid) return invalid;
     for (const column of definition.columns) {
       if (column.type !== "children") continue;
@@ -55,7 +56,7 @@ export function validateVoucherContent<
       for (const child of children) {
         if (!child || typeof child !== "object")
           return `${column.label}包含无效子项。`;
-        const problem = validate(column.fields, child, "edit");
+        const problem = validate(column.fields, child, mode);
         if (problem) return problem;
       }
     }

@@ -29,6 +29,7 @@ const props = defineProps<
     scope: string;
     instance?: string | number;
     mode: "read" | "edit";
+    formMode?: "create" | "edit";
     disabled?: boolean;
   }
 >();
@@ -36,6 +37,7 @@ const emit = defineEmits<{
   "update:modelValue": [value: VoucherEditorValue<H, R>];
   pending: [value: boolean];
 }>();
+const formMode = computed(() => props.formMode ?? "edit");
 const writable = computed(() => props.mode === "edit" && !props.disabled);
 const visibleColumns = computed(() =>
   props.columns.filter((c) => c.visible !== false),
@@ -224,7 +226,7 @@ function cancelRow() {
   rowPending.value = false;
   pending();
 }
-watch(() => [props.scope, props.instance, props.mode], reset);
+watch(() => [props.scope, props.instance, props.mode, props.formMode], reset);
 watch(
   () => props.modelValue.rows,
   (rows) => {
@@ -259,6 +261,7 @@ onBeforeUnmount(() => emit("pending", false));
         :fields="headerFields"
         :model-value="modelValue.header"
         :scope="scope"
+        :mode="formMode"
         :disabled="!writable"
         @update:model-value="setHeader"
         @pending="
@@ -342,6 +345,7 @@ onBeforeUnmount(() => emit("pending", false));
         :fields="rowFields"
         :model-value="editing.value"
         :scope="scope"
+        :mode="formMode"
         :disabled="!writable"
         @update:model-value="editing = { ...editing!, value: $event }"
         @pending="
@@ -376,6 +380,7 @@ onBeforeUnmount(() => emit("pending", false));
           :fields="childFields"
           :model-value="{ items: childEditing.rows }"
           :scope="scope"
+          :mode="formMode"
           :disabled="!writable"
           @update:model-value="
             childEditing = { ...childEditing!, rows: $event.items }

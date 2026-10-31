@@ -13,6 +13,7 @@ const props = defineProps<{
   modelValue: readonly R[];
   scope: string;
   mode: "read" | "edit";
+  formMode: "create" | "edit";
   disabled: boolean;
 }>();
 const emit = defineEmits<{
@@ -51,7 +52,7 @@ function remove(index: number) {
     props.modelValue.filter((_, i) => i !== index),
   );
 }
-watch(() => [props.scope, props.mode], cancel);
+watch([() => props.scope, () => props.mode, () => props.formMode], cancel);
 watch(
   () => props.modelValue,
   (value, previous) => {
@@ -90,6 +91,7 @@ onBeforeUnmount(() => emit("pending", false));
         :fields="fields"
         :model-value="editing.value"
         :scope="scope"
+        :mode="formMode"
         :disabled="disabled"
         @update:model-value="editing = { ...editing!, value: $event }"
         @pending="pending = $event"

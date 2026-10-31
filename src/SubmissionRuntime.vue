@@ -293,6 +293,7 @@ const bindings = computed(() => {
           props: {
             modelValue: clone(values),
             scope: props.scope,
+            formMode: lock.value.context?.mode ?? ("edit" as const),
             mode:
               editor.value && !disabled.value
                 ? ("edit" as const)
