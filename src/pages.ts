@@ -31,7 +31,7 @@ export type PageContext = {
   scope: string;
   active: boolean;
   discardVersion: number;
-  protection: (value: EditProtection) => void;
+  protection: (value: EditProtection) => boolean;
   requestLeave: () => Promise<boolean>;
 };
 export interface PageDefinition {
@@ -133,8 +133,7 @@ type ProtectedPage = ContentOnly & {
 };
 function protect(context: PageContext, external: ProtectedPage) {
   return (state: EditProtection) => {
-    context.protection(state);
-    external.onProtection?.(state);
+    if (context.protection(state)) external.onProtection?.(state);
   };
 }
 export type CrudPage<
