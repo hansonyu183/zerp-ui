@@ -35,8 +35,11 @@
   position: fixed;
   top: calc(var(--zerp-app-bar-height) + 0.5rem);
   right: 0.5rem;
-  max-width: calc(100vw - 1rem);
-  background: rgb(var(--v-theme-surface));
+  width: min(28rem, calc(100vw - 1rem));
+  pointer-events: none;
+}
+.zerp-shell-brand-status .zerp-feedback__content {
+  pointer-events: auto;
 }
 .zerp-shell-overlays {
   position: fixed;

@@ -14,6 +14,7 @@ import {
   VAvatar,
 } from "vuetify/components";
 import "./shell-layout.css";
+import Feedback from "./Feedback.vue";
 import {
   defaultThemeChoice,
   shellDefaults,
@@ -100,6 +101,7 @@ function escapeNavigation(event: KeyboardEvent) {
   if (
     event.key !== "Escape" ||
     event.defaultPrevented ||
+    (event.target instanceof Element && !!event.target.closest(".v-overlay")) ||
     !mobile.value ||
     !drawer.value
   )
@@ -168,18 +170,21 @@ function navigated(event: MouseEvent) {
                 >
               </span>
             </RouterLink>
-            <span
-              v-if="brandState.kind === 'loading'"
+            <Feedback
               class="zerp-shell-brand-status"
-              role="status"
-              >品牌加载中</span
-            >
-            <span
-              v-else-if="brandState.kind === 'error'"
-              class="zerp-shell-brand-status"
-              role="alert"
-              >{{ brandState.caption
-              }}<VBtn @click="emit('retry-brand')">重试品牌</VBtn></span
+              :kind="brandState.kind === 'error' ? 'error' : 'status'"
+              :message="
+                brandState.kind === 'loading'
+                  ? '品牌加载中'
+                  : brandState.kind === 'error'
+                    ? brandState.caption
+                    : undefined
+              "
+              ><VBtn
+                v-if="brandState.kind === 'error'"
+                @click="emit('retry-brand')"
+                >重试品牌</VBtn
+              ></Feedback
             >
             <div class="zerp-shell-actions">
               <VMenu location="bottom end" content-class="zerp-shell-overlay">
@@ -267,14 +272,22 @@ function navigated(event: MouseEvent) {
           :capture-focus="mobile"
         >
           <nav :id="navigationId" ref="navigationElement" aria-label="主导航">
-            <p v-if="navigationState.kind === 'loading'" role="status">
-              导航加载中
-            </p>
-            <div v-else-if="navigationState.kind === 'error'" role="alert">
-              {{ navigationState.caption
-              }}<VBtn @click="emit('retry-navigation')">重试导航</VBtn>
-            </div>
-            <template v-else>
+            <Feedback
+              :kind="navigationState.kind === 'error' ? 'error' : 'status'"
+              :message="
+                navigationState.kind === 'loading'
+                  ? '导航加载中'
+                  : navigationState.kind === 'error'
+                    ? navigationState.caption
+                    : undefined
+              "
+              ><VBtn
+                v-if="navigationState.kind === 'error'"
+                @click="emit('retry-navigation')"
+                >重试导航</VBtn
+              ></Feedback
+            >
+            <template v-if="navigationState.kind === 'ready'">
               <component
                 :is="group.ungrouped ? 'div' : 'details'"
                 v-for="group in navigation"
