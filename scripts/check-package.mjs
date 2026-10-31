@@ -1453,6 +1453,9 @@ async function shellSmoke(page) {
     .click();
   await page.getByRole("menuitem", { name: "名称与头像", exact: true }).click();
   await page
+    .getByRole("menuitem", { name: "名称与头像", exact: true })
+    .waitFor({ state: "hidden" });
+  await page
     .getByRole("heading", { name: "名称与头像", exact: true })
     .waitFor();
   await page
