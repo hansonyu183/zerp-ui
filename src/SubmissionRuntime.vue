@@ -4,7 +4,8 @@
   generic="D extends object, I, S, O, H, A extends object, E = never"
 >
 import { computed, onBeforeUnmount, ref, shallowRef, toRaw, watch } from "vue";
-import { VAlert, VProgressLinear } from "vuetify/components";
+import Feedback from "./Feedback.vue";
+import { VProgressLinear } from "vuetify/components";
 import type { AnyField } from "./contracts";
 import type { ConfigurationBlock } from "./configuration";
 import type {
@@ -607,24 +608,36 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="zerp-ui" :aria-label="definition.title">
-    <VProgressLinear v-if="loading" indeterminate aria-label="加载中" />
-    <VAlert v-if="error" type="error" role="alert">{{ error }}</VAlert>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="lock.phase === 'unknown'" role="status">
-      {{
-        lock.attempt?.operation === "stage" ? "附件暂存" : "业务写入"
-      }}结果未知。普通读取或关闭不能解锁。
-      <button
-        v-if="definition.reconcile && permissions.reconcile"
-        :disabled="verifying"
-        @click="reconcile"
+    <div class="zerp-progress-reserve">
+      <VProgressLinear v-if="loading" indeterminate aria-label="加载中" />
+    </div>
+    <div class="zerp-feedback-region">
+      <Feedback :message="error" kind="error" />
+      <Feedback :message="notice" />
+      <Feedback
+        :message="lock.phase === 'unknown' ? '请求结果未知' : undefined"
+        kind="warning"
+        persistent
       >
-        核实本次请求
-      </button>
-    </p>
-    <p v-if="lock.phase === 'refresh'" role="status">
-      业务写入已成功，请重试读取；不会再次提交。
-    </p>
+        {{
+          lock.attempt?.operation === "stage" ? "附件暂存" : "业务写入"
+        }}结果未知。普通读取或关闭不能解锁。
+        <button
+          v-if="definition.reconcile && permissions.reconcile"
+          :disabled="verifying"
+          @click="reconcile"
+        >
+          核实本次请求
+        </button>
+      </Feedback>
+      <Feedback
+        :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
+        kind="warning"
+        persistent
+      >
+        业务写入已成功，请重试读取；不会再次提交。
+      </Feedback>
+    </div>
     <button v-if="permissions.read" :disabled="loading" @click="query">
       重试读取
     </button>

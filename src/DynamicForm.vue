@@ -8,6 +8,7 @@ import {
   onBeforeUnmount,
 } from "vue";
 import type { AnyField, Fields, ReferenceValue } from "./contracts";
+import Feedback from "./Feedback.vue";
 import ReferencePicker from "./ReferencePicker.vue";
 import { validateFields, type FormValidationState } from "./validation";
 import { clone } from "./clone";
@@ -330,15 +331,15 @@ onBeforeUnmount(() => emit("pending", false));
           @input="input(field, $event.target as HTMLInputElement)"
         />
       </label>
-      <p
-        v-for="issue in validation.issues.filter(
-          (issue) => issue.key === field.key,
-        )"
-        :key="issue.message"
-        role="alert"
-      >
-        {{ issue.message }}
-      </p>
+      <Feedback
+        kind="error"
+        :message="
+          validation.issues
+            .filter((issue) => issue.key === field.key)
+            .map((issue) => issue.message)
+            .join('；')
+        "
+      />
     </template>
     <section v-if="editing" role="dialog" aria-label="编辑子项">
       <DynamicForm

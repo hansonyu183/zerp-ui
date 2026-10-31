@@ -318,3 +318,49 @@
 .zerp-report-group-summary td > span {
   margin-inline-end: 0.5rem;
 }
+
+/* Every feedback channel keeps the same footprint, including while empty or
+   dismissed. Long messages scroll inside the reserve rather than moving inputs. */
+.zerp-feedback {
+  block-size: 3.5rem;
+  min-inline-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.zerp-feedback__content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  min-block-size: 2.5rem;
+  border-inline-start: 3px solid rgb(var(--v-theme-primary, 65, 90, 180));
+  background: rgba(var(--v-theme-primary, 65, 90, 180), 0.08);
+  overflow-wrap: anywhere;
+}
+.zerp-feedback--error .zerp-feedback__content {
+  border-color: rgb(var(--v-theme-error, 180, 35, 45));
+}
+.zerp-feedback--warning .zerp-feedback__content {
+  border-color: rgb(var(--v-theme-warning, 150, 100, 0));
+}
+.zerp-feedback__close {
+  margin-inline-start: auto;
+}
+.zerp-feedback-region {
+  block-size: 6rem;
+  min-inline-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.zerp-feedback-region > .zerp-feedback {
+  block-size: auto;
+  overflow: visible;
+}
+.zerp-auth-brand-state {
+  block-size: 3.5rem;
+  overflow: auto;
+}
+.zerp-progress-reserve {
+  block-size: 4px;
+}
