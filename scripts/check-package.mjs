@@ -14,6 +14,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { detailsSmoke } from "./details-smoke.mjs";
+import { shellInteractionSmoke } from "./shell-interaction-smoke.mjs";
 import { voucherOperationSmoke } from "./voucher-operation-smoke.mjs";
 import { chromium } from "@playwright/test";
 const detailsMode = process.argv.includes("--details");
@@ -1087,6 +1088,7 @@ async function workflowSmoke(page) {
 }
 
 async function shellSmoke(page) {
+  await shellInteractionSmoke(page);
   await page.getByRole("heading", { name: "流程", exact: true }).waitFor();
   for (const preset of ["md1", "md2", "md3"]) {
     await page.getByLabel("主题预设").selectOption(preset);
