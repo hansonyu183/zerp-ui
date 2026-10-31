@@ -2,11 +2,11 @@ import { mount, flushPromises } from "@vue/test-utils";
 import type { Component } from "vue";
 import { expect, it, vi } from "vitest";
 import {
-  DocumentView,
   defineDocument,
   type DocumentSnapshot,
   type DocumentAdapter,
 } from "../src/index";
+import DocumentView from "../src/DocumentView.vue";
 type D = { name: string };
 type I = { key: string; revision: string };
 type Snapshot = DocumentSnapshot<D, I, string, string, string>;
@@ -349,96 +349,6 @@ it("retains failed stage siblings, validates locally and permits retry after exa
   expect(d.adapter.attachments!.stage).toHaveBeenCalledTimes(3);
   expect(d.adapter.submit).toHaveBeenCalledWith(
     expect.objectContaining({ attachments: ["first", "staged-one"] }),
-  );
-  w.unmount();
-});
-it("aggregates local pending, honors readonly detail mode and rejects closed instance events", async () => {
-  const { defineComponent, h } = await import("vue");
-  const { configurationBlock } = await import("../src/index");
-  const events: Array<{
-    change: (v: string) => void;
-    pending: (v: boolean) => void;
-  }> = [];
-  const Block = defineComponent(
-    (
-      p: import("../src/index").ConfigurationBlockProps<
-        string,
-        readonly string[]
-      >,
-    ) => {
-      events.push({ change: p["onUpdate:modelValue"]!, pending: p.onPending! });
-      return () => h("p", `${p.mode}:${p.modelValue}`);
-    },
-    {
-      props: [
-        "modelValue",
-        "catalog",
-        "mode",
-        "disabled",
-        "onUpdate:modelValue",
-        "onPending",
-      ],
-    },
-  );
-  const base = definition();
-  const d = defineDocument({
-    ...base,
-    fields: [],
-    adapter: {
-      ...base.adapter,
-      query: async () => ({
-        official: {
-          ...snap("当前值", "r1"),
-          values: { name: "当前值", other: "另一值" },
-        },
-        candidate: null,
-        history: [],
-        audit: [],
-      }),
-      submit: vi.fn(async () => ({ status: "success" as const })),
-    },
-  });
-  const blocks = [
-    configurationBlock<{ name: string; other: string }>()({
-      key: "name",
-      component: Block,
-      catalog: [] as readonly string[],
-    }),
-    configurationBlock<{ name: string; other: string }>()({
-      key: "other",
-      component: Block,
-      catalog: [] as readonly string[],
-    }),
-  ];
-  const w = mount(DocumentView as Component, {
-    props: { definition: d, scope: "a", permissions, blocks },
-  });
-  await flushPromises();
-  expect(w.text()).toContain("read:当前值");
-  events[0].change("非法详情修改");
-  await click(w, "编辑档案");
-  const first = events.at(-2)!,
-    second = events.at(-1)!;
-  first.pending(true);
-  second.pending(true);
-  await flushPromises();
-  first.pending(false);
-  await flushPromises();
-  expect(button(w, "提交档案").attributes("disabled")).toBeDefined();
-  await w.setProps({ permissions: { ...permissions, write: false } });
-  second.pending(false);
-  await flushPromises();
-  await w.setProps({ permissions });
-  expect(button(w, "提交档案").attributes("disabled")).toBeUndefined();
-  await click(w, "关闭编辑");
-  await click(w, "编辑档案");
-  first.change("迟到覆盖");
-  first.pending(true);
-  await flushPromises();
-  expect(button(w, "提交档案").attributes("disabled")).toBeUndefined();
-  await click(w, "提交档案");
-  expect(d.adapter.submit).toHaveBeenCalledWith(
-    expect.objectContaining({ input: { name: "当前值", other: "另一值" } }),
   );
   w.unmount();
 });

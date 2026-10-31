@@ -1,7 +1,7 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { DataList } from "../src/index";
+import DataList from "../src/DataList.vue";
 
 const row = { id: "one", name: "合成客户" };
 const props = {

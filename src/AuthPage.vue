@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false });
+defineSlots<{}>();
 import { computed } from "vue";
 import Feedback from "./Feedback.vue";
 import { VThemeProvider, VDefaultsProvider, VBtn } from "vuetify/components";

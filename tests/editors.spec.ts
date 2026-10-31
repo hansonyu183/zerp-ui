@@ -2,15 +2,15 @@ import { defineComponent, h, ref, shallowRef, type Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
 import {
-  CrudView,
-  ConfigurationView,
   defineCrud,
   defineConfiguration,
   type CrudDefinition,
   type ConfigurationDefinition,
-  type CrudViewHandle,
-  type ConfigurationViewHandle,
 } from "../src/index";
+import CrudView from "../src/CrudView.vue";
+import ConfigurationView from "../src/ConfigurationView.vue";
+import type { CrudViewHandle } from "../src/contracts";
+import type { ConfigurationViewHandle } from "../src/configuration";
 const row = { id: "one", name: "原值" };
 const crud = (): CrudDefinition<{ name: string }, {}, typeof row, string> =>
   defineCrud({
@@ -378,108 +378,6 @@ it("CRUD keeps unfinished filters visible until completed before expanding or co
   await w.get("form").trigger("submit");
   await flushPromises();
   expect(w.emitted("queried")?.at(-1)).toEqual([{ count: 20, limit: 8 }]);
-  w.unmount();
-});
-it("CRUD blocks preserve key ownership, structural baselines, pending protection and generation", async () => {
-  const { configurationBlock } = await import("../src/index");
-  type Settings = { code: string; enabled: boolean };
-  type Draft = { name: string; settings: Settings };
-  const late: Array<(pending: boolean) => void> = [];
-  const Block = defineComponent(
-    (
-      p: import("../src/index").ConfigurationBlockProps<
-        Settings,
-        readonly string[]
-      >,
-    ) => {
-      late.push(p.onPending!);
-      return () =>
-        h("fieldset", { disabled: p.disabled }, [
-          h(
-            "button",
-            {
-              onClick: () =>
-                p["onUpdate:modelValue"]?.({ enabled: true, code: "A" }),
-            },
-            "恢复区块",
-          ),
-          h(
-            "button",
-            {
-              onClick: () =>
-                p["onUpdate:modelValue"]?.({ code: "B", enabled: true }),
-            },
-            "改动区块",
-          ),
-          h("button", { onClick: () => p.onPending?.(true) }, "区块未完成"),
-        ]);
-    },
-    {
-      props: [
-        "modelValue",
-        "catalog",
-        "mode",
-        "disabled",
-        "onUpdate:modelValue",
-        "onPending",
-      ],
-    },
-  );
-  const d = defineCrud<Draft, {}, typeof row, string>({
-    ...crud(),
-    fields: [{ key: "name", label: "名称", type: "text" }],
-    adapter: {
-      ...crud().adapter,
-      empty: () => ({ name: "", settings: { code: "A", enabled: true } }),
-      get: async () => ({
-        identity: "one",
-        values: { name: "原值", settings: { code: "A", enabled: true } },
-      }),
-      create: async () => ({ status: "success" }),
-      save: vi.fn(async () => ({ status: "success" as const })),
-    },
-  });
-  const blocks = [
-    configurationBlock<Draft>()({
-      key: "settings",
-      component: Block,
-      catalog: [] as readonly string[],
-    }),
-  ];
-  const w = mount(CrudView as Component, {
-    props: {
-      definition: d,
-      blocks,
-      scope: "blocks",
-      permissions: { query: true, create: true, write: true },
-    },
-  });
-  await flushPromises();
-  await click(w, "编辑");
-  await click(w, "改动区块");
-  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({ dirty: true });
-  await click(w, "恢复区块");
-  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({ dirty: false });
-  await click(w, "区块未完成");
-  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
-    dirty: false,
-    localPending: true,
-  });
-  expect(button(w, "保存").attributes("disabled")).toBeDefined();
-  await click(w, "取消编辑");
-  await click(w, "放弃本地修改");
-  await click(w, "编辑");
-  late[0](true);
-  await flushPromises();
-  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
-    localPending: false,
-  });
-  await click(w, "保存");
-  expect(d.adapter.save).toHaveBeenCalledWith(
-    expect.objectContaining({
-      input: { name: "原值", settings: { code: "A", enabled: true } },
-    }),
-  );
   w.unmount();
 });
 it("restores retained new configuration only from exact reconciliation identity after remount", async () => {

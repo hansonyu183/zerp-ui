@@ -1,10 +1,7 @@
 import { mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
-import {
-  RecordDetails,
-  type DetailGroup,
-  type ReferenceValue,
-} from "../src/index";
+import { type DetailGroup, type ReferenceValue } from "../src/index";
+import RecordDetails from "../src/RecordDetails.vue";
 
 type Facts = {
   amount: string;

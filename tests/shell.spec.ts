@@ -25,7 +25,7 @@ it("provides all six official material themes with finite brand colors and MD3 l
 import { mount, flushPromises, config } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { createVuetify } from "vuetify";
-import { AppPage } from "../src/index";
+import { AppPage, defineDetailsPage } from "../src/index";
 it("renders consumer links, retries and controlled theme intents without owning navigation or theme state", async () => {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -59,13 +59,24 @@ it("renders consumer links, retries and controlled theme intents without owning 
           ],
         },
       ],
-      pageTitle: "资料标题",
+      page: defineDetailsPage({
+        title: "资料标题",
+        instance: "shell",
+        value: { content: "库内事实" },
+        groups: [
+          {
+            key: "facts",
+            label: "页面事实",
+            fields: [{ key: "content", label: "内容", type: "text" }],
+          },
+        ],
+      }),
+      scope: "synthetic-shell",
       footer: "消费者页脚",
     },
     global: {
       plugins: [router],
     },
-    slots: { default: "<p>消费者内容</p>" },
   });
   config.global.plugins = plugins;
   expect(wrapper.text()).toContain("品牌加载中");
@@ -73,7 +84,8 @@ it("renders consumer links, retries and controlled theme intents without owning 
     "/catalog",
   );
   expect(wrapper.get("nav a").attributes("aria-current")).toBe("page");
-  expect(wrapper.text()).toContain("消费者内容");
+  expect(wrapper.text()).toContain("库内事实");
+
   expect(wrapper.get("nav .zerp-ui-icon").text()).toBe("\u{F0219}");
   await wrapper.setProps({
     brandState: { kind: "error", caption: "品牌错误" },
@@ -146,7 +158,19 @@ it("uses the consumer's current key for same-path query links without changing n
           ],
         },
       ],
-      pageTitle: "资料",
+      page: defineDetailsPage({
+        title: "资料",
+        instance: "shell",
+        value: { content: "库内事实" },
+        groups: [
+          {
+            key: "facts",
+            label: "页面事实",
+            fields: [{ key: "content", label: "内容", type: "text" }],
+          },
+        ],
+      }),
+      scope: "synthetic-shell",
       footer: "合成消费者",
     },
     global: { plugins: [router] },
@@ -210,7 +234,19 @@ it("closes temporary navigation with Escape and returns focus to its toggle", as
           items: [{ key: "catalog", caption: "资料链接", to: "/catalog" }],
         },
       ],
-      pageTitle: "资料",
+      page: defineDetailsPage({
+        title: "资料",
+        instance: "shell",
+        value: { content: "库内事实" },
+        groups: [
+          {
+            key: "facts",
+            label: "页面事实",
+            fields: [{ key: "content", label: "内容", type: "text" }],
+          },
+        ],
+      }),
+      scope: "synthetic-shell",
       footer: "合成消费者",
     },
     global: { plugins: [router] },
@@ -257,7 +293,19 @@ it("keeps the three account intents fixed and shows the consumer avatar", async 
           alt: "合成头像",
         },
       },
-      pageTitle: "资料",
+      page: defineDetailsPage({
+        title: "资料",
+        instance: "shell",
+        value: { content: "库内事实" },
+        groups: [
+          {
+            key: "facts",
+            label: "页面事实",
+            fields: [{ key: "content", label: "内容", type: "text" }],
+          },
+        ],
+      }),
+      scope: "synthetic-shell",
       footer: "合成消费者",
     },
     global: { plugins: [router] },

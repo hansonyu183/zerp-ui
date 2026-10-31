@@ -1,11 +1,9 @@
 import { defineComponent, h, ref } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
-import {
-  EditGuard,
-  type EditGuardHandle,
-  type EditWriteState,
-} from "../src/index";
+import { type EditWriteState } from "../src/index";
+import EditGuard from "../src/EditGuard.vue";
+import type { EditGuardHandle } from "../src/edit-guard";
 function host() {
   const dirty = ref(false),
     localPending = ref(false),

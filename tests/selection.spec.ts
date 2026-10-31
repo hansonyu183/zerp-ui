@@ -1,7 +1,7 @@
 import { mount } from "@vue/test-utils";
 import type { Component } from "vue";
 import { it, expect } from "vitest";
-import { DataList } from "../src/index";
+import DataList from "../src/DataList.vue";
 it("selects only eligible current-page identities and blocks changes while pending", async () => {
   const w = mount(DataList as Component, {
     props: {

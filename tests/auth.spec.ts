@@ -4,6 +4,7 @@ import { createVuetify } from "vuetify";
 import { AuthPage, createShellThemes, type AuthValues } from "../src/index";
 
 const brand = {
+  home: "/",
   productName: "示例产品",
   enterpriseName: "示例企业",
   mark: { kind: "text" as const, text: "示" },
