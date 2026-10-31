@@ -16,6 +16,7 @@ export type DomainBlockContext<D> = {
   value: D;
   scope: string;
   mode: "read" | "edit";
+  formMode: "create" | "edit";
   disabled: boolean;
   update: (value: D) => void;
   pending: (pending: boolean) => void;
@@ -75,6 +76,7 @@ export function domainBlocks<D extends object>() {
                     fields: options.fields,
                     modelValue: value,
                     scope: context.scope,
+                    mode: context.formMode,
                     disabled: context.disabled,
                     "onUpdate:modelValue": (local: D[K] & object) =>
                       context.update(setKey(context.value, options.key, local)),
@@ -111,6 +113,7 @@ export function domainBlocks<D extends object>() {
             modelValue: options.get(context.value[options.key]),
             scope: context.scope,
             mode: context.mode,
+            formMode: context.formMode,
             disabled: context.disabled,
             "onUpdate:modelValue": (rows: readonly R[]) =>
               context.update(
@@ -142,9 +145,9 @@ export function domainBlocks<D extends object>() {
       return Object.freeze({
         key: options.key,
         label: options.label,
-        validate: (data: D, _mode: "create" | "edit") => {
+        validate: (data: D, mode: "create" | "edit") => {
           const content = options.get(data[options.key]);
-          return validateVoucherContent(options.editor, content);
+          return validateVoucherContent(options.editor, content, mode);
         },
         [renderBlock]: (context: DomainBlockContext<D>) =>
           h("section", { "aria-label": options.label }, [
@@ -154,6 +157,7 @@ export function domainBlocks<D extends object>() {
               modelValue: options.get(context.value[options.key]),
               scope: context.scope,
               mode: context.mode,
+              formMode: context.formMode,
               disabled: context.disabled,
               "onUpdate:modelValue": (value: VoucherEditorValue<H, R>) =>
                 context.update(

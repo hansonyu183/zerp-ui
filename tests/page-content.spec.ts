@@ -734,3 +734,143 @@ it("accepts nested reactive operation values and preserves typed Date Map and Se
   expect(events[events.length - 1].dirty).toBe(true);
   wrapper.unmount();
 });
+
+type ModeValues = { createOnly: string; editOnly: string };
+type ModeDraft = {
+  group: ModeValues;
+  items: ModeValues[];
+  sheet: { header: ModeValues; rows: readonly { id: string }[] };
+};
+const blockKinds: readonly ("fields" | "rows" | "voucher")[] = [
+  "fields",
+  "rows",
+  "voucher",
+];
+const draftModes: readonly ("create" | "edit")[] = ["create", "edit"];
+it.each(
+  blockKinds.flatMap((kind) => draftModes.map((mode) => ({ kind, mode }))),
+)(
+  "renders and validates $mode fields consistently in a $kind domain block",
+  async ({ kind, mode }) => {
+    const fields: import("../src/index").Fields<ModeValues> = [
+      {
+        key: "createOnly",
+        label: "仅创建字段",
+        type: "text",
+        mode: "create",
+        required: true,
+      },
+      {
+        key: "editOnly",
+        label: "仅编辑字段",
+        type: "text",
+        mode: "edit",
+        required: true,
+      },
+    ];
+    const emptyValues = (): ModeValues => ({ createOnly: "", editOnly: "" });
+    const empty = (): ModeDraft => ({
+      group: emptyValues(),
+      items: [emptyValues()],
+      sheet: { header: emptyValues(), rows: [] },
+    });
+    const received: import("../src/index").Attempt<ModeDraft, string>[] = [];
+    const definition = defineCrud<ModeDraft, {}, { id: string }, string>({
+      resource: `mode-${kind}-${mode}`,
+      title: "分组表单模式",
+      fields: [],
+      filters: [],
+      initialFilters: () => ({}),
+      columns: [{ key: "id", label: "编号" }],
+      identity: (row) => row.id,
+      actions: () => ["view", "edit"],
+      adapter: {
+        query: async () => ({ items: [{ id: "one" }], total: 1 }),
+        get: async () => ({ identity: "one", values: empty() }),
+        empty,
+        create: async (attempt) => {
+          received.push(attempt);
+          return { status: "success" };
+        },
+        save: async (attempt) => {
+          received.push(attempt);
+          return { status: "success" };
+        },
+      },
+    });
+    const factory = domainBlocks<ModeDraft>();
+    const block =
+      kind === "fields"
+        ? factory.fields({ key: "group", label: "模式分组", fields })
+        : kind === "rows"
+          ? factory.rows({
+              key: "items",
+              label: "模式子项",
+              fields,
+              empty: emptyValues,
+              get: (value) => value,
+              set: (_value, rows) => [...rows],
+            })
+          : factory.voucher({
+              key: "sheet",
+              label: "模式单据",
+              editor: {
+                headerFields: fields,
+                rowFields: [],
+                columns: [],
+                rowKey: (row) => row.id,
+                emptyRow: () => ({ id: "new" }),
+              },
+              get: (value) => value,
+              set: (_value, content) => content,
+            });
+    const page = defineCrudPage({
+      definition,
+      permissions: { query: true, create: true, write: true },
+      blocks: [block],
+      initialRow: mode === "edit" ? { id: "one" } : undefined,
+      readOnly: false,
+    });
+    const wrapper = mountPage(page);
+    await flushPromises();
+    const click = async (text: string) => {
+      await wrapper
+        .findAll("button")
+        .find(
+          (node) =>
+            node.text() === text || node.attributes("aria-label") === text,
+        )!
+        .trigger("click");
+      await flushPromises();
+    };
+    if (mode === "create") await click("新增");
+    if (kind === "rows") await click("编辑模式子项 1");
+    const activeLabel = mode === "create" ? "仅创建字段" : "仅编辑字段";
+    const hiddenLabel = mode === "create" ? "仅编辑字段" : "仅创建字段";
+    expect(wrapper.find(`input[aria-label="${activeLabel}"]`).exists()).toBe(
+      true,
+    );
+    expect(wrapper.find(`input[aria-label="${hiddenLabel}"]`).exists()).toBe(
+      false,
+    );
+    await wrapper
+      .get(`input[aria-label="${activeLabel}"]`)
+      .setValue("当前模式内容");
+    if (kind === "rows") await click("确定模式子项");
+    await click("保存");
+    expect(received).toHaveLength(1);
+    expect(received[0].operation).toBe(mode === "create" ? "create" : "save");
+    const input = received[0].input!;
+    const local =
+      kind === "fields"
+        ? input.group
+        : kind === "rows"
+          ? input.items[0]
+          : input.sheet.header;
+    expect(local[mode === "create" ? "createOnly" : "editOnly"]).toBe(
+      "当前模式内容",
+    );
+    expect(local[mode === "create" ? "editOnly" : "createOnly"]).toBe("");
+    wrapper.unmount();
+  },
+);

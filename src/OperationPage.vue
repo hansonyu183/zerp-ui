@@ -58,13 +58,16 @@ const mappingValid = computed(
 const intent = computed(() =>
   mappingValid.value ? proposedIntent.value : baseIntent.value,
 );
+const formMode = computed(() =>
+  baseIntent.value.action === "create" ? "create" : "edit",
+);
 const validation = computed(() => {
   const editor = props.options.editor,
     content = draft.value;
   if (!editor || !content) return undefined;
   return !mappingValid.value
     ? "内容映射必须保留当前动作、身份及所属范围。"
-    : validateVoucherContent(editor.definition, content);
+    : validateVoucherContent(editor.definition, content, formMode.value);
 });
 const protection = computed<EditProtection>(() => ({
   dirty:
@@ -187,6 +190,7 @@ function adopt() {
       :scope="scope"
       :instance="instance"
       mode="edit"
+      :form-mode="formMode"
       :disabled="disabled"
       :onUpdate:modelValue="editorBindings.change"
       :onPending="editorBindings.pending"

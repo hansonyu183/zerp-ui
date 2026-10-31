@@ -5,6 +5,7 @@ const props = defineProps<{
   modelValue: D;
   scope: string;
   mode: "read" | "edit";
+  formMode: "create" | "edit";
   disabled: boolean;
 }>();
 const emit = defineEmits<{
@@ -16,6 +17,7 @@ const Content = () =>
     value: props.modelValue,
     scope: props.scope,
     mode: props.mode,
+    formMode: props.formMode,
     disabled: props.disabled,
     update: (value) => emit("update:modelValue", value),
     pending: (value) => emit("pending", value),

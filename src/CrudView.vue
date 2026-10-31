@@ -311,6 +311,9 @@ const bindings = computed(() => {
           props: {
             modelValue: clone(editor.value!.values),
             scope: props.scope,
+            formMode: editor.value?.row
+              ? ("edit" as const)
+              : ("create" as const),
             mode:
               editor.value?.readOnly || readonlyFields.value.includes(block.key)
                 ? ("read" as const)
