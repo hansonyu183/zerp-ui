@@ -3,10 +3,14 @@
   lang="ts"
   generic="D extends object, I, S, O, H, A extends object, E = never"
 >
-import { computed, onBeforeUnmount, ref, shallowRef, toRaw, watch } from "vue";
+import {equalValues} from './editor-values';
+import type {EditProtection} from './edit-guard';
+import DomainBlockHost from "./DomainBlockHost.vue";
+import {validateDomainBlocks,type DomainBlock} from "./domain-blocks";
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { VAlert, VProgressLinear } from "vuetify/components";
 import type { AnyField } from "./contracts";
-import type { ConfigurationBlock } from "./configuration";
+
 import type {
   DocumentArchive,
   DocumentSnapshot,
@@ -24,11 +28,14 @@ const props = defineProps<{
   definition: SubmissionDefinition<D, I, S, O, H, A, E>;
   scope: string;
   permissions: { read: boolean; write: boolean; reconcile?: boolean };
-  blocks?: readonly ConfigurationBlock<D>[];
+  blocks?: readonly DomainBlock<D>[];
   kind?: "document" | "voucher";
   lockAdapter?: object;
   externalDisabled?: boolean;
+  beforeClose?:()=>Promise<boolean>;
+  discardVersion?:number;
 }>();
+const emit=defineEmits<{protection:[state:EditProtection]}>();
 const vouchers = computed(() => props.definition.vouchers);
 type Snapshot = DocumentSnapshot<D, I, S, O, H>;
 type Attempt = DocumentAttempt<D, I, S, H> | StageAttempt<I, S, O>;
@@ -109,8 +116,14 @@ function discardUnstaged() {
     ownedLock.context = undefined;
 }
 const current = (g: number) => active && generation === g;
-function close() {
-  if (lock.value.phase === "pending") return;
+async function close() {
+  const g=generation,i=instance;
+  if (lock.value.phase !== 'idle') return;
+  if(editor.value && props.beforeClose && !(await props.beforeClose()))return;
+  if(!current(g)||i!==instance||lock.value.phase!=='idle')return;
+  finishEditor();
+}
+function finishEditor(){
   editor.value = false;
   instance++;
   pending.value = {};
@@ -274,20 +287,20 @@ const bindings = computed(() => {
     blocks: values
       ? (props.blocks?.map((block) => ({
           key: block.key,
-          component: toRaw(block.component),
+          block,
           props: {
-            modelValue: clone(values[block.key]),
-            catalog: clone(block.catalog),
+            modelValue: clone(values),
+            scope: props.scope,
             mode:
               editor.value && !disabled.value
                 ? ("edit" as const)
                 : ("read" as const),
             disabled: !editor.value || disabled.value,
-            "onUpdate:modelValue": (value: D[typeof block.key]) => {
+            "onUpdate:modelValue": (value: D) => {
               if (writable())
                 updateDraft((d) => ({
                   ...d,
-                  values: { ...d.values, [block.key]: clone(value) },
+                  values: clone(value),
                 }));
             },
             onPending: (value: boolean) => {
@@ -302,6 +315,14 @@ const bindings = computed(() => {
       : [],
   };
 });
+const protection=computed<EditProtection>(()=>({
+  dirty:!!lock.value.context && (!equalValues(lock.value.context.values,lock.value.context.source.values)||lock.value.context.files.length>0),
+  localPending:busy.value,
+  invalid:!!lock.value.context && !!(validate(fields.value,lock.value.context.values,lock.value.context.mode)??validateDomainBlocks(props.blocks,lock.value.context.values,lock.value.context.mode)),
+  writeState:lock.value.phase,
+}));
+watch(protection,value=>emit('protection',value),{immediate:true,flush:'sync'});
+watch(()=>props.discardVersion,()=>{if(lock.value.phase==='idle'){editor.value=false;instance++;pending.value={};discardUnstaged();}});
 function addFiles(event: Event) {
   const input = event.target as HTMLInputElement,
     files = Array.from(input.files ?? []);
@@ -336,7 +357,7 @@ async function submit() {
     fields.value as readonly AnyField[],
     draft.values,
     draft.mode,
-  );
+  ) ?? validateDomainBlocks(props.blocks,draft.values,draft.mode);
   if (invalid) {
     error.value = invalid;
     return;
@@ -449,7 +470,7 @@ async function write(
       target.phase = "refresh";
       target.context = undefined;
       if (current(g)) {
-        close();
+        finishEditor();
         notice.value = "业务写入已成功。";
         await query();
       }
@@ -517,7 +538,7 @@ async function reconcile() {
       target.phase = "refresh";
       target.context = undefined;
       if (current(g)) {
-        close();
+        finishEditor();
         notice.value = "已核实业务写入成功。";
         await query();
       }
@@ -802,9 +823,9 @@ onBeforeUnmount(() => {
             {{ submitCaption }}
           </button>
         </section>
-        <component
+        <DomainBlockHost
           v-for="block in bindings.blocks"
-          :is="block.component"
+          :block="block.block"
           :key="`${instance}:${block.key}`"
           v-bind="block.props"
         />

@@ -3,13 +3,15 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
-import { computed, onBeforeUnmount, ref, shallowRef, toRaw, watch } from "vue";
+import DomainBlockHost from "./DomainBlockHost.vue";
+import {validateDomainBlocks,type DomainBlock} from "./domain-blocks";
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import { VAlert, VProgressLinear } from "vuetify/components";
 import type { AnyField, Page } from "./contracts";
 import type {
   ConfigurationDefinition,
   ConfigurationAttempt,
-  ConfigurationBlock,
+  
   ConfigurationViewHandle,
   ConfigurationDraft,
 } from "./configuration";
@@ -27,8 +29,9 @@ const props = defineProps<{
   definition: ConfigurationDefinition<D, F, R, I, E>;
   scope: string;
   permissions: { read: boolean; write: boolean; reconcile?: boolean };
-  blocks?: readonly ConfigurationBlock<D>[];
+  blocks?: readonly DomainBlock<D>[];
   beforeClose?: () => Promise<boolean>;
+  discardVersion?: number;
   initialRow?: R;
   retainEditor?: boolean;
 }>();
@@ -132,11 +135,11 @@ const protection = computed<EditProtection>(() => ({
   localPending: localPending.value,
   invalid:
     !!editor.value?.writable &&
-    !!validate(
+    !!(validate(
       formFields.value as readonly AnyField[],
       editor.value.values,
       editor.value.creating ? "create" : "edit",
-    ),
+    ) ?? validateDomainBlocks(props.blocks,editor.value.values,editor.value.creating ? "create":"edit")),
   writeState: lock.value.phase,
 }));
 watch(protection, (value) => emit("protection", value), {
@@ -302,17 +305,17 @@ const bindings = computed(() => {
     blocks:
       props.blocks?.map((block) => ({
         key: block.key,
-        component: toRaw(block.component),
+        block,
         props: {
-          modelValue: clone(editor.value?.values[block.key]),
-          catalog: clone(block.catalog),
+          modelValue: clone(editor.value!.values),
+          scope: props.scope,
           mode: editor.value?.writable ? ("edit" as const) : ("read" as const),
           disabled: disabled.value,
-          "onUpdate:modelValue": (value: D[typeof block.key]) => {
+          "onUpdate:modelValue": (value: D) => {
             if (valid())
               editor.value = {
                 ...editor.value!,
-                values: { ...editor.value!.values, [block.key]: clone(value) },
+                values: clone(value),
               };
           },
           onPending: (value: boolean) => {
@@ -340,7 +343,7 @@ async function save() {
     formFields.value as readonly AnyField[],
     editor.value.values,
     editor.value.creating ? "create" : "edit",
-  );
+  ) ?? validateDomainBlocks(props.blocks,editor.value.values,editor.value.creating ? "create":"edit");
   if (invalid) {
     error.value = invalid;
     return;
@@ -475,6 +478,7 @@ watch(
     if (row) void enter(row);
   },
 );
+watch(()=>props.discardVersion,()=>{if(lock.value.phase==='idle')clearEditor();});
 defineExpose<ConfigurationViewHandle<R>>({
   newDraft: () => enter(),
   openRow: (row) => enter(row),
@@ -578,9 +582,9 @@ onBeforeUnmount(() => {
         :onUpdate:modelValue="bindings.form"
         :onPending="bindings.formPending"
       />
-      <component
+      <DomainBlockHost
         v-for="block in bindings.blocks"
-        :is="block.component"
+        :block="block.block"
         :key="block.key"
         v-bind="block.props"
       />

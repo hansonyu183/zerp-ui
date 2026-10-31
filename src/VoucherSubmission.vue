@@ -18,6 +18,8 @@
     SE = never
   "
 >
+import type {EditProtection} from './edit-guard';
+import type { DomainBlock } from "./domain-blocks";
 import { computed } from "vue";
 import ConfigurationView from "./ConfigurationView.vue";
 import { writeLock } from "./write-lock";
@@ -30,14 +32,16 @@ import type {
 import type { DocumentSnapshot } from "./document";
 import type { SubmissionDefinition } from "./submission";
 import type {
-  ConfigurationBlock,
+  
   ConfigurationDefinition,
 } from "./configuration";
 const props = defineProps<{
   definition: VoucherDefinition<D, I, R, U, S, O, H, A, E>;
   scope: string;
+  beforeClose?:()=>Promise<boolean>;
+  discardVersion?:number;
   permissions: { read: boolean; write: boolean; reconcile?: boolean };
-  blocks?: readonly ConfigurationBlock<D>[];
+  blocks?: readonly DomainBlock<D>[];
   script?: {
     definition: ConfigurationDefinition<SD, SF, SR, SI, SE>;
     permissions: { read: boolean; write: boolean; reconcile?: boolean };
@@ -124,6 +128,7 @@ const scriptPermissions = computed(
       write: props.script.permissions.write && !voucherBlocked.value,
     },
 );
+const emit=defineEmits<{protection:[state:EditProtection]}>();
 </script>
 <template>
   <SubmissionRuntime
@@ -133,6 +138,9 @@ const scriptPermissions = computed(
     :scope="scope"
     :permissions="permissions"
     :blocks="blocks"
+    :before-close="beforeClose"
+    :discard-version="discardVersion"
+    @protection="emit('protection',$event)"
     :external-disabled="scriptBlocked"
   /><ConfigurationView
     v-if="script && scriptPermissions"

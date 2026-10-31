@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import PageContentHost from './PageContentHost.vue';
+import type {PageDefinition,AppPageHandle} from './pages';
+import type {EditProtection} from './edit-guard';
 import { computed, nextTick, ref, useId, useTemplateRef, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -31,19 +34,24 @@ const props = withDefaults(
     navigation: readonly NavigationGroup[];
     navigationState: LoadState;
     selectedNavigationKey?: string | null;
-    pageTitle: string;
+    page: PageDefinition;
+    scope: string;
+    active?: boolean;
     footer: string;
     account?: ShellAccount;
     theme?: ThemeChoice;
   }>(),
-  { theme: () => defaultThemeChoice },
+  { theme: () => defaultThemeChoice, active:true },
 );
 const emit = defineEmits<{
+  protection:[value:EditProtection];
   "retry-brand": [];
   "retry-navigation": [];
   "account-action": [AccountIntent];
   "update:theme": [ThemeChoice];
 }>();
+const pageContent=useTemplateRef<AppPageHandle>('pageContent');
+defineExpose<AppPageHandle>({requestLeave:()=>pageContent.value?.requestLeave()??Promise.resolve(false)});
 const { mobile, xs } = useDisplay();
 const navigationId = useId();
 const navigationToggle =
@@ -255,8 +263,7 @@ function navigated(event: MouseEvent) {
         </VNavigationDrawer>
         <VMain
           ><div class="zerp-shell-content">
-            <h1>{{ pageTitle }}</h1>
-            <slot />
+            <PageContentHost ref="pageContent" :page="page" :scope="scope" :active="active" @protection="emit('protection',$event)" />
             <footer>{{ footer }}</footer>
           </div></VMain
         >
