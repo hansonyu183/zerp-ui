@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, shallowRef, onBeforeUnmount } from "vue";
+import ExamplePage from "../shared/ExamplePage.vue";
 import {
-  ReportView,
+  defineReportPage,
   defineReport,
   ReportUnavailable,
   type ReportSnapshot,
@@ -252,9 +253,21 @@ function drill(intent: ReportDrill<ResultId, string, Target>) {
   detail.value = `${intent.cell.kind} · ${intent.resultId.snapshot} · ${intent.rowId} · ${intent.cell.target.record}`;
   visible.value = false;
 }
+const page = defineReportPage(() => ({
+  definition,
+  permissions: { query: true, export: true },
+  pageSize: 25,
+  restore: saved.value,
+  onSnapshot: (value: Snapshot) => (saved.value = value),
+  onParameters: (value: Parameters) => (currentParameters.value = value),
+  onAdopted: (value: typeof adoptedContext.value) =>
+    (adoptedContext.value = value),
+  onDrill: drill,
+}));
 </script>
 <template>
-  <section aria-label="固定结果示例">
+  <ExamplePage v-if="visible" :page="page" :scope="scope" />
+  <section class="example-controls" aria-label="固定结果示例">
     <label
       >固定读取情景<select v-model="scenario" aria-label="固定读取情景">
         <option value="success">成功</option>
@@ -302,17 +315,5 @@ function drill(intent: ReportDrill<ResultId, string, Target>) {
           : "未采用结果"
       }}
     </p>
-    <ReportView
-      v-if="visible"
-      :definition="definition"
-      :scope="scope"
-      :permissions="{ query: true, export: true }"
-      :page-size="25"
-      :restore="saved"
-      @snapshot="saved = $event"
-      @parameters="currentParameters = $event"
-      @adopted="adoptedContext = $event"
-      @drill="drill"
-    />
   </section>
 </template>

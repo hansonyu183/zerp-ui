@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import ExamplePage from "../shared/ExamplePage.vue";
 import {
-  VoucherEditor,
+  defineDetailsPage,
   type VoucherEditorDefinition,
   type VoucherEditorValue,
 } from "@zerp/ui";
@@ -47,17 +48,22 @@ const value = ref<VoucherEditorValue<Header, Row>>({
     { id: "row-one", name: "合成商品甲", quantity: "0.0100", formula: [] },
   ],
 });
+const page = defineDetailsPage(() => ({
+  title: "独立单据编辑展示",
+  value: {},
+  groups: [],
+  instance: "synthetic-editor",
+  editor: {
+    definition,
+    value: value.value,
+    onChange: (content: VoucherEditorValue<Header, Row>) =>
+      (value.value = content),
+  },
+}));
 </script>
 
 <template>
   <section aria-label="独立单据编辑展示示例">
-    <h2>独立单据编辑展示</h2>
-    <VoucherEditor
-      v-bind="definition"
-      :model-value="value"
-      scope="standalone-synthetic"
-      mode="edit"
-      @update:model-value="value = $event"
-    />
+    <ExamplePage :page="page" scope="standalone-synthetic" />
   </section>
 </template>

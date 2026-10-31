@@ -1,20 +1,15 @@
 <script setup lang="ts">
-import { ref, shallowRef } from "vue";
+import { shallowRef } from "vue";
+import ExamplePage from "../shared/ExamplePage.vue";
 import {
-  ConfigurationView,
-  EditGuard,
+  defineConfigurationPage,
   defineConfiguration,
-  type ConfigurationViewHandle,
   type ConfigurationDraft,
   type EditProtection,
-  type EditGuardHandle,
 } from "@zerp/ui";
 type Draft = { name: string };
 type Row = { id: string; name: string };
 type Identity = { id: string; revision: number };
-const visible = ref(false),
-  runtime = shallowRef<ConfigurationViewHandle<Row> | null>(null),
-  guard = shallowRef<EditGuardHandle | null>(null);
 const protection = shallowRef<EditProtection>({
   dirty: false,
   localPending: false,
@@ -48,40 +43,20 @@ const definition = defineConfiguration<Draft, {}, Row, Identity>({
     },
   },
 });
+const page = defineConfigurationPage(() => ({
+  definition,
+  initialRow: row,
+  retainEditor: true,
+  permissions: { read: true, write: true },
+  onProtection: (value: EditProtection) => (protection.value = value),
+  onDraft: (value: ConfigurationDraft<Draft, Identity> | null) =>
+    (draft.value = value),
+}));
 </script>
 <template>
   <section aria-label="配置接缝示例">
-    <button type="button" @click="visible = true">展示配置接缝</button
-    ><template v-if="visible"
-      ><button type="button" @click="runtime?.newDraft()">公开新建配置</button
-      ><button type="button" @click="runtime?.openRow(row)">公开打开配置</button
-      ><button type="button" @click="runtime?.refresh()">公开刷新配置</button
-      ><button type="button" @click="runtime?.close()">公开关闭配置</button
-      ><EditGuard
-        ref="guard"
-        scope="configuration-contracts"
-        instance="editor"
-        active
-        :dirty="protection.dirty"
-        :local-pending="protection.localPending"
-        :write-state="protection.writeState"
-      /><!-- @vue-generic {Draft, {}, Row, Identity} -->
-      <ConfigurationView
-        ref="runtime"
-        :definition="definition"
-        scope="configuration-contracts"
-        :initial-row="row"
-        retain-editor
-        :permissions="{ read: true, write: true }"
-        :before-close="async () => (await guard?.requestLeave()) ?? false"
-        @protection="protection = $event"
-        @draft="draft = $event"
-      /><output aria-label="配置保护事实">{{
-        JSON.stringify(protection)
-      }}</output
-      ><output aria-label="配置草稿快照">{{
-        JSON.stringify(draft)
-      }}</output></template
-    >
+    <ExamplePage :page="page" scope="configuration-contracts" />
+    <output aria-label="配置保护事实">{{ JSON.stringify(protection) }}</output
+    ><output aria-label="配置草稿快照">{{ JSON.stringify(draft) }}</output>
   </section>
 </template>

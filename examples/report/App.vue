@@ -1,8 +1,8 @@
 <script setup lang="ts">
-const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { computed, ref } from "vue";
 import FixedReport from "./FixedReport.vue";
-import { ReportView } from "@zerp/ui";
+import { defineReportPage } from "@zerp/ui";
+import ExamplePage from "../shared/ExamplePage.vue";
 import { reportExample, type Scenario } from "./adapters";
 const kind = ref<"batch" | "ledger" | "fixed">("batch");
 const scenario = ref<Scenario>("success");
@@ -15,9 +15,16 @@ const permissions = computed(() => ({
   query: eligibility.value === "both" || eligibility.value === "query",
   export: eligibility.value === "both" || eligibility.value === "export",
 }));
+const page = defineReportPage(() => ({
+  definition: definitions[kind.value === "ledger" ? "ledger" : "batch"],
+  permissions: permissions.value,
+  pageSize: 2,
+}));
 </script>
 <template>
-  <main>
+  <FixedReport v-if="kind === 'fixed'" />
+  <ExamplePage v-else :page="page" scope="synthetic-session-1" />
+  <aside class="example-controls" aria-label="合成报表控制">
     <p>
       独立合成消费者：不连接真实 ZERP
       API。日期范围和金额下限仅演示原值传递，合成数据不按这两项筛选。
@@ -44,16 +51,5 @@ const permissions = computed(() => ({
         <option value="failure">失败</option>
       </select></label
     >
-    <h1 v-if="showTitle">
-      {{ kind === "fixed" ? "合成报表 · 固定结果" : definitions[kind].title }}
-    </h1>
-    <FixedReport v-if="kind === 'fixed'" />
-    <ReportView
-      v-else
-      :definition="definitions[kind]"
-      scope="synthetic-session-1"
-      :permissions="permissions"
-      :page-size="2"
-    />
-  </main>
+  </aside>
 </template>

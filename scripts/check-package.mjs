@@ -14,7 +14,11 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { detailsSmoke } from "./details-smoke.mjs";
-import { shellInteractionSmoke } from "./shell-interaction-smoke.mjs";
+import { assertStableFeedback } from "./feedback-smoke.mjs";
+import {
+  shellInteractionSmoke,
+  assertBelowToolbar,
+} from "./shell-interaction-smoke.mjs";
 import { voucherOperationSmoke } from "./voucher-operation-smoke.mjs";
 import { chromium } from "@playwright/test";
 const detailsMode = process.argv.includes("--details");
@@ -104,6 +108,24 @@ await cp(
     filter: (p) => !p.includes("/dist"),
   },
 );
+await cp(join(root, "examples/shared"), join(consumer, "shared"), {
+  recursive: true,
+});
+async function rewriteShared(directory, prefix) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.name === "dist" || entry.name === "node_modules") continue;
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) await rewriteShared(path, prefix);
+    else if (/\.(vue|ts)$/.test(entry.name)) {
+      const source = await readFile(path, "utf8");
+      await writeFile(
+        path,
+        source.replaceAll('"../shared/', `"${prefix}shared/`),
+      );
+    }
+  }
+}
+await rewriteShared(consumer, "./");
 if (shellMode) {
   const appPath = join(consumer, "App.vue");
   let app = await readFile(appPath, "utf8");
@@ -115,13 +137,25 @@ if (shellMode) {
     "voucher",
     "workflow",
   ]) {
-    await cp(join(root, "examples", name), join(consumer, "modules", name), {
+    const target = join(consumer, "modules", name);
+    await cp(join(root, "examples", name), target, {
       recursive: true,
       filter: (p) => !p.includes("/dist"),
     });
+    await rewriteShared(target, "../../");
     app = app.replaceAll(`../${name}/`, `./modules/${name}/`);
   }
   await writeFile(appPath, app);
+}
+for (const name of ["pages", "public-api"]) {
+  const fixture = await readFile(
+    join(root, `tests/${name}.type-test.ts`),
+    "utf8",
+  );
+  await writeFile(
+    join(consumer, `${name}.type-test.ts`),
+    fixture.replaceAll("../src/index", "@zerp/ui"),
+  );
 }
 await writeFile(
   join(consumer, "tsconfig.json"),
@@ -205,9 +239,19 @@ for (const name of Object.keys(pkg.peerDependencies)) {
   );
 }
 run("npm", ["ls", "vue", "vuetify", "vue-router", "--all"], consumer);
-assert.throws(() => require.resolve("@zerp/ui/src/write-lock"), {
-  code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
-});
+for (const path of [
+  "src/write-lock",
+  "src/CrudView.vue",
+  "src/DynamicForm.vue",
+  "src/RecordDetails.vue",
+  "src/VoucherEditor.vue",
+  "dist/CrudView.vue",
+  "dist/index.js",
+]) {
+  assert.throws(() => require.resolve(`@zerp/ui/${path}`), {
+    code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
+  });
+}
 const cssPath = require.resolve("@zerp/ui/style.css"),
   css = await readFile(cssPath, "utf8");
 for (const [, url] of css.matchAll(/url\(["']?([^"')]+)["']?\)/g)) {
@@ -413,6 +457,9 @@ try {
 }
 
 async function directSmoke(page) {
+  const choose = (value) =>
+    page.getByLabel("资料演示", { exact: true }).selectOption(value);
+  await choose("form");
   const form = page.getByRole("region", { name: "独立表单示例", exact: true });
   const submit = form.getByRole("button", {
     name: "提交独立表单",
@@ -420,69 +467,62 @@ async function directSmoke(page) {
   });
   assert.ok(await submit.isDisabled());
   await form.getByLabel("独立名称", { exact: true }).fill("合成表单");
-  await form.getByLabel("独立数量", { exact: true }).fill("12");
+  const count = form.getByLabel("独立数量", { exact: true });
+  await count.fill("12");
   await form
     .getByRole("button", { name: "父模型采用 20", exact: true })
     .click();
-  assert.equal(
-    await form.getByLabel("独立数量", { exact: true }).inputValue(),
-    "20",
-  );
-  await form.getByLabel("独立数量", { exact: true }).fill("-");
+  assert.equal(await count.inputValue(), "20");
+  await count.scrollIntoViewIfNeeded();
+  await assertStableFeedback(page, [count, submit], async () => {
+    await count.fill("-");
+    assert.ok(await submit.isDisabled());
+  });
+  await count.fill("21");
   assert.ok(await submit.isDisabled());
-  await form.getByLabel("独立数量", { exact: true }).fill("21");
-  assert.ok(await submit.isDisabled());
-  await form.getByLabel("独立数量", { exact: true }).fill("0");
+  await count.fill("0");
   await submit.click();
   assert.deepEqual(
     JSON.parse(await form.getByLabel("独立提交值").textContent()),
     { title: "合成表单", count: 0, amount: "9007199254740993.0100" },
   );
-  const rowActions = page.getByRole("region", { name: "行操作示例" });
-  await rowActions
+  await choose("actions");
+  const rows = page.getByRole("region", { name: "行操作示例", exact: true });
+  await rows
     .getByRole("checkbox", { name: "选择 row-actions", exact: true })
     .check();
-  await rowActions
-    .getByLabel("已选记录", { exact: true })
+  await rows
+    .getByLabel("已选记录")
     .filter({ hasText: "row-actions" })
     .waitFor();
-  await rowActions
+  await rows
     .getByRole("checkbox", { name: "全选当前页", exact: true })
     .uncheck();
-  assert.equal(
-    await rowActions.getByLabel("已选记录", { exact: true }).textContent(),
-    "",
-  );
+  assert.equal(await rows.getByLabel("已选记录").textContent(), "");
+  await rows.getByRole("button", { name: "查看", exact: true }).focus();
+  await page.getByRole("tooltip").filter({ hasText: "查看" }).waitFor();
+  const more = rows.getByRole("button", { name: "更多操作", exact: true });
+  await more.focus();
+  await more.press("ArrowDown");
+  const withdraw = page.getByRole("menuitem", { name: "反送审", exact: true });
+  await withdraw.waitFor();
   assert.notEqual(
-    await rowActions
-      .getByRole("button", { name: "反送审", exact: true })
+    await withdraw
       .locator("i")
       .evaluate((el) => getComputedStyle(el, "::before").content),
     "none",
   );
-  const more = rowActions.getByRole("button", { name: "更多操作" });
-  await rowActions.getByRole("button", { name: "查看", exact: true }).focus();
-  await page.getByRole("tooltip").filter({ hasText: "查看" }).waitFor();
-  await more.focus();
-  await more.press("ArrowDown");
-  const remove = page.getByRole("menuitem", { name: "删除", exact: true });
-  await remove.waitFor();
   await page.keyboard.press("ArrowDown");
   await page.waitForFunction(
     () => document.activeElement?.getAttribute("role") === "menuitem",
   );
-  await remove.press("Escape");
+  await withdraw.press("Escape");
+  await more.waitFor({ state: "visible" });
   await page.waitForFunction(
     () => document.activeElement?.getAttribute("aria-label") === "更多操作",
   );
-  await remove.waitFor({ state: "hidden" });
-  await more.click();
-  await remove.click();
-  await rowActions
-    .getByRole("status")
-    .filter({ hasText: "delete:row-actions" })
-    .waitFor();
   for (const [action, caption] of [
+    ["withdraw", "反送审"],
     ["complete", "完成"],
     ["uncomplete", "反完成"],
   ]) {
@@ -494,12 +534,18 @@ async function directSmoke(page) {
       .evaluate((el) => getComputedStyle(el, "::before").content);
     assert.ok(glyph && glyph !== "none" && glyph !== '""');
     await item.click();
-    await rowActions
+    await rows
       .getByRole("status")
       .filter({ hasText: action + ":row-actions" })
       .waitFor();
     await item.waitFor({ state: "hidden" });
   }
+  await rows.getByRole("button", { name: "删除", exact: true }).click();
+  await rows.getByRole("button", { name: "确认删除", exact: true }).click();
+  await rows
+    .getByRole("status")
+    .filter({ hasText: "delete:row-actions" })
+    .waitFor();
   const touchContext = await page
     .context()
     .browser()
@@ -509,19 +555,20 @@ async function directSmoke(page) {
       isMobile: true,
     });
   try {
-    const touchPage = await touchContext.newPage();
-    await touchPage.goto(page.url());
-    const touchRow = touchPage.getByRole("region", { name: "行操作示例" });
-    await touchRow.getByRole("button", { name: "更多操作" }).tap();
-    await touchPage.getByRole("menuitem", { name: "删除", exact: true }).tap();
-    await touchRow
+    const touch = await touchContext.newPage();
+    await touch.goto(page.url());
+    await touch.getByLabel("资料演示").selectOption("actions");
+    await touch.getByRole("button", { name: "更多操作", exact: true }).tap();
+    await touch.getByRole("menuitem", { name: "完成", exact: true }).tap();
+    await touch
       .getByRole("status")
-      .filter({ hasText: "delete:row-actions" })
+      .filter({ hasText: "complete:row-actions" })
       .waitFor();
   } finally {
     await touchContext.close();
   }
-  const crud = page.getByRole("region", { name: "资料示例" });
+  await choose("resources");
+  const crud = page.getByRole("region", { name: "资料示例", exact: true });
   await page
     .getByRole("heading", { name: "合成示例 · 账簿", exact: true })
     .waitFor();
@@ -543,24 +590,21 @@ async function directSmoke(page) {
     .fill("离仓安装修改");
   await crud.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByRole("cell", { name: "离仓安装修改", exact: true }).waitFor();
-  for (const option of await page
-    .locator("select")
-    .first()
-    .locator("option")
-    .all()) {
-    const value = await option.getAttribute("value");
-    await page.locator("select").first().selectOption(value);
+  const resources = page.getByLabel("资源", { exact: true });
+  for (const option of await resources.locator("option").all()) {
+    await resources.selectOption(await option.getAttribute("value"));
     await page.getByRole("heading").filter({ hasText: "合成示例" }).waitFor();
     await crud.getByRole("button", { name: "新增", exact: true }).click();
     await page.getByRole("textbox", { name: "名称", exact: true }).waitFor();
     await crud.getByRole("button", { name: "取消编辑", exact: true }).click();
   }
-  const contracts = page.getByRole("region", { name: "资料接缝示例" });
+  await choose("contracts");
+  const contracts = page.getByRole("region", {
+    name: "资料接缝示例",
+    exact: true,
+  });
   await contracts
-    .getByRole("button", { name: "展示资料接缝", exact: true })
-    .click();
-  await contracts
-    .getByRole("button", { name: "公开打开编辑", exact: true })
+    .getByRole("button", { name: "打开资料接缝", exact: true })
     .click();
   assert.equal(
     JSON.parse(await contracts.getByLabel("资料保护事实").textContent()).dirty,
@@ -573,15 +617,13 @@ async function directSmoke(page) {
       .isDisabled(),
   );
   await contracts
-    .getByRole("button", { name: "公开关闭资料", exact: true })
+    .getByRole("button", { name: "取消编辑", exact: true })
     .click();
-  await contracts
-    .getByRole("button", { name: "继续编辑", exact: true })
-    .click();
-  await contracts.getByLabel("设置代码", { exact: true }).fill("B");
+  await page.getByRole("button", { name: "继续编辑", exact: true }).click();
+  await contracts.getByLabel("设置代码", { exact: true }).fill("2");
   await contracts.getByRole("button", { name: "保存", exact: true }).click();
   await contracts
-    .getByRole("button", { name: "公开查看历史", exact: true })
+    .getByRole("button", { name: "查看历史资料接缝", exact: true })
     .click();
   await contracts
     .getByRole("dialog", { name: "查看资料", exact: true })
@@ -595,8 +637,9 @@ async function directSmoke(page) {
     0,
   );
   await contracts
-    .getByRole("button", { name: "公开关闭资料", exact: true })
+    .getByRole("button", { name: "取消编辑", exact: true })
     .click();
+  await choose("resources");
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await crud.locator("thead").evaluate((el) => getComputedStyle(el).display),
@@ -625,8 +668,26 @@ async function configurationSmoke(page) {
   await edit();
   assert.equal(await page.getByLabel("映射目标").inputValue(), "目标乙");
   await scenario("conflict");
-  await save();
+  await button("保存").scrollIntoViewIfNeeded();
+  await assertStableFeedback(
+    page,
+    [page.getByLabel("映射目标"), button("保存")],
+    async () => {
+      await save();
+      await page.getByRole("alert").filter({ hasText: "修订冲突" }).waitFor();
+    },
+  );
   await page.getByRole("alert").filter({ hasText: "修订冲突" }).waitFor();
+  const dismiss = page.getByRole("button", {
+    name: "关闭错误提示",
+    exact: true,
+  });
+  await dismiss.scrollIntoViewIfNeeded();
+  await assertStableFeedback(
+    page,
+    [page.getByLabel("映射目标"), button("保存")],
+    () => dismiss.click(),
+  );
   assert.equal(
     await page.getByRole("textbox", { name: "名称", exact: true }).inputValue(),
     "离仓配置",
@@ -662,6 +723,12 @@ async function configurationSmoke(page) {
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
   assert.ok(await button("关闭编辑").isDisabled());
   assert.ok(await button("编辑").isDisabled());
+  await page.getByLabel("配置示例").selectOption("period");
+  await page
+    .getByRole("heading", { name: "合成配置 · 映射", exact: true })
+    .waitFor();
+  assert.ok(await button("编辑").isDisabled());
+  await page.getByLabel("配置会话").selectOption("synthetic-session-b");
   for (const value of ["period", "report"]) {
     await page.getByLabel("配置示例").selectOption(value);
     await scenario("success");
@@ -676,18 +743,20 @@ async function configurationSmoke(page) {
     await page.getByRole("status").filter({ hasText: "配置已保存" }).waitFor();
   }
   await page.getByLabel("配置示例").selectOption("mapping");
+  await page.getByLabel("配置会话").selectOption("synthetic-session-a");
   assert.ok(await button("编辑").isDisabled());
   const contracts = page.getByRole("region", { name: "配置接缝示例" });
-  await contracts
-    .getByRole("button", { name: "展示配置接缝", exact: true })
-    .click();
+  await page.getByRole("button", { name: "展示配置接缝", exact: true }).click();
   await contracts.getByLabel("接缝配置名", { exact: true }).waitFor();
   assert.equal(
     await contracts.getByLabel("接缝配置名", { exact: true }).inputValue(),
     "初始配置",
   );
   await contracts
-    .getByRole("button", { name: "公开新建配置", exact: true })
+    .getByRole("button", { name: "关闭编辑", exact: true })
+    .click();
+  await contracts
+    .getByRole("button", { name: "新增配置", exact: true })
     .click();
   await contracts.getByLabel("接缝配置名", { exact: true }).fill("权威新配置");
   await contracts.getByRole("button", { name: "保存", exact: true }).click();
@@ -709,17 +778,18 @@ async function configurationSmoke(page) {
   );
   await contracts.getByLabel("接缝配置名", { exact: true }).fill("未保存配置");
   await contracts
-    .getByRole("button", { name: "公开打开配置", exact: true })
+    .getByRole("button", { name: "关闭编辑", exact: true })
     .click();
   await contracts
     .getByRole("button", { name: "放弃本地修改", exact: true })
     .click();
+  await contracts.getByRole("button", { name: "编辑", exact: true }).click();
   assert.equal(
     await contracts.getByLabel("接缝配置名", { exact: true }).inputValue(),
     "权威新配置",
   );
   await contracts
-    .getByRole("button", { name: "公开关闭配置", exact: true })
+    .getByRole("button", { name: "关闭编辑", exact: true })
     .click();
 }
 
@@ -925,14 +995,16 @@ async function documentSmoke(page) {
   await page
     .getByRole("heading", { name: "合成档案 · 定价", exact: true })
     .waitFor();
-  await expectValue(page.getByLabel("定价金额"), "9007199254740993.0100");
+  await page.getByText("9007199254740993.0100", { exact: true }).waitFor();
   await button("历史 v1").click();
   await expectValue(name(), "合成历史快照");
   assert.equal(await button("编辑档案").count(), 0);
   await button("正式资料").click();
   await button("编辑档案").click();
   await name().fill("新候选定价");
+  await button("编辑合成客户定价 1").click();
   await page.getByLabel("定价客户").selectOption("客户乙");
+  await button("确定合成客户定价").click();
   await page.getByLabel("本地附件").setInputFiles({
     name: "synthetic.txt",
     mimeType: "text/plain",
@@ -949,11 +1021,10 @@ async function documentSmoke(page) {
     .waitFor();
   await button("关闭编辑").click();
   await button("重试读取").click();
-  assert.ok(await button("编辑档案").isDisabled());
+  assert.ok(await button("提交档案").isDisabled());
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "尚未业务提交" }).waitFor();
   await scenario("business-unknown");
-  await button("编辑档案").click();
   await button("提交档案").click();
   await page
     .getByRole("status")
@@ -961,7 +1032,7 @@ async function documentSmoke(page) {
     .waitFor();
   await button("关闭编辑").click();
   await button("重试读取").click();
-  assert.ok(await button("编辑档案").isDisabled());
+  assert.ok(await button("提交档案").isDisabled());
   await button("核实本次请求").click();
   await page
     .getByRole("status")
@@ -970,7 +1041,7 @@ async function documentSmoke(page) {
   await expectValue(name(), "合成定价");
   await button("开放候选").click();
   await expectValue(name(), "新候选定价");
-  await expectValue(page.getByLabel("定价客户"), "客户乙");
+  await page.getByText("客户乙", { exact: true }).waitFor();
   const download = page.waitForEvent("download");
   await button("读取附件 synthetic.txt").click();
   assert.equal((await download).suggestedFilename(), "synthetic.txt");
@@ -997,10 +1068,12 @@ async function documentSmoke(page) {
   await page
     .getByRole("heading", { name: "合成档案 · 配方", exact: true })
     .waitFor();
-  await expectValue(page.getByLabel("配方用量"), "0.0100");
+  await page.getByText("0.0100", { exact: true }).waitFor();
   await button("编辑档案").click();
+  await button("编辑合成产品配方 1").click();
   await page.getByLabel("配方原料").selectOption("b");
   await page.getByLabel("配方用量").fill("1.2300");
+  await button("确定合成产品配方").click();
   await scenario("conflict");
   await button("提交档案").click();
   await page.getByRole("alert").filter({ hasText: "合成修订冲突" }).waitFor();
@@ -1009,7 +1082,7 @@ async function documentSmoke(page) {
   await button("关闭编辑").click();
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
-  assert.ok(await button("编辑档案").isDisabled());
+  assert.ok(await button("提交档案").isDisabled());
 }
 
 async function voucherSmoke(page) {
@@ -1029,7 +1102,10 @@ async function voucherSmoke(page) {
     name: "合成单据 · ordinary",
     exact: true,
   });
+  await page.getByLabel("单据演示", { exact: true }).selectOption("editor");
+  await page.getByRole("button", { name: "编辑资料", exact: true }).click();
   await standalone.getByRole("button", { name: "编辑配方 · 明细行 1" }).click();
+  await assertBelowToolbar(page, page.locator(".zerp-voucher-editor__overlay"));
   await standalone.getByRole("button", { name: "新增配方" }).click();
   await standalone.getByLabel("原料").fill("合成原料甲");
   await standalone.getByLabel("用量").fill("0.0100");
@@ -1040,13 +1116,14 @@ async function voucherSmoke(page) {
       await standalone.getByRole("table", { name: "单据明细" }).textContent()
     )?.includes("1 项"),
   );
+  await page.getByLabel("单据演示", { exact: true }).selectOption("submission");
   await button("创建 Draft").click();
   await value().fill("合成新单据");
   await expectValue(page.getByLabel("精确金额"), "9007199254740993.0100");
+  await page.getByLabel("精确来源搜索", { exact: true }).fill("合成来源");
+  await button("搜索引用").click();
   await button("合成来源甲").click();
-  await page.getByText(/source-r7/).waitFor();
-  await button("准备录入目录").click();
-  assert.ok(await button("提交单据").isDisabled());
+
   await page.getByLabel("本地附件").setInputFiles({
     name: "doc.txt",
     mimeType: "text/plain",
@@ -1063,9 +1140,13 @@ async function voucherSmoke(page) {
   assert.ok(await button("创建 Draft").isDisabled());
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "尚未业务提交" }).waitFor();
-  await button("恢复 Draft").click();
   await scenario("unknown-applied");
   await button("提交单据").click();
+  assert.deepEqual(
+    JSON.parse(await page.getByLabel("合成单据原输入").textContent()).entry
+      .source.snapshot,
+    { revision: "source-r7", rate: "0.0100" },
+  );
   await page
     .getByRole("status")
     .filter({ hasText: "业务写入结果未知" })
@@ -1157,7 +1238,7 @@ async function voucherSmoke(page) {
   await openingButton("确定配方").click();
   await button("提交单据").click();
   await button("查看 SYN-2").click();
-  await page.getByText(/保留行/).waitFor();
+  await page.getByRole("cell", { name: "保留行", exact: true }).waitFor();
   await openingButton("查看配方 · 明细行 1").click();
   assert.equal(await openingButton("确定配方").count(), 0);
   await openingButton("关闭配方").click();
@@ -1185,6 +1266,9 @@ async function voucherSmoke(page) {
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
   await button("关闭编辑").click();
   assert.ok(await button("创建 Draft").isDisabled());
+  await page
+    .getByLabel("单据会话", { exact: true })
+    .selectOption("synthetic-session-b");
   await voucherOperationSmoke(page);
 }
 
@@ -1280,9 +1364,17 @@ async function workflowSmoke(page) {
 
 async function shellSmoke(page) {
   await shellInteractionSmoke(page);
-  await page.getByRole("heading", { name: "流程", exact: true }).waitFor();
+  await page
+    .getByRole("heading", { name: "合成流程运行时", exact: true })
+    .waitFor();
   for (const preset of ["md1", "md2", "md3"]) {
-    await page.getByLabel("主题预设").selectOption(preset);
+    await page.getByRole("button", { name: "主题预设", exact: true }).click();
+    const item = page.getByRole("menuitemradio", {
+      name: `Material Design ${preset.slice(-1)}`,
+      exact: true,
+    });
+    await item.click();
+    await item.waitFor({ state: "hidden" });
     await page
       .getByRole("button", { name: "切换明暗模式", exact: true })
       .click();
@@ -1303,7 +1395,17 @@ async function shellSmoke(page) {
     const link = page.getByRole("link", { name, exact: true });
     assert.ok(await link.getAttribute("href"));
     await link.click();
-    await page.getByRole("heading", { name, exact: true }).waitFor();
+    const titles = {
+      直接维护: "合成示例 · 账簿",
+      配置: "合成配置 · 映射",
+      报表: "合成报表 · 分批",
+      资料档案: "合成档案 · 定价",
+      单据: "合成单据 · ordinary",
+      流程: "合成流程运行时",
+    };
+    await page
+      .getByRole("heading", { name: titles[name], exact: true })
+      .waitFor();
     assert.equal(await page.locator("h1").count(), 1);
     assert.equal(await link.getAttribute("aria-current"), "page");
   }
@@ -1349,12 +1451,29 @@ async function shellSmoke(page) {
   await page
     .getByRole("button", { name: "账户：演示账户", exact: true })
     .click();
-  await page.getByRole("menuitem", { name: "修改密码", exact: true }).click();
+  await page.getByRole("menuitem", { name: "名称与头像", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "名称与头像", exact: true })
+    .waitFor();
+  await page
+    .getByLabel("头像地址", { exact: true })
+    .fill(
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='16' fill='blue'/%3E%3C/svg%3E",
+    );
+  await page.getByRole("button", { name: "确认账户修改", exact: true }).click();
+  await page
+    .getByRole("button", { name: "账户：演示账户", exact: true })
+    .getByRole("img", { name: "合成账户头像", exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "账户：演示账户", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "更改密码", exact: true }).click();
   await page.getByLabel("新密码", { exact: true }).fill("synthetic-password");
   await page.getByRole("button", { name: "取消账户修改", exact: true }).click();
   assert.equal(await page.getByLabel("新密码", { exact: true }).count(), 0);
   await page
-    .getByRole("menuitem", { name: "修改密码", exact: true })
+    .getByRole("menuitem", { name: "更改密码", exact: true })
     .waitFor({ state: "hidden" });
   await page
     .getByRole("button", { name: "账户：演示账户", exact: true })
@@ -1368,6 +1487,19 @@ async function shellSmoke(page) {
   await page.getByLabel("密码", { exact: true }).fill("synthetic-password");
   await page.getByLabel("确认密码", { exact: true }).fill("synthetic-password");
   await page.getByRole("button", { name: "注册账号", exact: true }).click();
+  const successDismiss = page.getByRole("button", {
+    name: "关闭状态提示",
+    exact: true,
+  });
+  await successDismiss.scrollIntoViewIfNeeded();
+  await assertStableFeedback(
+    page,
+    [
+      page.getByLabel("账号", { exact: true }),
+      page.getByRole("button", { name: "登录", exact: true }),
+    ],
+    () => successDismiss.click(),
+  );
   await page.getByRole("button", { name: "忘记密码", exact: true }).click();
   await page.getByLabel("账号", { exact: true }).fill("synthetic-user");
   await page.getByRole("button", { name: "找回密码", exact: true }).click();
@@ -1387,5 +1519,7 @@ async function shellSmoke(page) {
   await page.getByRole("button", { name: "重试品牌", exact: true }).click();
   await page.getByRole("button", { name: "切换导航", exact: true }).click();
   await page.getByRole("link", { name: "报表", exact: true }).click();
-  await page.getByRole("heading", { name: "报表", exact: true }).waitFor();
+  await page
+    .getByRole("heading", { name: "合成报表 · 分批", exact: true })
+    .waitFor();
 }
