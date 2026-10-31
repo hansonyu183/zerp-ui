@@ -36,6 +36,9 @@ export type {
 export { default as ReportView } from "./ReportView.vue";
 export { defineReport, ReportUnavailable } from "./report";
 export type {
+  ReportAppearance,
+  ReportPresentation,
+  ReportPage,
   ReportSnapshot,
   FixedReportAdapter,
   ReportCell,

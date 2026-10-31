@@ -374,7 +374,7 @@ try {
                   ]
                 : reportMode
                   ? [
-                      "report parameters/query/paging/export, total/hasMore, eligibility, failures and two DTO examples",
+                      "report dynamic columns, finite presentation/groups, isolated adopted context, retained valid reads, authority expiry, restore and cancellation; parameter total/hasMore and typed DTO examples",
                     ]
                   : configuration
                     ? [
@@ -482,6 +482,24 @@ async function directSmoke(page) {
     .getByRole("status")
     .filter({ hasText: "delete:row-actions" })
     .waitFor();
+  for (const [action, caption] of [
+    ["complete", "完成"],
+    ["uncomplete", "反完成"],
+  ]) {
+    await page.getByRole("menu").waitFor({ state: "hidden" });
+    await more.click();
+    const item = page.getByRole("menuitem", { name: caption, exact: true });
+    const glyph = await item
+      .locator("i")
+      .evaluate((el) => getComputedStyle(el, "::before").content);
+    assert.ok(glyph && glyph !== "none" && glyph !== '""');
+    await item.click();
+    await rowActions
+      .getByRole("status")
+      .filter({ hasText: action + ":row-actions" })
+      .waitFor();
+    await item.waitFor({ state: "hidden" });
+  }
   const touchContext = await page
     .context()
     .browser()
@@ -706,6 +724,7 @@ async function configurationSmoke(page) {
 }
 
 async function reportSmoke(page) {
+  await page.clock.install();
   const button = (name) => page.getByRole("button", { name, exact: true });
   await page
     .getByRole("heading", { name: "合成报表 · 分批", exact: true })
@@ -752,7 +771,50 @@ async function reportSmoke(page) {
   await page.getByLabel("报表示例").selectOption("fixed");
   await button("查询").click();
   await page.getByText("服务端全结果合计", { exact: false }).waitFor();
+  await page
+    .getByRole("columnheader", { name: "精确金额 · 本次定义", exact: true })
+    .waitFor();
+  await page
+    .getByRole("rowheader", { name: "合成分组", exact: true })
+    .waitFor();
+  assert.equal(
+    await button("明细 合成记录甲").evaluate(
+      (cell) => getComputedStyle(cell).color,
+    ),
+    "rgb(17, 34, 51)",
+  );
+  await page
+    .getByLabel("外围采用结果")
+    .filter({ hasText: "synthetic-1 · 全部" })
+    .waitFor();
+  await page.getByLabel("固定读取情景").selectOption("pending");
+  await button("查询").click();
+  await page.getByRole("status").filter({ hasText: "正在查询" }).waitFor();
+  const retainedDownload = page.waitForEvent("download");
+  await button("导出").click();
+  assert.equal(
+    (await retainedDownload).suggestedFilename(),
+    "synthetic-1-complete.csv",
+  );
+  await button("下一页").click();
+  await page
+    .getByRole("rowheader", { name: "合成分组（续）", exact: true })
+    .waitFor();
+  await page.getByRole("status").filter({ hasText: "正在查询" }).waitFor();
+  await button("停止等待").click();
+  await button("取消服务端查询").click();
+  await page.getByRole("status").filter({ hasText: "服务端已取消" }).waitFor();
+  await button("上一页").click();
+  await page.getByLabel("固定读取情景").selectOption("success");
   await page.getByLabel("固定关键字").fill("未查询条件");
+  await page
+    .getByLabel("当前编辑条件")
+    .filter({ hasText: "未查询条件" })
+    .waitFor();
+  await page
+    .getByLabel("外围采用结果")
+    .filter({ hasText: "synthetic-1 · 全部" })
+    .waitFor();
   const fixedDownload = page.waitForEvent("download");
   await button("导出").click();
   assert.equal(
@@ -773,7 +835,7 @@ async function reportSmoke(page) {
   assert.ok(position.top > 0);
   assert.equal(
     await page
-      .getByRole("columnheader", { name: "精确金额", exact: true })
+      .getByRole("columnheader", { name: "精确金额 · 本次定义", exact: true })
       .evaluate((element) => getComputedStyle(element).display),
     "table-cell",
   );
@@ -838,6 +900,20 @@ async function reportSmoke(page) {
     .getByRole("status")
     .filter({ hasText: "服务端已取消。" })
     .waitFor();
+  await page.getByLabel("固定读取情景").selectOption("success");
+  await page.getByLabel("固定关键字").fill("");
+  await button("查询").click();
+  await page
+    .getByRole("rowheader", { name: "合成分组", exact: true })
+    .waitFor();
+  await page.clock.fastForward(60 * 60 * 1000 + 1);
+  await page.getByRole("alert").filter({ hasText: "结果已失效" }).waitFor();
+  await page
+    .getByLabel("外围采用结果")
+    .filter({ hasText: "未采用结果" })
+    .waitFor();
+  assert.equal(await page.locator("table").count(), 0);
+  assert.ok(await button("导出").isDisabled());
 }
 
 async function documentSmoke(page) {
