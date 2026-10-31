@@ -1,7 +1,9 @@
 <script setup lang="ts" generic="M extends VoucherOperationModel, I, B">
+import Feedback from "./Feedback.vue";
 import { computed, watch, onBeforeUnmount } from "vue";
 import { operationSession } from "./voucher-operation-session";
 import { clone } from "./clone";
+import { equalValues } from "./editor-values";
 import { voucherOperationLabels } from "./voucher-operation";
 import type {
   VoucherOperationHandle,
@@ -81,22 +83,24 @@ watch(
   { immediate: true, flush: "sync" },
 );
 watch(
-  () => props.intent.identity,
-  () => {
+  () => clone(props.intent.identity),
+  (value, previous) => {
+    if (equalValues(value, previous)) return;
     // An authoritative read may adopt a created identity. Its original journal
     // still owns completion; an earlier target switch must not refresh a new target.
     if (state.value.phase !== "refresh") generation++;
     session.value.cancelPreview();
   },
-  { deep: true, flush: "sync" },
+  { flush: "sync" },
 );
 watch(
-  [() => props.intent.input, () => props.intent.action],
-  () => {
+  () => [clone(props.intent.input), props.intent.action],
+  (value, previous) => {
+    if (equalValues(value, previous)) return;
     if (!state.value.journal) generation++;
     session.value.cancelPreview();
   },
-  { deep: true, flush: "sync" },
+  { flush: "sync" },
 );
 watch(
   () => props.eligible,
@@ -142,23 +146,30 @@ onBeforeUnmount(() => {
     class="zerp-ui"
     aria-label="单据办理"
   >
-    <p role="status">
-      {{ state.notice }}
-      <span v-if="state.journal">
-        {{
-          state.journal.receipt?.status === "applied"
-            ? "已应用；原请求保持锁定直到读取及完成记录成功。"
-            : state.journal.receipt?.status === "not-applied"
-              ? state.journal.receipt.sealed
-                ? "已确认未应用并封存；等待读取及完成记录。"
-                : "已确认未应用；必须封存原请求。"
-              : state.phase === "pending"
-                ? "原请求处理中，暂不能开始新请求。"
-                : "结果未知；须核实原请求。"
-        }}
-      </span>
-    </p>
-    <p v-if="state.busy" role="status">正在处理办理请求…</p>
+    <div class="zerp-feedback-region">
+      <Feedback :message="state.notice" />
+      <Feedback
+        :message="
+          state.journal
+            ? state.journal.receipt?.status === 'applied'
+              ? '已应用；原请求保持锁定直到读取及完成记录成功。'
+              : state.journal.receipt?.status === 'not-applied'
+                ? state.journal.receipt.sealed
+                  ? '已确认未应用并封存；等待读取及完成记录。'
+                  : '已确认未应用；必须封存原请求。'
+                : state.phase === 'pending'
+                  ? '原请求处理中，暂不能开始新请求。'
+                  : '结果未知；须核实原请求。'
+            : undefined
+        "
+        kind="warning"
+        persistent
+      />
+      <Feedback
+        :message="state.busy ? '正在处理办理请求…' : undefined"
+        persistent
+      />
+    </div>
     <p v-if="state.journal">
       原请求：{{ state.journal.request.requestId }} ·
       {{ voucherOperationLabels[state.journal.request.action] }}
@@ -244,5 +255,5 @@ onBeforeUnmount(() => {
       }}
     </button>
   </section>
-  <p v-else role="status">无办理或核实权限。</p>
+  <Feedback v-else message="无办理或核实权限。" persistent />
 </template>

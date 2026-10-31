@@ -1,7 +1,8 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { describe, it, expect, vi } from "vitest";
-import { CrudView, defineCrud } from "../src/index";
+import { defineCrud } from "../src/index";
+import CrudView from "../src/CrudView.vue";
 const definition = () =>
   defineCrud({
     resource: "sample",

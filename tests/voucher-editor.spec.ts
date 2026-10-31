@@ -1,7 +1,8 @@
 import { defineComponent, h, ref, type Component } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
-import { VoucherEditor, type VoucherEditorValue } from "../src/index";
+import { type VoucherEditorValue } from "../src/index";
+import VoucherEditor from "../src/VoucherEditor.vue";
 
 type Header = { supplier: string; date: string };
 type Row = { id: string; name: string; quantity: string };

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
-import { ref } from "vue";
-import { ConfigurationView, configurationBlock } from "@zerp/ui";
+import { computed, ref } from "vue";
+import { defineConfigurationPage, domainBlocks } from "@zerp/ui";
+import ExamplePage from "../shared/ExamplePage.vue";
 import { sample, type Mapping, type Scenario } from "./adapters";
 import ConfigurationContracts from "./ConfigurationContracts.vue";
-import RouteBlock from "./RouteBlock.vue";
+
 const resource = ref("mapping"),
   scenario = ref<Scenario>("success");
 const mode = () => scenario.value;
@@ -49,16 +49,56 @@ const report = sample(
   true,
 );
 const blocks = [
-  configurationBlock<Mapping>()({
+  domainBlocks<Mapping>().fields({
     key: "route",
-    component: RouteBlock,
-    catalog: ["目标甲", "目标乙"] as readonly string[],
+    label: "合成映射区块",
+    fields: [
+      {
+        key: "target",
+        label: "映射目标",
+        type: "enum",
+        options: [
+          { value: "目标甲", label: "目标甲" },
+          { value: "目标乙", label: "目标乙" },
+        ],
+      },
+      {
+        key: "dimensions",
+        label: "维度",
+        type: "multi-enum",
+        options: [{ value: "维度一", label: "维度一" }],
+      },
+    ],
   }),
 ];
 const permissions = { read: true, write: true, reconcile: true };
+const mappingPage = defineConfigurationPage({
+  definition: mapping,
+  blocks,
+  permissions,
+});
+const periodPage = defineConfigurationPage({ definition: period, permissions });
+const reportPage = defineConfigurationPage({ definition: report, permissions });
+const contracts = ref(false);
+const scope = ref("synthetic-session-a");
+const page = computed(() =>
+  resource.value === "mapping"
+    ? mappingPage
+    : resource.value === "period"
+      ? periodPage
+      : reportPage,
+);
 </script>
 <template>
-  <main>
+  <ConfigurationContracts v-if="contracts" />
+  <ExamplePage v-else :page="page" :scope="scope" />
+  <aside class="example-controls" aria-label="合成配置控制">
+    <label
+      >配置会话<select v-model="scope" aria-label="配置会话">
+        <option>synthetic-session-a</option>
+        <option>synthetic-session-b</option>
+      </select></label
+    >
     <p>合成 Adapter 演示；不连接真实 API，不执行试算。</p>
     <label
       >配置示例<select v-model="resource" aria-label="配置示例">
@@ -77,34 +117,8 @@ const permissions = { read: true, write: true, reconcile: true };
         <option value="refresh-failure">成功后刷新失败</option>
       </select></label
     >
-    <h1 v-if="showTitle">
-      {{
-        resource === "mapping"
-          ? mapping.title
-          : resource === "period"
-            ? period.title
-            : report.title
-      }}
-    </h1>
-    <ConfigurationView
-      v-if="resource === 'mapping'"
-      :definition="mapping"
-      :blocks="blocks"
-      scope="synthetic-session"
-      :permissions="permissions"
-    />
-    <ConfigurationView
-      v-else-if="resource === 'period'"
-      :definition="period"
-      scope="synthetic-session"
-      :permissions="permissions"
-    />
-    <ConfigurationView
-      v-else
-      :definition="report"
-      scope="synthetic-session"
-      :permissions="permissions"
-    />
-    <ConfigurationContracts v-if="showTitle" />
-  </main>
+    <button @click="contracts = !contracts">
+      {{ contracts ? "返回配置示例" : "展示配置接缝" }}
+    </button>
+  </aside>
 </template>

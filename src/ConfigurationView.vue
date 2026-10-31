@@ -3,13 +3,15 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
-import { computed, onBeforeUnmount, ref, shallowRef, toRaw, watch } from "vue";
-import { VAlert, VProgressLinear } from "vuetify/components";
+import DomainBlockHost from "./DomainBlockHost.vue";
+import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import Feedback from "./Feedback.vue";
+import { VProgressLinear } from "vuetify/components";
 import type { AnyField, Page } from "./contracts";
 import type {
   ConfigurationDefinition,
   ConfigurationAttempt,
-  ConfigurationBlock,
   ConfigurationViewHandle,
   ConfigurationDraft,
 } from "./configuration";
@@ -27,8 +29,9 @@ const props = defineProps<{
   definition: ConfigurationDefinition<D, F, R, I, E>;
   scope: string;
   permissions: { read: boolean; write: boolean; reconcile?: boolean };
-  blocks?: readonly ConfigurationBlock<D>[];
+  blocks?: readonly DomainBlock<D>[];
   beforeClose?: () => Promise<boolean>;
+  discardVersion?: number;
   initialRow?: R;
   retainEditor?: boolean;
 }>();
@@ -132,10 +135,17 @@ const protection = computed<EditProtection>(() => ({
   localPending: localPending.value,
   invalid:
     !!editor.value?.writable &&
-    !!validate(
-      formFields.value as readonly AnyField[],
-      editor.value.values,
-      editor.value.creating ? "create" : "edit",
+    !!(
+      validate(
+        formFields.value as readonly AnyField[],
+        editor.value.values,
+        editor.value.creating ? "create" : "edit",
+      ) ??
+      validateDomainBlocks(
+        props.blocks,
+        editor.value.values,
+        editor.value.creating ? "create" : "edit",
+      )
     ),
   writeState: lock.value.phase,
 }));
@@ -302,17 +312,20 @@ const bindings = computed(() => {
     blocks:
       props.blocks?.map((block) => ({
         key: block.key,
-        component: toRaw(block.component),
+        block,
         props: {
-          modelValue: clone(editor.value?.values[block.key]),
-          catalog: clone(block.catalog),
+          modelValue: clone(editor.value!.values),
+          scope: props.scope,
+          formMode: editor.value?.creating
+            ? ("create" as const)
+            : ("edit" as const),
           mode: editor.value?.writable ? ("edit" as const) : ("read" as const),
           disabled: disabled.value,
-          "onUpdate:modelValue": (value: D[typeof block.key]) => {
+          "onUpdate:modelValue": (value: D) => {
             if (valid())
               editor.value = {
                 ...editor.value!,
-                values: { ...editor.value!.values, [block.key]: clone(value) },
+                values: clone(value),
               };
           },
           onPending: (value: boolean) => {
@@ -336,11 +349,17 @@ async function save() {
   const definition = props.definition,
     target = lock.value,
     g = generation;
-  const invalid = validate(
-    formFields.value as readonly AnyField[],
-    editor.value.values,
-    editor.value.creating ? "create" : "edit",
-  );
+  const invalid =
+    validate(
+      formFields.value as readonly AnyField[],
+      editor.value.values,
+      editor.value.creating ? "create" : "edit",
+    ) ??
+    validateDomainBlocks(
+      props.blocks,
+      editor.value.values,
+      editor.value.creating ? "create" : "edit",
+    );
   if (invalid) {
     error.value = invalid;
     return;
@@ -475,6 +494,12 @@ watch(
     if (row) void enter(row);
   },
 );
+watch(
+  () => props.discardVersion,
+  () => {
+    if (lock.value.phase === "idle") clearEditor();
+  },
+);
 defineExpose<ConfigurationViewHandle<R>>({
   newDraft: () => enter(),
   openRow: (row) => enter(row),
@@ -512,27 +537,39 @@ onBeforeUnmount(() => {
       />
       <button type="submit" :disabled="loading || filterPending">查询</button>
     </form>
-    <VProgressLinear
-      v-if="loading || detailLoading"
-      indeterminate
-      aria-label="加载中"
-    />
-    <VAlert v-if="error" type="error" role="alert">{{ error }}</VAlert>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="lock.phase === 'unknown'" role="status">
-      保存结果未知。普通读取或关闭编辑不能解除锁定。
-      <button
-        v-if="definition.reconcile && permissions.reconcile"
-        type="button"
-        :disabled="verifying"
-        @click="reconcile"
+    <div class="zerp-progress-reserve">
+      <VProgressLinear
+        v-if="loading || detailLoading"
+        indeterminate
+        aria-label="加载中"
+      />
+    </div>
+    <div class="zerp-feedback-region">
+      <Feedback :message="error" kind="error" />
+      <Feedback :message="notice" />
+      <Feedback
+        :message="lock.phase === 'unknown' ? '请求结果未知' : undefined"
+        kind="warning"
+        persistent
       >
-        核实本次请求
-      </button>
-    </p>
-    <p v-if="lock.phase === 'refresh'" role="status">
-      保存已成功，请重试读取；不会再次提交。
-    </p>
+        保存结果未知。普通读取或关闭编辑不能解除锁定。
+        <button
+          v-if="definition.reconcile && permissions.reconcile"
+          type="button"
+          :disabled="verifying"
+          @click="reconcile"
+        >
+          核实本次请求
+        </button>
+      </Feedback>
+      <Feedback
+        :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
+        kind="warning"
+        persistent
+      >
+        保存已成功，请重试读取；不会再次提交。
+      </Feedback>
+    </div>
     <button
       v-if="permissions.read"
       type="button"
@@ -578,9 +615,9 @@ onBeforeUnmount(() => {
         :onUpdate:modelValue="bindings.form"
         :onPending="bindings.formPending"
       />
-      <component
+      <DomainBlockHost
         v-for="block in bindings.blocks"
-        :is="block.component"
+        :block="block.block"
         :key="block.key"
         v-bind="block.props"
       />

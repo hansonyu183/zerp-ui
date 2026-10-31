@@ -1,7 +1,7 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { it, expect } from "vitest";
-import { CrudView } from "../src/index";
+import CrudView from "../src/CrudView.vue";
 import { exampleDefinition, resourceCases } from "../examples/direct/matrix";
 const click = async (w: ReturnType<typeof mount>, name: string) => {
   await w

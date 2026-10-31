@@ -1,4 +1,3 @@
-import type { Component } from "vue";
 import type {
   Attempt,
   Column,
@@ -63,30 +62,6 @@ export function defineConfiguration<
 ): ConfigurationDefinition<D, F, R, I, E> {
   return definition;
 }
-export type ConfigurationBlockProps<V, C> = {
-  modelValue: V;
-  catalog: C;
-  mode: "read" | "edit";
-  disabled: boolean;
-  "onUpdate:modelValue"?: (value: V) => void;
-  onPending?: (pending: boolean) => void;
-};
-export type ConfigurationBlock<D extends object> = {
-  [K in Extract<keyof D, string>]: {
-    key: K;
-    component: Component<ConfigurationBlockProps<D[K], never>>;
-    catalog: unknown;
-  };
-}[Extract<keyof D, string>];
-// Capture the catalog type when assembling each block, without exposing runtime controls.
-export function configurationBlock<D extends object>() {
-  return <K extends Extract<keyof D, string>, C>(block: {
-    key: K;
-    component: Component<ConfigurationBlockProps<D[K], C>>;
-    catalog: C;
-  }): ConfigurationBlock<D> => block as ConfigurationBlock<D>;
-}
-
 /** Authoritative identity is required for continuing a newly created draft. */
 export type ConfigurationWriteResult<I> =
   | Exclude<WriteResult, { status: "success" }>

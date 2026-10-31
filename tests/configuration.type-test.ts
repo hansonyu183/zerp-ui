@@ -1,10 +1,4 @@
-import {
-  defineConfiguration,
-  configurationBlock,
-  type ConfigurationBlockProps,
-  type ConfigurationAdapter,
-} from "../src/index";
-import { defineComponent } from "vue";
+import { defineConfiguration, type ConfigurationAdapter } from "../src/index";
 type Draft = { name: string; enabled: boolean };
 type Identity = { key: string; revision: string };
 const adapter: ConfigurationAdapter<Draft, {}, Draft, Identity> = {
@@ -41,38 +35,14 @@ defineConfiguration<Draft, {}, Draft, number>({
   // @ts-expect-error identity is not interchangeable with a numeric id
   adapter,
 });
-const TextBlock = defineComponent(
-  (props: ConfigurationBlockProps<string, readonly string[]>) => () =>
-    props.modelValue,
-);
-configurationBlock<Draft>()({
-  key: "name",
-  component: TextBlock,
-  catalog: [] as readonly string[],
-});
-configurationBlock<Draft>()({
-  key: "enabled",
-  // @ts-expect-error string block cannot edit a boolean field
-  component: TextBlock,
-  catalog: [] as readonly string[],
-});
-configurationBlock<Draft>()({
-  key: "name",
-  component: TextBlock,
-  // @ts-expect-error catalog must match the component contract
-  catalog: 123,
-});
 const snapshot: import("../src/index").ConfigurationDraft<
   { nested: { label: string } },
   Identity
 > = { values: { nested: { label: "snapshot" } } };
 // @ts-expect-error draft snapshots are deeply readonly facts
 snapshot.values.nested.label = "consumer must not own writes";
-const entrances: import("../src/index").ConfigurationViewHandle<Draft> = {
-  newDraft: async () => true,
-  openRow: async () => true,
-  close: async () => true,
-  refresh: async () => {},
-};
-// @ts-expect-error finite handles do not expose arbitrary commands
-entrances.execute("save");
+declare const entrance: import("../src/index").AppPageHandle;
+const leave: Promise<boolean> = entrance.requestLeave();
+// @ts-expect-error Complete pages expose no arbitrary runtime command.
+entrance.execute("save");
+void leave;

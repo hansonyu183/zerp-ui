@@ -9,6 +9,7 @@
     T = never
   "
 >
+import Feedback from "./Feedback.vue";
 import {
   computed,
   shallowRef,
@@ -718,43 +719,62 @@ onBeforeUnmount(() => {
       你可以填写参数并导出此报表。
     </p>
     <p v-if="!canQuery && !canExport">没有可用的报表操作。</p>
-    <p v-if="loading" role="status">
-      正在查询… <button type="button" @click="stop">停止等待</button>
-    </p>
-    <button
-      v-if="job?.adapter.cancel"
-      type="button"
-      :disabled="cancelling"
-      @click="cancel"
-    >
-      取消服务端查询
-    </button>
-    <p v-if="pageLoading" role="status">正在读取结果页…</p>
-    <p v-if="exporting" role="status">正在导出…</p>
-    <p v-if="checking || (result && !valid)" role="status">
-      结果待重验，分页、导出和下钻暂不可用。
+    <div class="zerp-feedback-region">
+      <Feedback :message="loading ? '正在查询…' : undefined" persistent>
+        <button type="button" @click="stop">停止等待</button>
+      </Feedback>
       <button
+        v-if="job?.adapter.cancel"
         type="button"
-        :disabled="checking || !enabled"
-        @click="revalidate"
+        :disabled="cancelling"
+        @click="cancel"
       >
-        重验结果
+        取消服务端查询
       </button>
-    </p>
-    <p v-if="error" role="alert">
-      {{ error }} <span v-if="result && usable">仍显示上次成功结果。</span
-      ><button
-        v-if="retry && canQuery"
-        type="button"
-        :disabled="loading || !valid"
-        @click="retry()"
+      <Feedback
+        :message="pageLoading ? '正在读取结果页…' : undefined"
+        persistent
+      />
+      <Feedback :message="exporting ? '正在导出…' : undefined" persistent />
+      <Feedback
+        :message="
+          checking || (result && !valid)
+            ? '结果待重验，分页、导出和下钻暂不可用。'
+            : undefined
+        "
+        kind="warning"
+        persistent
       >
-        重试查询
-      </button>
-    </p>
-    <p v-if="changedParameters">当前条件尚未查询；下方为上次成功结果。</p>
-    <p v-if="exportError" role="alert">{{ exportError }}</p>
-    <p v-if="notice" role="status">{{ notice }}</p>
+        <button
+          type="button"
+          :disabled="checking || !enabled"
+          @click="revalidate"
+        >
+          重验结果
+        </button>
+      </Feedback>
+      <Feedback :message="error" kind="error">
+        <span v-if="result && usable">仍显示上次成功结果。</span
+        ><button
+          v-if="retry && canQuery"
+          type="button"
+          :disabled="loading || !valid"
+          @click="retry()"
+        >
+          重试查询
+        </button>
+      </Feedback>
+      <Feedback
+        :message="
+          changedParameters
+            ? '当前条件尚未查询；下方为上次成功结果。'
+            : undefined
+        "
+        kind="warning"
+      />
+      <Feedback :message="exportError" kind="error" />
+      <Feedback :message="notice" />
+    </div>
     <div
       v-if="canQuery && result && usable"
       ref="scroll"

@@ -1,5 +1,8 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false });
+defineSlots<{}>();
 import { computed } from "vue";
+import Feedback from "./Feedback.vue";
 import { VThemeProvider, VDefaultsProvider, VBtn } from "vuetify/components";
 import {
   defaultThemeChoice,
@@ -106,18 +109,22 @@ function submit() {
           }}</span>
           <img v-else :src="brand.mark.src" :alt="brand.mark.alt" />
           <h1>{{ brand.productName }}</h1>
-          <p v-if="brandState.kind === 'ready'">{{ brand.enterpriseName }}</p>
-          <p v-else-if="brandState.kind === 'loading'" role="status">
-            品牌加载中
-          </p>
-          <p v-else role="alert">
-            {{ brandState.caption }}
-            <VBtn type="button" @click="emit('retry-brand')">重试品牌</VBtn>
-          </p>
+          <div class="zerp-auth-brand-state">
+            <p v-if="brandState.kind === 'ready'">{{ brand.enterpriseName }}</p>
+            <p v-else-if="brandState.kind === 'loading'" role="status">
+              品牌加载中
+            </p>
+            <p v-else role="alert">
+              {{ brandState.caption }}
+              <VBtn type="button" @click="emit('retry-brand')">重试品牌</VBtn>
+            </p>
+          </div>
         </header>
         <h2>{{ title }}</h2>
-        <p v-if="error" role="alert">{{ error }}</p>
-        <p v-if="notice" role="status">{{ notice }}</p>
+        <div class="zerp-feedback-region">
+          <Feedback :message="error" kind="error" />
+          <Feedback :message="notice" />
+        </div>
         <form @submit.prevent="submit">
           <label v-if="mode !== 'reset'">
             账号
@@ -153,7 +160,10 @@ function submit() {
               @input="set('confirmation', $event)"
             />
           </label>
-          <p v-if="confirmationMismatch" role="alert">两次输入的密码不一致</p>
+          <Feedback
+            :message="confirmationMismatch ? '两次输入的密码不一致' : undefined"
+            kind="error"
+          />
           <VBtn
             type="submit"
             color="primary"

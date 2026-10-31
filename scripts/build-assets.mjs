@@ -10,7 +10,10 @@ await copyFile(
 const declarations = new URL("../dist/index.d.ts", import.meta.url);
 await writeFile(
   declarations,
-  (await readFile(declarations, "utf8")).replace('import "./style.css";\n', ""),
+  (await readFile(declarations, "utf8")).replace(
+    /^import "\.\/(?:style|shell-layout)\.css";\n/gm,
+    "",
+  ),
 );
 
 // Reuse the maintained glyph rules, with the same single published woff2 asset.

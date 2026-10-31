@@ -1,7 +1,3 @@
-export { default as CrudView } from "./CrudView.vue";
-export { default as DynamicForm } from "./DynamicForm.vue";
-export { default as ReferencePicker } from "./ReferencePicker.vue";
-export { default as DataList } from "./DataList.vue";
 export { defineCrud } from "./contracts";
 export type {
   Page,
@@ -16,24 +12,19 @@ export type {
   ReconcileResult,
   CrudAdapter,
   CrudDefinition,
-  CrudViewHandle,
 } from "./contracts";
 import "./style.css";
-export { default as ConfigurationView } from "./ConfigurationView.vue";
-export { defineConfiguration, configurationBlock } from "./configuration";
+import "./shell-layout.css";
+export { defineConfiguration } from "./configuration";
 export type {
   ConfigurationDefinition,
   ConfigurationAdapter,
   ConfigurationAttempt,
-  ConfigurationBlock,
-  ConfigurationBlockProps,
-  ConfigurationViewHandle,
   ConfigurationDraft,
   ConfigurationWriteResult,
   ConfigurationReconcileResult,
 } from "./configuration";
 
-export { default as ReportView } from "./ReportView.vue";
 export { defineReport, ReportUnavailable } from "./report";
 export type {
   ReportAppearance,
@@ -55,7 +46,6 @@ export type {
   ReportDefinition,
 } from "./report";
 
-export { default as DocumentView } from "./DocumentView.vue";
 export { defineDocument } from "./document";
 export type {
   DocumentAction,
@@ -68,8 +58,6 @@ export type {
   DocumentDefinition,
 } from "./document";
 
-export { default as VoucherView } from "./VoucherView.vue";
-export { default as VoucherEditor } from "./VoucherEditor.vue";
 export type {
   VoucherEditorValue,
   VoucherEditorDefinition,
@@ -88,7 +76,6 @@ export type {
   VoucherDefinition,
 } from "./voucher";
 
-export { default as WorkflowView } from "./WorkflowView.vue";
 export { defineWorkflow } from "./workflow";
 export type {
   WorkflowAction,
@@ -124,7 +111,6 @@ export {
   voucherOperationLabels,
 } from "./voucher-operation";
 export type {
-  VoucherOperationHandle,
   VoucherOperationAction,
   VoucherOperationOwner,
   VoucherOperationPreview,
@@ -139,14 +125,8 @@ export type {
   VoucherOperationDefinition,
 } from "./voucher-operation";
 
-export { default as RecordDetails } from "./RecordDetails.vue";
 export type { DetailFields, DetailGroup } from "./details";
-export { default as EditGuard } from "./EditGuard.vue";
-export type {
-  EditGuardHandle,
-  EditWriteState,
-  EditProtection,
-} from "./edit-guard";
+export type { EditWriteState, EditProtection } from "./edit-guard";
 
 export { validateFields } from "./validation";
 export type {
@@ -154,3 +134,35 @@ export type {
   FieldValidationResult,
   FormValidationState,
 } from "./validation";
+
+export { defineDetailsPage } from "./pages";
+export type {
+  PageDefinition,
+  PageKind,
+  PageSource,
+  AppPageHandle,
+  DetailsPage,
+} from "./pages";
+export { domainBlocks } from "./domain-blocks";
+export type { DomainBlock } from "./domain-blocks";
+
+export {
+  defineCrudPage,
+  defineConfigurationPage,
+  defineReportPage,
+  defineDocumentPage,
+  defineVoucherPage,
+  defineWorkflowPage,
+} from "./pages";
+export type {
+  CrudPage,
+  ConfigurationPage,
+  ReportPageDefinition,
+  DocumentPage,
+  VoucherPage,
+  WorkflowPage,
+} from "./pages";
+export { defineVoucherOperationPage } from "./pages";
+export type { VoucherOperationPage } from "./pages";
+export { defineAccountPage } from "./pages";
+export type { AccountPage } from "./pages";

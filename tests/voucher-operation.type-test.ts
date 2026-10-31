@@ -1,5 +1,4 @@
 import type {
-  VoucherOperationHandle,
   VoucherOperationDefinition,
   VoucherOperationIntent,
   VoucherOperationPreview,
@@ -202,9 +201,8 @@ const invalidCreate: VoucherOperationIntent<
 };
 void [settled, mismatchedSettlement, invalidCreate];
 
-const handle: VoucherOperationHandle = { async prepare() {} };
-void handle.prepare();
-// @ts-expect-error Confirmation and execution stay owned by the runtime.
-void handle.execute;
-// @ts-expect-error Arbitrary target/command injection is not a public prepare entry.
-void handle.prepare("execute");
+declare const handle: import("../src/index").AppPageHandle;
+// @ts-expect-error Preparing is owned by the complete page, not a public VM.
+handle.prepare();
+const leaving: Promise<boolean> = handle.requestLeave();
+void leaving;
