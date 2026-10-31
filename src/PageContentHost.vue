@@ -51,6 +51,7 @@ watch(
     if (
       next.page === admittedPage.value &&
       next.snapshot.definition === admitted.value.definition &&
+      next.snapshot.scriptDefinition === admitted.value.scriptDefinition &&
       equalValues(next.snapshot.record, admitted.value.record)
     ) {
       admitted.value = next.snapshot;

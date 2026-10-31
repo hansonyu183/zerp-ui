@@ -2,6 +2,12 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it } from "vitest";
 import { AppPage, defineDetailsPage } from "../src/index";
 import { createRouter, createMemoryHistory } from "vue-router";
+import {
+  defineConfiguration,
+  defineVoucher,
+  defineVoucherPage,
+  type DetailsPage,
+} from "../src/index";
 
 it("shows grouped facts and related intents through the complete page entrance", async () => {
   const related: string[] = [];
@@ -436,6 +442,187 @@ it("guards a record switch within the same details definition and clears a saved
   expect(accountWrapper.find('[aria-label="未保存修改"]').exists()).toBe(false);
   accountWrapper.unmount();
 });
+it("isolates an admitted details record from in-place reactive source changes", async () => {
+  const source = reactive<
+    DetailsPage<{ label: string }, never, { note: string }, { id: string }>
+  >({
+    title: "响应式详情",
+    instance: "one",
+    value: { label: "原记录" },
+    groups: [
+      {
+        key: "base",
+        label: "基本",
+        fields: [{ key: "label", label: "记录名称", type: "text" }],
+      },
+    ],
+    editor: {
+      definition: {
+        headerFields: [{ key: "note", label: "详情备注", type: "text" }],
+        rowFields: [],
+        columns: [],
+        rowKey: (row) => row.id,
+        emptyRow: () => ({ id: "new" }),
+      },
+      value: { header: { note: "原内容" }, rows: [] },
+    },
+  });
+  const wrapper = mountPage(defineDetailsPage(source));
+  const click = async (text: string) => {
+    await wrapper
+      .findAll("button")
+      .find((node) => node.text() === text)!
+      .trigger("click");
+    await flushPromises();
+  };
+  try {
+    await flushPromises();
+    await click("编辑资料");
+    await wrapper.get('input[aria-label="详情备注"]').setValue("未保存内容");
+    source.instance = "two";
+    source.value.label = "替换记录";
+    source.editor!.value.header.note = "替换内容";
+    await flushPromises();
+    expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("原记录");
+    expect(wrapper.text()).not.toContain("替换记录");
+    await click("继续编辑");
+    expect(
+      wrapper.get<HTMLInputElement>('input[aria-label="详情备注"]').element
+        .value,
+    ).toBe("未保存内容");
+
+    source.instance = "three";
+    await flushPromises();
+    await click("放弃本地修改");
+    expect(wrapper.text()).toContain("替换记录");
+    expect(wrapper.text()).toContain("替换内容");
+    expect(await wrapper.vm.requestLeave()).toBe(true);
+  } finally {
+    wrapper.unmount();
+  }
+});
+it.each(["replace", "remove"] as const)(
+  "keeps an unknown script request recoverable when its definition is requested to %s",
+  async (change) => {
+    const permissions = { read: true, write: true, reconcile: true };
+    const definition = defineVoucher<
+      {},
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      {}
+    >({
+      protocol: "submission",
+      resource: "script-owner",
+      title: "含脚本的单据",
+      fields: [],
+      auditColumns: [],
+      adapter: {
+        list: async () => ({ items: [], total: 0 }),
+        get: async () => ({ current: null, history: [], audit: [] }),
+        submit: async () => ({ status: "success" }),
+      },
+    });
+    let writes = 0;
+    const reconciled: string[] = [];
+    const script = defineConfiguration<
+      { name: string },
+      {},
+      { id: string; name: string },
+      string,
+      string
+    >({
+      resource: "original-script",
+      title: "原脚本",
+      fields: [{ key: "name", label: "脚本名称", type: "text" }],
+      filters: [],
+      initialFilters: () => ({}),
+      columns: [{ key: "name", label: "名称" }],
+      identity: (row) => row.id,
+      adapter: {
+        query: async () => ({
+          items: [{ id: "one", name: "原脚本" }],
+          total: 1,
+        }),
+        get: async () => ({ values: { name: "原脚本" }, identity: "one" }),
+        save: async () => {
+          writes++;
+          return { status: "unknown" };
+        },
+      },
+      reconcile: async (attempt) => {
+        reconciled.push(attempt.resource);
+        return {
+          status: "not-applied",
+          attemptId: attempt.id,
+          evidence: "原请求未应用",
+        };
+      },
+    });
+    const replacement = {
+      ...script,
+      resource: "replacement-script",
+      title: "替换脚本",
+      adapter: {
+        ...script.adapter,
+        query: async () => ({
+          items: [{ id: "two", name: "替换脚本" }],
+          total: 1,
+        }),
+      },
+    };
+    const selected = ref(true);
+    const page = defineVoucherPage(() => ({
+      definition,
+      permissions,
+      script: selected.value
+        ? { definition: script, permissions }
+        : change === "replace"
+          ? { definition: replacement, permissions }
+          : undefined,
+    }));
+    const wrapper = mountPage(page);
+    const click = async (text: string) => {
+      await wrapper
+        .findAll("button")
+        .find(
+          (node) =>
+            node.text() === text || node.attributes("aria-label") === text,
+        )!
+        .trigger("click");
+      await flushPromises();
+    };
+    try {
+      await flushPromises();
+      await click("编辑");
+      await wrapper.get('input[aria-label="脚本名称"]').setValue("修改脚本");
+      await click("保存");
+      expect(await wrapper.vm.requestLeave()).toBe(false);
+      selected.value = false;
+      await flushPromises();
+      expect(await wrapper.vm.requestLeave()).toBe(false);
+      expect(wrapper.text()).toContain("原脚本");
+      expect(wrapper.text()).not.toContain("替换脚本");
+      await click("核实本次请求");
+      expect(reconciled).toEqual(["original-script"]);
+      expect(writes).toBe(1);
+      await wrapper.get('input[aria-label="脚本名称"]').setValue("原脚本");
+      selected.value = true;
+      await flushPromises();
+      selected.value = false;
+      await flushPromises();
+      expect(await wrapper.vm.requestLeave()).toBe(true);
+      expect(wrapper.text()).not.toContain("原脚本");
+      expect(wrapper.text().includes("替换脚本")).toBe(change === "replace");
+    } finally {
+      wrapper.unmount();
+    }
+  },
+);
 it("emits finite list selection and related operation intents without invoking a CRUD write", async () => {
   const chosen = reactive({ keys: [] as (string | number)[] });
   const intents: string[] = [];
@@ -592,6 +779,69 @@ it("does not publish retired page protection to a consumer after security cleanu
   await flushPromises();
   expect(events).toHaveLength(count);
   wrapper.unmount();
+});
+
+it("guards an in-place operation identity change while preserving same-record preview updates", async () => {
+  const values = new Map<string, string>();
+  const storage: Store = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => {
+      values.set(key, value);
+    },
+    removeItem: (key) => {
+      values.delete(key);
+    },
+  };
+  const definition: VoucherOperationDefinition<
+    SyntheticModel,
+    Identity,
+    Baseline
+  > = synthetic(
+    storage,
+    () => "success",
+    () => {},
+  );
+  const identity = reactive({ voucher: "one" });
+  const title = ref("原办理页面");
+  const page = defineVoucherOperationPage(() => ({
+    title: title.value,
+    definition,
+    intent: {
+      action: "void",
+      owner: {
+        scope: "synthetic",
+        operator: "operator",
+        resource: "reactive-identity",
+      },
+      identity,
+      input: { note: "原输入" },
+    },
+    eligible: true,
+    recoveryAllowed: true,
+  }));
+  const wrapper = mountPage(page);
+  const click = async (text: string) => {
+    await wrapper
+      .findAll("button")
+      .find((node) => node.text() === text)!
+      .trigger("click");
+    await flushPromises();
+  };
+  try {
+    await flushPromises();
+    await click("准备作废");
+    expect(wrapper.get('[aria-label="完整办理预览"]').text()).toContain("one");
+    title.value = "同记录新标题";
+    await flushPromises();
+    expect(wrapper.get('[aria-label="完整办理预览"]').text()).toContain("one");
+    identity.voucher = "two";
+    await flushPromises();
+    expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+    await click("继续编辑");
+    expect(wrapper.get('[aria-label="完整办理预览"]').text()).toContain("one");
+  } finally {
+    wrapper.unmount();
+  }
 });
 
 it("keeps controlled details echoes dirty and requests leave confirmation", async () => {

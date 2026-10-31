@@ -2,6 +2,7 @@ import { h, toValue, type MaybeRefOrGetter, type VNodeChild } from "vue";
 import DetailsPageView from "./DetailsPage.vue";
 import type { DetailGroup } from "./details";
 import type { EditWriteState, EditProtection } from "./edit-guard";
+import { clone } from "./clone";
 
 export type AppPageHandle = { requestLeave(): Promise<boolean> };
 export type PageKind =
@@ -41,6 +42,7 @@ export interface PageDefinition {
 }
 export type PageAdmission = {
   definition?: object;
+  scriptDefinition?: object;
   record?: unknown;
   security?: unknown;
 };
@@ -60,9 +62,12 @@ function page<T extends { title: string }>(
       return toValue(source).title;
     },
     [snapshotPage]: () => {
-      const value = toValue(source);
+      const value = { ...toValue(source) };
+      const identity = admission(value);
       return {
-        ...admission(value),
+        ...identity,
+        record: clone(identity.record),
+        security: clone(identity.security),
         title: value.title,
         render: (context: PageContext) => render(value, context),
       };
@@ -98,7 +103,17 @@ export function defineDetailsPage<
 >(source: PageSource<DetailsPage<T, I, H, R, C>>): PageDefinition {
   return page(
     "details",
-    source,
+    () => {
+      const value = toValue(source);
+      return {
+        ...value,
+        value: clone(value.value),
+        editor: value.editor && {
+          ...value.editor,
+          value: clone(value.editor.value),
+        },
+      };
+    },
     (value, context) =>
       h(DetailsPageView<T, I, H, R, C>, {
         options: value,
@@ -387,7 +402,11 @@ export function defineVoucherPage<
     "voucher",
     () => {
       const value = toValue(source);
-      return { ...value, title: value.definition.title };
+      return {
+        ...value,
+        title: value.definition.title,
+        script: value.script && { ...value.script },
+      };
     },
     (value, context) =>
       h(VoucherSubmission<D, I, R, U, S, O, H, A, E, SD, SF, SR, SI, SE>, {
@@ -400,7 +419,10 @@ export function defineVoucherPage<
         discardVersion: context.discardVersion,
         onProtection: protect(context, value),
       }),
-    (value) => ({ definition: value.definition }),
+    (value) => ({
+      definition: value.definition,
+      scriptDefinition: value.script?.definition,
+    }),
   );
 }
 export type WorkflowPage<
@@ -496,7 +518,17 @@ export function defineVoucherOperationPage<
 >(source: PageSource<VoucherOperationPage<M, I, B, H, R, C>>): PageDefinition {
   return page(
     "voucher",
-    source,
+    () => {
+      const value = toValue(source);
+      return {
+        ...value,
+        intent: clone(value.intent),
+        editor: value.editor && {
+          ...value.editor,
+          value: clone(value.editor.value),
+        },
+      };
+    },
     (value, context) =>
       h(OperationPage<M, I, B, H, R, C>, {
         options: value,
@@ -540,7 +572,10 @@ export function defineAccountPage<D extends object>(
   const kind = toValue(source).kind;
   return page(
     kind,
-    source,
+    () => {
+      const value = toValue(source);
+      return { ...value, values: clone(value.values) };
+    },
     (value, context) =>
       h(ControlledAccountForm<D>, {
         scope: context.scope,

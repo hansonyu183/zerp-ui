@@ -8,27 +8,27 @@ function rawGraph(value: unknown, seen: WeakMap<object, object>): unknown {
   const raw = toRaw(value);
   const previous = seen.get(raw);
   if (previous) return previous;
-  if (raw instanceof Map) {
+  if (value instanceof Map) {
     const target = new Map<unknown, unknown>();
     seen.set(raw, target);
-    raw.forEach((entry: unknown, key: unknown) => {
+    value.forEach((entry: unknown, key: unknown) => {
       target.set(rawGraph(key, seen), rawGraph(entry, seen));
     });
     return target;
   }
-  if (raw instanceof Set) {
+  if (value instanceof Set) {
     const target = new Set<unknown>();
     seen.set(raw, target);
-    raw.forEach((entry: unknown) => target.add(rawGraph(entry, seen)));
+    value.forEach((entry: unknown) => target.add(rawGraph(entry, seen)));
     return target;
   }
-  if (Array.isArray(raw)) {
+  if (Array.isArray(value)) {
     const target: unknown[] = [];
-    target.length = raw.length;
+    target.length = value.length;
     seen.set(raw, target);
-    for (const key of Object.keys(raw))
+    for (const key of Object.keys(value))
       Object.defineProperty(target, key, {
-        value: rawGraph(Reflect.get(raw, key), seen),
+        value: rawGraph(Reflect.get(value, key), seen),
         enumerable: true,
         configurable: true,
         writable: true,
@@ -38,9 +38,10 @@ function rawGraph(value: unknown, seen: WeakMap<object, object>): unknown {
   if (Object.prototype.toString.call(raw) === "[object Object]") {
     const target = {};
     seen.set(raw, target);
-    for (const key of Object.keys(raw))
+    // Read through proxies so snapshot callers also observe nested changes.
+    for (const key of Object.keys(value))
       Object.defineProperty(target, key, {
-        value: rawGraph(Reflect.get(raw, key), seen),
+        value: rawGraph(Reflect.get(value, key), seen),
         enumerable: true,
         configurable: true,
         writable: true,

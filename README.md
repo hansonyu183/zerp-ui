@@ -10,6 +10,8 @@
 
 ## 固定版本安装
 
+当前源码版本为 0.8.1（未发布），修复响应式记录切换的草稿保护及内嵌脚本未知请求的恢复入口。以下已发布 0.8.0 工件不包含这些修复，历史工件保持不可变。
+
 从 [ui-v0.8.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.8.0) 下载 `zerp-ui-0.8.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh

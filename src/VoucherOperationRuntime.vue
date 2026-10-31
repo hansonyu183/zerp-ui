@@ -3,6 +3,7 @@ import Feedback from "./Feedback.vue";
 import { computed, watch, onBeforeUnmount } from "vue";
 import { operationSession } from "./voucher-operation-session";
 import { clone } from "./clone";
+import { equalValues } from "./editor-values";
 import { voucherOperationLabels } from "./voucher-operation";
 import type {
   VoucherOperationHandle,
@@ -82,22 +83,24 @@ watch(
   { immediate: true, flush: "sync" },
 );
 watch(
-  () => props.intent.identity,
-  () => {
+  () => clone(props.intent.identity),
+  (value, previous) => {
+    if (equalValues(value, previous)) return;
     // An authoritative read may adopt a created identity. Its original journal
     // still owns completion; an earlier target switch must not refresh a new target.
     if (state.value.phase !== "refresh") generation++;
     session.value.cancelPreview();
   },
-  { deep: true, flush: "sync" },
+  { flush: "sync" },
 );
 watch(
-  [() => props.intent.input, () => props.intent.action],
-  () => {
+  () => [clone(props.intent.input), props.intent.action],
+  (value, previous) => {
+    if (equalValues(value, previous)) return;
     if (!state.value.journal) generation++;
     session.value.cancelPreview();
   },
-  { deep: true, flush: "sync" },
+  { flush: "sync" },
 );
 watch(
   () => props.eligible,
