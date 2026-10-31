@@ -10,13 +10,13 @@
 
 ## 固定版本安装
 
-当前源码版本为 0.8.1（未发布），修复响应式记录切换的草稿保护及内嵌脚本未知请求的恢复入口。以下已发布 0.8.0 工件不包含这些修复，历史工件保持不可变。
+0.8.1 修复响应式记录切换的草稿保护及内嵌脚本未知请求的恢复入口。0.8.0 工件不包含这些修复，历史工件保持不可变。
 
-从 [ui-v0.8.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.8.0) 下载 `zerp-ui-0.8.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.8.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.8.1) 下载 `zerp-ui-0.8.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.8.0.tgz
+pnpm add ./zerp-ui-0.8.1.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
