@@ -4,6 +4,7 @@ import { createVuetify } from "vuetify";
 import { AuthPage, createShellThemes, type AuthValues } from "../src/index";
 
 const brand = {
+  home: "/",
   productName: "示例产品",
   enterpriseName: "示例企业",
   mark: { kind: "text" as const, text: "示" },
@@ -73,5 +74,20 @@ it("keeps recovery verification with the consumer and only submits the reset pas
   expect(w.emitted("submit")?.[1]).toEqual([
     { mode: "reset", password: "new" },
   ]);
+  w.unmount();
+});
+
+it("dismisses authentication feedback without changing controlled values and reopens updated feedback", async () => {
+  const values = { identifier: "user", password: "secret", confirmation: "" };
+  const w = page({ values, error: "认证暂时失败" });
+  await w.get('button[aria-label="关闭错误提示"]').trigger("click");
+  expect(w.text()).not.toContain("认证暂时失败");
+  expect(w.emitted("update:values")).toBeUndefined();
+  expect(w.emitted("submit")).toBeUndefined();
+  await w.setProps({ error: "请核对账号" });
+  expect(w.get('[role="alert"]').text()).toContain("请核对账号");
+  expect(
+    (w.get('input[autocomplete="username"]').element as HTMLInputElement).value,
+  ).toBe("user");
   w.unmount();
 });

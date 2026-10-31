@@ -12,6 +12,8 @@ export const voucherOperationLabels = {
   void: "作废",
   unvoid: "反作废",
 } as const;
+/** Prepares the current typed intent. Execution still requires full-preview confirmation. */
+export type VoucherOperationHandle = { prepare(): Promise<void> };
 export type VoucherOperationAction = keyof typeof voucherOperationLabels;
 export type VoucherOperationOwner = Readonly<{
   scope: string;
@@ -123,12 +125,17 @@ export type VoucherOperationPersistence<
   /** Idempotently complete this exact journal, retaining its terminal receipt for other recovering contexts. */
   remove(owner: VoucherOperationOwner, expectedId: string): Promise<void>;
 };
+declare const operationModel: unique symbol;
 export type VoucherOperationDefinition<
   M extends VoucherOperationModel,
   I,
   B,
 > = {
+  readonly [operationModel]?: (model: M) => M;
   protocol: "operation";
+  confirmationLabel?: string;
+  reconcileLabel?: string;
+  sealLabel?: string;
   adapter: {
     prepare(
       intent: VoucherOperationIntent<M, I>,

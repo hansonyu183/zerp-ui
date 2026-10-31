@@ -73,7 +73,7 @@
 }
 .zerp-voucher-editor__overlay {
   position: fixed;
-  inset: 0;
+  inset: var(--zerp-app-bar-height, 0px) 0 0;
   z-index: 2000;
   display: grid;
   place-items: center;
@@ -82,7 +82,7 @@
 }
 .zerp-voucher-editor__overlay > [role="dialog"] {
   width: min(100%, 720px);
-  max-height: 90vh;
+  max-height: calc(100dvh - var(--zerp-app-bar-height, 0px) - 2rem);
   overflow: auto;
   padding: 1rem;
   border-radius: 6px;
@@ -182,11 +182,45 @@
   justify-content: center;
   margin-top: 1rem;
 }
+.zerp-shell-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding-inline: 0.5rem;
+}
+.zerp-shell-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.zerp-shell-toolbar--narrow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.zerp-shell-toolbar--narrow .zerp-shell-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+.zerp-shell-toolbar--narrow .zerp-shell-theme {
+  min-width: 0;
+  flex: 1;
+}
+.zerp-shell-theme select {
+  width: 100%;
+  min-width: 0;
+}
 .zerp-shell-brand {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   flex: 1;
+  min-width: 0;
+}
+.zerp-shell-brand strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .zerp-shell-brand img {
   max-width: 40px;
@@ -226,9 +260,6 @@
   .zerp-shell-brand > .zerp-shell-enterprise {
     display: none;
   }
-  .zerp-shell-theme {
-    max-width: 90px;
-  }
 }
 
 .zerp-list--wide {
@@ -263,15 +294,76 @@
 }
 .zerp-edit-guard__overlay {
   position: fixed;
-  inset: 0;
+  inset: var(--zerp-app-bar-height, 0px) 0 0;
   z-index: 2400;
   display: grid;
   place-items: center;
   background: rgb(0 0 0 / 40%);
 }
 .zerp-edit-guard__overlay > section {
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - var(--zerp-app-bar-height, 0px) - 2rem);
+  overflow: auto;
   padding: 1.5rem;
   background: rgb(var(--v-theme-surface, 255, 255, 255));
   color: rgb(var(--v-theme-on-surface, 0, 0, 0));
   border-radius: 0.5rem;
+}
+
+.zerp-report-group th {
+  text-align: left;
+  background: rgb(var(--v-theme-surface-variant));
+  padding-block: 0.5rem;
+}
+.zerp-report-group-summary td {
+  font-weight: bold;
+}
+.zerp-report-group-summary td > span {
+  margin-inline-end: 0.5rem;
+}
+
+/* Every feedback channel keeps the same footprint, including while empty or
+   dismissed. Long messages scroll inside the reserve rather than moving inputs. */
+.zerp-feedback {
+  block-size: 3.5rem;
+  min-inline-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.zerp-feedback__content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  min-block-size: 2.5rem;
+  border-inline-start: 3px solid rgb(var(--v-theme-primary, 65, 90, 180));
+  background: rgba(var(--v-theme-primary, 65, 90, 180), 0.08);
+  overflow-wrap: anywhere;
+}
+.zerp-feedback--error .zerp-feedback__content {
+  border-color: rgb(var(--v-theme-error, 180, 35, 45));
+}
+.zerp-feedback--warning .zerp-feedback__content {
+  border-color: rgb(var(--v-theme-warning, 150, 100, 0));
+}
+.zerp-feedback__close {
+  margin-inline-start: auto;
+}
+.zerp-feedback-region {
+  block-size: 6rem;
+  min-inline-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.zerp-feedback-region > .zerp-feedback {
+  block-size: auto;
+  overflow: visible;
+}
+.zerp-auth-brand-state {
+  block-size: 3.5rem;
+  overflow: auto;
+}
+.zerp-progress-reserve {
+  block-size: 4px;
 }

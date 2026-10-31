@@ -1,0 +1,9 @@
+/* Synthetic Adapter controls are outside the library-owned business page. */
+.example-controls {
+  padding: 1rem;
+}
+@media (min-width: 1280px) {
+  .example-controls {
+    margin-inline-start: 256px;
+  }
+}

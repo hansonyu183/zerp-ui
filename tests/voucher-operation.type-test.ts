@@ -200,3 +200,9 @@ const invalidCreate: VoucherOperationIntent<
   input: { note: "missing rows" },
 };
 void [settled, mismatchedSettlement, invalidCreate];
+
+declare const handle: import("../src/index").AppPageHandle;
+// @ts-expect-error Preparing is owned by the complete page, not a public VM.
+handle.prepare();
+const leaving: Promise<boolean> = handle.requestLeave();
+void leaving;

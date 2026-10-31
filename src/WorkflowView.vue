@@ -1,6 +1,8 @@
 <script setup lang="ts" generic="I, N, R, T, D, A extends object, E = never">
+import type { EditProtection } from "./edit-guard";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
-import { VAlert, VProgressLinear } from "vuetify/components";
+import Feedback from "./Feedback.vue";
+import { VProgressLinear } from "vuetify/components";
 import type { Page } from "./contracts";
 import type {
   WorkflowAction,
@@ -15,6 +17,7 @@ import DataList from "./DataList.vue";
 const props = defineProps<{
   definition: WorkflowDefinition<I, N, R, T, D, A, E>;
   scope: string;
+  discardVersion?: number;
   permissions: {
     read: boolean;
     audit: boolean;
@@ -23,7 +26,10 @@ const props = defineProps<{
     targets: readonly string[];
   };
 }>();
-const emit = defineEmits<{ "open-voucher": [voucher: D] }>();
+const emit = defineEmits<{
+  "open-voucher": [voucher: D];
+  protection: [state: EditProtection];
+}>();
 const result = shallowRef<Page<{ identity: I; label: string }>>({
   items: [],
   total: 0,
@@ -56,6 +62,22 @@ const lock = computed(() =>
   ),
 );
 const blocked = computed(() => lock.value.phase !== "idle");
+watch(
+  () => ({
+    dirty: !!reason.value,
+    localPending: false,
+    invalid: false,
+    writeState: lock.value.phase,
+  }),
+  (value) => emit("protection", value),
+  { immediate: true, flush: "sync" },
+);
+watch(
+  () => props.discardVersion,
+  () => {
+    if (lock.value.phase === "idle") reason.value = "";
+  },
+);
 let generation = 0,
   request = 0,
   active = true;
@@ -289,27 +311,39 @@ onBeforeUnmount(() => {
       /></label>
       <button :disabled="loading || lock.phase === 'pending'">查询</button>
     </form>
-    <VProgressLinear v-if="loading" indeterminate aria-label="加载中" />
-    <VAlert v-if="error" type="error" role="alert">{{ error }}</VAlert>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="lock.phase === 'unknown'" role="status">
-      节点动作结果未知，普通刷新或关闭不能解锁。
-      <button
-        v-if="
-          definition.reconcile &&
-          permissions.read &&
-          permissions.audit &&
-          permissions.reconcile
-        "
-        :disabled="verifying"
-        @click="reconcile"
+    <div class="zerp-progress-reserve">
+      <VProgressLinear v-if="loading" indeterminate aria-label="加载中" />
+    </div>
+    <div class="zerp-feedback-region">
+      <Feedback :message="error" kind="error" />
+      <Feedback :message="notice" />
+      <Feedback
+        :message="lock.phase === 'unknown' ? '请求结果未知' : undefined"
+        kind="warning"
+        persistent
       >
-        核实本次请求
-      </button>
-    </p>
-    <p v-if="lock.phase === 'refresh'" role="status">
-      节点动作已成功，请重试读取；不会再次提交。
-    </p>
+        节点动作结果未知，普通刷新或关闭不能解锁。
+        <button
+          v-if="
+            definition.reconcile &&
+            permissions.read &&
+            permissions.audit &&
+            permissions.reconcile
+          "
+          :disabled="verifying"
+          @click="reconcile"
+        >
+          核实本次请求
+        </button>
+      </Feedback>
+      <Feedback
+        :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
+        kind="warning"
+        persistent
+      >
+        节点动作已成功，请重试读取；不会再次提交。
+      </Feedback>
+    </div>
     <button
       v-if="permissions.read"
       :disabled="loading || lock.phase === 'pending'"

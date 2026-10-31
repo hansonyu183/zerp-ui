@@ -79,7 +79,7 @@ import type {
 type ResultId = { readonly result: string };
 type RowId = `row:${string}`;
 type Target = { readonly voucher: string };
-const fixedAdapter: FixedReportAdapter<Parameters, Row, ResultId> = {
+const fixedAdapter: FixedReportAdapter<Parameters, Row, ResultId, RowId> = {
   query: async () => ({
     id: { result: "one" },
     items: [],
@@ -150,7 +150,7 @@ void fixedAdapter.page({
   pageSize: 2,
   signal: new AbortController().signal,
 });
-const wrongFixed: FixedReportAdapter<Parameters, Row, ResultId> = {
+const wrongFixed: FixedReportAdapter<Parameters, Row, ResultId, RowId> = {
   ...fixedAdapter,
   // @ts-expect-error A query must return an explicit result identity and authoritative summary.
   query: async () => ({ items: [], total: 0 }),
@@ -169,3 +169,65 @@ const wrongRestore: ReportSnapshot<Parameters, Row, ResultId, RowId, Target> = {
   definition: { ...fixed, rowKey: () => 123 },
 };
 void [fixed, wrongResult, wrongRow, wrongTarget, wrongFixed, wrongRestore];
+
+import type {
+  ReportAppearance,
+  ReportPresentation,
+  ListAction,
+} from "../src/index";
+const presentation: ReportPresentation<Row, RowId> = {
+  rows: [
+    {
+      rowId: "row:one",
+      appearance: { bold: true },
+      cells: { amount: { foreground: "#123456", align: "right" } },
+    },
+  ],
+  groups: [
+    {
+      id: "group",
+      label: "分组",
+      level: 0,
+      firstKey: "row:one",
+      lastKey: "row:two",
+      continuedBefore: false,
+      continuedAfter: true,
+      summary: { caption: "权威小计", values: { amount: "19.00" } },
+    },
+  ],
+};
+const wrongAppearance: ReportAppearance = {
+  // @ts-expect-error Arbitrary CSS cannot enter report presentation.
+  position: "fixed",
+};
+const wrongPresentation: ReportPresentation<Row, RowId> = {
+  rows: [
+    // @ts-expect-error Presentation row references preserve the consumer row identity type.
+    { rowId: "foreign" },
+    {
+      rowId: "row:one",
+      cells: {
+        // @ts-expect-error Presentation cells must name this DTO's columns.
+        foreign: { bold: true },
+      },
+    },
+  ],
+  groups: [],
+};
+const finiteActions: ListAction[] = ["complete", "uncomplete"];
+// @ts-expect-error Company native protocol names belong in the consumer Adapter.
+const nativeAction: ListAction = "finish_r";
+const dynamic: FixedReportAdapter<Parameters, Row, ResultId, RowId> = {
+  ...fixedAdapter,
+  query: async () => ({
+    id: { result: "dynamic" },
+    items: [],
+    total: 0,
+    columns,
+    presentation,
+    summary: { caption: "全组", values: { amount: "0" } },
+    context: "本次条件",
+    expiresAt: 1000,
+  }),
+};
+void [wrongAppearance, wrongPresentation, finiteActions, nativeAction, dynamic];

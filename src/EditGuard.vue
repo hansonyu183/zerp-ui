@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Feedback from "./Feedback.vue";
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import type { EditGuardHandle, EditWriteState } from "./edit-guard";
 const props = defineProps<{
@@ -6,6 +7,7 @@ const props = defineProps<{
   instance: string | number;
   active: boolean;
   dirty: boolean;
+  localPending?: boolean;
   writeState: EditWriteState;
 }>();
 const emit = defineEmits<{ discard: [] }>();
@@ -39,7 +41,7 @@ function requestLeave(): Promise<boolean> {
   if (!mounted || !props.active || props.writeState !== "idle")
     return Promise.resolve(false);
   if (confirmation.value) return confirmation.value.promise;
-  if (!props.dirty) return Promise.resolve(true);
+  if (!props.dirty && !props.localPending) return Promise.resolve(true);
   let resolve!: (value: boolean) => void;
   const promise = new Promise<boolean>((done) => {
     resolve = done;
@@ -91,9 +93,9 @@ watch(
   { flush: "sync" },
 );
 watch(
-  () => props.dirty,
+  () => [props.dirty, props.localPending],
   () => {
-    if (!props.dirty) invalidate();
+    if (!props.dirty && !props.localPending) invalidate();
   },
   { flush: "sync" },
 );
@@ -106,13 +108,23 @@ defineExpose<EditGuardHandle>({ requestLeave });
 <template>
   <section v-if="active" aria-label="编辑保护">
     <slot />
-    <p v-if="writeState !== 'idle'" role="status">
-      {{
-        writeState === "pending"
-          ? "写入进行中，暂不能离开。"
-          : "写入结果未知，须核实原请求后再离开。"
-      }}
-    </p>
+    <Feedback
+      kind="warning"
+      persistent
+      :message="
+        writeState === 'idle'
+          ? undefined
+          : writeState === 'pending'
+            ? '写入进行中，暂不能离开。'
+            : writeState === 'refresh'
+              ? '写入结果已确认，等待读取最新数据。'
+              : writeState === 'seal'
+                ? '已确认未应用，须封存原请求后再离开。'
+                : writeState === 'blocked'
+                  ? '原请求恢复尚未确认，暂不能离开。'
+                  : '写入结果未知，须核实原请求后再离开。'
+      "
+    />
     <div
       v-for="prompt in confirmation ? [confirmation] : []"
       :key="scope + ':' + instance"

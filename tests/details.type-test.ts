@@ -1,4 +1,4 @@
-import type { DetailFields, DetailGroup, EditGuardHandle } from "../src/index";
+import type { DetailFields, DetailGroup, AppPageHandle } from "../src/index";
 import type {
   Facts,
   Related,
@@ -37,7 +37,7 @@ const fields: DetailFields<Facts, Related> = [
 const groups: DetailGroup<Facts, Related>[] = [
   { key: "facts", label: "事实", fields },
 ];
-declare const handle: EditGuardHandle;
+declare const handle: AppPageHandle;
 const leave: Promise<boolean> = handle.requestLeave();
 declare const adapter: DetailsAdapter;
 // @ts-expect-error host adapter keeps its own typed scope/resource input

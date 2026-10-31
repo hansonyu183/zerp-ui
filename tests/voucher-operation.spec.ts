@@ -1,7 +1,7 @@
 import { reactive, type Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import { VoucherView as OperationPrototype } from "../src/index";
+import OperationPrototype from "../src/VoucherOperationRuntime.vue";
 import {
   synthetic,
   type SyntheticModel,
@@ -11,6 +11,7 @@ import {
   type SyntheticRequest,
 } from "../examples/voucher/operation-adapter";
 import type { VoucherOperationIntent } from "../src/index";
+import type { VoucherOperationHandle } from "../src/voucher-operation";
 // Web Locks is the browser concurrency seam; real cross-page behavior is exercised in the installed consumer.
 Object.defineProperty(navigator, "locks", {
   configurable: true,
@@ -671,3 +672,193 @@ it.each(["prepare", "execute"] as const)(
     w.unmount();
   },
 );
+
+it("completes the original request when its authoritative refresh adopts new identity and input", async () => {
+  const f = setup();
+  const intent = reactive({
+    ...f.intent,
+    identity: { voucher: "one" },
+    input: { note: "original" },
+  });
+  f.definition.adapter.refresh = async () => {
+    intent.identity.voucher = "authoritative-result";
+    intent.input.note = "authoritative-values";
+    await flushPromises();
+  };
+  const w = mount(OperationPrototype as Component, {
+    props: {
+      definition: f.definition,
+      intent,
+      eligible: true,
+      recoveryAllowed: true,
+    },
+  });
+  await flushPromises();
+  await click(w, "准备作废");
+  await click(w, "确认作废");
+  expect(button(w, "准备作废").attributes("disabled")).toBeUndefined();
+  expect(w.emitted("settled")?.at(-1)?.[0]).toMatchObject({
+    request: { identity: { voucher: "one" }, input: { note: "original" } },
+    receipt: { status: "applied" },
+  });
+  expect(f.definition.adapter.execute).toHaveBeenCalledTimes(1);
+  w.unmount();
+});
+
+it("exposes preparation only, reports local protection, and requires explicit full-preview confirmation", async () => {
+  const f = setup();
+  const gate = deferred<void>();
+  const prepare = f.definition.adapter.prepare;
+  f.definition.adapter.prepare = async (intent) => {
+    await gate.promise;
+    return prepare(intent);
+  };
+  const w = f.start();
+  await flushPromises();
+  const handle = w.vm as unknown as VoucherOperationHandle;
+  const work = handle.prepare();
+  await flushPromises();
+  expect(w.emitted("protection")?.at(-1)?.[0]).toEqual({
+    dirty: false,
+    localPending: true,
+    invalid: false,
+    writeState: "idle",
+  });
+  expect(f.definition.adapter.execute).not.toHaveBeenCalled();
+  gate.resolve();
+  await work;
+  await flushPromises();
+  expect(w.get('[role="dialog"]').text()).toContain("全部明细与影响");
+  expect(w.emitted("protection")?.at(-1)?.[0]).toEqual({
+    dirty: true,
+    localPending: false,
+    invalid: false,
+    writeState: "idle",
+  });
+  expect(f.definition.adapter.execute).not.toHaveBeenCalled();
+  await click(w, "取消预览");
+  expect(w.emitted("protection")?.at(-1)?.[0]).toEqual({
+    dirty: false,
+    localPending: false,
+    invalid: false,
+    writeState: "idle",
+  });
+  await w.setProps({ eligible: false });
+  await handle.prepare();
+  expect(w.find('[role="dialog"]').exists()).toBe(false);
+  w.unmount();
+});
+
+it("keeps precise request protection and outcome visible when finite button labels are customized", async () => {
+  const f = setup();
+  Object.assign(f.definition, {
+    confirmationLabel: "提交本次办理",
+    reconcileLabel: "检查办理回执",
+    sealLabel: "结束未应用请求",
+  });
+  f.scenario("unknown");
+  const w = f.start();
+  await flushPromises();
+  await click(w, "准备作废");
+  await click(w, "提交本次办理");
+  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
+    dirty: false,
+    localPending: false,
+    writeState: "unknown",
+  });
+  f.scenario("verification-failure");
+  await click(w, "检查办理回执");
+  expect(w.text()).toContain("结果未知");
+  f.scenario("success");
+  await click(w, "检查办理回执");
+  f.scenario("seal-failure");
+  await click(w, "准备作废");
+  await click(w, "提交本次办理");
+  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
+    writeState: "seal",
+  });
+  await click(w, "结束未应用请求");
+  expect(w.text()).toContain("已确认未应用");
+  f.scenario("not-applied");
+  await click(w, "结束未应用请求");
+  f.scenario("refresh-failure");
+  await click(w, "准备作废");
+  await click(w, "提交本次办理");
+  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
+    writeState: "refresh",
+  });
+  expect(w.text()).toContain("已应用");
+  w.unmount();
+});
+
+it("protects durable reservation as pending, failed recovery as blocked, and never executes after failed save", async () => {
+  const f = setup(),
+    gate = deferred<void>();
+  f.definition.persistence.save = async () => {
+    await gate.promise;
+    throw new Error("durable save failed");
+  };
+  const w = f.start();
+  await flushPromises();
+  await click(w, "准备作废");
+  await button(w, "确认作废").trigger("click");
+  await flushPromises();
+  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
+    localPending: false,
+    writeState: "pending",
+  });
+  gate.resolve();
+  await flushPromises();
+  expect(w.emitted("protection")?.at(-1)?.[0]).toEqual({
+    dirty: false,
+    localPending: false,
+    invalid: false,
+    writeState: "blocked",
+  });
+  expect(f.definition.adapter.execute).not.toHaveBeenCalled();
+  w.unmount();
+});
+
+it("discards externally started unsent preparation after input change", async () => {
+  const f = setup(),
+    gate = deferred<void>(),
+    prepare = f.definition.adapter.prepare;
+  f.definition.adapter.prepare = async (intent) => {
+    await gate.promise;
+    return prepare(intent);
+  };
+  const w = f.start();
+  await flushPromises();
+  const work = (w.vm as unknown as VoucherOperationHandle).prepare();
+  await flushPromises();
+  await w.setProps({ intent: { ...f.intent, input: { note: "new input" } } });
+  gate.resolve();
+  await work;
+  await flushPromises();
+  expect(w.find('[role="dialog"]').exists()).toBe(false);
+  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
+    dirty: false,
+    localPending: false,
+    writeState: "idle",
+  });
+  expect(f.definition.adapter.execute).not.toHaveBeenCalled();
+  w.unmount();
+});
+
+it("clears sensitive visible request details when both operation and recovery access are revoked", async () => {
+  const f = setup();
+  f.scenario("unknown");
+  const w = f.start();
+  await flushPromises();
+  await click(w, "准备作废");
+  await click(w, "确认作废");
+  const original = (await f.definition.persistence.load(f.intent.owner))!
+    .request;
+  await w.setProps({ eligible: false, recoveryAllowed: false });
+  expect(w.text()).not.toContain(original.requestId);
+  expect(w.text()).toContain("无办理或核实权限");
+  await w.setProps({ recoveryAllowed: true });
+  expect(w.text()).toContain(original.requestId);
+  expect(f.definition.adapter.execute).toHaveBeenCalledTimes(1);
+  w.unmount();
+});

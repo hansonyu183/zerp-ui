@@ -1,7 +1,16 @@
 <script setup lang="ts" generic="T extends object">
-import { computed, ref, shallowRef, watch, onBeforeUnmount } from "vue";
+import {
+  computed,
+  ref,
+  shallowRef,
+  watch,
+  watchEffect,
+  onBeforeUnmount,
+} from "vue";
 import type { AnyField, Fields, ReferenceValue } from "./contracts";
+import Feedback from "./Feedback.vue";
 import ReferencePicker from "./ReferencePicker.vue";
+import { validateFields, type FormValidationState } from "./validation";
 import { clone } from "./clone";
 const props = defineProps<{
   fields: Fields<T>;
@@ -13,6 +22,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   "update:modelValue": [value: T];
   pending: [value: boolean];
+  validation: [value: FormValidationState<T>];
 }>();
 const values = computed(() => props.modelValue as Record<string, unknown>);
 const visible = computed(() =>
@@ -35,6 +45,7 @@ function set(key: string, value: unknown) {
   emit("update:modelValue", next as T);
 }
 const integerInput = ref<Record<string, string>>({});
+const emittedInteger = new Map<string, number | null>();
 function input(field: AnyField, target: HTMLInputElement) {
   if (field.type === "integer") {
     integerInput.value[field.key] = target.value;
@@ -42,8 +53,11 @@ function input(field: AnyField, target: HTMLInputElement) {
       /^-?\d+$/.test(target.value) &&
       Number.isSafeInteger(Number(target.value));
     pending("$integer:" + field.key, !valid && target.value !== "");
-    if (valid || target.value === "")
-      set(field.key, target.value === "" ? null : Number(target.value));
+    if (valid || target.value === "") {
+      const value = target.value === "" ? null : Number(target.value);
+      emittedInteger.set(field.key, value);
+      set(field.key, value);
+    }
   } else
     set(field.key, field.type === "boolean" ? target.checked : target.value);
 }
@@ -53,12 +67,19 @@ const editing = shallowRef<{
   value: object;
   fields: readonly AnyField[];
 } | null>(null);
+const childInvalid = ref(false);
 const childPending = ref(false),
-  sources = new Set<string>();
+  sources = ref(new Set<string>());
+const validation = computed(() =>
+  validateFields(props.fields, props.modelValue, props.mode ?? "edit"),
+);
+watchEffect(() =>
+  emit("validation", { ...validation.value, pending: sources.value.size > 0 }),
+);
 function pending(key: string, busy: boolean) {
-  if (busy) sources.add(key);
-  else sources.delete(key);
-  emit("pending", sources.size > 0);
+  if (busy) sources.value.add(key);
+  else sources.value.delete(key);
+  emit("pending", sources.value.size > 0);
 }
 function range(key: string): string[] {
   return Array.isArray(values.value[key])
@@ -70,11 +91,27 @@ function setRange(key: string, index: number, value: string) {
   next[index] = value;
   set(key, next.every((value) => value === "") ? null : next);
 }
+function options(field: Extract<AnyField, { type: "enum" | "multi-enum" }>) {
+  const current = values.value[field.key];
+  const selected = Array.isArray(current) ? current : [current];
+  return [
+    ...field.options.map((option) => ({ ...option, historical: false })),
+    ...selected
+      .filter(
+        (value): value is string =>
+          typeof value === "string" &&
+          value !== "" &&
+          !field.options.some((option) => option.value === value),
+      )
+      .map((value) => ({ value, label: value, historical: true })),
+  ];
+}
 function rows(key: string) {
   return (values.value[key] ?? []) as object[];
 }
 function begin(field: Extract<AnyField, { type: "rows" }>, index: number) {
   childPending.value = false;
+  childInvalid.value = false;
   pending("$child", false);
   editing.value = {
     key: field.key,
@@ -86,7 +123,7 @@ function begin(field: Extract<AnyField, { type: "rows" }>, index: number) {
 }
 function confirm() {
   const e = editing.value;
-  if (!e || props.disabled || childPending.value) return;
+  if (!e || props.disabled || childPending.value || childInvalid.value) return;
   const next = [...rows(e.key)];
   if (e.index < 0) next.push(clone(e.value));
   else next[e.index] = clone(e.value);
@@ -104,17 +141,42 @@ watch(
   () => {
     editing.value = null;
     childPending.value = false;
-    sources.clear();
+    childInvalid.value = false;
+    sources.value.clear();
     integerInput.value = {};
+    emittedInteger.clear();
     emit("pending", false);
+  },
+);
+watch(
+  () => ({ ...values.value }),
+  (current, previous) => {
+    for (const field of props.fields as readonly AnyField[]) {
+      if (
+        field.type !== "integer" ||
+        Object.is(current[field.key], previous[field.key])
+      )
+        continue;
+      if (
+        !emittedInteger.has(field.key) ||
+        !Object.is(current[field.key], emittedInteger.get(field.key))
+      ) {
+        delete integerInput.value[field.key];
+        pending("$integer:" + field.key, false);
+      }
+      emittedInteger.delete(field.key);
+    }
   },
 );
 watch(visible, (fields) => {
   const keys = new Set(fields.map((field) => field.key));
-  for (const key of sources)
-    if (key.startsWith("$integer:") && !keys.has(key.slice(9)))
-      sources.delete(key);
-  emit("pending", sources.size > 0);
+  for (const key of sources.value)
+    if (key.startsWith("$integer:") && !keys.has(key.slice(9))) {
+      sources.value.delete(key);
+      delete integerInput.value[key.slice(9)];
+      emittedInteger.delete(key.slice(9));
+    }
+  emit("pending", sources.value.size > 0);
 });
 onBeforeUnmount(() => emit("pending", false));
 </script>
@@ -138,7 +200,8 @@ onBeforeUnmount(() => emit("pending", false));
         :multiple="field.type === 'references'"
         :disabled="disabled || field.readonly"
         @update:model-value="set(field.key, $event)"
-        @pending="pending(field.key, $event)" />
+        @pending="pending(field.key, $event)"
+      />
       <fieldset
         v-else-if="field.type === 'rows'"
         :disabled="disabled || field.readonly"
@@ -179,7 +242,7 @@ onBeforeUnmount(() => emit("pending", false));
         <label v-for="(suffix, index) in ['起', '止']" :key="suffix"
           >{{ field.label + suffix }}
           <input
-            type="date"
+            :type="field.readonly ? 'text' : 'date'"
             :aria-label="field.label + suffix"
             :value="range(field.key)[index] ?? ''"
             @input="
@@ -206,7 +269,6 @@ onBeforeUnmount(() => emit("pending", false));
           :multiple="field.type === 'multi-enum'"
           :aria-label="field.label"
           :disabled="disabled || field.readonly"
-          :value="values[field.key]"
           @change="
             set(
               field.key,
@@ -219,11 +281,23 @@ onBeforeUnmount(() => emit("pending", false));
             )
           "
         >
-          <option value="">请选择</option>
           <option
-            v-for="option in field.options"
+            value=""
+            :selected="field.type !== 'multi-enum' && values[field.key] === ''"
+          >
+            请选择
+          </option>
+          <option
+            v-for="option in options(field)"
             :key="option.value"
             :value="option.value"
+            :disabled="option.historical"
+            :selected="
+              field.type === 'multi-enum'
+                ? Array.isArray(values[field.key]) &&
+                  (values[field.key] as string[]).includes(option.value)
+                : values[field.key] === option.value
+            "
           >
             {{ option.label }}
           </option>
@@ -235,7 +309,7 @@ onBeforeUnmount(() => emit("pending", false));
               ? 'checkbox'
               : field.type === 'password'
                 ? 'password'
-                : field.type === 'date'
+                : field.type === 'date' && !field.readonly
                   ? 'date'
                   : 'text'
           "
@@ -255,8 +329,18 @@ onBeforeUnmount(() => emit("pending", false));
               : (values[field.key] ?? '')
           "
           @input="input(field, $event.target as HTMLInputElement)"
-        /> </label
-    ></template>
+        />
+      </label>
+      <Feedback
+        kind="error"
+        :message="
+          validation.issues
+            .filter((issue) => issue.key === field.key)
+            .map((issue) => issue.message)
+            .join('；')
+        "
+      />
+    </template>
     <section v-if="editing" role="dialog" aria-label="编辑子项">
       <DynamicForm
         :fields="editing.fields"
@@ -265,13 +349,14 @@ onBeforeUnmount(() => emit("pending", false));
         :disabled="disabled"
         :mode="mode"
         @update:model-value="editing = { ...editing!, value: $event }"
+        @validation="childInvalid = !$event.valid"
         @pending="
           childPending = $event;
           pending('$child', $event);
         "
       /><button
         type="button"
-        :disabled="disabled || childPending"
+        :disabled="disabled || childPending || childInvalid"
         @click="confirm"
       >
         确定子项</button

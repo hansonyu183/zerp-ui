@@ -1,13 +1,12 @@
 import { defineComponent, h, ref } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
-import {
-  EditGuard,
-  type EditGuardHandle,
-  type EditWriteState,
-} from "../src/index";
+import { type EditWriteState } from "../src/index";
+import EditGuard from "../src/EditGuard.vue";
+import type { EditGuardHandle } from "../src/edit-guard";
 function host() {
   const dirty = ref(false),
+    localPending = ref(false),
     active = ref(true),
     state = ref<EditWriteState>("idle"),
     scope = ref("one"),
@@ -32,12 +31,14 @@ function host() {
                 guard = value as unknown as EditGuardHandle;
               },
               dirty: dirty.value,
+              localPending: localPending.value,
               active: active.value,
               writeState: state.value,
               scope: scope.value,
               instance: instance.value,
               onDiscard: () => {
                 dirty.value = false;
+                localPending.value = false;
               },
             },
             { default: () => h("p", "敏感本地草稿") },
@@ -46,7 +47,16 @@ function host() {
     }),
     { attachTo: document.body },
   );
-  return { wrapper, dirty, active, state, scope, instance, departures };
+  return {
+    wrapper,
+    dirty,
+    localPending,
+    active,
+    state,
+    scope,
+    instance,
+    departures,
+  };
 }
 async function click(wrapper: ReturnType<typeof mount>, text: string) {
   await flushPromises();
@@ -106,5 +116,36 @@ it.each(["scope", "instance", "active", "state", "unmount"] as const)(
     if (change === "active")
       expect(context.wrapper.text()).not.toContain("敏感本地草稿");
     if (change !== "unmount") context.wrapper.unmount();
+  },
+);
+
+it("protects unfinished local input independently of dirty and identifies known outcomes awaiting refresh", async () => {
+  const { wrapper, localPending, state, departures } = host();
+  localPending.value = true;
+  await click(wrapper, "离开");
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(true);
+  await click(wrapper, "放弃本地修改");
+  expect(departures).toEqual([true]);
+  state.value = "refresh";
+  await click(wrapper, "离开");
+  expect(departures).toEqual([true, false]);
+  expect(wrapper.text()).toContain("写入结果已确认，等待读取最新数据");
+  expect(wrapper.text()).not.toContain("写入结果未知");
+  wrapper.unmount();
+});
+
+it.each([
+  ["seal", "已确认未应用"],
+  ["blocked", "原请求恢复尚未确认"],
+] as const)(
+  "blocks leave with accurate %s recovery wording",
+  async (value, message) => {
+    const { wrapper: w, state, departures } = host();
+    state.value = value;
+    await click(w, "离开");
+    expect(departures).toEqual([false]);
+    expect(w.get('[role="status"]').text()).toContain(message);
+    expect(w.text()).not.toContain("写入结果未知");
+    w.unmount();
   },
 );

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { assertBelowToolbar } from "./shell-interaction-smoke.mjs";
+import { assertStableFeedback } from "./feedback-smoke.mjs";
 export async function detailsSmoke(page) {
   const unloadBlocked = () =>
     page.evaluate(() => {
@@ -15,6 +17,8 @@ export async function detailsSmoke(page) {
     name: "原料 · 明细行 1",
     exact: true,
   });
+  await assertBelowToolbar(page, children);
+  await assertBelowToolbar(page, page.locator(".zerp-voucher-editor__overlay"));
   assert.equal(
     await button("关闭原料").evaluate((el) => document.activeElement === el),
     true,
@@ -50,6 +54,8 @@ export async function detailsSmoke(page) {
   assert.equal(await unloadBlocked(), true);
   const dialog = page.getByRole("dialog", { name: "未保存修改", exact: true });
   await dialog.waitFor();
+  await assertBelowToolbar(page, dialog);
+  await assertBelowToolbar(page, page.locator(".zerp-edit-guard__overlay"));
   assert.equal(
     await button("继续编辑").evaluate((el) => document.activeElement === el),
     true,
@@ -75,7 +81,10 @@ export async function detailsSmoke(page) {
     .waitFor();
   assert.equal(await unloadBlocked(), false);
   await page.reload();
-  await button("模拟结果未知").click();
+  await button("模拟结果未知").scrollIntoViewIfNeeded();
+  await assertStableFeedback(page, [button("编辑资料")], () =>
+    button("模拟结果未知").click(),
+  );
   await page.getByRole("link", { name: "离开资料", exact: true }).click();
   await page
     .getByText("写入结果未知，须核实原请求后再离开。", { exact: true })

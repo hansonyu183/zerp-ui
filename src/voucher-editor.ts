@@ -32,3 +32,34 @@ export type VoucherEditorDefinition<
   rowKey: (row: R) => string;
   emptyRow: () => R;
 };
+
+import { validate } from "./validation";
+/** Internal validation includes committed nested rows as well as unfinished editor state. */
+export function validateVoucherContent<
+  H extends object,
+  R extends object,
+  C extends object,
+>(
+  definition: VoucherEditorDefinition<H, R, C>,
+  value: VoucherEditorValue<H, R>,
+  mode: "create" | "edit" = "edit",
+): string | undefined {
+  const header = validate(definition.headerFields, value.header, mode);
+  if (header) return header;
+  for (const row of value.rows) {
+    const invalid = validate(definition.rowFields, row, mode);
+    if (invalid) return invalid;
+    for (const column of definition.columns) {
+      if (column.type !== "children") continue;
+      const children = row[column.key];
+      if (!Array.isArray(children)) return `${column.label}应为明细列表。`;
+      for (const child of children) {
+        if (!child || typeof child !== "object")
+          return `${column.label}包含无效子项。`;
+        const problem = validate(column.fields, child, mode);
+        if (problem) return problem;
+      }
+    }
+  }
+  return undefined;
+}

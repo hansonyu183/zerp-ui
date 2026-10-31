@@ -31,7 +31,12 @@ type Common<K extends string> = {
 };
 export type AnyField = Common<string> &
   (
-    | { type: "text" | "textarea" | "password" | "date" | "decimal" }
+    | {
+        type: "text" | "textarea" | "password";
+        minLength?: number;
+        maxLength?: number;
+      }
+    | { type: "date" | "decimal" }
     | { type: "integer"; min?: number; max?: number }
     | { type: "boolean" }
     | { type: "date-range" }
@@ -84,13 +89,15 @@ export type Column<R> = {
   visible?: boolean;
   width?: string;
 };
-export type CrudAction = "edit" | "enable" | "disable" | "delete";
+export type CrudAction = "view" | "edit" | "enable" | "disable" | "delete";
 export type ListAction =
   | "view"
   | "send"
   | "withdraw"
   | "check"
   | "uncheck"
+  | "complete"
+  | "uncomplete"
   | "void"
   | "unvoid"
   | CrudAction;
@@ -125,6 +132,7 @@ export type CrudAdapter<
     values: D;
     identity: I;
     readonlyFields?: readonly Extract<keyof D, string>[];
+    writable?: boolean;
   }>;
   empty(input: { scope: string; filters: F }): D;
   create(attempt: Attempt<D, I>): Promise<WriteResult>;
@@ -147,6 +155,8 @@ export type CrudDefinition<
   columns: readonly Column<R>[];
   identity: (row: R) => I;
   actions: (row: R) => readonly CrudAction[];
+  viewLabel?: (row: R) => string;
+  viewTitle?: string;
   adapter: CrudAdapter<D, F, R, I>;
   reconcile?: (attempt: Attempt<D, I>) => Promise<ReconcileResult<E>>;
 };
@@ -159,3 +169,9 @@ export function defineCrud<
 >(definition: CrudDefinition<D, F, R, I, E>): CrudDefinition<D, F, R, I, E> {
   return definition;
 }
+
+/** Finite editor entrances; all honor current protection and permissions. */
+export type CrudViewHandle<R> = {
+  openRow(row: R, readOnly?: boolean): Promise<boolean>;
+  close(): Promise<boolean>;
+};

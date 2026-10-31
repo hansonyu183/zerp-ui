@@ -20,8 +20,13 @@ const navigation: NavigationGroup = {
 };
 // @ts-expect-error resource mapping must choose finite semantic icons
 navigation.items[0].icon = "mdi-custom";
-// @ts-expect-error no arbitrary account commands
-const account: ShellAccount = { label: "账户", actions: ["execute"] };
+const account: ShellAccount = {
+  label: "账户",
+  avatar: { src: "/synthetic-avatar.svg", alt: "合成头像" },
+};
+// @ts-expect-error account menu contents belong to the library
+const customAccount: ShellAccount = { label: "账户", actions: ["profile"] };
+void customAccount;
 void [choice, wrong, navigation, account];
 const values: AuthValues = { identifier: "a", password: "b", confirmation: "" };
 const mode: AuthMode = "reset";
