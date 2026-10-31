@@ -135,3 +135,19 @@ it("protects unfinished local input independently of dirty and identifies known 
   expect(wrapper.text()).not.toContain("写入结果未知");
   wrapper.unmount();
 });
+
+it.each([
+  ["seal", "已确认未应用"],
+  ["blocked", "原请求恢复尚未确认"],
+] as const)(
+  "blocks leave with accurate %s recovery wording",
+  async (value, message) => {
+    const { wrapper: w, state, departures } = host();
+    state.value = value;
+    await click(w, "离开");
+    expect(departures).toEqual([false]);
+    expect(w.get('[role="status"]').text()).toContain(message);
+    expect(w.text()).not.toContain("写入结果未知");
+    w.unmount();
+  },
+);
