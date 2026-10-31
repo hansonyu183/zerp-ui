@@ -327,6 +327,22 @@ export function validateReportSummary<R extends object>(
     [summary.values as R],
   );
 }
+export function validateReportKeys<R extends object, K extends string | number>(
+  rows: readonly R[],
+  rowKey: (row: R) => K,
+) {
+  const keys = rows.map(rowKey);
+  if (
+    keys.some(
+      (key) =>
+        (typeof key !== "string" && typeof key !== "number") ||
+        (typeof key === "number" && !Number.isFinite(key)),
+    ) ||
+    new Set(keys).size !== keys.length
+  )
+    throw new Error("报表行身份必须稳定且不重复。");
+  return keys;
+}
 export function validateReportPresentation<
   R extends object,
   K extends string | number,
@@ -344,16 +360,7 @@ export function validateReportPresentation<
     !Array.isArray(presentation.groups)
   )
     throw new Error("报表呈现需要稳定行身份及呈现事实。");
-  const keys = rows.map(rowKey);
-  if (
-    keys.some(
-      (key) =>
-        (typeof key !== "string" && typeof key !== "number") ||
-        (typeof key === "number" && !Number.isFinite(key)),
-    ) ||
-    new Set(keys).size !== keys.length
-  )
-    throw new Error("报表行身份必须稳定且不重复。");
+  const keys = validateReportKeys(rows, rowKey);
   const positions = new Map(keys.map((key, index) => [key, index]));
   const fields = columns.map((column) => column.key);
   function appearance(value: ReportAppearance) {

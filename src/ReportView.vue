@@ -26,6 +26,7 @@ import {
   validateReportColumns,
   validateReportSummary,
   validateReportPresentation,
+  validateReportKeys,
 } from "./report";
 import type {
   ReportPage,
@@ -252,16 +253,7 @@ function validateResult(
     d.rowKey,
     value.presentation,
   );
-  const keys = value.items.map(d.rowKey);
-  if (
-    keys.some(
-      (key) =>
-        (typeof key !== "string" && typeof key !== "number") ||
-        (typeof key === "number" && !Number.isFinite(key)),
-    ) ||
-    new Set(keys).size !== keys.length
-  )
-    throw new Error("报表行身份必须稳定且不重复。");
+  validateReportKeys(value.items, d.rowKey);
   if (metadata) {
     validateReportSummary(d.columns, metadata.summary);
     checkExpiry(metadata.expiresAt);

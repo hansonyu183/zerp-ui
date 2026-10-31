@@ -65,6 +65,97 @@ for (const kind of ["crud", "configuration"] as const) {
       ? { query: true, create: true, write: true }
       : { read: true, write: true };
   const closeLabel = kind === "crud" ? "取消编辑" : "关闭编辑";
+  it(`${kind} blocks unfinished filter submissions independently of editing and rereads adopted filters`, async () => {
+    const query = vi.fn(
+      async (_input: {
+        scope: string;
+        filters: { count: number | null };
+        page: number;
+        pageSize: number;
+      }) => ({ items: [row], total: 40 }),
+    );
+    const base = kind === "crud" ? crud() : config();
+    const definition = {
+      ...base,
+      filters: [{ key: "count", label: "筛选整数", type: "integer" as const }],
+      initialFilters: () => ({ count: 12 }),
+      adapter: { ...base.adapter, query },
+    };
+    const w = mount(View, { props: { definition, scope: "a", permissions } });
+    await flushPromises();
+    await w.get('input[aria-label="筛选整数"]').setValue("20");
+    await w.get('input[aria-label="筛选整数"]').setValue("-");
+    query.mockClear();
+    await w.get("form").trigger("submit");
+    await flushPromises();
+    expect(query).not.toHaveBeenCalled();
+    expect(button(w, "查询").attributes("disabled")).toBeDefined();
+    expect(w.emitted("queried")?.at(-1)).toEqual([{ count: 12 }]);
+    await click(w, "下一页");
+    expect(query).toHaveBeenLastCalledWith({
+      scope: "a",
+      filters: { count: 12 },
+      page: 2,
+      pageSize: 20,
+    });
+    await click(w, "编辑");
+    expect(w.emitted("protection")?.at(-1)).toEqual([
+      { dirty: false, localPending: false, invalid: false, writeState: "idle" },
+    ]);
+    await click(w, closeLabel);
+    expect(button(w, "查询").attributes("disabled")).toBeDefined();
+    await click(w, "编辑");
+    await w.get('input[aria-label="名称"]').setValue("修改");
+    await click(w, "保存");
+    expect(query).toHaveBeenLastCalledWith({
+      scope: "a",
+      filters: { count: 12 },
+      page: 2,
+      pageSize: 20,
+    });
+    expect(w.get('input[aria-label="筛选整数"]').element).toHaveProperty(
+      "value",
+      "-",
+    );
+    expect(button(w, "查询").attributes("disabled")).toBeDefined();
+    await w.get('input[aria-label="筛选整数"]').setValue("30");
+    await w.get("form").trigger("submit");
+    await flushPromises();
+    expect(query).toHaveBeenLastCalledWith({
+      scope: "a",
+      filters: { count: 30 },
+      page: 1,
+      pageSize: 20,
+    });
+    expect(w.emitted("queried")?.at(-1)).toEqual([{ count: 30 }]);
+    w.unmount();
+  });
+  it(`${kind} clears unfinished filters when permissions, scope or resource change`, async () => {
+    const base = kind === "crud" ? crud() : config();
+    const definition = {
+      ...base,
+      filters: [{ key: "count", label: "筛选整数", type: "integer" as const }],
+      initialFilters: () => ({ count: 12 }),
+    };
+    const w = mount(View, { props: { definition, scope: "a", permissions } });
+    await flushPromises();
+    for (const next of [
+      { permissions: { ...permissions, write: false } },
+      { scope: "b" },
+      { definition: { ...definition, resource: "new-resource" } },
+    ]) {
+      await w.get('input[aria-label="筛选整数"]').setValue("-");
+      expect(button(w, "查询").attributes("disabled")).toBeDefined();
+      await w.setProps(next);
+      await flushPromises();
+      expect(w.get('input[aria-label="筛选整数"]').element).toHaveProperty(
+        "value",
+        "12",
+      );
+      expect(button(w, "查询").attributes("disabled")).toBeUndefined();
+    }
+    w.unmount();
+  });
   it(`${kind} offers explicit local discard and keeps a clean open unprotected`, async () => {
     const w = mount(View, {
       props: {
@@ -243,6 +334,50 @@ it("never guesses a new configuration identity from the refreshed list", async (
   await click(w, "重试读取");
   expect(d.adapter.save).toHaveBeenCalledTimes(1);
   expect(get).not.toHaveBeenCalled();
+  w.unmount();
+});
+it("CRUD keeps unfinished filters visible until completed before expanding or collapsing conditions", async () => {
+  const definition = {
+    ...crud(),
+    filters: [
+      { key: "count", label: "筛选整数", type: "integer" as const },
+      { key: "limit", label: "更多整数", type: "integer" as const },
+    ],
+    initialFilters: () => ({ count: 12, limit: 5 }),
+  };
+  const w = mount(CrudView as Component, {
+    props: {
+      definition,
+      scope: "a",
+      permissions: { query: true, create: true, write: true },
+    },
+  });
+  await flushPromises();
+  await w.get('input[aria-label="筛选整数"]').setValue("-");
+  expect(button(w, "更多条件").attributes("disabled")).toBeDefined();
+  await click(w, "更多条件");
+  expect(w.get('input[aria-label="筛选整数"]').element).toHaveProperty(
+    "value",
+    "-",
+  );
+  expect(button(w, "查询").attributes("disabled")).toBeDefined();
+  await w.get('input[aria-label="筛选整数"]').setValue("20");
+  await click(w, "更多条件");
+  await w.get('input[aria-label="更多整数"]').setValue("-");
+  expect(button(w, "收起条件").attributes("disabled")).toBeDefined();
+  await click(w, "收起条件");
+  expect(w.get('input[aria-label="更多整数"]').element).toHaveProperty(
+    "value",
+    "-",
+  );
+  expect(button(w, "查询").attributes("disabled")).toBeDefined();
+  await w.get('input[aria-label="更多整数"]').setValue("8");
+  await click(w, "收起条件");
+  expect(w.find('input[aria-label="更多整数"]').exists()).toBe(false);
+  expect(button(w, "查询").attributes("disabled")).toBeUndefined();
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(w.emitted("queried")?.at(-1)).toEqual([{ count: 20, limit: 8 }]);
   w.unmount();
 });
 it("CRUD blocks preserve key ownership, structural baselines, pending protection and generation", async () => {

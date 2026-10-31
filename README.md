@@ -79,6 +79,8 @@ createApp(App)
 
 `DynamicForm` 的 `validation` 事件携带 `{ valid, issues: [{ key, message }], pending }`。`valid` 表示当前模型字段校验，`pending` 表示未完成整数文本、引用读取或子编辑工作，两者独立；独立提交须同时满足 `valid && !pending`。`validateFields(fields, values, mode = "edit")` 返回 `{ valid, issues }`，与运行时复用同一个校验实现，不能单独识别尚未发进模型的输入文本。组件负责显示字段反馈；消费者通过公开状态控制提交，无需查询内部 DOM。
 
+`CrudView` 与 `ConfigurationView` 的筛选未完成输入独立阻止新条件提交，不影响编辑器或使用已采用条件的分页与写后重读；CRUD 在筛选 pending 时禁止展开/收起条件，权限、scope 或资源切换会清理旧筛选输入。
+
 字段支持 required、integer min/max、安全整数、text/textarea/password minLength/maxLength，以及既有日期、日期范围、枚举和精确十进制字符串规则。readonly、当前模式不适用或隐藏字段沿现有规则跳过编辑校验；历史事实仍可查看。integer 分离本地未完成文本、最近发出值和父模型采用值：父值由 12 改为 20 或 null 立即同步显示，未完成负号保持 pending，不偷偷提交旧值；无需更换 scope 或重挂载。单/多枚举与引用按精确身份受控回显，0、false、null、空字符串不互换。
 
 ## 写入结果与核实
