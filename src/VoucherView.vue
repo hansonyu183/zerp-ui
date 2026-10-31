@@ -21,14 +21,12 @@
     B = unknown
   "
 >
+import type { DomainBlock } from "./domain-blocks";
 import { computed, ref } from "vue";
 import VoucherSubmission from "./VoucherSubmission.vue";
 import VoucherOperationRuntime from "./VoucherOperationRuntime.vue";
 import type { VoucherDefinition } from "./voucher";
-import type {
-  ConfigurationBlock,
-  ConfigurationDefinition,
-} from "./configuration";
+import type { ConfigurationDefinition } from "./configuration";
 import type {
   VoucherOperationHandle,
   VoucherOperationDefinition,
@@ -44,7 +42,7 @@ type SubmissionProps = {
   recoveryAllowed?: never;
   scope: string;
   permissions: { read: boolean; write: boolean; reconcile?: boolean };
-  blocks?: readonly ConfigurationBlock<D>[];
+  blocks?: readonly DomainBlock<D>[];
   script?: {
     definition: ConfigurationDefinition<SD, SF, SR, SI, SE>;
     permissions: { read: boolean; write: boolean; reconcile?: boolean };

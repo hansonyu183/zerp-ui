@@ -3,18 +3,21 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
-import { computed, onBeforeUnmount, ref, shallowRef, watch, toRaw } from "vue";
+import DomainBlockHost from "./DomainBlockHost.vue";
+import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
 import { VProgressLinear } from "vuetify/components";
 import type {
   CrudDefinition,
   CrudAction,
+  ListAction,
   Page,
   Attempt,
   AnyField,
   CrudViewHandle,
 } from "./contracts";
-import type { ConfigurationBlock } from "./configuration";
+
 import type { EditProtection, EditGuardHandle } from "./edit-guard";
 import EditGuard from "./EditGuard.vue";
 import FactFields from "./FactFields.vue";
@@ -28,8 +31,14 @@ import { writeLock } from "./write-lock";
 const props = defineProps<{
   definition: CrudDefinition<D, F, R, I, E>;
   scope: string;
-  blocks?: readonly ConfigurationBlock<D>[];
+  blocks?: readonly DomainBlock<D>[];
   beforeClose?: () => Promise<boolean>;
+  discardVersion?: number;
+  initialRow?: R;
+  readOnly?: boolean;
+  selectedKeys?: readonly (string | number)[];
+  rowKey?: (row: R) => string | number;
+  listActions?: (row: R) => readonly Exclude<ListAction, CrudAction>[];
   permissions: {
     query: boolean;
     create: boolean;
@@ -40,6 +49,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   protection: [state: EditProtection];
   queried: [filters: F];
+  "update:selectedKeys": [keys: (string | number)[]];
+  listAction: [action: Exclude<ListAction, CrudAction>, row: R];
 }>();
 const guard = shallowRef<EditGuardHandle | null>(null);
 const initial = shallowRef<D | null>(null);
@@ -253,10 +264,17 @@ const protection = computed<EditProtection>(() => ({
   invalid:
     !!editor.value &&
     !editor.value.readOnly &&
-    !!validate(
-      editFields.value as readonly AnyField[],
-      editor.value.values,
-      editor.value.row ? "edit" : "create",
+    !!(
+      validate(
+        editFields.value as readonly AnyField[],
+        editor.value.values,
+        editor.value.row ? "edit" : "create",
+      ) ??
+      validateDomainBlocks(
+        props.blocks,
+        editor.value.values,
+        editor.value.row ? "edit" : "create",
+      )
     ),
   writeState: lock.value.phase,
 }));
@@ -289,23 +307,20 @@ const bindings = computed(() => {
           editable() && !readonlyFields.value.includes(block.key);
         return {
           key: block.key,
-          component: toRaw(block.component),
+          block,
           props: {
-            modelValue: clone(editor.value?.values[block.key]),
-            catalog: clone(block.catalog),
+            modelValue: clone(editor.value!.values),
+            scope: props.scope,
             mode:
               editor.value?.readOnly || readonlyFields.value.includes(block.key)
                 ? ("read" as const)
                 : ("edit" as const),
             disabled: !allowed(),
-            "onUpdate:modelValue": (value: D[typeof block.key]) => {
+            "onUpdate:modelValue": (value: D) => {
               if (allowed())
                 editor.value = {
                   ...editor.value!,
-                  values: {
-                    ...editor.value!.values,
-                    [block.key]: clone(value),
-                  },
+                  values: clone(value),
                 };
             },
             onPending: (value: boolean) => {
@@ -345,11 +360,17 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       ? clone(editor.value?.values)
       : undefined;
   if (input) {
-    const invalid = validate(
-      editFields.value as readonly AnyField[],
-      input,
-      operation === "create" ? "create" : "edit",
-    );
+    const invalid =
+      validate(
+        editFields.value as readonly AnyField[],
+        input,
+        operation === "create" ? "create" : "edit",
+      ) ??
+      validateDomainBlocks(
+        props.blocks,
+        input,
+        operation === "create" ? "create" : "edit",
+      );
     if (invalid) {
       error.value = invalid;
       return;
@@ -449,18 +470,49 @@ async function reconcile() {
     if (current(v)) verifying.value = false;
   }
 }
-function actions(row: R) {
-  return props.permissions.query
-    ? props.definition
-        .actions(row)
-        .filter((a) => a === "view" || props.permissions.write)
-        .filter((a) => a !== "delete" || props.definition.adapter.delete)
-        .filter(
-          (a) =>
-            (a !== "enable" && a !== "disable") ||
-            props.definition.adapter.setEnabled,
-        )
-    : [];
+function actions(row: R): readonly ListAction[] {
+  if (!props.permissions.query) return [];
+  const crud = props.definition
+    .actions(row)
+    .filter((action) => action === "view" || props.permissions.write)
+    .filter((action) => action !== "delete" || props.definition.adapter.delete)
+    .filter(
+      (action) =>
+        (action !== "enable" && action !== "disable") ||
+        props.definition.adapter.setEnabled,
+    );
+  return [...crud, ...(props.listActions?.(row) ?? [])];
+}
+function listAction(action: ListAction, row: R) {
+  if (
+    blocked.value ||
+    editor.value ||
+    detailLoading.value ||
+    !result.value.items.includes(row) ||
+    !actions(row).includes(action)
+  )
+    return;
+  if (action === "view" || action === "edit") {
+    void openRow(row, action === "view");
+  } else if (
+    action === "enable" ||
+    action === "disable" ||
+    action === "delete"
+  ) {
+    confirming.value = { row, action };
+  } else {
+    emit("listAction", action, row);
+  }
+}
+function selectRows(keys: (string | number)[]) {
+  if (
+    !props.permissions.query ||
+    blocked.value ||
+    editor.value ||
+    detailLoading.value
+  )
+    return;
+  emit("update:selectedKeys", keys);
 }
 const captions = {
   view: "查看",
@@ -499,6 +551,25 @@ watch(
     void query();
   },
   { immediate: true, flush: "sync" },
+);
+watch(
+  () => props.discardVersion,
+  () => {
+    if (lock.value.phase === "idle") {
+      editor.value = null;
+      initial.value = null;
+      formPending.value = false;
+      blockPending.value = {};
+      editVersion++;
+    }
+  },
+);
+watch(
+  () => props.initialRow,
+  (row) => {
+    if (row) void openRow(row, props.readOnly ?? true);
+  },
+  { immediate: true },
 );
 onBeforeUnmount(() => {
   active = false;
@@ -607,14 +678,12 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       :page-size="20"
       :loading="loading"
       :actions="actions"
+      :row-key="rowKey"
+      :selected-keys="selectedKeys"
+      @update:selected-keys="selectRows"
       :disabled="blocked || !!editor || detailLoading"
       @page="query($event)"
-      @action="
-        (action, row) =>
-          action === 'edit' || action === 'view'
-            ? openRow(row, action === 'view')
-            : (confirming = { row, action })
-      "
+      @action="listAction"
     />
     <section v-if="confirming" role="dialog" aria-label="确认操作">
       <p>确认{{ captions[confirming.action] }}？</p>
@@ -650,9 +719,9 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         :onUpdate:modelValue="bindings.form"
         :onPending="bindings.pending"
       />
-      <component
+      <DomainBlockHost
         v-for="block in bindings.blocks"
-        :is="block.component"
+        :block="block.block"
         :key="block.key"
         v-bind="block.props"
       />

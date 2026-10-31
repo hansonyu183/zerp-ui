@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="I, N, R, T, D, A extends object, E = never">
+import type { EditProtection } from "./edit-guard";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
 import { VProgressLinear } from "vuetify/components";
@@ -16,6 +17,7 @@ import DataList from "./DataList.vue";
 const props = defineProps<{
   definition: WorkflowDefinition<I, N, R, T, D, A, E>;
   scope: string;
+  discardVersion?: number;
   permissions: {
     read: boolean;
     audit: boolean;
@@ -24,7 +26,10 @@ const props = defineProps<{
     targets: readonly string[];
   };
 }>();
-const emit = defineEmits<{ "open-voucher": [voucher: D] }>();
+const emit = defineEmits<{
+  "open-voucher": [voucher: D];
+  protection: [state: EditProtection];
+}>();
 const result = shallowRef<Page<{ identity: I; label: string }>>({
   items: [],
   total: 0,
@@ -57,6 +62,22 @@ const lock = computed(() =>
   ),
 );
 const blocked = computed(() => lock.value.phase !== "idle");
+watch(
+  () => ({
+    dirty: !!reason.value,
+    localPending: false,
+    invalid: false,
+    writeState: lock.value.phase,
+  }),
+  (value) => emit("protection", value),
+  { immediate: true, flush: "sync" },
+);
+watch(
+  () => props.discardVersion,
+  () => {
+    if (lock.value.phase === "idle") reason.value = "";
+  },
+);
 let generation = 0,
   request = 0,
   active = true;

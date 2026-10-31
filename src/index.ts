@@ -154,3 +154,35 @@ export type {
   FieldValidationResult,
   FormValidationState,
 } from "./validation";
+
+export { defineDetailsPage } from "./pages";
+export type {
+  PageDefinition,
+  PageKind,
+  PageSource,
+  AppPageHandle,
+  DetailsPage,
+} from "./pages";
+export { domainBlocks } from "./domain-blocks";
+export type { DomainBlock } from "./domain-blocks";
+
+export {
+  defineCrudPage,
+  defineConfigurationPage,
+  defineReportPage,
+  defineDocumentPage,
+  defineVoucherPage,
+  defineWorkflowPage,
+} from "./pages";
+export type {
+  CrudPage,
+  ConfigurationPage,
+  ReportPageDefinition,
+  DocumentPage,
+  VoucherPage,
+  WorkflowPage,
+} from "./pages";
+export { defineVoucherOperationPage } from "./pages";
+export type { VoucherOperationPage } from "./pages";
+export { defineAccountPage } from "./pages";
+export type { AccountPage } from "./pages";
