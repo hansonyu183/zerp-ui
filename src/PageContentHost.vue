@@ -1,29 +1,32 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef, watch } from 'vue';
 import EditGuard from './EditGuard.vue';
-import { renderPage, type AppPageHandle, type PageDefinition } from './pages';
+import { snapshotPage, type AppPageHandle, type PageDefinition, type PageSnapshot } from './pages';
 import type { EditGuardHandle, EditProtection } from './edit-guard';
+import {equalValues} from './editor-values';
 const props = withDefaults(defineProps<{page: PageDefinition; scope: string; active?: boolean}>(), {active:true});
 const emit = defineEmits<{protection: [value: EditProtection]}>();
 const clear: EditProtection = {dirty:false, localPending:false, invalid:false, writeState:'idle'};
 const protection = shallowRef<EditProtection>(clear);
 const guard = shallowRef<EditGuardHandle | null>(null);
-const admittedPage=shallowRef(props.page);
+const admittedPage=shallowRef(props.page),admitted=shallowRef<PageSnapshot>(props.page[snapshotPage]());
 const generation = ref(0), discardVersion = ref(0);
 let switchRequest=0;
-function reset(){switchRequest++;generation.value++;protection.value=clear;admittedPage.value=props.page;}
+function reset(){switchRequest++;generation.value++;protection.value=clear;admittedPage.value=props.page;admitted.value=props.page[snapshotPage]();}
 watch(() => [props.scope, props.active], reset, {flush:'sync'});
-watch(()=>props.page,async next=>{
+watch(()=>({page:props.page,snapshot:props.page[snapshotPage]()}),async next=>{
   const request=++switchRequest,epoch=generation.value;
-  if(next===admittedPage.value)return;
-  if(!props.active){reset();return;}
+  if(!props.active||!equalValues(next.snapshot.security,admitted.value.security)){reset();return;}
+  if(next.page===admittedPage.value&&next.snapshot.definition===admitted.value.definition&&equalValues(next.snapshot.record,admitted.value.record)){
+    admitted.value=next.snapshot;return;
+  }
   if(!(await requestLeave()) || request!==switchRequest || epoch!==generation.value || !props.active)return;
-  admittedPage.value=next;generation.value++;protection.value=clear;
+  admittedPage.value=next.page;admitted.value=next.snapshot;generation.value++;protection.value=clear;
 },{flush:'sync'});
 watch(protection, value => emit('protection', value), {immediate:true, flush:'sync'});
 const content = computed(() => {
   const epoch = generation.value;
-  return () => props.active ? admittedPage.value[renderPage]({
+  return () => props.active ? admitted.value.render({
     scope:props.scope, active:props.active, discardVersion:discardVersion.value,
     protection: value => {if(epoch === generation.value && props.active) protection.value = value;},
     requestLeave,
@@ -33,7 +36,7 @@ async function requestLeave(): Promise<boolean> {const epoch=generation.value;co
 defineExpose<AppPageHandle>({requestLeave});
 </script>
 <template>
-  <h1>{{ admittedPage.title }}</h1>
+  <h1>{{ admitted.title }}</h1>
   <EditGuard ref="guard" :scope="scope" :instance="generation" :active="active" :dirty="protection.dirty" :local-pending="protection.localPending" :write-state="protection.writeState" @discard="discardVersion++" />
   <component :is="content" :key="generation" />
 </template>

@@ -8,7 +8,7 @@ export type PageKind = 'crud' | 'configuration' | 'report' | 'document' | 'vouch
 export type PageSource<T> = MaybeRefOrGetter<T>;
 type ContentOnly={component?:never;render?:never;template?:never;slots?:never;layout?:never;style?:never;class?:never;css?:never};
 /** Package-private capability. Consumers can obtain it only from a finite page factory. */
-export const renderPage = Symbol('zerp.page');
+export const snapshotPage = Symbol('zerp.page');
 export type PageContext = {
   scope: string;
   active: boolean;
@@ -19,13 +19,15 @@ export type PageContext = {
 export interface PageDefinition {
   readonly kind: PageKind;
   readonly title: string;
-  readonly [renderPage]: (context: PageContext) => VNodeChild;
+  readonly [snapshotPage]: () => PageSnapshot;
 }
-function page<T extends { title: string }>(kind: PageKind, source: PageSource<T>, render: (value: T, context: PageContext) => VNodeChild): PageDefinition {
+export type PageAdmission={definition?:object;record?:unknown;security?:unknown};
+export type PageSnapshot=PageAdmission&{title:string;render:(context:PageContext)=>VNodeChild};
+function page<T extends { title: string }>(kind: PageKind, source: PageSource<T>, render: (value: T, context: PageContext) => VNodeChild,admission:(value:T)=>PageAdmission=()=>({})): PageDefinition {
   return Object.freeze({
     kind,
     get title() { return toValue(source).title; },
-    [renderPage]: (context: PageContext) => render(toValue(source), context),
+    [snapshotPage]:()=>{const value=toValue(source);return {...admission(value),title:value.title,render:(context:PageContext)=>render(value,context)};},
   });
 }
 export type DetailsPage<T extends object, I,H extends object=object,R extends object=object,C extends object=object> = ContentOnly&{
@@ -39,7 +41,7 @@ export type DetailsPage<T extends object, I,H extends object=object,R extends ob
   editor?:{definition:VoucherEditorDefinition<H,R,C>;value:VoucherEditorValue<H,R>;onChange?:(value:VoucherEditorValue<H,R>)=>void};
 };
 export function defineDetailsPage<T extends object,I=never,H extends object=object,R extends object=object,C extends object=object>(source:PageSource<DetailsPage<T,I,H,R,C>>):PageDefinition{
-  return page('details',source,(value,context)=>h(DetailsPageView<T,I,H,R,C>,{options:value,scope:context.scope,discardVersion:context.discardVersion,onProtection:protect(context,value)}));
+  return page('details',source,(value,context)=>h(DetailsPageView<T,I,H,R,C>,{options:value,scope:context.scope,discardVersion:context.discardVersion,onProtection:protect(context,value)}),value=>({record:value.instance}));
 }
 
 
@@ -72,7 +74,7 @@ export function defineCrudPage<D extends object,F extends object,R extends objec
   return page('crud',()=>{const value=toValue(source);return {...value,title:value.definition.title};},(value,context)=>h(CrudView<D,F,R,I,E>,{
     definition:value.definition,permissions:value.permissions,blocks:value.blocks,scope:context.scope,initialRow:value.initialRow,readOnly:value.readOnly,
     beforeClose:context.requestLeave,discardVersion:context.discardVersion,onProtection:protect(context,value),onQueried:value.onQueried,
-  }));
+  }),value=>({definition:value.definition,record:value.initialRow===undefined?undefined:value.definition.identity(value.initialRow)}));
 }
 export type ConfigurationPage<D extends object,F extends object,R extends object,I,E=never>=ProtectedPage&{
   definition:ConfigurationDefinition<D,F,R,I,E>;permissions:ReadPermissions;blocks?:readonly DomainBlock<D>[];
@@ -82,7 +84,7 @@ export function defineConfigurationPage<D extends object,F extends object,R exte
   return page('configuration',()=>{const value=toValue(source);return {...value,title:value.definition.title};},(value,context)=>h(ConfigurationView<D,F,R,I,E>,{
     definition:value.definition,permissions:value.permissions,blocks:value.blocks,scope:context.scope,initialRow:value.initialRow,retainEditor:value.retainEditor,
     beforeClose:context.requestLeave,discardVersion:context.discardVersion,onProtection:protect(context,value),onQueried:value.onQueried,onDraft:value.onDraft,
-  }));
+  }),value=>({definition:value.definition,record:value.initialRow===undefined?undefined:value.definition.identity(value.initialRow)}));
 }
 export type ReportPageDefinition<P extends object,R extends object,I=string,K extends string|number=string|number,T=never>=ContentOnly&{
   definition:ReportDefinition<P,R,I,K,T>;permissions:{query:boolean;export:boolean};pageSize?:number;restore?:ReportSnapshot<P,R,I,K,T>;
@@ -92,13 +94,13 @@ export function defineReportPage<P extends object,R extends object,I=string,K ex
   return page('report',()=>{const value=toValue(source);return {...value,title:value.definition.title};},(value,context)=>h(ReportView<P,R,I,K,T>,{
     definition:value.definition,permissions:value.permissions,scope:context.scope,active:context.active,pageSize:value.pageSize,restore:value.restore,
     onSnapshot:value.onSnapshot,onParameters:value.onParameters,onAdopted:value.onAdopted,onDrill:value.onDrill,
-  }));
+  }),value=>({definition:value.definition}));
 }
 export type DocumentPage<D extends object,I,S,O,H,A extends object,E=never>=ProtectedPage&{definition:DocumentDefinition<D,I,S,O,H,A,E>;permissions:ReadPermissions;blocks?:readonly DomainBlock<D>[]};
 export function defineDocumentPage<D extends object,I,S,O,H,A extends object,E=never>(source:PageSource<DocumentPage<D,I,S,O,H,A,E>>):PageDefinition{
   return page('document',()=>{const value=toValue(source);return {...value,title:value.definition.title};},(value,context)=>h(DocumentView<D,I,S,O,H,A,E>,{
     definition:value.definition,permissions:value.permissions,blocks:value.blocks,scope:context.scope,beforeClose:context.requestLeave,discardVersion:context.discardVersion,onProtection:protect(context,value),
-  }));
+  }),value=>({definition:value.definition}));
 }
 export type VoucherPage<D extends object,I,R,U,S,O,H,A extends object,E=never,SD extends object=object,SF extends object=object,SR extends object=object,SI=never,SE=never>=ProtectedPage&{
   definition:VoucherDefinition<D,I,R,U,S,O,H,A,E>;permissions:ReadPermissions;blocks?:readonly DomainBlock<D>[];
@@ -107,7 +109,7 @@ export type VoucherPage<D extends object,I,R,U,S,O,H,A extends object,E=never,SD
 export function defineVoucherPage<D extends object,I,R,U,S,O,H,A extends object,E=never,SD extends object=object,SF extends object=object,SR extends object=object,SI=never,SE=never>(source:PageSource<VoucherPage<D,I,R,U,S,O,H,A,E,SD,SF,SR,SI,SE>>):PageDefinition{
   return page('voucher',()=>{const value=toValue(source);return {...value,title:value.definition.title};},(value,context)=>h(VoucherSubmission<D,I,R,U,S,O,H,A,E,SD,SF,SR,SI,SE>,{
     definition:value.definition,permissions:value.permissions,blocks:value.blocks,scope:context.scope,script:value.script,beforeClose:context.requestLeave,discardVersion:context.discardVersion,onProtection:protect(context,value),
-  }));
+  }),value=>({definition:value.definition}));
 }
 export type WorkflowPage<I,N,R,T,D,A extends object,E=never>=ProtectedPage&{
   definition:WorkflowDefinition<I,N,R,T,D,A,E>;
@@ -116,7 +118,7 @@ export type WorkflowPage<I,N,R,T,D,A extends object,E=never>=ProtectedPage&{
 export function defineWorkflowPage<I,N,R,T,D,A extends object,E=never>(source:PageSource<WorkflowPage<I,N,R,T,D,A,E>>):PageDefinition{
   return page('workflow',()=>{const value=toValue(source);return {...value,title:value.definition.title};},(value,context)=>h(WorkflowView<I,N,R,T,D,A,E>,{
     definition:value.definition,permissions:value.permissions,scope:context.scope,discardVersion:context.discardVersion,onProtection:protect(context,value),onOpenVoucher:value.onOpenVoucher,
-  }));
+  }),value=>({definition:value.definition}));
 }
 
 import OperationPage from './OperationPage.vue';
@@ -133,19 +135,19 @@ export type VoucherOperationPage<M extends VoucherOperationModel,I,B,H extends o
   onSettled?:(value:VoucherOperationSettlement<M,I,B>)=>void;
 };
 export function defineVoucherOperationPage<M extends VoucherOperationModel,I,B,H extends object=object,R extends object=object,C extends object=object>(source:PageSource<VoucherOperationPage<M,I,B,H,R,C>>):PageDefinition{
-  return page('voucher',source,(value,context)=>h(OperationPage<M,I,B,H,R,C>,{options:value,scope:context.scope,discardVersion:context.discardVersion,onProtection:protect(context,value)}));
+  return page('voucher',source,(value,context)=>h(OperationPage<M,I,B,H,R,C>,{options:value,scope:context.scope,discardVersion:context.discardVersion,onProtection:protect(context,value)}),value=>({definition:value.definition,record:[value.intent.owner.resource,value.intent.identity,value.intent.action],security:[value.intent.owner.scope,value.intent.owner.operator]}));
 }
 
 import ControlledAccountForm from './ControlledAccountForm.vue';
 import type {Fields} from './contracts';
 export type AccountPage<D extends object>=ProtectedPage&{
-  kind:'profile'|'change-password';title:string;values:D;fields:Fields<D>;busy?:boolean;error?:string;notice?:string;submitLabel?:string;cancelLabel?:string;
+  kind:'profile'|'change-password';title:string;instance?:string|number;values:D;fields:Fields<D>;busy?:boolean;error?:string;notice?:string;submitLabel?:string;cancelLabel?:string;
   validate?:(values:D)=>string|undefined;submit:(values:D)=>void;onCancel?:()=>void;onChange?:(values:D)=>void;
 };
 export function defineAccountPage<D extends object>(source:PageSource<AccountPage<D>>):PageDefinition{
   const kind=toValue(source).kind;
   return page(kind,source,(value,context)=>h(ControlledAccountForm<D>,{
-    scope:context.scope,kind:value.kind,values:value.values,fields:value.fields,busy:value.busy,error:value.error,notice:value.notice,submitLabel:value.submitLabel,cancelLabel:value.cancelLabel,validate:value.validate,discardVersion:context.discardVersion,
+    scope:context.scope,kind:value.kind,instance:value.instance,values:value.values,fields:value.fields,busy:value.busy,error:value.error,notice:value.notice,submitLabel:value.submitLabel,cancelLabel:value.cancelLabel,validate:value.validate,discardVersion:context.discardVersion,
     onSubmit:value.submit,onCancel:value.onCancel,'onUpdate:values':value.onChange,onProtection:protect(context,value),
-  }));
+  }),value=>({record:value.kind}));
 }

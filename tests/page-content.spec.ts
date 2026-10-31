@@ -17,7 +17,7 @@ it('shows grouped facts and related intents through the complete page entrance',
   });
   const router = createRouter({ history: createMemoryHistory(), routes: [{path:'/',component:{template:'<span />'}}] });
   const wrapper = mount(AppPage, { props: {
-    page, scope: 'synthetic', brand: { productName: '合成库', enterpriseName: '合成公司', mark: { kind: 'text', text: '合' } },
+    page, scope: 'synthetic', brand: { home:'/', productName: '合成库', enterpriseName: '合成公司', mark: { kind: 'text', text: '合' } },
     brandState: { kind: 'ready' }, navigationState: { kind: 'ready' }, navigation: [], footer: '合成验证',
   }, global: { plugins: [router] } });
   await flushPromises();
@@ -41,7 +41,7 @@ function editablePage(write:()=>Promise<{status:'unknown'}|{status:'success'}>){
 }
 function mountPage(page:ReturnType<typeof defineDetailsPage>){
   const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',component:{template:'<span />'}}]});
-  return mount(AppPage,{props:{page,scope:'synthetic',brand:{productName:'合成',enterpriseName:'合成',mark:{kind:'text',text:'合'}},brandState:{kind:'ready'},navigationState:{kind:'ready'},navigation:[],footer:'合成'},global:{plugins:[router]}});
+  return mount(AppPage,{props:{page,scope:'synthetic',brand:{home:'/',productName:'合成',enterpriseName:'合成',mark:{kind:'text',text:'合'}},brandState:{kind:'ready'},navigationState:{kind:'ready'},navigation:[],footer:'合成'},global:{plugins:[router]}});
 }
 it('keeps unfinished library block input protected when a different page is requested',async()=>{
   const wrapper=mountPage(editablePage(async()=>({status:'success'})));
