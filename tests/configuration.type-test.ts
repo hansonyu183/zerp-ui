@@ -62,3 +62,17 @@ configurationBlock<Draft>()({
   // @ts-expect-error catalog must match the component contract
   catalog: 123,
 });
+const snapshot: import("../src/index").ConfigurationDraft<
+  { nested: { label: string } },
+  Identity
+> = { values: { nested: { label: "snapshot" } } };
+// @ts-expect-error draft snapshots are deeply readonly facts
+snapshot.values.nested.label = "consumer must not own writes";
+const entrances: import("../src/index").ConfigurationViewHandle<Draft> = {
+  newDraft: async () => true,
+  openRow: async () => true,
+  close: async () => true,
+  refresh: async () => {},
+};
+// @ts-expect-error finite handles do not expose arbitrary commands
+entrances.execute("save");

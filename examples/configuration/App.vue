@@ -3,6 +3,7 @@ const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { ref } from "vue";
 import { ConfigurationView, configurationBlock } from "@zerp/ui";
 import { sample, type Mapping, type Scenario } from "./adapters";
+import ConfigurationContracts from "./ConfigurationContracts.vue";
 import RouteBlock from "./RouteBlock.vue";
 const resource = ref("mapping"),
   scenario = ref<Scenario>("success");
@@ -104,5 +105,6 @@ const permissions = { read: true, write: true, reconcile: true };
       scope="synthetic-session"
       :permissions="permissions"
     />
+    <ConfigurationContracts v-if="showTitle" />
   </main>
 </template>
