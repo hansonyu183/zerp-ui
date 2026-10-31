@@ -65,9 +65,11 @@ it("shows grouped facts and related intents through the complete page entrance",
 });
 
 import { defineCrud, defineCrudPage, domainBlocks } from "../src/index";
+import type { EditProtection } from "../src/index";
 type Editable = { name: string; settings: { count: number } };
 function editablePage(
   write: () => Promise<{ status: "unknown" } | { status: "success" }>,
+  onProtection?: (value: EditProtection) => void,
 ) {
   const definition = defineCrud<
     Editable,
@@ -96,6 +98,7 @@ function editablePage(
   });
   return defineCrudPage({
     definition,
+    onProtection,
     permissions: { query: true, create: true, write: true },
     initialRow: { id: "one", name: "原名称" },
     readOnly: false,
@@ -493,5 +496,100 @@ it("emits finite list selection and related operation intents without invoking a
   await withdraw.trigger("click");
   await flushPromises();
   expect(intents).toEqual(["withdraw:one"]);
+  wrapper.unmount();
+});
+
+it("denies an ordinary switch from an unknown operation to another page but clears a same-page actor replacement", async () => {
+  const values = new Map<string, string>();
+  const storage: Store = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => {
+      values.set(key, value);
+    },
+    removeItem: (key) => {
+      values.delete(key);
+    },
+  };
+  const definition: VoucherOperationDefinition<
+    SyntheticModel,
+    Identity,
+    Baseline
+  > = synthetic(
+    storage,
+    () => "unknown",
+    () => {},
+  );
+  const actor = reactive({ operator: "operator-a" });
+  const originalOwner = {
+    scope: "synthetic",
+    operator: "operator-a",
+    resource: "operation-guard",
+  };
+  const page = defineVoucherOperationPage(() => ({
+    title: "原办理页面",
+    definition,
+    intent: {
+      action: "void",
+      owner: { ...originalOwner, operator: actor.operator },
+      identity: { voucher: "one" },
+      input: { note: "原输入" },
+    },
+    eligible: true,
+    recoveryAllowed: true,
+  }));
+  const wrapper = mountPage(page);
+  await flushPromises();
+  const click = async (text: string) => {
+    await wrapper
+      .findAll("button")
+      .find((node) => node.text() === text)!
+      .trigger("click");
+    await flushPromises();
+  };
+  await click("准备作废");
+  await click("确认作废");
+  const original = await definition.persistence.load(originalOwner);
+  expect(original).not.toBeNull();
+  expect(wrapper.text()).toContain(original!.request.requestId);
+  const details = defineDetailsPage({
+    title: "其它资料",
+    instance: "other",
+    value: {},
+    groups: [],
+  });
+  await wrapper.setProps({ page: details });
+  await flushPromises();
+  expect(wrapper.get("h1").text()).toBe("原办理页面");
+  expect(wrapper.text()).toContain(original!.request.requestId);
+  await wrapper.setProps({ page });
+  await flushPromises();
+  actor.operator = "operator-b";
+  await flushPromises();
+  expect(wrapper.text()).not.toContain(original!.request.requestId);
+  expect(
+    wrapper
+      .findAll("button")
+      .find((node) => node.text() === "准备作废")!
+      .attributes("disabled"),
+  ).toBeUndefined();
+  expect(
+    (await definition.persistence.load(originalOwner))?.request.requestId,
+  ).toBe(original!.request.requestId);
+  wrapper.unmount();
+});
+it("does not publish retired page protection to a consumer after security cleanup", async () => {
+  const events: EditProtection[] = [];
+  const page = editablePage(
+    async () => ({ status: "success" }),
+    (value) => events.push(value),
+  );
+  const wrapper = mountPage(page);
+  await flushPromises();
+  await wrapper.get('input[aria-label="名称"]').setValue("未保存名称");
+  expect(events[events.length - 1].dirty).toBe(true);
+  const count = events.length;
+  await wrapper.setProps({ active: false });
+  await flushPromises();
+  expect(events).toHaveLength(count);
   wrapper.unmount();
 });

@@ -42,7 +42,8 @@ watch(
       epoch = generation.value;
     if (
       !props.active ||
-      !equalValues(next.snapshot.security, admitted.value.security)
+      (next.page === admittedPage.value &&
+        !equalValues(next.snapshot.security, admitted.value.security))
     ) {
       reset();
       return;
@@ -82,8 +83,9 @@ const content = computed(() => {
           active: props.active,
           discardVersion: discardVersion.value,
           protection: (value) => {
-            if (epoch === generation.value && props.active)
-              protection.value = value;
+            if (epoch !== generation.value || !props.active) return false;
+            protection.value = value;
+            return true;
           },
           requestLeave,
         })
