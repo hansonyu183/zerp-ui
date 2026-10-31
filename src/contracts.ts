@@ -31,7 +31,12 @@ type Common<K extends string> = {
 };
 export type AnyField = Common<string> &
   (
-    | { type: "text" | "textarea" | "password" | "date" | "decimal" }
+    | {
+        type: "text" | "textarea" | "password";
+        minLength?: number;
+        maxLength?: number;
+      }
+    | { type: "date" | "decimal" }
     | { type: "integer"; min?: number; max?: number }
     | { type: "boolean" }
     | { type: "date-range" }

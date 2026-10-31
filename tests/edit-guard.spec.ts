@@ -8,6 +8,7 @@ import {
 } from "../src/index";
 function host() {
   const dirty = ref(false),
+    localPending = ref(false),
     active = ref(true),
     state = ref<EditWriteState>("idle"),
     scope = ref("one"),
@@ -32,12 +33,14 @@ function host() {
                 guard = value as unknown as EditGuardHandle;
               },
               dirty: dirty.value,
+              localPending: localPending.value,
               active: active.value,
               writeState: state.value,
               scope: scope.value,
               instance: instance.value,
               onDiscard: () => {
                 dirty.value = false;
+                localPending.value = false;
               },
             },
             { default: () => h("p", "敏感本地草稿") },
@@ -46,7 +49,16 @@ function host() {
     }),
     { attachTo: document.body },
   );
-  return { wrapper, dirty, active, state, scope, instance, departures };
+  return {
+    wrapper,
+    dirty,
+    localPending,
+    active,
+    state,
+    scope,
+    instance,
+    departures,
+  };
 }
 async function click(wrapper: ReturnType<typeof mount>, text: string) {
   await flushPromises();
@@ -108,3 +120,18 @@ it.each(["scope", "instance", "active", "state", "unmount"] as const)(
     if (change !== "unmount") context.wrapper.unmount();
   },
 );
+
+it("protects unfinished local input independently of dirty and identifies known outcomes awaiting refresh", async () => {
+  const { wrapper, localPending, state, departures } = host();
+  localPending.value = true;
+  await click(wrapper, "离开");
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(true);
+  await click(wrapper, "放弃本地修改");
+  expect(departures).toEqual([true]);
+  state.value = "refresh";
+  await click(wrapper, "离开");
+  expect(departures).toEqual([true, false]);
+  expect(wrapper.text()).toContain("写入结果已确认，等待读取最新数据");
+  expect(wrapper.text()).not.toContain("写入结果未知");
+  wrapper.unmount();
+});

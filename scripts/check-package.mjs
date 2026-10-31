@@ -413,6 +413,31 @@ try {
 }
 
 async function directSmoke(page) {
+  const form = page.getByRole("region", { name: "独立表单示例", exact: true });
+  const submit = form.getByRole("button", {
+    name: "提交独立表单",
+    exact: true,
+  });
+  assert.ok(await submit.isDisabled());
+  await form.getByLabel("独立名称", { exact: true }).fill("合成表单");
+  await form.getByLabel("独立数量", { exact: true }).fill("12");
+  await form
+    .getByRole("button", { name: "父模型采用 20", exact: true })
+    .click();
+  assert.equal(
+    await form.getByLabel("独立数量", { exact: true }).inputValue(),
+    "20",
+  );
+  await form.getByLabel("独立数量", { exact: true }).fill("-");
+  assert.ok(await submit.isDisabled());
+  await form.getByLabel("独立数量", { exact: true }).fill("21");
+  assert.ok(await submit.isDisabled());
+  await form.getByLabel("独立数量", { exact: true }).fill("0");
+  await submit.click();
+  assert.deepEqual(
+    JSON.parse(await form.getByLabel("独立提交值").textContent()),
+    { title: "合成表单", count: 0, amount: "9007199254740993.0100" },
+  );
   const rowActions = page.getByRole("region", { name: "行操作示例" });
   await rowActions
     .getByRole("checkbox", { name: "选择 row-actions", exact: true })

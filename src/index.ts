@@ -133,4 +133,15 @@ export type {
 export { default as RecordDetails } from "./RecordDetails.vue";
 export type { DetailFields, DetailGroup } from "./details";
 export { default as EditGuard } from "./EditGuard.vue";
-export type { EditGuardHandle, EditWriteState } from "./edit-guard";
+export type {
+  EditGuardHandle,
+  EditWriteState,
+  EditProtection,
+} from "./edit-guard";
+
+export { validateFields } from "./validation";
+export type {
+  FieldValidationIssue,
+  FieldValidationResult,
+  FormValidationState,
+} from "./validation";
