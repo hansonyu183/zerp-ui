@@ -18,16 +18,24 @@ import {
   onActivated,
   onDeactivated,
   nextTick,
+  toRaw,
 } from "vue";
-import { ReportUnavailable, validateReportRows } from "./report";
+import {
+  ReportUnavailable,
+  validateReportRows,
+  validateReportColumns,
+  validateReportSummary,
+  validateReportPresentation,
+} from "./report";
 import type {
+  ReportPage,
   ReportDefinition,
   ReportSnapshot,
   ReportCell,
   ReportDrill,
   FixedReportAdapter,
 } from "./report";
-import type { Fields, Page, AnyField } from "./contracts";
+import type { Fields, AnyField } from "./contracts";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
 import { clone } from "./clone";
@@ -47,15 +55,18 @@ const props = withDefaults(
 );
 const emit = defineEmits<{
   snapshot: [value: Snapshot];
+  parameters: [value: P];
+  adopted: [value: { parameters: P; resultId: I | null } | null];
   drill: [value: ReportDrill<I, K, T>];
 }>();
 const input = shallowRef<P>(clone(props.definition.initialParameters()));
 const applied = shallowRef<P | null>(null);
-const result = shallowRef<Page<R> | null>(null);
+const result = shallowRef<ReportPage<R, K> | null>(null);
 const fixed = shallowRef<Snapshot["fixed"]>(null);
 const adopted = shallowRef<Definition>(props.definition);
 const page = ref(1),
   loading = ref(false),
+  pageLoading = ref(false),
   exporting = ref(false),
   pending = ref(false);
 const error = ref(""),
@@ -68,17 +79,20 @@ const valid = ref(true),
   enabled = ref(props.active);
 const scroll = ref<HTMLElement>();
 let position = { left: 0, top: 0 };
-let generation = 0,
+let resultGeneration = 0,
+  pageGeneration = 0,
+  generation = 0,
   exportGeneration = 0,
   validationGeneration = 0;
-let controller: AbortController | undefined,
+let pageController: AbortController | undefined,
+  controller: AbortController | undefined,
   exportController: AbortController | undefined,
   validationController: AbortController | undefined;
 let retry: (() => void) | undefined;
 const job = shallowRef<{
   requestId: string;
   scope: string;
-  adapter: FixedReportAdapter<P, R, I>;
+  adapter: FixedReportAdapter<P, R, I, K>;
 }>();
 const canQuery = computed(
   () =>
@@ -117,7 +131,7 @@ function copyDefinition(d: Definition): Definition {
     adapter: { ...d.adapter },
     columns: d.columns.map((column) => ({
       ...column,
-      ...("options" in column
+      ...("options" in column && Array.isArray(column.options)
         ? { options: column.options.map((option) => ({ ...option })) }
         : {}),
     })),
@@ -132,17 +146,85 @@ function parameters() {
   if (pending.value || invalid) throw new Error(invalid ?? "请完成参数输入。");
   return clone(input.value);
 }
+const changedParameters = computed(
+  () =>
+    applied.value !== null &&
+    JSON.stringify(input.value) !== JSON.stringify(applied.value),
+);
+function announceAdoption() {
+  emit(
+    "adopted",
+    applied.value && result.value && usable.value
+      ? {
+          parameters: clone(applied.value),
+          resultId: fixed.value ? clone(fixed.value.id) : null,
+        }
+      : null,
+  );
+}
+function invalidateResultReads() {
+  resultGeneration++;
+  pageGeneration++;
+  pageController?.abort();
+  pageLoading.value = false;
+  invalidateExport();
+  validationGeneration++;
+  validationController?.abort();
+  checking.value = false;
+}
+let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+function checkExpiry(expiresAt: number | undefined) {
+  if (expiresAt === undefined) return;
+  if (!Number.isFinite(expiresAt)) throw new Error("报表结果期限无效。");
+  if (expiresAt <= Date.now())
+    throw new ReportUnavailable("expired", "结果已失效，请重新查询。");
+}
+function currentResult() {
+  if (!usable.value || !result.value) return false;
+  try {
+    checkExpiry(fixed.value?.expiresAt);
+    return true;
+  } catch (caught) {
+    error.value = failed(caught);
+    return false;
+  }
+}
+function scheduleExpiry() {
+  clearTimeout(expiryTimer);
+  expiryTimer = undefined;
+  const expiresAt = fixed.value?.expiresAt,
+    owner = resultGeneration;
+  if (expiresAt === undefined) return;
+  expiryTimer = setTimeout(
+    () => {
+      if (owner !== resultGeneration) return;
+      if (Date.now() < expiresAt) {
+        scheduleExpiry();
+        return;
+      }
+      clearResult();
+      error.value = "结果已失效，请重新查询。";
+      snapshot();
+    },
+    Math.max(0, Math.min(expiresAt - Date.now(), 2147483647)),
+  );
+}
 function clearResult() {
+  clearTimeout(expiryTimer);
+  expiryTimer = undefined;
+  invalidateResultReads();
   result.value = null;
   fixed.value = null;
+  retry = undefined;
   applied.value = null;
+  announceAdoption();
   page.value = 1;
   valid.value = true;
 }
 function failed(caught: unknown) {
   if (caught instanceof ReportUnavailable) {
     clearResult();
-    invalidateExport();
+    snapshot();
   }
   return message(caught);
 }
@@ -157,7 +239,36 @@ function stop() {
   loading.value = false;
   notice.value = "已停止本地等待；服务端执行未确认取消。";
 }
+function validateResult(
+  d: Definition,
+  value: ReportPage<R, K>,
+  metadata: Snapshot["fixed"],
+) {
+  validateReportColumns(d.columns);
+  validateReportRows(d.columns, value.items);
+  validateReportPresentation(
+    d.columns,
+    value.items,
+    d.rowKey,
+    value.presentation,
+  );
+  const keys = value.items.map(d.rowKey);
+  if (
+    keys.some(
+      (key) =>
+        (typeof key !== "string" && typeof key !== "number") ||
+        (typeof key === "number" && !Number.isFinite(key)),
+    ) ||
+    new Set(keys).size !== keys.length
+  )
+    throw new Error("报表行身份必须稳定且不重复。");
+  if (metadata) {
+    validateReportSummary(d.columns, metadata.summary);
+    checkExpiry(metadata.expiresAt);
+  }
+}
 async function runQuery(values: P, target: number, paging: boolean) {
+  if (paging && adopted.value.kind === "fixed") return runFixedPage(target);
   if (
     cancelling.value ||
     !canQuery.value ||
@@ -170,47 +281,34 @@ async function runQuery(values: P, target: number, paging: boolean) {
   controller = new AbortController();
   const signal = controller.signal,
     scope = props.scope;
-  invalidateExport();
-  validationGeneration++;
-  validationController?.abort();
-  checking.value = false;
+  if (d.kind === "parameter") invalidateExport();
   loading.value = true;
   error.value = "";
   notice.value = "";
   job.value = undefined;
-  retry = () => {
-    void runQuery(clone(values), target, paging);
-  };
+  retry = undefined;
   try {
-    let value: Page<R>;
+    let value: ReportPage<R, K>;
     let metadata: Snapshot["fixed"] = fixed.value;
     if (d.kind === "fixed") {
-      if (paging && fixed.value)
-        value = await d.adapter.page({
-          scope,
-          resultId: fixed.value.id,
-          page: target,
-          pageSize: props.pageSize,
-          signal,
-        });
-      else {
-        const requestId = crypto.randomUUID();
-        job.value = { requestId, scope, adapter: d.adapter };
-        const created = await d.adapter.query({
-          scope,
-          parameters: clone(values),
-          page: target,
-          pageSize: props.pageSize,
-          requestId,
-          signal,
-        });
-        value = created;
-        metadata = {
-          id: created.id,
-          summary: clone(created.summary),
-          context: created.context,
-        };
-      }
+      const requestId = crypto.randomUUID();
+      job.value = { requestId, scope, adapter: d.adapter };
+      const created = await d.adapter.query({
+        scope,
+        parameters: clone(values),
+        page: target,
+        pageSize: props.pageSize,
+        requestId,
+        signal,
+      });
+      if (created.columns) d.columns = clone(created.columns);
+      value = created;
+      metadata = {
+        id: clone(created.id),
+        summary: clone(created.summary),
+        context: created.context,
+        expiresAt: created.expiresAt,
+      };
     } else {
       if (!d.adapter.query) return;
       value = await d.adapter.query({
@@ -222,27 +320,26 @@ async function runQuery(values: P, target: number, paging: boolean) {
       metadata = null;
     }
     if (current !== generation) return;
-    validateReportRows(d.columns, value.items);
-    const keys = value.items.map(d.rowKey);
-    if (
-      keys.some((key) => typeof key !== "string" && typeof key !== "number") ||
-      new Set(keys).size !== keys.length
-    )
-      throw new Error("报表行身份必须稳定且不重复。");
-    if (metadata)
-      validateReportRows(
-        d.columns.filter((c) => c.key in metadata!.summary.values),
-        [metadata.summary.values as R],
-      );
+    validateResult(d, value, metadata);
+    invalidateResultReads();
     result.value = clone(value);
     fixed.value = metadata;
     adopted.value = d;
     applied.value = clone(values);
     page.value = target;
     valid.value = true;
+    announceAdoption();
+    scheduleExpiry();
     retry = undefined;
+    error.value = "";
+    notice.value = "";
   } catch (caught) {
-    if (current === generation) error.value = failed(caught);
+    if (current === generation) {
+      error.value = failed(caught);
+      retry = () => {
+        void runQuery(clone(values), target, paging);
+      };
+    }
   } finally {
     if (current === generation) {
       loading.value = false;
@@ -250,8 +347,62 @@ async function runQuery(values: P, target: number, paging: boolean) {
     }
   }
 }
+async function runFixedPage(target: number) {
+  if (
+    !currentResult() ||
+    !fixed.value ||
+    adopted.value.kind !== "fixed" ||
+    pageLoading.value
+  )
+    return;
+  const owner = resultGeneration,
+    current = ++pageGeneration;
+  const d = copyDefinition(adopted.value) as Extract<
+    Definition,
+    { kind: "fixed" }
+  >;
+  const metadata = clone(fixed.value),
+    values = applied.value && clone(applied.value);
+  pageController?.abort();
+  pageController = new AbortController();
+  pageLoading.value = true;
+  error.value = "";
+  try {
+    const value = await d.adapter.page({
+      scope: props.scope,
+      resultId: clone(metadata.id),
+      page: target,
+      pageSize: props.pageSize,
+      signal: pageController.signal,
+    });
+    if (owner !== resultGeneration || current !== pageGeneration) return;
+    validateResult(d, value, fixed.value);
+    const expiresAt = value.expiresAt ?? fixed.value?.expiresAt;
+    checkExpiry(expiresAt);
+    fixed.value = { ...fixed.value!, expiresAt };
+    result.value = clone(value);
+    scheduleExpiry();
+    page.value = target;
+    applied.value = values;
+    announceAdoption();
+  } catch (caught) {
+    if (owner === resultGeneration && current === pageGeneration) {
+      error.value = failed(caught);
+      retry =
+        owner === resultGeneration
+          ? () => {
+              void runFixedPage(target);
+            }
+          : undefined;
+    }
+  } finally {
+    if (owner === resultGeneration && current === pageGeneration)
+      pageLoading.value = false;
+  }
+}
 function updateInput(value: P) {
   input.value = value;
+  emit("parameters", clone(value));
 }
 function search() {
   if (!canQuery.value) return;
@@ -295,9 +446,8 @@ async function cancel() {
 }
 async function download() {
   if (!canExport.value || exporting.value) return;
-  const d =
-    props.definition.kind === "fixed" ? adopted.value : props.definition;
-  if (d.kind === "fixed" && (!fixed.value || !usable.value)) return;
+  const d = fixed.value ? adopted.value : props.definition;
+  if (d.kind === "fixed" && (!fixed.value || !currentResult())) return;
   exportError.value = "";
   notice.value = "";
   const current = ++exportGeneration;
@@ -308,7 +458,7 @@ async function download() {
       d.kind === "fixed"
         ? await d.adapter.export?.({
             scope: props.scope,
-            resultId: fixed.value!.id,
+            resultId: clone(fixed.value!.id),
             signal: exportController.signal,
           })
         : await d.adapter.export?.({
@@ -332,10 +482,14 @@ async function download() {
     if (current === exportGeneration) exporting.value = false;
   }
 }
-function snapshot() {
-  if (scroll.value)
+function capturePosition() {
+  if (scroll.value && usable.value && result.value)
     position = { left: scroll.value.scrollLeft, top: scroll.value.scrollTop };
-  emit("snapshot", {
+}
+let emittedSnapshot: Snapshot | undefined;
+function snapshot() {
+  capturePosition();
+  emittedSnapshot = {
     scope: props.scope,
     resource: props.definition.resource,
     input: clone(input.value),
@@ -346,17 +500,24 @@ function snapshot() {
     fixed: fixed.value && clone(fixed.value),
     definition: copyDefinition(adopted.value),
     scroll: { ...position },
-  });
+  };
+  emit("snapshot", emittedSnapshot);
 }
 function drill(cell: ReportCell<T>, row: R) {
-  if (!usable.value || !fixed.value || cell.disabled) return;
+  if (
+    !currentResult() ||
+    !fixed.value ||
+    cell.disabled ||
+    !result.value?.items.includes(row)
+  )
+    return;
   snapshot();
   emit("drill", {
     scope: props.scope,
     resource: adopted.value.resource,
-    resultId: fixed.value.id,
+    resultId: clone(fixed.value.id),
     rowId: adopted.value.rowKey(row),
-    cell,
+    cell: clone(cell),
   });
 }
 function restorePosition() {
@@ -368,6 +529,7 @@ function restorePosition() {
 async function revalidate() {
   if (!enabled.value || !result.value || !props.permissions.query) return;
   valid.value = false;
+  announceAdoption();
   checking.value = true;
   error.value = "";
   const current = ++validationGeneration;
@@ -375,17 +537,23 @@ async function revalidate() {
   validationController = new AbortController();
   try {
     if (adopted.value.kind === "fixed" && fixed.value) {
+      checkExpiry(fixed.value.expiresAt);
       const outcome = await adopted.value.adapter.revalidate({
         scope: props.scope,
-        resultId: fixed.value.id,
+        resultId: clone(fixed.value.id),
         signal: validationController.signal,
       });
       if (current !== validationGeneration) return;
       if (outcome.status !== "valid") {
         clearResult();
         notice.value = "结果已失效或无权访问，请重新查询。";
+        snapshot();
         return;
       }
+      const expiresAt = outcome.expiresAt ?? fixed.value?.expiresAt;
+      checkExpiry(expiresAt);
+      fixed.value = { ...fixed.value!, expiresAt };
+      scheduleExpiry();
     } else {
       // Parameter reports have no reusable result identity; returning reads the applied page again.
       const values = applied.value;
@@ -398,7 +566,11 @@ async function revalidate() {
         if (resumedGeneration === generation && result.value) restorePosition();
       }
     }
-    if (current === validationGeneration) valid.value = true;
+    if (current === validationGeneration) {
+      valid.value = true;
+      checking.value = false;
+      announceAdoption();
+    }
   } catch (caught) {
     if (current === validationGeneration) error.value = failed(caught);
   } finally {
@@ -408,16 +580,17 @@ async function revalidate() {
   }
 }
 function deactivate() {
+  if (!enabled.value) return;
   snapshot();
   enabled.value = false;
   generation++;
   controller?.abort();
-  invalidateExport();
-  validationGeneration++;
-  validationController?.abort();
+  invalidateResultReads();
   loading.value = false;
   checking.value = false;
   valid.value = false;
+  announceAdoption();
+  scheduleExpiry();
   cancelling.value = false;
   job.value = undefined;
 }
@@ -434,6 +607,7 @@ function reset() {
   validationController?.abort();
   formGeneration.value++;
   input.value = clone(props.definition.initialParameters());
+  emit("parameters", clone(input.value));
   clearResult();
   adopted.value = props.definition;
   loading.value = false;
@@ -470,6 +644,7 @@ watch(
 function restoreSaved(saved: Snapshot | undefined) {
   if (
     !saved ||
+    toRaw(saved) === emittedSnapshot ||
     saved.scope !== props.scope ||
     saved.resource !== props.definition.resource ||
     saved.definition.kind !== props.definition.kind ||
@@ -478,6 +653,16 @@ function restoreSaved(saved: Snapshot | undefined) {
   )
     return;
   reset();
+  try {
+    if (saved.result) {
+      if (!saved.applied || (saved.definition.kind === "fixed" && !saved.fixed))
+        throw new Error("报表缓存缺少已采用条件或结果身份。");
+      validateResult(saved.definition, saved.result, saved.fixed);
+    }
+  } catch (caught) {
+    error.value = message(caught);
+    return;
+  }
   input.value = clone(saved.input);
   applied.value = saved.applied && clone(saved.applied);
   result.value = saved.result && clone(saved.result);
@@ -486,6 +671,15 @@ function restoreSaved(saved: Snapshot | undefined) {
   page.value = saved.page;
   position = { ...saved.scroll };
   valid.value = false;
+  announceAdoption();
+  try {
+    checkExpiry(fixed.value?.expiresAt);
+    scheduleExpiry();
+  } catch (caught) {
+    error.value = failed(caught);
+    return;
+  }
+  emit("parameters", clone(input.value));
   void revalidate();
 }
 watch(() => props.restore, restoreSaved, { immediate: true });
@@ -493,6 +687,7 @@ onActivated(activate);
 onDeactivated(deactivate);
 onBeforeUnmount(() => {
   deactivate();
+  clearTimeout(expiryTimer);
 });
 </script>
 <template>
@@ -520,7 +715,7 @@ onBeforeUnmount(() => {
         type="button"
         :disabled="
           exporting ||
-          (definition.kind === 'fixed' ? !fixed || !usable || loading : pending)
+          (definition.kind === 'fixed' ? !fixed || !usable : pending)
         "
         @click="download"
       >
@@ -542,6 +737,7 @@ onBeforeUnmount(() => {
     >
       取消服务端查询
     </button>
+    <p v-if="pageLoading" role="status">正在读取结果页…</p>
     <p v-if="exporting" role="status">正在导出…</p>
     <p v-if="checking || (result && !valid)" role="status">
       结果待重验，分页、导出和下钻暂不可用。
@@ -554,7 +750,7 @@ onBeforeUnmount(() => {
       </button>
     </p>
     <p v-if="error" role="alert">
-      {{ error }} <span v-if="result">仍显示上次成功结果。</span
+      {{ error }} <span v-if="result && usable">仍显示上次成功结果。</span
       ><button
         v-if="retry && canQuery"
         type="button"
@@ -564,10 +760,24 @@ onBeforeUnmount(() => {
         重试查询
       </button>
     </p>
+    <p v-if="changedParameters">当前条件尚未查询；下方为上次成功结果。</p>
     <p v-if="exportError" role="alert">{{ exportError }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
-    <div v-if="canQuery && result" ref="scroll" class="zerp-report-scroll">
-      <p>已采用条件：{{ applied }}</p>
+    <div
+      v-if="canQuery && result && usable"
+      ref="scroll"
+      class="zerp-report-scroll"
+      @scroll="capturePosition"
+      role="region"
+      :aria-label="definition.title + '结果'"
+    >
+      <p>
+        已采用条件：{{
+          applied && displayDefinition.describeParameters
+            ? displayDefinition.describeParameters(clone(applied))
+            : applied
+        }}
+      </p>
       <p v-if="fixed">{{ fixed.context }}</p>
       <DataList
         :columns="displayDefinition.columns"
@@ -575,10 +785,11 @@ onBeforeUnmount(() => {
         :row-key="displayDefinition.rowKey"
         :page="page"
         :page-size="pageSize"
-        :loading="loading"
-        :disabled="!usable || cancelling"
+        :loading="displayDefinition.kind === 'fixed' ? pageLoading : loading"
+        :disabled="!usable"
         :wide="true"
         :summary="fixed?.summary"
+        :presentation="result.presentation"
         :cell="resultCell"
         @cell="drill"
         @page="changePage"

@@ -150,3 +150,53 @@ it("provides semantic names for workflow operations", async () => {
     w.unmount();
   }
 });
+
+it("uses complete and uncomplete actions with stable row identity after reordering", async () => {
+  const second = { id: "two", name: "第二条" };
+  const w = mount(DataList as Component, {
+    props: {
+      ...props,
+      actions: () => ["complete", "uncomplete"],
+      result: { items: [row, second], total: 2 },
+    },
+  });
+  try {
+    await w.get('[aria-label="完成"]').trigger("click");
+    await w.setProps({ result: { items: [second, row], total: 2 } });
+    await w.get('[aria-label="反完成"]').trigger("click");
+    expect(w.emitted("action")).toEqual([
+      ["complete", row],
+      ["uncomplete", second],
+    ]);
+    await w.setProps({ disabled: true });
+    await w.get('[aria-label="完成"]').trigger("click");
+    expect(w.emitted("action")).toHaveLength(2);
+  } finally {
+    w.unmount();
+  }
+});
+
+it("keeps an open action menu attached to its original row when an ordinary list is reordered", async () => {
+  const second = { id: "two", name: "第二条" };
+  const actions = ["view", "edit", "complete", "uncomplete"] as const;
+  const w = mount(DataList as Component, {
+    attachTo: document.body,
+    props: {
+      ...props,
+      rowKey: undefined,
+      actions: () => actions,
+      result: { items: [row, second], total: 2 },
+    },
+  });
+  try {
+    await w.get('[aria-label="更多操作"]').trigger("click");
+    await flushPromises();
+    await w.setProps({ result: { items: [second, row], total: 2 } });
+    const item = document.querySelector('[role="menuitem"]') as HTMLElement;
+    item.click();
+    await flushPromises();
+    expect(w.emitted("action")).toEqual([["uncomplete", row]]);
+  } finally {
+    w.unmount();
+  }
+});

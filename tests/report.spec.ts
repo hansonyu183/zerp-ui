@@ -1,7 +1,7 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import { ReportView, defineReport } from "../src/index";
+import { DataList, ReportView, defineReport } from "../src/index";
 
 const definition = () =>
   defineReport({
@@ -112,10 +112,12 @@ it("renders Chinese enums and visible columns, and validates a date range before
 });
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((yes) => {
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((yes, no) => {
     resolve = yes;
+    reject = no;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 it("retries a failed query with its original page and parameters, and shows an empty result", async () => {
   const d = definition(),
@@ -556,10 +558,10 @@ it("restores the applied page and both scroll axes only after revalidation, and 
       restore: saved,
     },
   });
-  expect(restored.text()).toContain("第二页");
+  expect(restored.text()).not.toContain("第二页");
   expect(restored.text()).toContain("结果待重验");
   expect(button(restored, "导出").attributes("disabled")).toBeDefined();
-  expect(button(restored, "上一页").attributes("disabled")).toBeDefined();
+  expect(restored.find("table").exists()).toBe(false);
   expect(restored.find("a").exists()).toBe(false);
   check.resolve({ status: "valid" });
   await flushPromises();
@@ -585,7 +587,7 @@ it("retains a pending revalidation screen on transport failure and rejects respo
   await w.setProps({ active: true });
   await flushPromises();
   expect(w.text()).toContain("连接中断");
-  expect(w.text()).toContain("异常原值 -.x");
+  expect(w.text()).not.toContain("异常原值 -.x");
   expect(button(w, "导出").attributes("disabled")).toBeDefined();
   const check = deferred<{ status: "valid" }>();
   vi.mocked(d.adapter.revalidate).mockReturnValueOnce(check.promise);
@@ -828,4 +830,659 @@ it("requeries a returning parameter report at the applied page and restores both
     "尚未查询",
   );
   w.unmount();
+});
+
+it("adopts query columns and isolated result notifications while input and later definitions remain separate", async () => {
+  const d = fixedDefinition();
+  const original = await d.adapter.query({
+    scope: "a",
+    parameters: { keyword: "初始" },
+    page: 1,
+    pageSize: 1,
+    requestId: "fixture",
+    signal: new AbortController().signal,
+  });
+  const columns = [
+    { key: "amount" as const, label: "本次精确额", type: "decimal" as const },
+  ];
+  vi.mocked(d.adapter.query).mockResolvedValueOnce({ ...original, columns });
+  const w = fixedStart(d);
+  try {
+    await submit(w);
+    expect(w.get("th").text()).toBe("本次精确额");
+    const adopted = w.emitted("adopted")!.at(-1)![0] as {
+      parameters: FixedParameters;
+      resultId: { token: string };
+    };
+    expect(adopted).toEqual({
+      parameters: { keyword: "初始" },
+      resultId: { token: "result-1" },
+    });
+    adopted.parameters.keyword = "外部修改";
+    adopted.resultId.token = "外部身份";
+    columns[0]!.label = "改变返回对象";
+    d.columns[0]!.label = "改变当前定义";
+    await w.get('input[aria-label="关键字"]').setValue("未查询条件");
+    expect(w.emitted("parameters")!.at(-1)).toEqual([
+      { keyword: "未查询条件" },
+    ]);
+    expect(w.text()).toContain("当前条件尚未查询");
+    await click(w, "下一页");
+    expect(d.adapter.page).toHaveBeenLastCalledWith(
+      expect.objectContaining({ resultId: { token: "result-1" } }),
+    );
+    expect(w.get("th").text()).toBe("本次精确额");
+    expect(w.emitted("adopted")!.at(-1)![0]).toEqual({
+      parameters: { keyword: "初始" },
+      resultId: { token: "result-1" },
+    });
+    await w.setProps({ scope: "other" });
+    expect(w.emitted("adopted")!.at(-1)).toEqual([null]);
+  } finally {
+    w.unmount();
+  }
+});
+
+it("renders finite presentation and authoritative group segments using exact numeric and string row identities", async () => {
+  const w = mount(DataList as Component, {
+    props: {
+      columns: [{ key: "amount", label: "金额", type: "decimal" }],
+      result: {
+        items: [
+          { id: 1, amount: "1.00" },
+          { id: "1", amount: "2.00" },
+        ],
+        total: 2,
+      },
+      rowKey: (row: { id: string | number }) => row.id,
+      page: 1,
+      pageSize: 2,
+      presentation: {
+        rows: [
+          {
+            rowId: 1,
+            appearance: { foreground: "#112233", bold: true },
+            cells: { amount: { bold: false, italic: true, align: "right" } },
+          },
+          { rowId: "1", cells: { amount: { background: "#ddeeff" } } },
+        ],
+        groups: [
+          {
+            id: "outer",
+            label: "全部",
+            level: 0,
+            firstKey: 1,
+            lastKey: "1",
+            continuedBefore: true,
+            continuedAfter: true,
+            summary: { caption: "权威全组", values: { amount: "99.00" } },
+          },
+          {
+            id: "inner",
+            label: "子组",
+            level: 1,
+            firstKey: 1,
+            lastKey: 1,
+            continuedBefore: true,
+            continuedAfter: false,
+            summary: { caption: "权威子组", values: { amount: "44.00" } },
+          },
+        ],
+      },
+    },
+  });
+  try {
+    expect(w.findAll("tbody th").map((node) => node.text())).toEqual([
+      "全部（续）",
+      "子组（续）",
+    ]);
+    const cells = w.findAll('td[data-label="金额"]');
+    expect(cells[0]!.attributes("style")).toContain("color: rgb(17, 34, 51)");
+    expect(cells[0]!.attributes("style")).toContain("font-weight: normal");
+    expect(cells[0]!.attributes("style")).toContain("font-style: italic");
+    expect(cells[0]!.attributes("style")).toContain("text-align: right");
+    expect(w.text()).toContain("权威全组（续）99.00");
+    expect(w.text()).toContain("权威子组44.00");
+    expect(
+      cells.find((cell) => cell.text() === "2.00")!.attributes("style"),
+    ).toContain("background-color: rgb(221, 238, 255)");
+  } finally {
+    w.unmount();
+  }
+});
+
+const validPresentation = () => ({
+  rows: [{ rowId: "r1", cells: { amount: { foreground: "#112233" } } }],
+  groups: [
+    {
+      id: "group",
+      label: "分组",
+      level: 0,
+      firstKey: "r1",
+      lastKey: "r2",
+      continuedBefore: false,
+      continuedAfter: false,
+      summary: { caption: "权威小计", values: { amount: "9.00" } },
+    },
+  ],
+});
+for (const [name, mutate] of [
+  [
+    "unknown row",
+    (p: any) => {
+      p.rows[0].rowId = "foreign";
+    },
+  ],
+  [
+    "duplicate row fact",
+    (p: any) => {
+      p.rows.push(p.rows[0]);
+    },
+  ],
+  [
+    "unknown cell",
+    (p: any) => {
+      p.rows[0].cells.foreign = {};
+    },
+  ],
+  [
+    "unsafe color",
+    (p: any) => {
+      p.rows[0].cells.amount.foreground = "url(bad)";
+    },
+  ],
+  [
+    "nonboolean emphasis",
+    (p: any) => {
+      p.rows[0].cells.amount.bold = "yes";
+    },
+  ],
+  [
+    "arbitrary CSS",
+    (p: any) => {
+      p.rows[0].cells.amount.position = "fixed";
+    },
+  ],
+  [
+    "unknown subtotal column",
+    (p: any) => {
+      p.groups[0].summary.values.foreign = "1";
+    },
+  ],
+  [
+    "invalid subtotal value",
+    (p: any) => {
+      p.groups[0].summary.values.amount = 9;
+    },
+  ],
+  [
+    "reversed group",
+    (p: any) => {
+      p.groups[0].firstKey = "r2";
+      p.groups[0].lastKey = "r1";
+    },
+  ],
+  [
+    "duplicate group",
+    (p: any) => {
+      p.groups.push(p.groups[0]);
+    },
+  ],
+  [
+    "overlapping peer groups",
+    (p: any) => {
+      p.groups.push({ ...p.groups[0], id: "peer" });
+    },
+  ],
+  [
+    "missing parent",
+    (p: any) => {
+      p.groups[0].level = 1;
+    },
+  ],
+  [
+    "nonboolean continuation",
+    (p: any) => {
+      p.groups[0].continuedAfter = "yes";
+    },
+  ],
+] as const) {
+  it(`rejects ${name} through the public DataList presentation boundary`, () => {
+    const presentation = validPresentation();
+    mutate(presentation);
+    const w = mount(DataList as Component, {
+      props: {
+        columns: [{ key: "amount", label: "金额", type: "decimal" }],
+        result: {
+          items: [
+            { id: "r1", amount: "1.00" },
+            { id: "r2", amount: "2.00" },
+          ],
+          total: 2,
+        },
+        rowKey: (row: { id: string }) => row.id,
+        page: 1,
+        pageSize: 2,
+        presentation,
+      },
+    });
+    try {
+      expect(w.find('[role="alert"]').exists()).toBe(true);
+      expect(w.find("table").exists()).toBe(false);
+    } finally {
+      w.unmount();
+    }
+  });
+}
+
+for (const [name, change] of [
+  [
+    "duplicate columns",
+    () => ({
+      columns: [
+        { key: "amount", label: "金额", type: "decimal" },
+        { key: "amount", label: "重复", type: "decimal" },
+      ],
+    }),
+  ],
+  [
+    "unsupported column type",
+    () => ({ columns: [{ key: "amount", label: "金额", type: "html" }] }),
+  ],
+  [
+    "foreign summary column",
+    () => ({ summary: { caption: "坏合计", values: { foreign: "3.00" } } }),
+  ],
+  [
+    "foreign presentation row",
+    () => ({
+      presentation: {
+        rows: [{ rowId: "foreign", appearance: { bold: true } }],
+        groups: [],
+      },
+    }),
+  ],
+] as const) {
+  it(`retains the previous accepted result when new ${name} are rejected`, async () => {
+    const d = fixedDefinition();
+    const original = await d.adapter.query({
+      scope: "a",
+      parameters: { keyword: "初始" },
+      page: 1,
+      pageSize: 1,
+      requestId: "fixture",
+      signal: new AbortController().signal,
+    });
+    const w = fixedStart(d);
+    try {
+      await submit(w);
+      vi.mocked(d.adapter.query).mockResolvedValueOnce({
+        ...original,
+        id: { token: "invalid" },
+        ...change(),
+      } as any);
+      await submit(w);
+      expect(w.find('[role="alert"]').exists()).toBe(true);
+      expect(w.emitted("adopted")!.at(-1)![0]).toMatchObject({
+        resultId: { token: "result-1" },
+      });
+      expect(w.text()).toContain("9007199254740993.0100");
+    } finally {
+      w.unmount();
+    }
+  });
+}
+
+it("allows reads of the valid original result while a replacement search and its paging complete independently", async () => {
+  const d = fixedDefinition(),
+    w = fixedStart(d);
+  const anchor = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(() => {});
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static createObjectURL = vi.fn(() => "blob:old");
+      static revokeObjectURL = vi.fn();
+    },
+  );
+  try {
+    await submit(w);
+    const next = deferred<Awaited<ReturnType<typeof d.adapter.query>>>();
+    vi.mocked(d.adapter.query).mockReturnValueOnce(next.promise);
+    await w.get('input[aria-label="关键字"]').setValue("新的查询");
+    await w.get("form").trigger("submit");
+    const signal = vi.mocked(d.adapter.query).mock.calls.at(-1)![0].signal;
+    expect(button(w, "导出").attributes("disabled")).toBeUndefined();
+    await click(w, "导出");
+    expect(d.adapter.export).toHaveBeenLastCalledWith(
+      expect.objectContaining({ resultId: { token: "result-1" } }),
+    );
+    await w.get("a").trigger("click");
+    expect(w.emitted("drill")!.at(-1)![0]).toMatchObject({
+      resultId: { token: "result-1" },
+      rowId: "r1",
+    });
+    await click(w, "下一页");
+    expect(w.text()).toContain("第二页");
+    expect(w.text()).toContain("正在查询");
+    expect(signal.aborted).toBe(false);
+    next.reject(new Error("新查询普通失败"));
+    await flushPromises();
+    expect(w.text()).toContain("第二页");
+    expect(w.text()).toContain("仍显示上次成功结果");
+    expect(w.text()).not.toContain("结果待重验");
+    expect(d.adapter.revalidate).not.toHaveBeenCalled();
+  } finally {
+    w.unmount();
+    anchor.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("expires old result reads without aborting a replacement search or allowing a late old page to revive it", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  const d = fixedDefinition();
+  const original = await d.adapter.query({
+    scope: "a",
+    parameters: { keyword: "初始" },
+    page: 1,
+    pageSize: 1,
+    requestId: "fixture",
+    signal: new AbortController().signal,
+  });
+  vi.mocked(d.adapter.query).mockResolvedValueOnce({
+    ...original,
+    expiresAt: Date.now() + 1000,
+  });
+  const w = fixedStart(d);
+  try {
+    await submit(w);
+    const page = deferred<Awaited<ReturnType<typeof d.adapter.page>>>();
+    const next = deferred<typeof original>();
+    vi.mocked(d.adapter.page).mockReturnValueOnce(page.promise);
+    vi.mocked(d.adapter.query).mockReturnValueOnce(next.promise);
+    await button(w, "下一页").trigger("click");
+    const pageSignal = vi.mocked(d.adapter.page).mock.calls.at(-1)![0].signal;
+    await w.get("form").trigger("submit");
+    const querySignal = vi.mocked(d.adapter.query).mock.calls.at(-1)![0].signal;
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(w.find("table").exists()).toBe(false);
+    expect(w.emitted("adopted")!.at(-1)).toEqual([null]);
+    expect(pageSignal.aborted).toBe(true);
+    expect(querySignal.aborted).toBe(false);
+    page.resolve({
+      items: original.items,
+      hasMore: false,
+      expiresAt: Date.now() + 10000,
+    });
+    await flushPromises();
+    expect(w.find("table").exists()).toBe(false);
+    next.resolve({ ...original, id: { token: "result-2" } });
+    await flushPromises();
+    expect(w.get("table").text()).toContain("9007199254740993.0100");
+    expect(w.emitted("adopted")!.at(-1)![0]).toMatchObject({
+      resultId: { token: "result-2" },
+    });
+    expect(w.text()).not.toContain("结果已失效");
+  } finally {
+    w.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  }
+});
+
+it("adopts authoritative page and return-check expiry extensions and announces restoration only after qualification", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  const d = fixedDefinition();
+  const initial = await d.adapter.query({
+    scope: "a",
+    parameters: { keyword: "初始" },
+    page: 1,
+    pageSize: 1,
+    requestId: "fixture",
+    signal: new AbortController().signal,
+  });
+  vi.mocked(d.adapter.query).mockResolvedValueOnce({
+    ...initial,
+    expiresAt: Date.now() + 1000,
+  });
+  const w = fixedStart(d);
+  try {
+    await submit(w);
+    await vi.advanceTimersByTimeAsync(500);
+    vi.mocked(d.adapter.page).mockResolvedValueOnce({
+      items: initial.items,
+      hasMore: true,
+      expiresAt: Date.now() + 3000,
+    });
+    await click(w, "下一页");
+    await vi.advanceTimersByTimeAsync(600);
+    expect(w.find("table").exists()).toBe(true);
+    const check = deferred<{ status: "valid"; expiresAt: number }>();
+    vi.mocked(d.adapter.revalidate).mockReturnValueOnce(check.promise);
+    await w.setProps({ active: false });
+    expect(w.emitted("adopted")!.at(-1)).toEqual([null]);
+    await w.setProps({ active: true });
+    expect(w.find("table").exists()).toBe(false);
+    expect(button(w, "导出").attributes("disabled")).toBeDefined();
+    check.resolve({ status: "valid", expiresAt: Date.now() + 4000 });
+    await flushPromises();
+    expect(w.find("table").exists()).toBe(true);
+    expect(w.emitted("adopted")!.at(-1)![0]).toMatchObject({
+      resultId: { token: "result-1" },
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(w.find("table").exists()).toBe(true);
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(w.find("table").exists()).toBe(false);
+    expect(w.emitted("snapshot")!.at(-1)![0]).toMatchObject({
+      result: null,
+      fixed: null,
+    });
+    expect(w.emitted("adopted")!.at(-1)).toEqual([null]);
+  } finally {
+    w.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  }
+});
+
+it("keeps a result unavailable after malformed revalidation expiry, then accepts a valid retry and clears its timer on scope change", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  const d = fixedDefinition(),
+    w = fixedStart(d);
+  try {
+    await submit(w);
+    vi.mocked(d.adapter.revalidate).mockResolvedValueOnce({
+      status: "valid",
+      expiresAt: Number.POSITIVE_INFINITY,
+    });
+    await w.setProps({ active: false });
+    await w.setProps({ active: true });
+    await flushPromises();
+    expect(w.text()).toContain("报表结果期限无效");
+    expect(w.find("table").exists()).toBe(false);
+    expect(w.emitted("adopted")!.at(-1)).toEqual([null]);
+    vi.mocked(d.adapter.revalidate).mockResolvedValueOnce({
+      status: "valid",
+      expiresAt: Date.now() + 10000,
+    });
+    await click(w, "重验结果");
+    expect(w.find("table").exists()).toBe(true);
+    expect(w.emitted("adopted")!.at(-1)![0]).toMatchObject({
+      resultId: { token: "result-1" },
+    });
+    await w.setProps({ scope: "new" });
+    expect(w.find("table").exists()).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    w.unmount();
+    vi.useRealTimers();
+  }
+});
+
+it("preserves dynamic definitions, page presentation, group continuation and authoritative subtotal snapshots on return", async () => {
+  const d = fixedDefinition();
+  const initial = await d.adapter.query({
+    scope: "a",
+    parameters: { keyword: "初始" },
+    page: 1,
+    pageSize: 1,
+    requestId: "fixture",
+    signal: new AbortController().signal,
+  });
+  const presentation = (rowId: string) => ({
+    rows: [{ rowId, cells: { amount: { foreground: "#112233", bold: true } } }],
+    groups: [
+      {
+        id: "same-group",
+        label: "跨页组",
+        level: 0,
+        firstKey: rowId,
+        lastKey: rowId,
+        continuedBefore: rowId === "r2",
+        continuedAfter: rowId === "r1",
+        summary: { caption: "全组权威小计", values: { amount: "88.0000" } },
+      },
+    ],
+  });
+  vi.mocked(d.adapter.query).mockResolvedValueOnce({
+    ...initial,
+    columns: [{ key: "amount", label: "动态精确额", type: "decimal" }],
+    presentation: presentation("r1"),
+  });
+  vi.mocked(d.adapter.page).mockResolvedValueOnce({
+    items: [{ ...initial.items[0]!, id: "r2" }],
+    hasMore: false,
+    presentation: presentation("r2"),
+  });
+  const w = fixedStart(d);
+  await submit(w);
+  expect(w.text()).toContain("全组权威小计（续）88.0000");
+  await click(w, "下一页");
+  expect(w.get("tbody th").text()).toBe("跨页组（续）");
+  await w.setProps({ active: false });
+  const saved = w.emitted("snapshot")!.at(-1)![0];
+  w.unmount();
+  const restored = mount(ReportView as Component, {
+    props: {
+      definition: d,
+      scope: "a",
+      permissions: { query: true, export: false },
+      pageSize: 1,
+      restore: saved,
+    },
+  });
+  try {
+    await flushPromises();
+    expect(restored.get("thead th").text()).toBe("动态精确额");
+    expect(restored.get("tbody th").text()).toBe("跨页组（续）");
+    expect(restored.text()).toContain("全组权威小计88.0000");
+    expect(restored.get("tbody td").attributes("style")).toContain(
+      "rgb(17, 34, 51)",
+    );
+    expect(restored.emitted("adopted")!.at(-1)![0]).toMatchObject({
+      resultId: { token: "result-1" },
+    });
+  } finally {
+    restored.unmount();
+  }
+});
+
+it("does not pair a stale detached cell with the identity of a replacement result", async () => {
+  const d = fixedDefinition(),
+    w = fixedStart(d);
+  try {
+    await submit(w);
+    const oldLink = w.get("a").element;
+    const oldDetail = button(w, "9007199254740993.0100").element;
+    vi.mocked(d.adapter.query).mockResolvedValueOnce({
+      id: { token: "replacement" },
+      items: [
+        {
+          id: "different-row",
+          name: "替换结果",
+          amount: "2.00",
+          flag: false,
+          empty: "",
+          missing: null,
+        },
+      ],
+      hasMore: false,
+      summary: { caption: "新合计", values: { amount: "2.00" } },
+      context: "新查询",
+    });
+    await submit(w);
+    oldLink.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true }),
+    );
+    oldDetail.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true }),
+    );
+    expect(w.emitted("drill")).toBeUndefined();
+    await w.get("a").trigger("click");
+    expect(w.emitted("drill")!.at(-1)![0]).toMatchObject({
+      resultId: { token: "replacement" },
+      rowId: "different-row",
+    });
+  } finally {
+    w.unmount();
+  }
+});
+
+it("rejects invalid cached result facts before restoring or announcing adoption", async () => {
+  const d = fixedDefinition(),
+    w = fixedStart(d);
+  await submit(w);
+  await w.setProps({ active: false });
+  const saved = w.emitted("snapshot")!.at(-1)![0] as any;
+  saved.result.items[0].amount = 1.25;
+  w.unmount();
+  const restored = mount(ReportView as Component, {
+    props: {
+      definition: d,
+      scope: "a",
+      permissions: { query: true, export: true },
+      pageSize: 1,
+      restore: saved,
+    },
+  });
+  try {
+    await flushPromises();
+    expect(restored.text()).toContain("值类型不匹配");
+    expect(restored.find("table").exists()).toBe(false);
+    expect(restored.emitted("adopted")!.at(-1)).toEqual([null]);
+  } finally {
+    restored.unmount();
+  }
+});
+
+it("checks authority time before result operations even when the expiry timer has not run", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  const d = fixedDefinition();
+  const initial = await d.adapter.query({
+    scope: "a",
+    parameters: { keyword: "初始" },
+    page: 1,
+    pageSize: 1,
+    requestId: "fixture",
+    signal: new AbortController().signal,
+  });
+  vi.mocked(d.adapter.query).mockResolvedValueOnce({
+    ...initial,
+    expiresAt: Date.now() + 1000,
+  });
+  const w = fixedStart(d);
+  try {
+    await submit(w);
+    vi.setSystemTime(Date.now() + 1001);
+    await w.get("a").trigger("click");
+    expect(w.emitted("drill")).toBeUndefined();
+    expect(w.find("table").exists()).toBe(false);
+    expect(w.emitted("adopted")!.at(-1)).toEqual([null]);
+  } finally {
+    w.unmount();
+    vi.useRealTimers();
+  }
 });
