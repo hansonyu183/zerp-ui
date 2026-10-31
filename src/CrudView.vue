@@ -3,7 +3,7 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, ref, shallowRef, watch, toRaw } from "vue";
 import { VAlert, VProgressLinear } from "vuetify/components";
 import type {
   CrudDefinition,
@@ -11,15 +11,24 @@ import type {
   Page,
   Attempt,
   AnyField,
+  CrudViewHandle,
 } from "./contracts";
+import type { ConfigurationBlock } from "./configuration";
+import type { EditProtection, EditGuardHandle } from "./edit-guard";
+import EditGuard from "./EditGuard.vue";
+import FactFields from "./FactFields.vue";
+import { formFacts } from "./details";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
+import { equalValues } from "./editor-values";
 import { clone, message } from "./clone";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
 const props = defineProps<{
   definition: CrudDefinition<D, F, R, I, E>;
   scope: string;
+  blocks?: readonly ConfigurationBlock<D>[];
+  beforeClose?: () => Promise<boolean>;
   permissions: {
     query: boolean;
     create: boolean;
@@ -27,6 +36,13 @@ const props = defineProps<{
     reconcile?: boolean;
   };
 }>();
+const emit = defineEmits<{
+  protection: [state: EditProtection];
+  queried: [filters: F];
+}>();
+const guard = shallowRef<EditGuardHandle | null>(null);
+const initial = shallowRef<D | null>(null);
+const blockPending = ref<Record<string, boolean>>({});
 const filters = shallowRef<F>(props.definition.initialFilters()),
   applied = shallowRef<F>(clone(filters.value)),
   result = shallowRef<Page<R>>({ items: [], total: 0 }),
@@ -36,6 +52,8 @@ const filters = shallowRef<F>(props.definition.initialFilters()),
   notice = ref("");
 const editor = shallowRef<{
     values: D;
+    readOnly?: boolean;
+    writable?: boolean;
     identity?: I;
     row?: R;
     readonlyFields?: readonly Extract<keyof D, string>[];
@@ -44,17 +62,20 @@ const editor = shallowRef<{
   detailLoading = ref(false),
   confirming = shallowRef<{
     row: R;
-    action: Exclude<CrudAction, "edit">;
+    action: Exclude<CrudAction, "edit" | "view">;
   } | null>(null),
   verifying = ref(false);
 const readonlyFields = shallowRef<readonly Extract<keyof D, string>[]>([]);
 const editFields = computed(
   () =>
-    props.definition.fields.map((field) => ({
-      ...field,
-      readonly:
-        field.readonly || readonlyFields.value.some((key) => key === field.key),
-    })) as typeof props.definition.fields,
+    props.definition.fields
+      .filter((f) => !props.blocks?.some((b) => b.key === f.key))
+      .map((field) => ({
+        ...field,
+        readonly:
+          field.readonly ||
+          readonlyFields.value.some((key) => key === field.key),
+      })) as unknown as typeof props.definition.fields,
 );
 const moreFilters = ref(false);
 const shownFilters = computed(() =>
@@ -90,8 +111,8 @@ async function query(next = 1, submit = false) {
       error.value = invalid;
       return;
     }
-    applied.value = clone(filters.value);
   }
+  const requested = clone(submit ? filters.value : applied.value);
   const v = version,
     q = ++queryVersion,
     target = lock.value,
@@ -102,13 +123,15 @@ async function query(next = 1, submit = false) {
   try {
     const value = await props.definition.adapter.query({
       scope: props.scope,
-      filters: clone(applied.value),
+      filters: clone(requested),
       page: next,
       pageSize: 20,
     });
     if (!current(v) || q !== queryVersion) return;
     result.value = clone(value);
+    applied.value = clone(requested);
     page.value = next;
+    emit("queried", clone(applied.value));
     if (
       refreshing &&
       target.phase === "refresh" &&
@@ -123,22 +146,24 @@ async function query(next = 1, submit = false) {
     if (current(v) && q === queryVersion) loading.value = false;
   }
 }
-async function begin(row?: R) {
+async function begin(row?: R, readOnly = false) {
   if (
     blocked.value ||
     detailLoading.value ||
     editor.value ||
-    !props.permissions.write ||
+    !props.permissions.query ||
+    (!readOnly && !props.permissions.write) ||
     (row
-      ? !props.definition.actions(row).includes("edit")
+      ? !props.definition.actions(row).includes(readOnly ? "view" : "edit")
       : !props.permissions.create)
   )
-    return;
+    return false;
   const v = version,
     e = ++editVersion;
   error.value = "";
   formPending.value = false;
   readonlyFields.value = [];
+  blockPending.value = {};
   if (!row) {
     editor.value = {
       values: clone(
@@ -148,7 +173,8 @@ async function begin(row?: R) {
         }),
       ),
     };
-    return;
+    initial.value = clone(editor.value.values);
+    return true;
   }
   detailLoading.value = true;
   try {
@@ -158,13 +184,17 @@ async function begin(row?: R) {
         identity,
       });
     if (current(v) && e === editVersion) {
+      initial.value = clone(detail.values);
       readonlyFields.value = detail.readonlyFields ?? [];
       editor.value = {
         values: clone(detail.values),
+        readOnly: readOnly || detail.writable === false,
+        writable: detail.writable !== false,
         identity: clone(detail.identity),
         row,
         readonlyFields: detail.readonlyFields,
       };
+      return true;
     }
   } catch (e) {
     if (current(v)) error.value = message(e);
@@ -172,14 +202,130 @@ async function begin(row?: R) {
     if (current(v) && e === editVersion) detailLoading.value = false;
   }
 }
-function cancel() {
-  if (lock.value.phase === "pending") return;
+async function cancel(): Promise<boolean> {
+  const v = version,
+    e = editVersion;
+  if (blocked.value) return false;
+  if (
+    editor.value &&
+    !(await (props.beforeClose
+      ? props.beforeClose()
+      : guard.value?.requestLeave()))
+  )
+    return false;
+  if (!current(v) || e !== editVersion || blocked.value) return false;
   editor.value = null;
+  initial.value = null;
   formPending.value = false;
+  blockPending.value = {};
   editVersion++;
+  return true;
 }
+async function openRow(row: R, readOnly = true): Promise<boolean> {
+  const v = version,
+    e = editVersion,
+    requestedRow = clone(row);
+  if (
+    blocked.value ||
+    detailLoading.value ||
+    !props.permissions.query ||
+    (!readOnly && !props.permissions.write) ||
+    !props.definition.actions(requestedRow).includes(readOnly ? "view" : "edit")
+  )
+    return false;
+  if (editor.value) {
+    if (!(await cancel()) || !current(v) || editVersion !== e + 1) return false;
+  }
+  return (await begin(requestedRow, readOnly)) === true;
+}
+const localPending = computed(
+  () => formPending.value || Object.values(blockPending.value).some(Boolean),
+);
+const protection = computed<EditProtection>(() => ({
+  dirty:
+    !!editor.value &&
+    !editor.value.readOnly &&
+    !equalValues(editor.value.values, initial.value),
+  localPending: localPending.value,
+  invalid:
+    !!editor.value &&
+    !editor.value.readOnly &&
+    !!validate(
+      editFields.value as readonly AnyField[],
+      editor.value.values,
+      editor.value.row ? "edit" : "create",
+    ),
+  writeState: lock.value.phase,
+}));
+watch(protection, (value) => emit("protection", value), {
+  immediate: true,
+  flush: "sync",
+});
+const bindings = computed(() => {
+  const v = version,
+    e = editVersion;
+  const hasEditor = !!editor.value;
+  const live = () =>
+    hasEditor && current(v) && e === editVersion && !!editor.value;
+  const editable = () =>
+    live() &&
+    !blocked.value &&
+    props.permissions.write &&
+    !editor.value?.readOnly;
+  return {
+    form: (values: D) => {
+      if (editable())
+        editor.value = { ...editor.value!, values: clone(values) };
+    },
+    pending: (value: boolean) => {
+      if (live()) formPending.value = value;
+    },
+    blocks:
+      props.blocks?.map((block) => {
+        const allowed = () =>
+          editable() && !readonlyFields.value.includes(block.key);
+        return {
+          key: block.key,
+          component: toRaw(block.component),
+          props: {
+            modelValue: clone(editor.value?.values[block.key]),
+            catalog: clone(block.catalog),
+            mode:
+              editor.value?.readOnly || readonlyFields.value.includes(block.key)
+                ? ("read" as const)
+                : ("edit" as const),
+            disabled: !allowed(),
+            "onUpdate:modelValue": (value: D[typeof block.key]) => {
+              if (allowed())
+                editor.value = {
+                  ...editor.value!,
+                  values: {
+                    ...editor.value!.values,
+                    [block.key]: clone(value),
+                  },
+                };
+            },
+            onPending: (value: boolean) => {
+              if (live())
+                blockPending.value = {
+                  ...blockPending.value,
+                  [block.key]: value,
+                };
+            },
+          },
+        };
+      }) ?? [],
+  };
+});
 async function write(operation: Attempt<D, I>["operation"], row?: R) {
-  if (blocked.value || formPending.value || !props.permissions.write) return;
+  if (
+    blocked.value ||
+    localPending.value ||
+    !props.permissions.query ||
+    !props.permissions.write ||
+    editor.value?.readOnly
+  )
+    return;
   if (operation === "create" && !props.permissions.create) return;
   if (
     row &&
@@ -197,7 +343,7 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       : undefined;
   if (input) {
     const invalid = validate(
-      definition.fields as readonly AnyField[],
+      editFields.value as readonly AnyField[],
       input,
       operation === "create" ? "create" : "edit",
     );
@@ -229,6 +375,8 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
           ? definition.adapter.delete
           : definition.adapter.setEnabled;
   if (!execute) return;
+  queryVersion++;
+  loading.value = false;
   target.phase = "pending";
   target.attempt = attempt;
   error.value = "";
@@ -299,9 +447,10 @@ async function reconcile() {
   }
 }
 function actions(row: R) {
-  return props.permissions.write
+  return props.permissions.query
     ? props.definition
         .actions(row)
+        .filter((a) => a === "view" || props.permissions.write)
         .filter((a) => a !== "delete" || props.definition.adapter.delete)
         .filter(
           (a) =>
@@ -311,13 +460,20 @@ function actions(row: R) {
     : [];
 }
 const captions = {
+  view: "查看",
   edit: "编辑",
   enable: "启用",
   disable: "停用",
   delete: "删除",
 } as const;
 watch(
-  () => [props.scope, props.definition, props.permissions.query],
+  () => [
+    props.scope,
+    props.definition,
+    props.permissions.query,
+    props.permissions.write,
+    props.permissions.create,
+  ],
   () => {
     version++;
     queryVersion++;
@@ -326,6 +482,8 @@ watch(
     applied.value = clone(filters.value);
     result.value = { items: [], total: 0 };
     editor.value = null;
+    initial.value = null;
+    blockPending.value = {};
     confirming.value = null;
     page.value = 1;
     loading.value = false;
@@ -336,17 +494,33 @@ watch(
     notice.value = "";
     void query();
   },
-  { immediate: true },
+  { immediate: true, flush: "sync" },
 );
 onBeforeUnmount(() => {
   active = false;
+  editor.value = null;
+  initial.value = null;
+  formPending.value = false;
+  blockPending.value = {};
   version++;
   queryVersion++;
   editVersion++;
 });
+defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
 </script>
 <template>
   <section class="zerp-ui" :aria-label="definition.title">
+    <EditGuard
+      v-if="!beforeClose"
+      ref="guard"
+      :scope="scope"
+      :instance="editVersion"
+      :active="permissions.query"
+      :dirty="protection.dirty"
+      :local-pending="protection.localPending"
+      :write-state="protection.writeState"
+    />
+
     <form v-if="permissions.query" @submit.prevent="query(1, true)">
       <DynamicForm
         :fields="shownFilters"
@@ -396,6 +570,20 @@ onBeforeUnmount(() => {
     </button>
     <DataList
       :columns="definition.columns"
+      :cell="
+        (row, key) =>
+          permissions.query &&
+          key === definition.columns[0]?.key &&
+          definition.viewLabel &&
+          definition.actions(row).includes('view')
+            ? {
+                kind: 'detail',
+                target: 'record',
+                label: definition.viewLabel(row),
+              }
+            : undefined
+      "
+      @cell="(_cell, row) => openRow(row, true)"
       :result="result"
       :page="page"
       :page-size="20"
@@ -405,7 +593,9 @@ onBeforeUnmount(() => {
       @page="query($event)"
       @action="
         (action, row) =>
-          action === 'edit' ? begin(row) : (confirming = { row, action })
+          action === 'edit' || action === 'view'
+            ? openRow(row, action === 'view')
+            : (confirming = { row, action })
       "
     />
     <section v-if="confirming" role="dialog" aria-label="确认操作">
@@ -419,24 +609,54 @@ onBeforeUnmount(() => {
         确认{{ captions[confirming.action] }}
       </button>
     </section>
-    <section v-if="editor" role="dialog" aria-label="编辑资料">
+    <section
+      v-if="editor"
+      :key="editVersion"
+      role="dialog"
+      :aria-label="
+        editor.readOnly ? (definition.viewTitle ?? '查看资料') : '编辑资料'
+      "
+    >
+      <FactFields
+        v-if="editor.readOnly"
+        :value="editor.values"
+        :fields="formFacts(editFields as readonly AnyField[])"
+      />
       <DynamicForm
+        v-else
         :fields="editFields"
         :model-value="editor.values"
         :scope="scope"
         :disabled="blocked || !permissions.write"
         :mode="editor.row ? 'edit' : 'create'"
-        @update:model-value="editor = { ...editor!, values: $event }"
-        @pending="formPending = $event"
-      /><button
+        :onUpdate:modelValue="bindings.form"
+        :onPending="bindings.pending"
+      />
+      <component
+        v-for="block in bindings.blocks"
+        :is="block.component"
+        :key="block.key"
+        v-bind="block.props"
+      />
+      <button
+        v-if="
+          editor.readOnly &&
+          editor.writable &&
+          editor.row &&
+          permissions.write &&
+          definition.actions(editor.row).includes('edit')
+        "
         type="button"
-        :disabled="lock.phase === 'pending'"
-        @click="cancel"
+        :disabled="blocked"
+        @click="openRow(editor.row, false)"
       >
-        取消编辑</button
+        编辑
+      </button>
+      <button type="button" :disabled="blocked" @click="cancel">取消编辑</button
       ><button
         type="button"
-        :disabled="blocked || formPending || !permissions.write"
+        v-if="!editor.readOnly"
+        :disabled="blocked || localPending || !permissions.write"
         @click="write(editor.row ? 'save' : 'create', editor.row)"
       >
         保存

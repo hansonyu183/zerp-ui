@@ -3,6 +3,7 @@ const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
 import { shallowRef, ref } from "vue";
 import { VApp, VMain } from "vuetify/components";
 import { CrudView, DataList } from "@zerp/ui";
+import EditorContracts from "./EditorContracts.vue";
 import IndependentForm from "./IndependentForm.vue";
 import { exampleDefinition, resourceCases } from "./matrix";
 const lastAction = ref("");
@@ -38,6 +39,7 @@ function change() {
         />
       </section>
       <IndependentForm v-if="showTitle" />
+      <EditorContracts v-if="showTitle" />
       <section v-if="showTitle" aria-label="行操作示例">
         <DataList
           :columns="[{ key: 'name', label: '名称' }]"
