@@ -21,7 +21,10 @@ export async function voucherOperationSmoke(page) {
     JSON.parse(await region.getByLabel("办理保护状态").textContent()),
     { dirty: true, localPending: false, invalid: false, writeState: "idle" },
   );
-  await region.getByText("9007199254740993.0100", { exact: true }).waitFor();
+  await region
+    .getByRole("dialog", { name: "完整办理预览", exact: true })
+    .getByText("9007199254740993.0100", { exact: true })
+    .waitFor();
   await button("取消预览").click();
   await status("未发送写入");
   assert.equal(
@@ -286,6 +289,10 @@ export async function voucherOperationSmoke(page) {
   assert.ok((await result.textContent()).includes(createdId));
   await region.getByLabel("目标单据").fill(createdId);
   await region.getByLabel("办理动作").selectOption("delete");
+  // The saved result has not been explicitly adopted as a new editing baseline.
+  // Changing the ordinary action still needs the page-owned discard decision.
+  await page.getByRole("dialog", { name: "未保存修改", exact: true }).waitFor();
+  await page.getByRole("button", { name: "放弃本地修改", exact: true }).click();
   await region.getByLabel("合成情景").selectOption("refresh-failure");
   await button("准备删除").click();
   await button("确认本次办理").click();
