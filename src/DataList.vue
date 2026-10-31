@@ -8,6 +8,7 @@
     K extends string | number = string | number
   "
 >
+import Feedback from "./Feedback.vue";
 import { computed } from "vue";
 import RowActions from "./RowActions.vue";
 import {
@@ -199,8 +200,8 @@ function display(row: Partial<R>, column: Column<R>) {
     :class="{ 'zerp-list--wide': wide }"
     :aria-busy="loading"
   >
-    <p v-if="presentationError" role="alert">{{ presentationError }}</p>
-    <template v-else>
+    <Feedback :message="presentationError" kind="error" />
+    <template v-if="!presentationError">
       <p v-if="summary">{{ summary.caption }}</p>
       <table>
         <thead>

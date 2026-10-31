@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Feedback from "./Feedback.vue";
 import { computed, ref, shallowRef, watch, onBeforeUnmount } from "vue";
 import type { ReferenceAdapter, ReferenceValue, Page } from "./contracts";
 import { message } from "./clone";
@@ -146,9 +147,8 @@ onBeforeUnmount(() => {
       :aria-label="`${label}搜索`"
       @keydown.enter.prevent="search()"
     /><button type="button" @click="search()">搜索引用</button>
-    <p v-if="error" role="alert">
-      {{ error
-      }}<button
+    <Feedback :message="error" kind="error"
+      ><button
         type="button"
         @click="
           search();
@@ -157,8 +157,8 @@ onBeforeUnmount(() => {
       >
         重试引用
       </button>
-    </p>
-    <p v-if="busy" role="status">加载中</p>
+    </Feedback>
+    <Feedback :message="busy ? '加载中' : undefined" persistent />
     <ul>
       <li v-for="item in result.items" :key="item.id">
         <button

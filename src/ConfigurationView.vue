@@ -4,7 +4,8 @@
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
 import { computed, onBeforeUnmount, ref, shallowRef, toRaw, watch } from "vue";
-import { VAlert, VProgressLinear } from "vuetify/components";
+import Feedback from "./Feedback.vue";
+import { VProgressLinear } from "vuetify/components";
 import type { AnyField, Page } from "./contracts";
 import type {
   ConfigurationDefinition,
@@ -512,27 +513,39 @@ onBeforeUnmount(() => {
       />
       <button type="submit" :disabled="loading || filterPending">查询</button>
     </form>
-    <VProgressLinear
-      v-if="loading || detailLoading"
-      indeterminate
-      aria-label="加载中"
-    />
-    <VAlert v-if="error" type="error" role="alert">{{ error }}</VAlert>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="lock.phase === 'unknown'" role="status">
-      保存结果未知。普通读取或关闭编辑不能解除锁定。
-      <button
-        v-if="definition.reconcile && permissions.reconcile"
-        type="button"
-        :disabled="verifying"
-        @click="reconcile"
+    <div class="zerp-progress-reserve">
+      <VProgressLinear
+        v-if="loading || detailLoading"
+        indeterminate
+        aria-label="加载中"
+      />
+    </div>
+    <div class="zerp-feedback-region">
+      <Feedback :message="error" kind="error" />
+      <Feedback :message="notice" />
+      <Feedback
+        :message="lock.phase === 'unknown' ? '请求结果未知' : undefined"
+        kind="warning"
+        persistent
       >
-        核实本次请求
-      </button>
-    </p>
-    <p v-if="lock.phase === 'refresh'" role="status">
-      保存已成功，请重试读取；不会再次提交。
-    </p>
+        保存结果未知。普通读取或关闭编辑不能解除锁定。
+        <button
+          v-if="definition.reconcile && permissions.reconcile"
+          type="button"
+          :disabled="verifying"
+          @click="reconcile"
+        >
+          核实本次请求
+        </button>
+      </Feedback>
+      <Feedback
+        :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
+        kind="warning"
+        persistent
+      >
+        保存已成功，请重试读取；不会再次提交。
+      </Feedback>
+    </div>
     <button
       v-if="permissions.read"
       type="button"
