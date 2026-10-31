@@ -205,7 +205,7 @@ it("keeps the current page and original write lock after an unknown save", async
 });
 
 import { defineVoucherOperationPage, defineAccountPage } from "../src/index";
-import { reactive } from "vue";
+import { reactive, ref } from "vue";
 import {
   synthetic,
   type Store,
@@ -591,5 +591,146 @@ it("does not publish retired page protection to a consumer after security cleanu
   await wrapper.setProps({ active: false });
   await flushPromises();
   expect(events).toHaveLength(count);
+  wrapper.unmount();
+});
+
+it("keeps controlled details echoes dirty and requests leave confirmation", async () => {
+  const content = ref({
+    header: { note: "原备注" },
+    rows: [] as { id: string }[],
+  });
+  const events: EditProtection[] = [];
+  const page = defineDetailsPage(() => ({
+    title: "受控详情",
+    instance: "one",
+    value: { label: "一号" },
+    groups: [],
+    onProtection: (value) => events.push(value),
+    editor: {
+      definition: {
+        headerFields: [{ key: "note", label: "详情备注", type: "text" }],
+        rowFields: [],
+        columns: [],
+        rowKey: (row) => row.id,
+        emptyRow: () => ({ id: "new" }),
+      },
+      value: content.value,
+      onChange: (value) => {
+        content.value = { header: value.header, rows: [...value.rows] };
+      },
+    },
+  }));
+  const wrapper = mountPage(page);
+  await flushPromises();
+  await wrapper
+    .findAll("button")
+    .find((node) => node.text() === "编辑资料")!
+    .trigger("click");
+  await wrapper.get('input[aria-label="详情备注"]').setValue("未保存备注");
+  await flushPromises();
+  expect(wrapper.find('input[aria-label="详情备注"]').exists()).toBe(true);
+  expect(events[events.length - 1].dirty).toBe(true);
+  const next = defineDetailsPage({
+    title: "其它页面",
+    instance: "two",
+    value: {},
+    groups: [],
+  });
+  await wrapper.setProps({ page: next });
+  await flushPromises();
+  expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+  wrapper.unmount();
+});
+it("accepts nested reactive operation values and preserves typed Date Map and Set data", async () => {
+  const values = new Map<string, string>();
+  const storage: Store = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => {
+      values.set(key, value);
+    },
+    removeItem: (key) => {
+      values.delete(key);
+    },
+  };
+  const definition: VoucherOperationDefinition<
+    SyntheticModel,
+    Identity,
+    Baseline
+  > = synthetic(
+    storage,
+    () => "success",
+    () => {},
+  );
+  const rows = ref([
+    {
+      key: "r1",
+      quantity: "1.0100",
+      facts: {
+        at: new Date("2026-10-31T00:00:00Z"),
+        amounts: new Map([["precise", "9007199254740993.0100"]]),
+        tags: new Set(["original"]),
+      },
+    },
+  ]);
+  const facts = reactive({ eligible: true });
+  const observed: (typeof rows.value)[number]["facts"][] = [];
+  const events: EditProtection[] = [];
+  const intent: VoucherOperationIntent<SyntheticModel, Identity> = {
+    action: "edit",
+    owner: {
+      scope: "synthetic",
+      operator: "reactive",
+      resource: "nested-reactive",
+    },
+    identity: { voucher: "one" },
+    input: { note: "原备注", rows: [] },
+  };
+  const page = defineVoucherOperationPage(() => ({
+    title: "响应式单据",
+    definition,
+    intent,
+    eligible: facts.eligible,
+    recoveryAllowed: true,
+    onProtection: (value) => events.push(value),
+    editor: {
+      definition: {
+        headerFields: [{ key: "note", label: "响应式备注", type: "text" }],
+        rowFields: [{ key: "quantity", label: "数量", type: "decimal" }],
+        columns: [{ key: "quantity", label: "数量", type: "decimal" }],
+        rowKey: (row) => row.key,
+        emptyRow: () => rows.value[0],
+      },
+      value: { header: { note: "原备注" }, rows: rows.value },
+      toIntent: (content, base) => {
+        observed.push(content.rows[0].facts);
+        return {
+          ...base,
+          action: "edit",
+          input: { note: content.header.note, rows: content.rows },
+        };
+      },
+      restore: () => null,
+      adopt: () => null,
+    },
+  }));
+  const wrapper = mountPage(page);
+  await flushPromises();
+  expect(wrapper.text()).toContain("1.0100");
+  expect(observed[0].at).toBeInstanceOf(Date);
+  expect(observed[0].at.toISOString()).toBe("2026-10-31T00:00:00.000Z");
+  expect(observed[0].amounts).toBeInstanceOf(Map);
+  expect(observed[0].amounts.get("precise")).toBe("9007199254740993.0100");
+  expect(observed[0].tags).toBeInstanceOf(Set);
+  await wrapper.get('input[aria-label="响应式备注"]').setValue("未保存备注");
+  await flushPromises();
+  facts.eligible = false;
+  await flushPromises();
+  facts.eligible = true;
+  await flushPromises();
+  expect(
+    wrapper.get<HTMLInputElement>('input[aria-label="响应式备注"]').element
+      .value,
+  ).toBe("未保存备注");
+  expect(events[events.length - 1].dirty).toBe(true);
   wrapper.unmount();
 });
