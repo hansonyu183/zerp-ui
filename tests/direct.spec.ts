@@ -262,3 +262,70 @@ it("rejects an incomplete decimal without calling the write adapter", async () =
   );
   w.unmount();
 });
+it("reports actual draft changes and blocks closing an unknown write", async () => {
+  const d = definition(),
+    w = await start(d);
+  await click(w, "编辑");
+  const protection = () => w.emitted("protection")?.at(-1)?.[0];
+  expect(protection()).toEqual({
+    dirty: false,
+    localPending: false,
+    invalid: false,
+    writeState: "idle",
+  });
+  await w.get('input[aria-label="名称"]').setValue("改变");
+  expect(protection()).toMatchObject({ dirty: true });
+  await w.get('input[aria-label="名称"]').setValue("原名称");
+  expect(protection()).toMatchObject({ dirty: false });
+  vi.mocked(d.adapter.save).mockResolvedValueOnce({ status: "unknown" });
+  await click(w, "保存");
+  expect(protection()).toMatchObject({
+    writeState: "unknown",
+    localPending: false,
+  });
+  await click(w, "取消编辑");
+  expect(w.find('[role="dialog"]').exists()).toBe(true);
+  w.unmount();
+});
+it("does not validate readonly historical fields when saving other edits", async () => {
+  const base = definition();
+  const d = defineCrud({
+    ...base,
+    fields: [{ key: "name", type: "text", label: "名称", required: true }],
+    adapter: {
+      ...base.adapter,
+      get: async () => ({
+        values: { name: "" },
+        identity: "one",
+        readonlyFields: ["name"] as const,
+      }),
+    },
+  });
+  const w = await start(d);
+  await click(w, "编辑");
+  expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
+    invalid: false,
+  });
+  await click(w, "保存");
+  expect(d.adapter.save).toHaveBeenCalledWith(
+    expect.objectContaining({ input: { name: "" } }),
+  );
+  w.unmount();
+});
+it("notifies only adopted filter snapshots and preserves them after query failure", async () => {
+  const d = definition(),
+    w = await start(d);
+  await w.get('input[aria-label="关键字"]').setValue("采用条件");
+  await click(w, "查询");
+  const adopted = w.emitted("queried")?.at(-1)?.[0] as { keyword: string };
+  adopted.keyword = "外部污染";
+  vi.mocked(d.adapter.query).mockRejectedValueOnce(new Error("失败"));
+  await w.get('input[aria-label="关键字"]').setValue("失败条件");
+  await click(w, "查询");
+  expect(w.emitted("queried")).toHaveLength(2);
+  await click(w, "重试读取");
+  expect(d.adapter.query).toHaveBeenLastCalledWith(
+    expect.objectContaining({ filters: { keyword: "采用条件" } }),
+  );
+  w.unmount();
+});

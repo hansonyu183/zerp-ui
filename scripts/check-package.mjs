@@ -537,6 +537,48 @@ async function directSmoke(page) {
     await page.getByRole("textbox", { name: "名称", exact: true }).waitFor();
     await crud.getByRole("button", { name: "取消编辑", exact: true }).click();
   }
+  const contracts = page.getByRole("region", { name: "资料接缝示例" });
+  await contracts
+    .getByRole("button", { name: "展示资料接缝", exact: true })
+    .click();
+  await contracts
+    .getByRole("button", { name: "公开打开编辑", exact: true })
+    .click();
+  assert.equal(
+    JSON.parse(await contracts.getByLabel("资料保护事实").textContent()).dirty,
+    false,
+  );
+  await contracts.getByLabel("设置代码", { exact: true }).fill("-");
+  assert.ok(
+    await contracts
+      .getByRole("button", { name: "保存", exact: true })
+      .isDisabled(),
+  );
+  await contracts
+    .getByRole("button", { name: "公开关闭资料", exact: true })
+    .click();
+  await contracts
+    .getByRole("button", { name: "继续编辑", exact: true })
+    .click();
+  await contracts.getByLabel("设置代码", { exact: true }).fill("B");
+  await contracts.getByRole("button", { name: "保存", exact: true }).click();
+  await contracts
+    .getByRole("button", { name: "公开查看历史", exact: true })
+    .click();
+  await contracts
+    .getByRole("dialog", { name: "查看资料", exact: true })
+    .getByText("（空字符串）")
+    .waitFor();
+  assert.equal(
+    await contracts
+      .getByRole("dialog")
+      .getByRole("button", { name: "保存", exact: true })
+      .count(),
+    0,
+  );
+  await contracts
+    .getByRole("button", { name: "公开关闭资料", exact: true })
+    .click();
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await crud.locator("thead").evaluate((el) => getComputedStyle(el).display),
@@ -573,7 +615,7 @@ async function configurationSmoke(page) {
   );
   await scenario("unknown-applied");
   await save();
-  await button("关闭编辑").click();
+  assert.ok(await button("关闭编辑").isDisabled());
   await button("重试读取").click();
   assert.ok(await button("编辑").isDisabled());
   await button("核实本次请求").click();
@@ -600,7 +642,7 @@ async function configurationSmoke(page) {
   await save();
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
-  await button("关闭编辑").click();
+  assert.ok(await button("关闭编辑").isDisabled());
   assert.ok(await button("编辑").isDisabled());
   for (const value of ["period", "report"]) {
     await page.getByLabel("配置示例").selectOption(value);
@@ -617,6 +659,50 @@ async function configurationSmoke(page) {
   }
   await page.getByLabel("配置示例").selectOption("mapping");
   assert.ok(await button("编辑").isDisabled());
+  const contracts = page.getByRole("region", { name: "配置接缝示例" });
+  await contracts
+    .getByRole("button", { name: "展示配置接缝", exact: true })
+    .click();
+  await contracts.getByLabel("接缝配置名", { exact: true }).waitFor();
+  assert.equal(
+    await contracts.getByLabel("接缝配置名", { exact: true }).inputValue(),
+    "初始配置",
+  );
+  await contracts
+    .getByRole("button", { name: "公开新建配置", exact: true })
+    .click();
+  await contracts.getByLabel("接缝配置名", { exact: true }).fill("权威新配置");
+  await contracts.getByRole("button", { name: "保存", exact: true }).click();
+  await contracts
+    .getByRole("cell", { name: "权威新配置", exact: true })
+    .waitFor();
+  assert.equal(
+    await contracts.getByLabel("接缝配置名", { exact: true }).inputValue(),
+    "权威新配置",
+  );
+  assert.equal(
+    JSON.parse(await contracts.getByLabel("配置保护事实").textContent()).dirty,
+    false,
+  );
+  assert.equal(
+    JSON.parse(await contracts.getByLabel("配置草稿快照").textContent())
+      .identity.id,
+    "authoritative-config",
+  );
+  await contracts.getByLabel("接缝配置名", { exact: true }).fill("未保存配置");
+  await contracts
+    .getByRole("button", { name: "公开打开配置", exact: true })
+    .click();
+  await contracts
+    .getByRole("button", { name: "放弃本地修改", exact: true })
+    .click();
+  assert.equal(
+    await contracts.getByLabel("接缝配置名", { exact: true }).inputValue(),
+    "权威新配置",
+  );
+  await contracts
+    .getByRole("button", { name: "公开关闭配置", exact: true })
+    .click();
 }
 
 async function reportSmoke(page) {
@@ -951,7 +1037,11 @@ async function voucherSmoke(page) {
   await page.getByLabel("脚本正文").fill("return 'updated';");
   await scenario("unknown-applied");
   await button("保存").click();
-  await button("关闭编辑").click();
+  assert.ok(
+    await script
+      .getByRole("button", { name: "关闭编辑", exact: true })
+      .isDisabled(),
+  );
   assert.ok(await button("创建 Draft").isDisabled());
   await button("核实本次请求").click();
   await page

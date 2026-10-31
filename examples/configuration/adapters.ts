@@ -3,8 +3,8 @@ import {
   type ConfigurationAdapter,
   type ConfigurationAttempt,
   type Fields,
-  type ReconcileResult,
-  type WriteResult,
+  type ConfigurationReconcileResult,
+  type ConfigurationWriteResult,
 } from "@zerp/ui";
 export type Scenario =
   | "success"
@@ -52,7 +52,9 @@ export function sample<D extends { name: string }>(
       };
     },
     ...(create ? { empty: () => structuredClone(initial) } : {}),
-    async save(a: ConfigurationAttempt<D, Identity>): Promise<WriteResult> {
+    async save(
+      a: ConfigurationAttempt<D, Identity>,
+    ): Promise<ConfigurationWriteResult<Identity>> {
       const mode = scenario();
       if (
         mode === "conflict" ||
@@ -72,7 +74,10 @@ export function sample<D extends { name: string }>(
         evidence.set(a.id, { request: a.id, outcome: "applied" });
       if (mode.startsWith("unknown")) return { status: "unknown" };
       failRead = mode === "refresh-failure";
-      return { status: "success" };
+      return {
+        status: "success",
+        identity: { key: resource, revision: String(revision) },
+      };
     },
   };
   return defineConfiguration<
@@ -93,10 +98,17 @@ export function sample<D extends { name: string }>(
     ],
     identity: (r) => ({ key: resource, revision: r.revision }),
     adapter,
-    async reconcile(a): Promise<ReconcileResult<Evidence>> {
+    async reconcile(
+      a,
+    ): Promise<ConfigurationReconcileResult<Evidence, Identity>> {
       const proof = evidence.get(a.id);
       return proof
-        ? { status: proof.outcome, attemptId: a.id, evidence: proof }
+        ? {
+            status: proof.outcome,
+            attemptId: a.id,
+            evidence: proof,
+            identity: { key: resource, revision: String(revision) },
+          }
         : { status: "unknown" };
     },
   });

@@ -16,6 +16,7 @@ export type {
   ReconcileResult,
   CrudAdapter,
   CrudDefinition,
+  CrudViewHandle,
 } from "./contracts";
 import "./style.css";
 export { default as ConfigurationView } from "./ConfigurationView.vue";
@@ -26,6 +27,10 @@ export type {
   ConfigurationAttempt,
   ConfigurationBlock,
   ConfigurationBlockProps,
+  ConfigurationViewHandle,
+  ConfigurationDraft,
+  ConfigurationWriteResult,
+  ConfigurationReconcileResult,
 } from "./configuration";
 
 export { default as ReportView } from "./ReportView.vue";
