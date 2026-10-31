@@ -23,22 +23,82 @@ export async function shellInteractionSmoke(page) {
       "narrow toolbar control must fit viewport",
     );
   }
-  await page.getByLabel("主题预设", { exact: true }).selectOption("md2");
-  await expect(page.getByLabel("主题预设", { exact: true })).toHaveValue("md2");
-  await page.getByLabel("主题预设", { exact: true }).selectOption("md3");
+  const bar = page.locator(".v-app-bar");
+  const belowBar = async (locator) => {
+    await expect
+      .poll(
+        async () => {
+          const [topbar, content] = await Promise.all([
+            bar.boundingBox(),
+            locator.boundingBox(),
+          ]);
+          return Boolean(
+            topbar && content && content.y >= topbar.y + topbar.height - 1,
+          );
+        },
+        { message: "content and overlays must stay below the fixed toolbar" },
+      )
+      .toBe(true);
+  };
+  const hitToolbar = async () => {
+    assert.ok(
+      await toggle.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return element.contains(
+          document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          ),
+        );
+      }),
+      "toolbar toggle remains hit-testable above overlays",
+    );
+  };
+  await belowBar(
+    page.getByRole("main").first().getByRole("heading", { level: 1 }).first(),
+  );
+  await page.getByRole("button", { name: "主题预设", exact: true }).click();
+  const preset = page.getByRole("menuitemradio", {
+    name: "Material Design 2",
+    exact: true,
+  });
+  await expect(preset).toBeVisible();
+  await belowBar(preset);
+  await hitToolbar();
+  await preset.click();
+  await expect(preset).toBeHidden();
+  await page.getByRole("button", { name: "主题预设", exact: true }).click();
+  await expect(preset).toHaveAttribute("aria-checked", "true");
+  await page
+    .getByRole("menuitemradio", { name: "Material Design 3", exact: true })
+    .click();
+  await expect(
+    page.getByRole("menuitemradio", { name: "Material Design 3", exact: true }),
+  ).toBeHidden();
   await page
     .getByRole("button", { name: "账户：演示账户", exact: true })
     .click();
   await expect(
-    page.getByRole("menuitem", { name: "个人资料", exact: true }),
+    page.getByRole("menuitem", { name: "名称与头像", exact: true }),
   ).toBeVisible();
+  await belowBar(
+    page.getByRole("menuitem", { name: "名称与头像", exact: true }),
+  );
+  await hitToolbar();
+  await page.getByRole("menuitem", { name: "名称与头像", exact: true }).focus();
   await page.keyboard.press("Escape");
   await expect(
-    page.getByRole("menuitem", { name: "个人资料", exact: true }),
+    page.getByRole("menuitem", { name: "名称与头像", exact: true }),
   ).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "账户：演示账户", exact: true }),
+  ).toBeFocused();
   await toggle.focus();
   await page.keyboard.press("Enter");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await belowBar(navigation);
+  await belowBar(page.locator(".v-navigation-drawer__scrim"));
+  await hitToolbar();
   await page.keyboard.press("Tab");
   await expect(navigation.locator(":focus")).toHaveCount(1);
   await page.keyboard.press("Escape");
@@ -74,4 +134,12 @@ export async function shellInteractionSmoke(page) {
   await page.getByRole("link", { name: "流程", exact: true }).focus();
   await page.keyboard.press("Escape");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  const top = await bar.boundingBox();
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect.poll(async () => (await bar.boundingBox())?.y).toBe(top?.y);
+  await hitToolbar();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.setViewportSize({ width: 720, height: 320 });
+  await expect.poll(async () => (await bar.boundingBox())?.y).toBe(0);
+  await hitToolbar();
 }

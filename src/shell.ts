@@ -8,6 +8,7 @@ export type ThemeChoice = Readonly<{
 export type BrandColors = Readonly<{ primary?: string; secondary?: string }>;
 export type Brand = Readonly<{
   productName: string;
+  home: RouteLocationRaw;
   enterpriseName: string;
   mark:
     | { kind: "text"; text: string }
@@ -18,7 +19,7 @@ export type LoadState =
 export type AccountIntent = "profile" | "change-password" | "sign-out";
 export type ShellAccount = Readonly<{
   label: string;
-  actions: readonly AccountIntent[];
+  avatar?: Readonly<{ src: string; alt: string }>;
 }>;
 export type NavigationIcon =
   "home" | "catalog" | "settings" | "report" | "voucher" | "workflow";
