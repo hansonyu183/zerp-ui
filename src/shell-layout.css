@@ -42,6 +42,8 @@
   pointer-events: auto;
 }
 .zerp-shell-overlays {
+  /* Use Vuetify's overlay base level within the bounded below-bar region. */
+  z-index: 2000;
   position: fixed;
   inset: var(--v-layout-top) 0 0;
   overflow-y: scroll;
