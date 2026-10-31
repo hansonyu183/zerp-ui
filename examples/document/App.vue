@@ -1,10 +1,9 @@
 <script setup lang="ts">
-const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
-import { ref } from "vue";
-import { DocumentView, configurationBlock } from "@zerp/ui";
+import { computed, ref } from "vue";
+import { defineDocumentPage, domainBlocks } from "@zerp/ui";
+import ExamplePage from "../shared/ExamplePage.vue";
 import { sample, type Pricing, type Formula, type Scenario } from "./adapters";
-import PricingBlock from "./PricingBlock.vue";
-import FormulaBlock from "./FormulaBlock.vue";
+
 const resource = ref("pricing"),
   scenario = ref<Scenario>("success");
 const pricing = sample<Pricing>(
@@ -25,26 +24,65 @@ const formula = sample<Formula>(
   () => scenario.value,
 );
 const priceBlocks = [
-  configurationBlock<Pricing>()({
+  domainBlocks<Pricing>().rows({
     key: "pricing",
-    component: PricingBlock,
-    catalog: ["客户甲", "客户乙"] as readonly string[],
+    label: "合成客户定价",
+    fields: [
+      {
+        key: "customer",
+        label: "定价客户",
+        type: "enum",
+        options: [
+          { value: "客户甲", label: "客户甲" },
+          { value: "客户乙", label: "客户乙" },
+        ],
+      },
+      { key: "amount", label: "定价金额", type: "decimal" },
+    ],
+    empty: () => ({ customer: "客户甲", amount: "0.0000" }),
+    get: (value) => value,
+    set: (_value, rows) => [...rows],
   }),
 ];
 const formulaBlocks = [
-  configurationBlock<Formula>()({
+  domainBlocks<Formula>().rows({
     key: "formula",
-    component: FormulaBlock,
-    catalog: [
-      { code: "a", label: "合成原料甲" },
-      { code: "b", label: "合成原料乙" },
-    ] as readonly { code: string; label: string }[],
+    label: "合成产品配方",
+    fields: [
+      {
+        key: "material",
+        label: "配方原料",
+        type: "enum",
+        options: [
+          { value: "a", label: "合成原料甲" },
+          { value: "b", label: "合成原料乙" },
+        ],
+      },
+      { key: "quantity", label: "配方用量", type: "decimal" },
+    ],
+    empty: () => ({ material: "a", quantity: "0.0100" }),
+    get: (value) => value,
+    set: (_value, rows) => [...rows],
   }),
 ];
 const permissions = { read: true, write: true, reconcile: true };
+const pricePage = defineDocumentPage({
+  definition: pricing,
+  permissions,
+  blocks: priceBlocks,
+});
+const formulaPage = defineDocumentPage({
+  definition: formula,
+  permissions,
+  blocks: formulaBlocks,
+});
+const page = computed(() =>
+  resource.value === "pricing" ? pricePage : formulaPage,
+);
 </script>
 <template>
-  <main>
+  <ExamplePage :page="page" />
+  <aside class="example-controls" aria-label="合成档案控制">
     <p>合成内存 Adapter；不连接真实 ZERP API，不代表真实后端或 E2E 证据。</p>
     <label
       >档案示例<select v-model="resource" aria-label="档案示例">
@@ -62,22 +100,5 @@ const permissions = { read: true, write: true, reconcile: true };
         <option value="refresh-failure">刷新失败</option>
       </select></label
     >
-    <h1 v-if="showTitle">
-      {{ resource === "pricing" ? pricing.title : formula.title }}
-    </h1>
-    <DocumentView
-      v-if="resource === 'pricing'"
-      :definition="pricing"
-      :blocks="priceBlocks"
-      scope="synthetic-session"
-      :permissions="permissions"
-    />
-    <DocumentView
-      v-else
-      :definition="formula"
-      :blocks="formulaBlocks"
-      scope="synthetic-session"
-      :permissions="permissions"
-    />
-  </main>
+  </aside>
 </template>

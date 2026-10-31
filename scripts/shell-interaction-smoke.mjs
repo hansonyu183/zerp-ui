@@ -1,6 +1,35 @@
 import assert from "node:assert/strict";
 import { expect } from "@playwright/test";
 
+/** Check actual visible bounds; shared by installed consumer interaction smokes. */
+export async function assertBelowToolbar(
+  page,
+  target,
+  { withinViewport = true } = {},
+) {
+  await expect
+    .poll(
+      async () => {
+        const [bar, content] = await Promise.all([
+          page.locator(".v-app-bar").boundingBox(),
+          target.boundingBox(),
+        ]);
+        return Boolean(
+          bar &&
+          content &&
+          content.y >= bar.y + bar.height - 1 &&
+          (!withinViewport ||
+            content.y + content.height <= page.viewportSize().height + 1),
+        );
+      },
+      {
+        message:
+          "content and overlay bounds stay below the toolbar inside the viewport",
+      },
+    )
+    .toBe(true);
+}
+
 /** Public shell behavior, shared by installed tgz and local synthetic example. */
 export async function shellInteractionSmoke(page) {
   const toggle = page.getByRole("button", { name: "切换导航", exact: true });
@@ -24,22 +53,8 @@ export async function shellInteractionSmoke(page) {
     );
   }
   const bar = page.locator(".v-app-bar");
-  const belowBar = async (locator) => {
-    await expect
-      .poll(
-        async () => {
-          const [topbar, content] = await Promise.all([
-            bar.boundingBox(),
-            locator.boundingBox(),
-          ]);
-          return Boolean(
-            topbar && content && content.y >= topbar.y + topbar.height - 1,
-          );
-        },
-        { message: "content and overlays must stay below the fixed toolbar" },
-      )
-      .toBe(true);
-  };
+  const belowBar = (locator) =>
+    assertBelowToolbar(page, locator, { withinViewport: false });
   const hitToolbar = async () => {
     assert.ok(
       await toggle.evaluate((element) => {
@@ -120,14 +135,14 @@ export async function shellInteractionSmoke(page) {
   }
   await link.click();
   await expect(
-    page.getByRole("heading", { name: "报表", exact: true }),
+    page.getByRole("heading", { name: "合成报表 · 分批", exact: true }),
   ).toBeVisible();
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(toggle).toBeFocused();
   await toggle.click();
   await page.getByRole("link", { name: "流程", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "流程", exact: true }),
+    page.getByRole("heading", { name: "合成流程运行时", exact: true }),
   ).toBeVisible();
   await page.setViewportSize({ width: 1280, height: 720 });
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -142,4 +157,6 @@ export async function shellInteractionSmoke(page) {
   await page.setViewportSize({ width: 720, height: 320 });
   await expect.poll(async () => (await bar.boundingBox())?.y).toBe(0);
   await hitToolbar();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
 }

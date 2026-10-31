@@ -1,13 +1,19 @@
 <script setup lang="ts">
-const { showTitle = true } = defineProps<{ showTitle?: boolean }>();
-import { WorkflowView, VoucherView } from "@zerp/ui";
+import { defineWorkflowPage, defineVoucherPage } from "@zerp/ui";
+import ExamplePage from "../shared/ExamplePage.vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import { computed, ref } from "vue";
 import { controls, workflow, voucherFor, type VoucherRef } from "./adapters";
 const route = useRoute(),
   router = useRouter(),
   scope = ref("session-a");
-const voucherDefinition = computed(() => voucherFor(String(route.params.id)));
+const voucherDefinition = computed(() =>
+  voucherFor(
+    String(
+      route.params.id ?? decodeURIComponent(route.path.split("/").at(-1) ?? ""),
+    ),
+  ),
+);
 const permissions = {
   read: true,
   audit: true,
@@ -25,9 +31,21 @@ const permissions = {
 function openVoucher(voucher: VoucherRef) {
   void router.push(`/vouchers/${encodeURIComponent(voucher.id)}`);
 }
+const flowPage = defineWorkflowPage({
+  definition: workflow,
+  permissions,
+  onOpenVoucher: openVoucher,
+});
+const voucherPage = defineVoucherPage(() => ({
+  definition: voucherDefinition.value,
+  permissions: { read: true, write: true, reconcile: true },
+}));
+const isFlow = computed(() => !route.path.startsWith("/vouchers/"));
+const page = computed(() => (isFlow.value ? flowPage : voucherPage));
 </script>
 <template>
-  <main>
+  <ExamplePage :page="page" :scope="scope" />
+  <aside class="example-controls" aria-label="合成流程控制">
     <p>独立合成 Adapter 演示；资格与审计不代表真实后端授权或 ZERP E2E。</p>
     <label
       >会话作用域<select v-model="scope" aria-label="会话作用域">
@@ -53,24 +71,11 @@ function openVoucher(voucher: VoucherRef) {
       </select></label
     >
     <RouterLink to="/">返回流程</RouterLink>
-    <h1 v-if="showTitle">
-      {{ route.path === "/" ? workflow.title : voucherDefinition.title }}
-    </h1>
-    <WorkflowView
-      v-if="route.path === '/'"
-      :definition="workflow"
-      :scope="scope"
-      :permissions="permissions"
-      @open-voucher="openVoucher"
-    />
-    <section v-else>
-      <p>消费者路由目标：{{ route.params.id }}</p>
-      <VoucherView
-        :key="String(route.params.id)"
-        :definition="voucherDefinition"
-        :scope="scope"
-        :permissions="{ read: true, write: true, reconcile: true }"
-      />
-    </section>
-  </main>
+    <p v-if="!isFlow">
+      消费者路由目标：{{
+        route.params.id ??
+        decodeURIComponent(route.path.split("/").at(-1) ?? "")
+      }}
+    </p>
+  </aside>
 </template>

@@ -42,6 +42,7 @@ const copy = <T>(value: T): T => structuredClone(value);
 export function sample(
   kind: "ordinary" | "opening" | "system",
   scenario: () => Scenario,
+  observe?: (input: Entry) => void,
 ) {
   const initial: Snapshot = {
     identity: {
@@ -113,6 +114,7 @@ export function sample(
   async function write(
     a: Exclude<Attempt, { operation: "stage" }>,
   ): Promise<WriteResult> {
+    if (a.operation === "submit") observe?.(copy(a.input));
     if (scenario() === "conflict")
       return { status: "failure", message: "合成修订冲突" };
     const current = records.find(

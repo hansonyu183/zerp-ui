@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import {
-  DynamicForm,
-  validateFields,
-  type Fields,
-  type FormValidationState,
-} from "@zerp/ui";
+import ExamplePage from "../shared/ExamplePage.vue";
+import { defineAccountPage, type Fields, type EditProtection } from "@zerp/ui";
 type Draft = { title: string; count: number | null; amount: string };
 const fields: Fields<Draft> = [
   {
@@ -31,44 +27,46 @@ const value = ref<Draft>({
   count: 0,
   amount: "9007199254740993.0100",
 });
-const validation = ref<FormValidationState<Draft>>({
-  ...validateFields(fields, value.value),
-  pending: false,
+const protection = ref<EditProtection>({
+  dirty: false,
+  localPending: false,
+  invalid: true,
+  writeState: "idle",
 });
 const submitted = ref("");
-function submit() {
-  if (!validation.value.valid || validation.value.pending) return;
-  submitted.value = JSON.stringify(value.value);
-}
+const revision = ref(0);
+const page = defineAccountPage(() => ({
+  kind: "profile",
+  title: "合成账户资料验证",
+  values: value.value,
+  fields,
+  submitLabel: "提交独立表单",
+  submit: (values: Draft) => {
+    value.value = values;
+    submitted.value = JSON.stringify(values);
+  },
+  onProtection: (value: EditProtection) => (protection.value = value),
+  onChange: (values: Draft) => (value.value = values),
+}));
 </script>
 <template>
   <section aria-label="独立表单示例">
     <h2>独立表单</h2>
-    <DynamicForm
-      v-model="value"
-      :fields="fields"
-      scope="synthetic-form"
-      @validation="validation = $event"
-    />
-    <button type="button" @click="value = { ...value, count: 20 }">
-      父模型采用 20
-    </button>
-    <button
-      type="button"
-      :disabled="!validation.valid || validation.pending"
-      @click="submit"
-    >
-      提交独立表单
-    </button>
-    <p role="status">
-      {{
-        validation.pending
-          ? "本地输入未完成"
-          : validation.valid
-            ? "输入有效"
-            : "输入无效"
-      }}
-    </p>
-    <p aria-label="独立提交值">{{ submitted }}</p>
+    <ExamplePage :page="page" scope="synthetic-form" />
+    <aside class="example-controls">
+      <button type="button" @click="value = { ...value, count: 20 }">
+        父模型采用 20
+      </button>
+      <p role="status">
+        {{
+          protection.localPending
+            ? "本地输入未完成"
+            : !protection.invalid
+              ? "输入有效"
+              : "输入无效"
+        }}
+      </p>
+      <p aria-label="独立提交值">{{ submitted }}</p>
+    </aside>
   </section>
 </template>
