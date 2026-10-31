@@ -1,7 +1,9 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import { DataList, ReportView, defineReport } from "../src/index";
+import { defineReport } from "../src/index";
+import DataList from "../src/DataList.vue";
+import ReportView from "../src/ReportView.vue";
 
 const definition = () =>
   defineReport({

@@ -44,6 +44,50 @@ export async function checkArtifact(tgz, expected) {
         (await stat(join(root, file))).size > 0,
         `Missing/empty ${file}`,
       );
+    const entry = ts.createSourceFile(
+      "index.js",
+      await readFile(join(root, "dist/index.js"), "utf8"),
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.JS,
+    );
+    const publicNames = entry.statements.flatMap((statement) =>
+      ts.isExportDeclaration(statement) &&
+      statement.exportClause &&
+      ts.isNamedExports(statement.exportClause)
+        ? statement.exportClause.elements.map((element) => element.name.text)
+        : [],
+    );
+    assert.deepEqual(
+      publicNames.sort(),
+      [
+        "AppPage",
+        "AuthPage",
+        "ReportUnavailable",
+        "createShellThemes",
+        "defaultThemeChoice",
+        "defineAccountPage",
+        "defineConfiguration",
+        "defineConfigurationPage",
+        "defineCrud",
+        "defineCrudPage",
+        "defineDetailsPage",
+        "defineDocument",
+        "defineDocumentPage",
+        "defineReport",
+        "defineReportPage",
+        "defineVoucher",
+        "defineVoucherOperation",
+        "defineVoucherOperationPage",
+        "defineVoucherPage",
+        "defineWorkflow",
+        "defineWorkflowPage",
+        "domainBlocks",
+        "validateFields",
+        "voucherOperationLabels",
+      ].sort(),
+      "Only the two complete components and finite non-component APIs may be exported",
+    );
     const dependencies = { ...pkg.dependencies, ...pkg.peerDependencies };
     const imports = new Set();
     for (const file of files.filter((file) => /\.(?:js|d\.ts)$/.test(file))) {

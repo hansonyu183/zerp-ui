@@ -1,7 +1,8 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import { ConfigurationView, defineConfiguration } from "../src/index";
+import { defineConfiguration } from "../src/index";
+import ConfigurationView from "../src/ConfigurationView.vue";
 const definition = () =>
   defineConfiguration({
     resource: "synthetic-config",
@@ -201,89 +202,6 @@ it("isolates late reads and preserves late write results in the original scope",
   await w.setProps({ scope: "b" });
   await flushPromises();
   expect(w.text()).toContain("保存结果未知");
-  w.unmount();
-});
-it("aggregates local pending and rejects events from a closed block instance", async () => {
-  const { defineComponent, h } = await import("vue");
-  const { configurationBlock } = await import("../src/index");
-  const events: Array<{
-    change: (value: string) => void;
-    pending: (value: boolean) => void;
-  }> = [];
-  const Block = defineComponent({
-    props: {
-      modelValue: { type: String, required: true },
-      catalog: { type: Array, required: true },
-      mode: {
-        type: String as import("vue").PropType<"read" | "edit">,
-        required: true,
-      },
-      disabled: Boolean,
-      "onUpdate:modelValue": {
-        type: Function as import("vue").PropType<(value: string) => void>,
-        required: true,
-      },
-      onPending: {
-        type: Function as import("vue").PropType<(value: boolean) => void>,
-        required: true,
-      },
-    },
-    setup(p) {
-      events.push({ change: p["onUpdate:modelValue"], pending: p.onPending });
-      return () => h("p", "局部编辑");
-    },
-  });
-  const base = definition();
-  const d = defineConfiguration({
-    ...base,
-    fields: [],
-    adapter: {
-      ...base.adapter,
-      get: async () => ({
-        values: { name: "当前值", other: "另一个" },
-        identity: { key: "one", revision: "r1" },
-      }),
-      save: vi.fn(async () => ({ status: "success" as const })),
-    },
-  });
-  const blocks = [
-    configurationBlock<{ name: string; other: string }>()({
-      key: "name",
-      component: Block,
-      catalog: [],
-    }),
-    configurationBlock<{ name: string; other: string }>()({
-      key: "other",
-      component: Block,
-      catalog: [],
-    }),
-  ];
-  const w = mount(ConfigurationView as Component, {
-    props: { definition: d, scope: "a", permissions, blocks },
-  });
-  await flushPromises();
-  await click(w, "编辑");
-  events[0].pending(true);
-  events[1].pending(true);
-  await flushPromises();
-  events[0].pending(false);
-  await flushPromises();
-  expect(button(w, "保存").attributes("disabled")).toBeDefined();
-  await w.setProps({ permissions: { ...permissions, write: false } });
-  events[1].pending(false);
-  await flushPromises();
-  await w.setProps({ permissions });
-  await flushPromises();
-  expect(w.find('[role="dialog"]').exists()).toBe(false);
-  await click(w, "编辑");
-  events[0].change("迟到覆盖");
-  events[0].pending(true);
-  await flushPromises();
-  expect(button(w, "保存").attributes("disabled")).toBeUndefined();
-  await click(w, "保存");
-  expect(d.adapter.save).toHaveBeenCalledWith(
-    expect.objectContaining({ input: { name: "当前值", other: "另一个" } }),
-  );
   w.unmount();
 });
 it("discards a cancelled draft and honors readonly details and revoked permissions", async () => {

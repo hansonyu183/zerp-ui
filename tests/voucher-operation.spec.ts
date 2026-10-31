@@ -1,7 +1,7 @@
 import { reactive, type Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import { VoucherView as OperationPrototype } from "../src/index";
+import OperationPrototype from "../src/VoucherOperationRuntime.vue";
 import {
   synthetic,
   type SyntheticModel,
@@ -10,10 +10,8 @@ import {
   type Store,
   type SyntheticRequest,
 } from "../examples/voucher/operation-adapter";
-import type {
-  VoucherOperationIntent,
-  VoucherOperationHandle,
-} from "../src/index";
+import type { VoucherOperationIntent } from "../src/index";
+import type { VoucherOperationHandle } from "../src/voucher-operation";
 // Web Locks is the browser concurrency seam; real cross-page behavior is exercised in the installed consumer.
 Object.defineProperty(navigator, "locks", {
   configurable: true,

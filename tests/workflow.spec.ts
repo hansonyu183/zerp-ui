@@ -1,11 +1,8 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import { it, expect, vi } from "vitest";
 import type { Component } from "vue";
-import {
-  WorkflowView,
-  defineWorkflow,
-  type WorkflowAdapter,
-} from "../src/index";
+import { defineWorkflow, type WorkflowAdapter } from "../src/index";
+import WorkflowView from "../src/WorkflowView.vue";
 const permissions = {
   read: true,
   audit: true,

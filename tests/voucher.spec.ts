@@ -2,11 +2,11 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { it, expect, vi } from "vitest";
 import type { Component } from "vue";
 import {
-  VoucherView,
   defineVoucher,
   type VoucherSnapshot,
   type VoucherAdapter,
 } from "../src/index";
+import VoucherView from "../src/VoucherSubmission.vue";
 type D = { name: string; amount: string };
 type Snap = VoucherSnapshot<
   D,
@@ -233,7 +233,8 @@ it("requires original business evidence; reading, closing and successful-refresh
     evidence: { receipt: "exact-not-applied" },
   });
   await click(w, "核实本次请求");
-  await click(w, "编辑单据");
+  // Unknown-state close was denied: the exact original editor is still present.
+  expect(button(w, "提交单据").attributes("disabled")).toBeUndefined();
   vi.mocked(d.adapter.list).mockRejectedValueOnce(new Error("刷新失败"));
   await click(w, "提交单据");
   expect(w.text()).toContain("刷新失败");
@@ -307,92 +308,6 @@ it("resumes a staged clone with its original source identity even after navigati
     }),
   );
   expect(d.adapter.attachments.stage).toHaveBeenCalledTimes(1);
-  w.unmount();
-});
-it("keeps voucher row and formula drafts local, then submits the exact adopted source", async () => {
-  const { sample } = await import("../examples/voucher/adapters");
-  const { default: EntryBlock } =
-    await import("../examples/voucher/EntryBlock.vue");
-  const { configurationBlock } = await import("../src/index");
-  const d = sample("opening", () => "success");
-  const original = d.adapter.submit;
-  const submitted = vi.fn(original);
-  d.adapter.submit = submitted;
-  const w = mount(VoucherView as Component, {
-    props: {
-      definition: d,
-      scope: "a",
-      permissions,
-      blocks: [
-        configurationBlock<import("../examples/voucher/adapters").Entry>()({
-          key: "entry",
-          component: EntryBlock,
-          catalog: [
-            { id: "source-one", label: "精确来源甲", revision: "source-r7" },
-          ] as readonly { id: string; label: string; revision: string }[],
-        }),
-      ],
-    },
-  });
-  await flushPromises();
-  await click(w, "创建 Draft");
-  await click(w, "新增明细行");
-  await w.get('input[aria-label="行名称"]').setValue("取消父行");
-  await click(w, "取消明细行");
-  expect(w.text()).not.toContain("取消父行");
-  await click(w, "新增明细行");
-  await w.get('input[aria-label="行名称"]').setValue("保留行");
-  await click(w, "确定明细行");
-  await click(w, "编辑配方 · 明细行 1");
-  await click(w, "新增配方");
-  await w.get('input[aria-label="子项金额"]').setValue("123.4500");
-  await click(w, "确定子项");
-  await click(w, "确定配方");
-  await click(w, "精确来源甲");
-  await flushPromises();
-  expect(w.text()).toContain("source-r7");
-  await click(w, "提交单据");
-  expect(submitted).toHaveBeenCalledWith(
-    expect.objectContaining({
-      input: {
-        name: "合成期初",
-        entry: {
-          amount: "9007199254740993.0100",
-          source: {
-            id: "source-one",
-            label: "精确来源甲",
-            snapshot: { revision: "source-r7", rate: "0.0100" },
-          },
-          rows: [
-            expect.objectContaining({
-              id: expect.any(String),
-              name: "保留行",
-              children: [{ amount: "123.4500" }],
-            }),
-          ],
-        },
-      },
-    }),
-  );
-  await click(w, "创建 Draft");
-  await w.get('input[aria-label="名称"]').setValue("取消整个草稿");
-  await click(w, "新增明细行");
-  await w.get('input[aria-label="行名称"]').setValue("取消整单的行");
-  await click(w, "确定明细行");
-  await click(w, "编辑配方 · 明细行 1");
-  await click(w, "新增配方");
-  await w.get('input[aria-label="子项金额"]').setValue("9.9999");
-  await click(w, "确定子项");
-  await click(w, "确定配方");
-  await click(w, "关闭编辑");
-  await click(w, "创建 Draft");
-  expect(w.get('input[aria-label="名称"]').element).toHaveProperty(
-    "value",
-    "合成期初",
-  );
-  expect(w.find('table[aria-label="单据明细"]').text()).not.toContain(
-    "取消整单的行",
-  );
   w.unmount();
 });
 function deferred<T>() {

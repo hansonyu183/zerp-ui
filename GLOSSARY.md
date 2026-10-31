@@ -11,3 +11,8 @@ _Avoid_: 将 Version/版本档案用作这类资料的统称。
 **单据（Voucher）**：
 记录一次业务办理的单据，可具有编号、经办人、审批与历史。
 _Avoid_: 将 Document/资料用作单据的统称。
+
+## 页面内容
+
+**领域区块（Domain Block）**：
+业务页面中表达一组相关业务内容的局部区域，例如单据表头、明细或金额汇总。术语与边界见 [#40](https://github.com/hansonyu183/zerp-ui/issues/40)。

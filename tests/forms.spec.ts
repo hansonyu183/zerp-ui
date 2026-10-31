@@ -3,13 +3,13 @@ import { ref, defineComponent, h } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { it, expect, vi } from "vitest";
 import {
-  DynamicForm,
   validateFields,
-  ReferencePicker,
   type Fields,
   type ReferenceValue,
   type ReferenceAdapter,
 } from "../src/index";
+import DynamicForm from "../src/DynamicForm.vue";
+import ReferencePicker from "../src/ReferencePicker.vue";
 const click = async (w: ReturnType<typeof mount>, text: string) => {
   await w
     .findAll("button")

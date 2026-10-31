@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false });
+defineSlots<{}>();
 import PageContentHost from "./PageContentHost.vue";
 import type { PageDefinition, AppPageHandle } from "./pages";
 import type { EditProtection } from "./edit-guard";
@@ -16,7 +18,6 @@ import {
   VBtn,
   VAvatar,
 } from "vuetify/components";
-import "./shell-layout.css";
 import Feedback from "./Feedback.vue";
 import {
   defaultThemeChoice,
