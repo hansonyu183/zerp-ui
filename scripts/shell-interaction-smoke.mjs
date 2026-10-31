@@ -47,9 +47,17 @@ export async function shellInteractionSmoke(page) {
   await page.keyboard.press("Enter");
   const link = page.getByRole("link", { name: "报表", exact: true });
   const originalURL = page.url();
-  await link.dispatchEvent("click", { metaKey: true, button: 0 });
-  assert.equal(page.url(), originalURL);
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  const [opened] = await Promise.all([
+    page.context().waitForEvent("page"),
+    link.click({ modifiers: ["ControlOrMeta"] }),
+  ]);
+  try {
+    await opened.waitForLoadState();
+    assert.equal(page.url(), originalURL);
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  } finally {
+    await opened.close();
+  }
   await link.click();
   await expect(
     page.getByRole("heading", { name: "报表", exact: true }),
