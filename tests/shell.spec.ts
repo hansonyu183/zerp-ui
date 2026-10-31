@@ -163,3 +163,53 @@ it("uses the consumer's current key for same-path query links without changing n
   }
   wrapper.unmount();
 });
+
+it("closes temporary navigation with Escape and returns focus to its toggle", async () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/catalog", component: { template: "<p>资料</p>" } }],
+  });
+  await router.push("/catalog");
+  const plugins = config.global.plugins;
+  config.global.plugins = [
+    createVuetify({
+      theme: createShellThemes(),
+      display: { mobileBreakpoint: 2000 },
+    }),
+  ];
+  const wrapper = mount(AppPage, {
+    attachTo: document.body,
+    props: {
+      brand: {
+        productName: "产品",
+        enterpriseName: "企业",
+        mark: { kind: "text", text: "星" },
+      },
+      brandState: { kind: "ready" },
+      navigationState: { kind: "ready" },
+      navigation: [
+        {
+          key: "main",
+          caption: "资料",
+          items: [{ key: "catalog", caption: "资料链接", to: "/catalog" }],
+        },
+      ],
+      pageTitle: "资料",
+      footer: "合成消费者",
+    },
+    global: { plugins: [router] },
+  });
+  config.global.plugins = plugins;
+  try {
+    const toggle = wrapper.get('button[aria-label="切换导航"]');
+    await toggle.trigger("click");
+    const link = wrapper.get("a");
+    (link.element as HTMLElement).focus();
+    await link.trigger("keydown", { key: "Escape" });
+    await flushPromises();
+    expect(toggle.attributes("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(toggle.element);
+  } finally {
+    wrapper.unmount();
+  }
+});

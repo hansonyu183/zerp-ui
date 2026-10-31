@@ -182,11 +182,45 @@
   justify-content: center;
   margin-top: 1rem;
 }
+.zerp-shell-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding-inline: 0.5rem;
+}
+.zerp-shell-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.zerp-shell-toolbar--narrow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.zerp-shell-toolbar--narrow .zerp-shell-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+.zerp-shell-toolbar--narrow .zerp-shell-theme {
+  min-width: 0;
+  flex: 1;
+}
+.zerp-shell-theme select {
+  width: 100%;
+  min-width: 0;
+}
 .zerp-shell-brand {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   flex: 1;
+  min-width: 0;
+}
+.zerp-shell-brand strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .zerp-shell-brand img {
   max-width: 40px;
@@ -225,9 +259,6 @@
 @media (max-width: 600px) {
   .zerp-shell-brand > .zerp-shell-enterprise {
     display: none;
-  }
-  .zerp-shell-theme {
-    max-width: 90px;
   }
 }
 

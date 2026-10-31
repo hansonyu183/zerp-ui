@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, useId, useTemplateRef, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { useDisplay } from "vuetify";
 import {
@@ -44,7 +44,11 @@ const emit = defineEmits<{
   "account-action": [AccountIntent];
   "update:theme": [ThemeChoice];
 }>();
-const { mobile } = useDisplay();
+const { mobile, xs } = useDisplay();
+const navigationId = useId();
+const navigationToggle =
+  useTemplateRef<InstanceType<typeof VBtn>>("navigationToggle");
+const navigationElement = useTemplateRef<HTMLElement>("navigationElement");
 const drawer = ref<boolean | null>(null);
 const defaults = computed(() => shellDefaults(props.theme));
 const selectedItem = computed(() =>
@@ -63,7 +67,36 @@ function preset(event: Event) {
     preset: (event.target as HTMLSelectElement).value as ThemeChoice["preset"],
   });
 }
-function navigated() {
+watch(drawer, async (open, previous) => {
+  if (open || !previous || !mobile.value) return;
+  const active = document.activeElement;
+  if (active !== document.body && !navigationElement.value?.contains(active))
+    return;
+  await nextTick();
+  navigationToggle.value?.$el.focus({ preventScroll: true });
+});
+function escapeNavigation(event: KeyboardEvent) {
+  if (
+    event.key !== "Escape" ||
+    event.defaultPrevented ||
+    !mobile.value ||
+    !drawer.value
+  )
+    return;
+  event.preventDefault();
+  event.stopPropagation();
+  drawer.value = false;
+}
+function navigated(event: MouseEvent) {
+  if (
+    event.defaultPrevented ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey ||
+    event.button !== 0
+  )
+    return;
   if (mobile.value) drawer.value = false;
 }
 </script>
@@ -74,74 +107,93 @@ function navigated() {
     class="zerp-shell"
   >
     <VDefaultsProvider :defaults="defaults">
-      <VLayout>
-        <VAppBar>
-          <VBtn
-            aria-label="切换导航"
-            title="切换导航"
-            @click="drawer = !(drawer ?? !mobile)"
-            >☰</VBtn
+      <VLayout @keydown="escapeNavigation">
+        <VAppBar :height="xs ? 112 : undefined">
+          <div
+            class="zerp-shell-toolbar"
+            :class="{ 'zerp-shell-toolbar--narrow': xs }"
           >
-          <div class="zerp-shell-brand">
-            <span v-if="brand.mark.kind === 'text'">{{ brand.mark.text }}</span>
-            <img v-else :src="brand.mark.src" :alt="brand.mark.alt" />
-            <strong>{{ brand.productName }}</strong>
-            <span
-              v-if="brandState.kind === 'ready'"
-              class="zerp-shell-enterprise"
-              >{{ brand.enterpriseName }}</span
+            <VBtn
+              ref="navigationToggle"
+              :aria-controls="navigationId"
+              :aria-expanded="drawer ?? !mobile"
+              aria-label="切换导航"
+              title="切换导航"
+              @click="drawer = !(drawer ?? !mobile)"
+              >☰</VBtn
             >
-            <span v-else-if="brandState.kind === 'loading'" role="status"
-              >品牌加载中</span
-            >
-            <span v-else role="alert"
-              >{{ brandState.caption }}
-              <VBtn @click="emit('retry-brand')">重试品牌</VBtn></span
-            >
-          </div>
-          <label class="zerp-shell-theme"
-            >主题预设<select
-              :value="theme.preset"
-              aria-label="主题预设"
-              @change="preset"
-            >
-              <option value="md1">Material Design 1</option>
-              <option value="md2">Material Design 2</option>
-              <option value="md3">Material Design 3</option>
-            </select></label
-          >
-          <VBtn
-            aria-label="切换明暗模式"
-            title="切换明暗模式"
-            @click="
-              emit('update:theme', {
-                ...theme,
-                mode: theme.mode === 'light' ? 'dark' : 'light',
-              })
-            "
-            >{{ theme.mode === "light" ? "深色" : "浅色" }}</VBtn
-          >
-          <VMenu v-if="account" content-class="zerp-shell-overlay">
-            <template #activator="{ props: activator }"
-              ><VBtn
-                v-bind="activator"
-                :aria-label="`账户：${account.label}`"
-                >{{ account.label }}</VBtn
-              ></template
-            >
-            <div class="zerp-shell-account" role="menu">
-              <VBtn
-                v-for="action in account.actions"
-                :key="action"
-                role="menuitem"
-                @click="emit('account-action', action)"
-                >{{ labels[action] }}</VBtn
+            <div class="zerp-shell-brand">
+              <span v-if="brand.mark.kind === 'text'">{{
+                brand.mark.text
+              }}</span>
+              <img v-else :src="brand.mark.src" :alt="brand.mark.alt" />
+              <strong :title="brand.productName">{{
+                brand.productName
+              }}</strong>
+              <span
+                v-if="brandState.kind === 'ready'"
+                class="zerp-shell-enterprise"
+                >{{ brand.enterpriseName }}</span
+              >
+              <span v-else-if="brandState.kind === 'loading'" role="status"
+                >品牌加载中</span
+              >
+              <span v-else role="alert"
+                >{{ brandState.caption }}
+                <VBtn @click="emit('retry-brand')">重试品牌</VBtn></span
               >
             </div>
-          </VMenu>
+            <div class="zerp-shell-actions">
+              <label class="zerp-shell-theme"
+                >主题预设<select
+                  :value="theme.preset"
+                  aria-label="主题预设"
+                  @change="preset"
+                >
+                  <option value="md1">Material Design 1</option>
+                  <option value="md2">Material Design 2</option>
+                  <option value="md3">Material Design 3</option>
+                </select></label
+              >
+              <VBtn
+                aria-label="切换明暗模式"
+                title="切换明暗模式"
+                @click="
+                  emit('update:theme', {
+                    ...theme,
+                    mode: theme.mode === 'light' ? 'dark' : 'light',
+                  })
+                "
+                >{{ theme.mode === "light" ? "深色" : "浅色" }}</VBtn
+              >
+              <VMenu v-if="account" content-class="zerp-shell-overlay">
+                <template #activator="{ props: activator }"
+                  ><VBtn
+                    v-bind="activator"
+                    :aria-label="`账户：${account.label}`"
+                    :title="account.label"
+                    >{{ xs ? "账户" : account.label }}</VBtn
+                  ></template
+                >
+                <div class="zerp-shell-account" role="menu">
+                  <VBtn
+                    v-for="action in account.actions"
+                    :key="action"
+                    role="menuitem"
+                    @click="emit('account-action', action)"
+                    >{{ labels[action] }}</VBtn
+                  >
+                </div>
+              </VMenu>
+            </div>
+          </div>
         </VAppBar>
-        <VNavigationDrawer v-model="drawer">
-          <nav aria-label="主导航">
+        <VNavigationDrawer
+          v-model="drawer"
+          :retain-focus="mobile"
+          :capture-focus="mobile"
+        >
+          <nav :id="navigationId" ref="navigationElement" aria-label="主导航">
             <p v-if="navigationState.kind === 'loading'" role="status">
               导航加载中
             </p>
@@ -186,8 +238,8 @@ function navigated() {
                         : undefined
                     "
                     @click="
+                      navigated($event);
                       navigate($event);
-                      navigated();
                     "
                     ><span
                       v-if="item.icon"
