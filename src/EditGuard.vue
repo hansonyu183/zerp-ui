@@ -113,7 +113,11 @@ defineExpose<EditGuardHandle>({ requestLeave });
           ? "写入进行中，暂不能离开。"
           : writeState === "refresh"
             ? "写入结果已确认，等待读取最新数据。"
-            : "写入结果未知，须核实原请求后再离开。"
+            : writeState === "seal"
+              ? "已确认未应用，须封存原请求后再离开。"
+              : writeState === "blocked"
+                ? "原请求恢复尚未确认，暂不能离开。"
+                : "写入结果未知，须核实原请求后再离开。"
       }}
     </p>
     <div

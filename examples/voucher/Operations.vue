@@ -3,6 +3,8 @@ import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { VoucherView, VoucherEditor, type VoucherEditorValue } from "@zerp/ui";
 import {
   voucherOperationLabels,
+  type VoucherOperationHandle,
+  type EditProtection,
   type VoucherOperationAction,
   type VoucherOperationIntent,
   type VoucherOperationSettlement,
@@ -16,6 +18,13 @@ import {
   type Baseline,
 } from "./operation-adapter";
 import { operationJournal } from "./operation-journal";
+const operationView = ref<VoucherOperationHandle>();
+const protection = ref<EditProtection>({
+  dirty: false,
+  localPending: false,
+  invalid: false,
+  writeState: "blocked",
+});
 const action = ref<VoucherOperationAction>("void"),
   operator = ref("synthetic-a"),
   note = ref("合成办理原因"),
@@ -58,6 +67,25 @@ const definition = synthetic(
   () => scenario.value,
   (event) => events.value.push(event),
 );
+definition.confirmationLabel = "确认本次办理";
+definition.reconcileLabel = "核对原办理回执";
+definition.sealLabel = "封存未应用办理";
+const refresh = definition.adapter.refresh;
+definition.adapter.refresh = async (settlement) => {
+  await refresh(settlement);
+  const { request, receipt } = settlement;
+  if (
+    receipt.status === "applied" &&
+    "result" in receipt.evidence &&
+    !receipt.evidence.result.deleted
+  ) {
+    target.value = receipt.evidence.result.voucher!;
+    note.value = request.input.note;
+    if ("rows" in request.input)
+      rows.value = request.input.rows.map((row) => ({ ...row }));
+    action.value = "edit";
+  }
+};
 function showResult({
   request,
   receipt,
@@ -276,13 +304,19 @@ function editResult() {
       {{ visible ? "卸载演示" : "恢复演示" }}
     </button>
     <button v-if="recovered" @click="restoreContent">恢复原内容</button>
+    <button type="button" @click="operationView?.prepare()">
+      外部准备办理
+    </button>
+    <output aria-label="办理保护状态">{{ JSON.stringify(protection) }}</output>
     <VoucherView
+      ref="operationView"
       v-if="visible"
       :definition="definition"
       :intent="intent"
       :eligible="eligible && !editorPending"
       :recovery-allowed="recoveryAllowed"
       @settled="showResult"
+      @protection="protection = $event"
     />
     <section v-if="result" aria-label="合成内容结果">
       <p>{{ result.deleted ? "已删除" : "权威结果" }}：{{ result.voucher }}</p>
