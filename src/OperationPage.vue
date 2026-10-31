@@ -31,7 +31,8 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ protection: [state: EditProtection] }>();
 const draft = shallowRef<VoucherEditorValue<H, R> | null>(null),
-  baseline = shallowRef<VoucherEditorValue<H, R> | null>(null);
+  baseline = shallowRef<VoucherEditorValue<H, R> | null>(null),
+  lastInput = shallowRef<VoucherEditorValue<H, R> | null>(null);
 const editorPending = ref(false),
   instance = ref(0);
 const runtimeProtection = shallowRef<EditProtection>({
@@ -87,18 +88,19 @@ function reset() {
   const value = props.options.editor?.value;
   draft.value = value ? clone(value) : null;
   baseline.value = value ? clone(value) : null;
+  lastInput.value = value ? clone(value) : null;
   editorPending.value = false;
   settled.value = null;
   restoredIntent.value = null;
   instance.value++;
 }
 watch(
-  () => [
-    props.scope,
-    props.options.intent.owner.scope,
-    props.options.intent.owner.operator,
-    props.options.intent.owner.resource,
-    props.options.definition.persistence,
+  [
+    () => props.scope,
+    () => props.options.intent.owner.scope,
+    () => props.options.intent.owner.operator,
+    () => props.options.intent.owner.resource,
+    () => props.options.definition.persistence,
   ],
   reset,
   { immediate: true, flush: "sync" },
@@ -106,6 +108,8 @@ watch(
 watch(
   () => props.options.editor?.value,
   (value) => {
+    if (equalValues(value, lastInput.value)) return;
+    lastInput.value = value ? clone(value) : null;
     if (
       equalValues(value, draft.value) ||
       runtimeProtection.value.writeState !== "idle"

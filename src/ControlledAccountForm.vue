@@ -33,6 +33,7 @@ const emit = defineEmits<{
 }>();
 const draft = shallowRef<D>(clone(props.values));
 const baseline = shallowRef<D>(clone(props.values));
+const lastInput = shallowRef<D>(clone(props.values));
 const generation = ref(0);
 const pending = ref(false);
 const validation = shallowRef<FormValidationState<D>>({
@@ -62,19 +63,22 @@ function reset(value: D, replaceBaseline: boolean) {
   pending.value = false;
   if (replaceBaseline) baseline.value = clone(value);
   draft.value = clone(value);
+  lastInput.value = clone(value);
   validation.value = {
     ...validateFields<D>(props.fields, draft.value),
     pending: false,
   };
 }
 watch(
-  () => [props.scope, props.kind, props.instance],
+  [() => props.scope, () => props.kind, () => props.instance],
   () => reset(props.values, true),
   { flush: "sync" },
 );
 watch(
   () => props.values,
   (value) => {
+    if (equalValues(value, lastInput.value)) return;
+    lastInput.value = clone(value);
     // A controlled consumer may echo draft updates. That acknowledgement does
     // not replace the authoritative baseline or discard unfinished input.
     if (!equalValues(value, draft.value)) reset(value, true);

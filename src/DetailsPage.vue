@@ -30,23 +30,27 @@ const editing = ref(false),
   pending = ref(false),
   generation = ref(0);
 const draft = shallowRef<VoucherEditorValue<H, R> | null>(null),
-  baseline = shallowRef<VoucherEditorValue<H, R> | null>(null);
+  baseline = shallowRef<VoucherEditorValue<H, R> | null>(null),
+  lastInput = shallowRef<VoucherEditorValue<H, R> | null>(null);
 const writeState = computed(() => props.options.writeState ?? "idle");
 function reset() {
   const value = props.options.editor?.value;
   draft.value = value ? clone(value) : null;
   baseline.value = value ? clone(value) : null;
+  lastInput.value = value ? clone(value) : null;
   editing.value = false;
   pending.value = false;
   generation.value++;
 }
-watch(() => [props.scope, props.options.instance], reset, {
+watch([() => props.scope, () => props.options.instance], reset, {
   immediate: true,
   flush: "sync",
 });
 watch(
   () => props.options.editor?.value,
   (value) => {
+    if (equalValues(value, lastInput.value)) return;
+    lastInput.value = value ? clone(value) : null;
     if (equalValues(value, draft.value)) return;
     draft.value = value ? clone(value) : null;
     baseline.value = value ? clone(value) : null;
