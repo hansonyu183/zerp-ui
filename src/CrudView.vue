@@ -3,7 +3,8 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
-import { VBtn, VCard, VDialog } from "vuetify/components";
+import { injectDefaults } from "vuetify/lib/composables/defaults.js";
+import { VDefaultsProvider, VBtn, VCard, VDialog } from "vuetify/components";
 import DomainBlockHost from "./DomainBlockHost.vue";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import {
@@ -38,6 +39,8 @@ import { validate } from "./validation";
 import { writeLock } from "./write-lock";
 import { writeRecovery } from "./write-recovery";
 import DraftCollaborationView from "./DraftCollaboration.vue";
+// VDialog starts a Vuetify defaults root; preserve this page's preset and bounded overlays.
+const pageDefaults = injectDefaults();
 const props = defineProps<{
   definition: CrudDefinition<D, F, R, I, E>;
   scope: string;
@@ -839,25 +842,27 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       @after-enter="
         confirming === prompt && confirmationCancel[0]?.$el?.focus()
       "
-      ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
-        <p>确认{{ captions[prompt.action] }}？</p>
-        <VBtn
-          ref="confirmationCancel"
-          color=""
-          variant="tonal"
-          type="button"
-          @click="confirming === prompt && cancelConfirmation()"
-          >取消操作</VBtn
-        ><VBtn
-          :color="prompt.action === 'delete' ? 'error' : 'primary'"
-          variant="flat"
-          type="button"
-          :disabled="blocked"
-          @click="confirming === prompt && write(prompt.action, prompt.row)"
-        >
-          确认{{ captions[prompt.action] }}
-        </VBtn>
-      </VCard></VDialog
+      ><VDefaultsProvider :defaults="pageDefaults"
+        ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
+          <p>确认{{ captions[prompt.action] }}？</p>
+          <VBtn
+            ref="confirmationCancel"
+            color=""
+            variant="tonal"
+            type="button"
+            @click="confirming === prompt && cancelConfirmation()"
+            >取消操作</VBtn
+          ><VBtn
+            :color="prompt.action === 'delete' ? 'error' : 'primary'"
+            variant="flat"
+            type="button"
+            :disabled="blocked"
+            @click="confirming === prompt && write(prompt.action, prompt.row)"
+          >
+            确认{{ captions[prompt.action] }}
+          </VBtn>
+        </VCard></VDefaultsProvider
+      ></VDialog
     >
     <VCard
       tag="section"

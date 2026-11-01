@@ -6,7 +6,19 @@ export async function assertStableFeedback(page, controls, change) {
     boxes: await Promise.all(controls.map((control) => control.boundingBox())),
     scroll: await page.evaluate(() => ({ x: scrollX, y: scrollY })),
   });
-  const before = await capture();
+  // Measure from a settled layout; viewport/drawer transitions are independent of feedback.
+  let before = await capture(),
+    stable = 0;
+  const deadline = Date.now() + 5000;
+  while (stable < 2 && Date.now() < deadline) {
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(resolve)),
+    );
+    const next = await capture();
+    stable = JSON.stringify(next) === JSON.stringify(before) ? stable + 1 : 0;
+    before = next;
+  }
+  assert.equal(stable, 2, "feedback geometry targets settle before the change");
   assert.ok(
     before.boxes.every(Boolean),
     "feedback geometry targets are visible",

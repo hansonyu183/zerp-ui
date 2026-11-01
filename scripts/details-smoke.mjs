@@ -49,6 +49,22 @@ export async function detailsSmoke(page) {
     .getByText("宿主收到引用意图：adopted-one", { exact: true })
     .waitFor();
   await button("编辑资料").click();
+  await button("编辑原料 · 明细行 1").click();
+  await children
+    .getByRole("button", { name: "编辑原料1", exact: true })
+    .click();
+  await children
+    .getByRole("combobox", { name: "原料单位", exact: true })
+    .press("ArrowDown");
+  const unit = page.getByRole("option", { name: "公斤", exact: true });
+  await assertBelowToolbar(page, unit);
+  assert.equal(
+    await unit.evaluate((element) => !!element.closest(".zerp-shell-overlays")),
+    true,
+  );
+  await unit.click();
+  await children.getByRole("button", { name: "取消子项", exact: true }).click();
+  await children.getByRole("button", { name: "取消原料", exact: true }).click();
   await page.getByLabel("名称", { exact: true }).fill("修改后的合成资料");
   await page.getByRole("link", { name: "离开资料", exact: true }).click();
   assert.equal(await unloadBlocked(), true);

@@ -39,6 +39,24 @@ export async function capabilitiesSmoke(page) {
   await expect(
     page.getByRole("button", { name: "准备执行处理", exact: true }),
   ).toBeDisabled();
+  // The visible Material file field is the only trigger; the native chooser remains browser-owned.
+  const file = page.getByLabel("读取资源包", { exact: true });
+  const fileField = file.locator(
+    "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' v-field ')][1]",
+  );
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 1400 });
+    await fileField.scrollIntoViewIfNeeded();
+    const box = await fileField.boundingBox();
+    assert.ok(
+      box && box.width >= 48 && box.height >= 48,
+      "file trigger has a 48px effective field",
+    );
+    const chooser = page.waitForEvent("filechooser");
+    await fileField.click({ position: { x: 2, y: box.height / 2 } });
+    await (await chooser).setFiles([]);
+  }
+  await page.setViewportSize({ width: 1280, height: 1400 });
   const messages = page.locator('[aria-label="业务消息"]').first();
   const confirmation = page.getByRole("checkbox", { name: "我已核对业务输入" });
   const prepare = page.getByRole("button", {
@@ -60,6 +78,7 @@ export async function capabilitiesSmoke(page) {
         messages.getByRole("button", { name: label, exact: true }),
       ).toHaveCount(0);
     });
+  const businessInput = "合成业务" + "完整预览内容".repeat(80) + "末尾标记";
   await assertStableFeedback(page, controls, async () => {
     await page
       .getByRole("textbox", { name: "内容", exact: true })
@@ -68,6 +87,11 @@ export async function capabilitiesSmoke(page) {
     await expect(confirmation).toBeVisible();
     await expect(prepare).toBeDisabled();
   });
+  // Changing the displayed grid data may grow rows; this is separate from feedback-only geometry.
+  await page
+    .getByRole("textbox", { name: "内容", exact: true })
+    .fill(businessInput);
+  await expect(prepare).toBeDisabled();
   await confirmation.check();
   await expect(
     page.getByRole("button", { name: "准备执行处理", exact: true }),
@@ -75,10 +99,23 @@ export async function capabilitiesSmoke(page) {
   await page.getByRole("button", { name: "准备执行处理", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "完整办理预览" }),
-  ).toContainText("合成业务 · 已确认");
+  ).toContainText(businessInput + " · 已确认");
+  await page.setViewportSize({ width: 390, height: 720 });
+  await page
+    .getByRole("button", { name: "确认执行处理", exact: true })
+    .scrollIntoViewIfNeeded();
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    "long complete preview wraps without page overflow",
+  );
   await page.getByRole("button", { name: "确认执行处理", exact: true }).click();
+  await page.setViewportSize({ width: 1280, height: 1400 });
   await expect(
-    page.getByText("已应用，读取完成；可显式准备新请求。", { exact: true }),
+    page
+      .getByRole("status", { name: "状态提示", exact: true })
+      .filter({ hasText: "已应用，读取完成；可显式准备新请求。" }),
   ).toBeVisible();
   const base = new URL(page.url()).origin;
   await page.goto(base + "/batch");

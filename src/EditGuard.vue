@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { VBtn, VCard, VDialog } from "vuetify/components";
+import { injectDefaults } from "vuetify/lib/composables/defaults.js";
+import { VDefaultsProvider, VBtn, VCard, VDialog } from "vuetify/components";
 import Feedback from "./Feedback.vue";
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import type { EditGuardHandle, EditWriteState } from "./edit-guard";
+// VDialog starts a Vuetify defaults root; preserve this page's preset and bounded overlays.
+const pageDefaults = injectDefaults();
 const props = defineProps<{
   scope: string;
   instance: string | number;
@@ -124,25 +127,27 @@ defineExpose<EditGuardHandle>({ requestLeave });
       @update:model-value="!$event && decide(prompt, false)"
       @after-enter="confirmation === prompt && continueButton[0]?.$el?.focus()"
     >
-      <VCard class="pa-4" max-height="100%" style="overflow-y: auto">
-        <h2 class="text-h6">未保存修改</h2>
-        <p>存在未保存修改。放弃只销毁本地输入。</p>
-        <VBtn
-          ref="continueButton"
-          color=""
-          variant="tonal"
-          type="button"
-          @click="decide(prompt, false)"
-          >继续编辑</VBtn
-        >
-        <VBtn
-          color="error"
-          variant="flat"
-          type="button"
-          @click="decide(prompt, true)"
-          >放弃本地修改</VBtn
-        >
-      </VCard>
-    </VDialog>
+      <VDefaultsProvider :defaults="pageDefaults"
+        ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
+          <h2 class="text-h6">未保存修改</h2>
+          <p>存在未保存修改。放弃只销毁本地输入。</p>
+          <VBtn
+            ref="continueButton"
+            color=""
+            variant="tonal"
+            type="button"
+            @click="decide(prompt, false)"
+            >继续编辑</VBtn
+          >
+          <VBtn
+            color="error"
+            variant="flat"
+            type="button"
+            @click="decide(prompt, true)"
+            >放弃本地修改</VBtn
+          >
+        </VCard>
+      </VDefaultsProvider></VDialog
+    >
   </section>
 </template>

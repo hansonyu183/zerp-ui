@@ -10,13 +10,13 @@
 
 ## 固定版本安装
 
-0.9.1 包含 0.9.0 的耐久恢复、异步草稿协作、有限业务交互、批量办理、处理及打印输出页面，并修复预留后失效写入、业务消息占位、可变隔离草稿和批次获权恢复。历史工件保持不可变。
+0.10.0 全面统一 Material 字段、列表、事实、业务交互和弹层；保留 MD1/MD2/MD3 明暗预设与现有精确值、历史引用、局部草稿及原请求恢复协议。公开入口仍为 AuthPage/AppPage；呈现 DOM 改变按 0.x 规则提升 minor。实现与行为证据映射见 [Material 对照矩阵](docs/material/README.md)，历史工件保持不可变。
 
-从 [ui-v0.9.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.9.1) 下载 `zerp-ui-0.9.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.10.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.10.0) 下载 `zerp-ui-0.10.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.9.1.tgz
+pnpm add ./zerp-ui-0.10.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -142,7 +142,7 @@ Vuetify 布局登记的实际顶栏高度用于内容避让；菜单、抽屉遮
 
 Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scripts 为准。各 examples 子目录是独立运行的合成消费者；通过公开 AuthPage/AppPage 操作，不编译库私有源码。使用当前切片命令定向验证，正式发行运行既定 `check:release`。
 
-发行 gate 只 pack 一次，同一 tgz 在 direct/configuration/report/document/voucher/workflow/shell/details 九类全新安装消费者内验证类型、公开出口/私有子路径拒绝、生产构建、CSS/字体、唯一宿主依赖和浏览器交互。记录源码 SHA、tgz SHA-256、实际命令及退出码，正式 Release 上传原已测工件；下载后再校验并复验同一工件。浏览器及临时预览服务在 finally 中关闭，不做截图工程。
+发行 gate 只 pack 一次，同一 tgz 在 direct/configuration/report/document/voucher/workflow/shell/details/capabilities 九类全新安装消费者内验证类型、公开出口/私有子路径拒绝、生产构建、CSS/字体、唯一宿主依赖和浏览器交互。记录源码 SHA、tgz SHA-256、实际命令及退出码，正式 Release 上传原已测工件；下载后再校验并复验同一工件。浏览器及临时预览服务在 finally 中关闭，不做截图工程。
 
 全部数据、资格、业务 Adapter、回执和持久化记录均为合成；这些证据不代表真实 ZERP/oit-go API/E2E 或生产验收。
 
