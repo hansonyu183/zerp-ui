@@ -1189,3 +1189,51 @@ it("keeps a permanent business message reserve when messages are added, dismisse
   expect(region.findAll(".zerp-feedback")).toHaveLength(0);
   w.unmount();
 });
+
+it("imports a file through AppPage and prepares the exact imported decimal string", async () => {
+  const op = operation();
+  const prepare = vi.spyOn(op.definition.adapter, "prepare");
+  const read = vi.fn(async () => ({ value: "9007199254740993.0100" }));
+  const w = await start(
+    defineTaskPage<{ value: string }, Model, string, number>({
+      title: "资源导入",
+      instance: "import",
+      owner,
+      identity: "one",
+      definition: op.definition,
+      values: { value: "原值" },
+      fields: [{ key: "value", label: "导入内容", type: "text" }],
+      actions: ["process"],
+      toIntent: (value, action, base) => ({ ...base, action, input: value }),
+      eligible: true,
+      recoveryAllowed: true,
+      importResource: { label: "读取资源包", accept: ".json", read },
+    }),
+  );
+  const file = new File(
+    ['{"value":"9007199254740993.0100"}'],
+    "synthetic.json",
+    { type: "application/json" },
+  );
+  const upload = w.get('input[type="file"]');
+  Object.defineProperty(upload.element, "files", {
+    configurable: true,
+    value: [file],
+  });
+  await upload.trigger("change");
+  await flushPromises();
+  expect(read).toHaveBeenCalledWith(
+    expect.objectContaining({ file, scope: "s" }),
+  );
+  expect(
+    (w.get('input[aria-label="导入内容"]').element as HTMLInputElement).value,
+  ).toBe("9007199254740993.0100");
+  await click(w, "准备执行处理");
+  expect(prepare).toHaveBeenCalledWith(
+    expect.objectContaining({
+      action: "process",
+      input: { value: "9007199254740993.0100" },
+    }),
+  );
+  w.unmount();
+});
