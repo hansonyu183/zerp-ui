@@ -300,7 +300,12 @@ onBeforeUnmount(() => emit("pending", false));
               </VBtn>
               <span v-if="deleting === rowKey(row)">
                 确认删除该行？
-                <VBtn color="" variant="tonal" type="button" @click="removeRow">
+                <VBtn
+                  color="error"
+                  variant="flat"
+                  type="button"
+                  @click="removeRow"
+                >
                   确认删除明细行 {{ index + 1 }}
                 </VBtn>
                 <VBtn
