@@ -1,19 +1,16 @@
 import { shallowReactive } from "vue";
 import { clone } from "./clone";
-import {
-  sameOperationOwner,
-  voucherOperationLabels,
-} from "./voucher-operation";
+import { sameOperationOwner, operationLabels } from "./operation";
 import type {
-  VoucherOperationModel as Model,
-  VoucherOperationDefinition as Definition,
-  VoucherOperationOwner as Owner,
-  VoucherOperationIntent as Intent,
-  VoucherOperationRequest as Request,
-  VoucherOperationJournal as Journal,
-  VoucherOperationReceipt as Receipt,
-  VoucherOperationSettlement as Settlement,
-} from "./voucher-operation";
+  OperationModel as Model,
+  OperationDefinition as Definition,
+  OperationOwner as Owner,
+  OperationIntent as Intent,
+  OperationRequest as Request,
+  OperationJournal as Journal,
+  OperationReceipt as Receipt,
+  OperationSettlement as Settlement,
+} from "./operation";
 type Phase =
   | "loading"
   | "idle"
@@ -93,7 +90,7 @@ function createSession<M extends Model, I, B>(
       !r.requestId ||
       typeof r.binding !== "string" ||
       !r.binding ||
-      !Object.hasOwn(voucherOperationLabels, r.action) ||
+      !Object.hasOwn(operationLabels, r.action) ||
       !r.preview ||
       !Array.isArray(r.preview.sections) ||
       (record.receipt && !accepted(r, record.receipt)) ||

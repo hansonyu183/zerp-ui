@@ -21,6 +21,8 @@ import {
 } from "./shell-interaction-smoke.mjs";
 import { voucherOperationSmoke } from "./voucher-operation-smoke.mjs";
 import { chromium } from "@playwright/test";
+import { capabilitiesSmoke } from "./capabilities-smoke.mjs";
+const capabilitiesMode = process.argv.includes("--capabilities");
 const detailsMode = process.argv.includes("--details");
 const shellMode = process.argv.includes("--shell");
 const workflowMode = process.argv.includes("--workflow");
@@ -86,21 +88,23 @@ await writeFile(
 await cp(
   join(
     root,
-    detailsMode
-      ? "examples/details"
-      : shellMode
-        ? "examples/shell"
-        : workflowMode
-          ? "examples/workflow"
-          : voucherMode
-            ? "examples/voucher"
-            : documentMode
-              ? "examples/document"
-              : reportMode
-                ? "examples/report"
-                : configuration
-                  ? "examples/configuration"
-                  : "examples/direct",
+    capabilitiesMode
+      ? "examples/capabilities"
+      : detailsMode
+        ? "examples/details"
+        : shellMode
+          ? "examples/shell"
+          : workflowMode
+            ? "examples/workflow"
+            : voucherMode
+              ? "examples/voucher"
+              : documentMode
+                ? "examples/document"
+                : reportMode
+                  ? "examples/report"
+                  : configuration
+                    ? "examples/configuration"
+                    : "examples/direct",
   ),
   consumer,
   {
@@ -180,21 +184,23 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    detailsMode
-      ? "tests/details.type-test.ts"
-      : shellMode
-        ? "tests/shell.type-test.ts"
-        : workflowMode
-          ? "tests/workflow.type-test.ts"
-          : voucherMode
-            ? "tests/voucher.type-test.ts"
-            : documentMode
-              ? "tests/document.type-test.ts"
-              : reportMode
-                ? "tests/report.type-test.ts"
-                : configuration
-                  ? "tests/configuration.type-test.ts"
-                  : "tests/contracts.type-test.ts",
+    capabilitiesMode
+      ? "tests/capabilities.type-test.ts"
+      : detailsMode
+        ? "tests/details.type-test.ts"
+        : shellMode
+          ? "tests/shell.type-test.ts"
+          : workflowMode
+            ? "tests/workflow.type-test.ts"
+            : voucherMode
+              ? "tests/voucher.type-test.ts"
+              : documentMode
+                ? "tests/document.type-test.ts"
+                : reportMode
+                  ? "tests/report.type-test.ts"
+                  : configuration
+                    ? "tests/configuration.type-test.ts"
+                    : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
@@ -318,37 +324,41 @@ try {
   };
   observe(page);
   await page.goto(`http://127.0.0.1:${address.port}`);
-  const smoke = detailsMode
-    ? detailsSmoke
-    : shellMode
-      ? shellSmoke
-      : workflowMode
-        ? workflowSmoke
-        : voucherMode
-          ? voucherSmoke
-          : documentMode
-            ? documentSmoke
-            : reportMode
-              ? reportSmoke
-              : configuration
-                ? configurationSmoke
-                : directSmoke;
+  const smoke = capabilitiesMode
+    ? capabilitiesSmoke
+    : detailsMode
+      ? detailsSmoke
+      : shellMode
+        ? shellSmoke
+        : workflowMode
+          ? workflowSmoke
+          : voucherMode
+            ? voucherSmoke
+            : documentMode
+              ? documentSmoke
+              : reportMode
+                ? reportSmoke
+                : configuration
+                  ? configurationSmoke
+                  : directSmoke;
   await smoke(page);
-  const exampleName = detailsMode
-    ? "details"
-    : shellMode
-      ? "shell"
-      : workflowMode
-        ? "workflow"
-        : voucherMode
-          ? "voucher"
-          : documentMode
-            ? "document"
-            : reportMode
-              ? "report"
-              : configuration
-                ? "configuration"
-                : "direct";
+  const exampleName = capabilitiesMode
+    ? "capabilities"
+    : detailsMode
+      ? "details"
+      : shellMode
+        ? "shell"
+        : workflowMode
+          ? "workflow"
+          : voucherMode
+            ? "voucher"
+            : documentMode
+              ? "document"
+              : reportMode
+                ? "report"
+                : configuration
+                  ? "configuration"
+                  : "direct";
   const exampleRoot = join(root, "examples", exampleName);
   const exampleServer = await preview({
     root: exampleRoot,

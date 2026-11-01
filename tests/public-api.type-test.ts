@@ -30,7 +30,7 @@ import type { CrudViewHandle } from "@zerp/ui";
 // @ts-expect-error Runtime VM handles cannot be imported.
 import type { ConfigurationViewHandle } from "@zerp/ui";
 // @ts-expect-error Runtime VM handles cannot be imported.
-import type { VoucherOperationHandle } from "@zerp/ui";
+import type { OperationHandle } from "@zerp/ui";
 // @ts-expect-error Runtime VM handles cannot be imported.
 import type { EditGuardHandle } from "@zerp/ui";
 // @ts-expect-error Private source subpaths are not package exports.
@@ -55,7 +55,7 @@ void [
 export type RemovedHandles = [
   CrudViewHandle,
   ConfigurationViewHandle,
-  VoucherOperationHandle,
+  OperationHandle,
   EditGuardHandle,
 ];
 

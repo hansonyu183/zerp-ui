@@ -104,29 +104,26 @@ defineCrudPage({
 void unsafePage;
 
 import {
-  defineVoucherOperationPage,
-  type VoucherOperationAction,
-  type VoucherOperationDefinition,
-  type VoucherOperationIntent,
-  type VoucherOperationPreview,
+  defineOperationPage,
+  type OperationAction,
+  type OperationDefinition,
+  type OperationIntent,
+  type OperationPreview,
 } from "@zerp/ui";
 type OperationModel = {
-  [K in VoucherOperationAction]: {
+  [K in OperationAction]: {
     input: { note: string };
-    preview: VoucherOperationPreview;
+    preview: OperationPreview;
     evidence: { proof: number };
   };
 };
-declare const operationDefinition: VoucherOperationDefinition<
+declare const operationDefinition: OperationDefinition<
   OperationModel,
   { id: string },
   number
 >;
-declare const operationIntent: VoucherOperationIntent<
-  OperationModel,
-  { id: string }
->;
-defineVoucherOperationPage({
+declare const operationIntent: OperationIntent<OperationModel, { id: string }>;
+defineOperationPage({
   title: "办理",
   definition: operationDefinition,
   intent: operationIntent,
@@ -139,7 +136,7 @@ defineVoucherOperationPage({
     void proof;
   },
 });
-defineVoucherOperationPage({
+defineOperationPage({
   title: "办理",
   definition: operationDefinition,
   // @ts-expect-error The definition carries its exact action/input/evidence model through inference.
@@ -147,7 +144,7 @@ defineVoucherOperationPage({
   eligible: true,
   recoveryAllowed: true,
 });
-defineVoucherOperationPage({
+defineOperationPage({
   title: "办理",
   definition: operationDefinition,
   // @ts-expect-error Identity does not widen through the operation page factory.

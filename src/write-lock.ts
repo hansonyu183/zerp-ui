@@ -1,9 +1,10 @@
 import { shallowReactive } from "vue";
 import type { Attempt } from "./contracts";
 type Lock<A, C = unknown> = {
-  phase: "idle" | "pending" | "unknown" | "refresh";
+  phase: "idle" | "pending" | "unknown" | "refresh" | "blocked";
   attempt: A | null;
   context?: C;
+  outcome?: "applied" | "not-applied";
 };
 // Keep unresolved writes across component removal and scope changes. Adapter identity
 // must remain stable for the lifetime of a consumer session; no public unlock API.

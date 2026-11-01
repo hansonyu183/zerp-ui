@@ -1,7 +1,4 @@
-import type {
-  VoucherOperationOwner,
-  VoucherOperationPersistence,
-} from "@zerp/ui";
+import type { OperationOwner, OperationPersistence } from "@zerp/ui";
 import {
   decodeJournal,
   type SyntheticModel,
@@ -21,10 +18,10 @@ export function operationJournal() {
       request.onsuccess = () => resolve(request.result);
       request.onblocked = () => reject(new Error("合成存储升级被其它页面占用"));
     }));
-  const key = (owner: VoucherOperationOwner) =>
+  const key = (owner: OperationOwner) =>
     JSON.stringify([owner.scope, owner.operator, owner.resource]);
   async function transaction(
-    owner: VoucherOperationOwner,
+    owner: OperationOwner,
     mode: IDBTransactionMode,
     apply: (
       store: IDBObjectStore,
@@ -57,74 +54,76 @@ export function operationJournal() {
         reject(failure ?? tx.error ?? new Error("合成原请求事务失败"));
     });
   }
-  const persistence: VoucherOperationPersistence<
-    SyntheticModel,
-    Identity,
-    Baseline
-  > = {
-    async load(owner, requestId) {
-      return transaction(
-        owner,
-        "readonly",
-        (_store, record) => record,
-        requestId,
-      );
-    },
-    async save(record, expectedId) {
-      const checked = decodeJournal(record);
-      await transaction(
-        checked.request.owner,
-        "readwrite",
-        (store, existing) => {
-          if (
-            (existing && !existing.completed
-              ? existing.request.requestId
-              : null) !== expectedId
-          )
-            throw new Error("原请求槽已占用或发生并发变化");
-          if (
-            expectedId !== null &&
-            existing &&
-            existing.request.binding !== checked.request.binding
-          )
-            throw new Error("拒绝改写原请求完整输入");
-          if (
-            expectedId !== null &&
-            existing?.receipt?.status === "applied" &&
-            checked.receipt?.status !== "applied"
-          )
-            throw new Error("拒绝回退已应用回执");
-          if (
-            expectedId !== null &&
-            existing?.receipt?.status === "not-applied" &&
-            existing.receipt.sealed &&
-            (checked.receipt?.status !== "not-applied" ||
-              !checked.receipt.sealed)
-          )
-            throw new Error("拒绝回退已封存回执");
-          if (expectedId !== null && existing?.refreshed && !checked.refreshed)
-            throw new Error("拒绝回退读取完成记录");
-          store.put(checked, key(checked.request.owner));
-          store.put(
-            checked,
-            `${key(checked.request.owner)}:request:${checked.request.requestId}`,
-          );
-          return checked;
-        },
-      );
-    },
-    async remove(owner, expectedId) {
-      await transaction(owner, "readwrite", (store, existing) => {
-        if (existing?.request.requestId !== expectedId)
-          throw new Error("拒绝删除另一原请求");
-        if (!existing.refreshed) throw new Error("拒绝清理未完成读取的原请求");
-        const completed = decodeJournal({ ...existing, completed: true });
-        store.put(completed, key(owner));
-        store.put(completed, `${key(owner)}:request:${expectedId}`);
-        return completed;
-      });
-    },
-  };
+  const persistence: OperationPersistence<SyntheticModel, Identity, Baseline> =
+    {
+      async load(owner, requestId) {
+        return transaction(
+          owner,
+          "readonly",
+          (_store, record) => record,
+          requestId,
+        );
+      },
+      async save(record, expectedId) {
+        const checked = decodeJournal(record);
+        await transaction(
+          checked.request.owner,
+          "readwrite",
+          (store, existing) => {
+            if (
+              (existing && !existing.completed
+                ? existing.request.requestId
+                : null) !== expectedId
+            )
+              throw new Error("原请求槽已占用或发生并发变化");
+            if (
+              expectedId !== null &&
+              existing &&
+              existing.request.binding !== checked.request.binding
+            )
+              throw new Error("拒绝改写原请求完整输入");
+            if (
+              expectedId !== null &&
+              existing?.receipt?.status === "applied" &&
+              checked.receipt?.status !== "applied"
+            )
+              throw new Error("拒绝回退已应用回执");
+            if (
+              expectedId !== null &&
+              existing?.receipt?.status === "not-applied" &&
+              existing.receipt.sealed &&
+              (checked.receipt?.status !== "not-applied" ||
+                !checked.receipt.sealed)
+            )
+              throw new Error("拒绝回退已封存回执");
+            if (
+              expectedId !== null &&
+              existing?.refreshed &&
+              !checked.refreshed
+            )
+              throw new Error("拒绝回退读取完成记录");
+            store.put(checked, key(checked.request.owner));
+            store.put(
+              checked,
+              `${key(checked.request.owner)}:request:${checked.request.requestId}`,
+            );
+            return checked;
+          },
+        );
+      },
+      async remove(owner, expectedId) {
+        await transaction(owner, "readwrite", (store, existing) => {
+          if (existing?.request.requestId !== expectedId)
+            throw new Error("拒绝删除另一原请求");
+          if (!existing.refreshed)
+            throw new Error("拒绝清理未完成读取的原请求");
+          const completed = decodeJournal({ ...existing, completed: true });
+          store.put(completed, key(owner));
+          store.put(completed, `${key(owner)}:request:${expectedId}`);
+          return completed;
+        });
+      },
+    };
   return {
     persistence,
     close() {

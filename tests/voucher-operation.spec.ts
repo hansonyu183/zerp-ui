@@ -1,7 +1,7 @@
 import { reactive, type Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import OperationPrototype from "../src/VoucherOperationRuntime.vue";
+import OperationPrototype from "../src/OperationRuntime.vue";
 import {
   synthetic,
   type SyntheticModel,
@@ -10,8 +10,8 @@ import {
   type Store,
   type SyntheticRequest,
 } from "../examples/voucher/operation-adapter";
-import type { VoucherOperationIntent } from "../src/index";
-import type { VoucherOperationHandle } from "../src/voucher-operation";
+import type { OperationIntent } from "../src/index";
+import type { OperationHandle } from "../src/operation";
 // Web Locks is the browser concurrency seam; real cross-page behavior is exercised in the installed consumer.
 Object.defineProperty(navigator, "locks", {
   configurable: true,
@@ -39,7 +39,7 @@ function setup() {
   );
   definition.adapter.reconcile = vi.fn(definition.adapter.reconcile);
   definition.adapter.execute = vi.fn(definition.adapter.execute);
-  const intent: VoucherOperationIntent<SyntheticModel, Identity> = {
+  const intent: OperationIntent<SyntheticModel, Identity> = {
     action: "void",
     owner: { operator: "a", scope: "session-1", resource: "voucher" },
     identity: { voucher: "one" },
@@ -184,9 +184,7 @@ it("shows a complete authoritative preview and cancels locally without persisten
 
 it("invalidates a content preview when its input changes but keeps an executed original recoverable", async () => {
   const f = setup();
-  const intent = reactive<
-    VoucherOperationIntent<SyntheticModel, Identity, "edit">
-  >({
+  const intent = reactive<OperationIntent<SyntheticModel, Identity, "edit">>({
     action: "edit",
     owner: f.intent.owner,
     identity: { voucher: "content-one" },
@@ -715,7 +713,7 @@ it("exposes preparation only, reports local protection, and requires explicit fu
   };
   const w = f.start();
   await flushPromises();
-  const handle = w.vm as unknown as VoucherOperationHandle;
+  const handle = w.vm as unknown as OperationHandle;
   const work = handle.prepare();
   await flushPromises();
   expect(w.emitted("protection")?.at(-1)?.[0]).toEqual({
@@ -829,7 +827,7 @@ it("discards externally started unsent preparation after input change", async ()
   };
   const w = f.start();
   await flushPromises();
-  const work = (w.vm as unknown as VoucherOperationHandle).prepare();
+  const work = (w.vm as unknown as OperationHandle).prepare();
   await flushPromises();
   await w.setProps({ intent: { ...f.intent, input: { note: "new input" } } });
   gate.resolve();

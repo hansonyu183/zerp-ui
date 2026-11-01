@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch, onBeforeUnmount } from "vue";
 import {
-  defineVoucherOperationPage,
+  defineOperationPage,
   type VoucherEditorValue,
   type VoucherEditorDefinition,
 } from "@zerp/ui";
 import ExamplePage from "../shared/ExamplePage.vue";
 import {
-  voucherOperationLabels,
+  operationLabels,
   type EditProtection,
-  type VoucherOperationAction,
-  type VoucherOperationIntent,
-  type VoucherOperationSettlement,
+  type OperationAction,
+  type OperationIntent,
+  type OperationSettlement,
 } from "@zerp/ui";
 import {
   synthetic,
@@ -28,7 +28,7 @@ const protection = ref<EditProtection>({
   invalid: false,
   writeState: "blocked",
 });
-const action = ref<VoucherOperationAction>("void"),
+const action = ref<OperationAction>("void"),
   operator = ref("synthetic-a"),
   note = ref("合成办理原因"),
   scenario = ref<Scenario>("success"),
@@ -69,7 +69,7 @@ definition.sealLabel = "封存未应用办理";
 function showResult({
   request,
   receipt,
-}: VoucherOperationSettlement<SyntheticModel, Identity, Baseline>) {
+}: OperationSettlement<SyntheticModel, Identity, Baseline>) {
   if (receipt.status !== "applied" || !("result" in receipt.evidence)) return;
   if (!receipt.evidence.result.voucher) throw new Error("合成权威结果缺少身份");
   result.value = {
@@ -159,28 +159,26 @@ onBeforeUnmount(() => {
   window.removeEventListener("pagehide", close);
   close();
 });
-const intent = computed<VoucherOperationIntent<SyntheticModel, Identity>>(
-  () => {
-    const base = {
-      identity: identity.value,
-      owner: {
-        operator: operator.value,
-        scope: "synthetic-session",
-        resource: "synthetic-voucher",
-      },
-    };
-    return action.value === "create" || action.value === "edit"
-      ? {
-          ...base,
-          action: action.value,
-          input: {
-            note: note.value,
-            rows: rows.value.map((row) => ({ ...row })),
-          },
-        }
-      : { ...base, action: action.value, input: { note: note.value } };
-  },
-);
+const intent = computed<OperationIntent<SyntheticModel, Identity>>(() => {
+  const base = {
+    identity: identity.value,
+    owner: {
+      operator: operator.value,
+      scope: "synthetic-session",
+      resource: "synthetic-voucher",
+    },
+  };
+  return action.value === "create" || action.value === "edit"
+    ? {
+        ...base,
+        action: action.value,
+        input: {
+          note: note.value,
+          rows: rows.value.map((row) => ({ ...row })),
+        },
+      }
+    : { ...base, action: action.value, input: { note: note.value } };
+});
 type Header = { note: string };
 type Row = { key: string; quantity: string };
 const editorDefinition: VoucherEditorDefinition<Header, Row> = {
@@ -190,7 +188,7 @@ const editorDefinition: VoucherEditorDefinition<Header, Row> = {
   rowKey: (row) => row.key,
   emptyRow: emptyContentRow,
 };
-const page = defineVoucherOperationPage(() => ({
+const page = defineOperationPage(() => ({
   title: "独立单据办理示例 · #25",
   definition,
   intent: intent.value,
@@ -203,8 +201,8 @@ const page = defineVoucherOperationPage(() => ({
     value: editor.value,
     toIntent: (
       content: VoucherEditorValue<Header, Row>,
-      base: VoucherOperationIntent<SyntheticModel, Identity>,
-    ): VoucherOperationIntent<SyntheticModel, Identity> =>
+      base: OperationIntent<SyntheticModel, Identity>,
+    ): OperationIntent<SyntheticModel, Identity> =>
       base.action === "create" || base.action === "edit"
         ? {
             ...base,
@@ -215,7 +213,7 @@ const page = defineVoucherOperationPage(() => ({
           }
         : { ...base, input: { note: content.header.note } },
     restore: (
-      request: VoucherOperationSettlement<
+      request: OperationSettlement<
         SyntheticModel,
         Identity,
         Baseline
@@ -225,11 +223,7 @@ const page = defineVoucherOperationPage(() => ({
         ? { header: { note: request.input.note }, rows: request.input.rows }
         : null,
     adopt: (
-      settlement: VoucherOperationSettlement<
-        SyntheticModel,
-        Identity,
-        Baseline
-      >,
+      settlement: OperationSettlement<SyntheticModel, Identity, Baseline>,
     ) => {
       const { request, receipt } = settlement;
       if (
@@ -267,7 +261,7 @@ const page = defineVoucherOperationPage(() => ({
       <label
         >办理动作<select v-model="action" aria-label="办理动作">
           <option
-            v-for="(label, key) in voucherOperationLabels"
+            v-for="(label, key) in operationLabels"
             :key="key"
             :value="key"
           >

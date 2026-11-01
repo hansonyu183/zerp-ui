@@ -1,3 +1,5 @@
+import type { WritePersistence } from "./write-recovery";
+import type { DraftCollaboration } from "./collaboration";
 export type Page<T> = { items: readonly T[] } & (
   { total: number; hasMore?: never } | { hasMore: boolean; total?: never }
 );
@@ -158,6 +160,8 @@ export type CrudDefinition<
   viewLabel?: (row: R) => string;
   viewTitle?: string;
   adapter: CrudAdapter<D, F, R, I>;
+  collaboration?: DraftCollaboration<D, unknown>;
+  persistence?: WritePersistence<Attempt<D, I>>;
   reconcile?: (attempt: Attempt<D, I>) => Promise<ReconcileResult<E>>;
 };
 export function defineCrud<

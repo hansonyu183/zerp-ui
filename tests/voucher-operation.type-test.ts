@@ -1,44 +1,38 @@
 import type {
-  VoucherOperationDefinition,
-  VoucherOperationIntent,
-  VoucherOperationPreview,
-  VoucherOperationReceipt,
-  VoucherOperationRequest,
-  VoucherOperationJournal,
-  VoucherOperationSettlement,
+  OperationDefinition,
+  OperationIntent,
+  OperationPreview,
+  OperationReceipt,
+  OperationRequest,
+  OperationJournal,
+  OperationSettlement,
 } from "../src/index";
 import type {
   SyntheticModel,
   Identity,
   Baseline,
 } from "../examples/voucher/operation-adapter";
-type VoucherOperationModel = Omit<SyntheticModel, "void"> & {
+type OperationModel = Omit<SyntheticModel, "void"> & {
   void: {
     input: { reason: string };
-    preview: VoucherOperationPreview & { action: "void" };
+    preview: OperationPreview & { action: "void" };
     evidence: { reversalReceipt: string };
   };
 };
-const intent: VoucherOperationIntent<VoucherOperationModel, Identity, "void"> =
-  {
-    action: "void",
-    owner: { operator: "a", scope: "s", resource: "v" },
-    identity: { voucher: "v1" },
-    input: { reason: "原原因" },
-  };
-const request: VoucherOperationRequest<
-  VoucherOperationModel,
-  Identity,
-  Baseline,
-  "void"
-> = {
+const intent: OperationIntent<OperationModel, Identity, "void"> = {
+  action: "void",
+  owner: { operator: "a", scope: "s", resource: "v" },
+  identity: { voucher: "v1" },
+  input: { reason: "原原因" },
+};
+const request: OperationRequest<OperationModel, Identity, Baseline, "void"> = {
   ...intent,
   requestId: "original",
   binding: "consumer-authoritative-binding",
   concurrency: { revision: "r1", configuration: "c1" },
   preview: { action: "void", title: "完整预览", sections: [] },
 };
-const receipt: VoucherOperationReceipt<VoucherOperationModel, "void"> = {
+const receipt: OperationReceipt<OperationModel, "void"> = {
   status: "not-applied",
   sealed: false,
   action: "void",
@@ -47,22 +41,18 @@ const receipt: VoucherOperationReceipt<VoucherOperationModel, "void"> = {
   binding: request.binding,
   evidence: { reversalReceipt: "fenced-proof" },
 };
-const wrongAction: VoucherOperationIntent<VoucherOperationModel, Identity> = {
+const wrongAction: OperationIntent<OperationModel, Identity> = {
   ...intent,
   // @ts-expect-error Arbitrary string commands are not part of the finite action set.
   action: "run-script",
 };
-const wrongInput: VoucherOperationIntent<
-  VoucherOperationModel,
-  Identity,
-  "void"
-> = {
+const wrongInput: OperationIntent<OperationModel, Identity, "void"> = {
   ...intent,
   // @ts-expect-error Input of a send action cannot be used for void.
   input: { note: "foreign" },
 };
-const wrongIdentity: VoucherOperationRequest<
-  VoucherOperationModel,
+const wrongIdentity: OperationRequest<
+  OperationModel,
   Identity,
   Baseline,
   "void"
@@ -71,8 +61,8 @@ const wrongIdentity: VoucherOperationRequest<
   // @ts-expect-error Company DTO identity must be paired with this definition.
   identity: { customer: "x" },
 };
-const wrongConcurrency: VoucherOperationRequest<
-  VoucherOperationModel,
+const wrongConcurrency: OperationRequest<
+  OperationModel,
   Identity,
   Baseline,
   "void"
@@ -81,40 +71,35 @@ const wrongConcurrency: VoucherOperationRequest<
   // @ts-expect-error A foreign concurrency fact cannot replace the accepted baseline/configuration.
   concurrency: { etag: "foreign" },
 };
-const wrongPreview: VoucherOperationRequest<
-  VoucherOperationModel,
+const wrongPreview: OperationRequest<
+  OperationModel,
   Identity,
   Baseline,
   "void"
 > = {
   ...request,
-  // @ts-expect-error VoucherOperationPreview is paired to the original action.
+  // @ts-expect-error OperationPreview is paired to the original action.
   preview: { action: "send", title: "foreign", sections: [] },
 };
-const wrongEvidence: VoucherOperationReceipt<VoucherOperationModel, "void"> = {
+const wrongEvidence: OperationReceipt<OperationModel, "void"> = {
   ...receipt,
   // @ts-expect-error A submission ID or foreign action proof is not a void receipt.
   evidence: { submission: "fake" },
 };
-const record: VoucherOperationJournal<
-  VoucherOperationModel,
-  Identity,
-  Baseline
-> = { request, receipt };
-const wrongProtocol: VoucherOperationDefinition<
-  VoucherOperationModel,
-  Identity,
-  Baseline
-> = {
+const record: OperationJournal<OperationModel, Identity, Baseline> = {
+  request,
+  receipt,
+};
+const wrongProtocol: OperationDefinition<OperationModel, Identity, Baseline> = {
   // @ts-expect-error Submission and operation protocols cannot be interchanged.
   protocol: "submission",
-  adapter: {} as VoucherOperationDefinition<
-    VoucherOperationModel,
+  adapter: {} as OperationDefinition<
+    OperationModel,
     Identity,
     Baseline
   >["adapter"],
-  persistence: {} as VoucherOperationDefinition<
-    VoucherOperationModel,
+  persistence: {} as OperationDefinition<
+    OperationModel,
     Identity,
     Baseline
   >["persistence"],
@@ -129,7 +114,7 @@ void [
   record,
   wrongProtocol,
 ];
-const foreignReceipt: VoucherOperationReceipt<VoucherOperationModel, "send"> = {
+const foreignReceipt: OperationReceipt<OperationModel, "send"> = {
   status: "applied",
   owner: intent.owner,
   requestId: "foreign",
@@ -137,25 +122,20 @@ const foreignReceipt: VoucherOperationReceipt<VoucherOperationModel, "send"> = {
   action: "send",
   evidence: { action: "send", receipt: "foreign" },
 };
-const paired: VoucherOperationJournal<
-  VoucherOperationModel,
-  Identity,
-  Baseline,
-  "void"
-> = {
+const paired: OperationJournal<OperationModel, Identity, Baseline, "void"> = {
   request,
   // @ts-expect-error A send receipt cannot settle a void request, even in durable recovery.
   receipt: foreignReceipt,
 };
 void paired;
 
-const create: VoucherOperationIntent<SyntheticModel, Identity, "create"> = {
+const create: OperationIntent<SyntheticModel, Identity, "create"> = {
   action: "create",
   owner: intent.owner,
   identity: { voucher: null },
   input: { note: "新内容", rows: [{ key: "r1", quantity: "1.0100" }] },
 };
-const createdRequest: VoucherOperationRequest<
+const createdRequest: OperationRequest<
   SyntheticModel,
   Identity,
   Baseline,
@@ -167,7 +147,7 @@ const createdRequest: VoucherOperationRequest<
   concurrency: request.concurrency,
   preview: { action: "create", title: "创建预览", sections: [] },
 };
-const createdReceipt: VoucherOperationReceipt<SyntheticModel, "create"> = {
+const createdReceipt: OperationReceipt<SyntheticModel, "create"> = {
   action: "create",
   status: "applied",
   owner: intent.owner,
@@ -179,22 +159,17 @@ const createdReceipt: VoucherOperationReceipt<SyntheticModel, "create"> = {
     result: { voucher: "new-server-identity", deleted: false },
   },
 };
-const settled: VoucherOperationSettlement<SyntheticModel, Identity, Baseline> =
-  {
-    request: createdRequest,
-    receipt: createdReceipt,
-  };
+const settled: OperationSettlement<SyntheticModel, Identity, Baseline> = {
+  request: createdRequest,
+  receipt: createdReceipt,
+};
 // @ts-expect-error A state receipt cannot settle a content create request.
-const mismatchedSettlement: VoucherOperationSettlement<
+const mismatchedSettlement: OperationSettlement<
   SyntheticModel,
   Identity,
   Baseline
 > = { request: createdRequest, receipt: foreignReceipt };
-const invalidCreate: VoucherOperationIntent<
-  SyntheticModel,
-  Identity,
-  "create"
-> = {
+const invalidCreate: OperationIntent<SyntheticModel, Identity, "create"> = {
   ...create,
   // @ts-expect-error Content requests require their complete typed input, not a reason-only state input.
   input: { note: "missing rows" },

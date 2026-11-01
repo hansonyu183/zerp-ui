@@ -1,3 +1,4 @@
+import type { DraftCollaboration } from "./collaboration";
 import { h, toValue, type MaybeRefOrGetter, type VNodeChild } from "vue";
 import DetailsPageView from "./DetailsPage.vue";
 import type { DetailGroup } from "./details";
@@ -6,6 +7,8 @@ import { clone } from "./clone";
 
 export type AppPageHandle = { requestLeave(): Promise<boolean> };
 export type PageKind =
+  | "batch"
+  | "task"
   | "crud"
   | "configuration"
   | "report"
@@ -472,14 +475,14 @@ import type {
   VoucherEditorValue,
 } from "./voucher-editor";
 import type {
-  VoucherOperationModel,
-  VoucherOperationDefinition,
-  VoucherOperationIntent,
-  VoucherOperationRequest,
-  VoucherOperationSettlement,
-} from "./voucher-operation";
-export type VoucherOperationPage<
-  M extends VoucherOperationModel,
+  OperationModel,
+  OperationDefinition,
+  OperationIntent,
+  OperationRequest,
+  OperationSettlement,
+} from "./operation";
+export type OperationPageDefinition<
+  M extends OperationModel,
   I,
   B,
   H extends object = object,
@@ -487,35 +490,38 @@ export type VoucherOperationPage<
   C extends object = object,
 > = ProtectedPage & {
   title: string;
-  definition: VoucherOperationDefinition<M, I, B>;
-  intent: VoucherOperationIntent<M, I>;
+  definition: OperationDefinition<M, I, B>;
+  intent: OperationIntent<M, I>;
   eligible: boolean;
   recoveryAllowed: boolean;
   editor?: {
     definition: VoucherEditorDefinition<H, R, C>;
     value: VoucherEditorValue<H, R>;
+    collaboration?: DraftCollaboration<VoucherEditorValue<H, R>, unknown>;
     toIntent: (
       value: VoucherEditorValue<H, R>,
-      base: VoucherOperationIntent<M, I>,
-    ) => VoucherOperationIntent<M, I>;
+      base: OperationIntent<M, I>,
+    ) => OperationIntent<M, I>;
     restore: (
-      request: VoucherOperationRequest<M, I, B>,
+      request: OperationRequest<M, I, B>,
     ) => VoucherEditorValue<H, R> | null;
-    adopt: (settlement: VoucherOperationSettlement<M, I, B>) => {
+    adopt: (settlement: OperationSettlement<M, I, B>) => {
       value: VoucherEditorValue<H, R>;
-      intent: VoucherOperationIntent<M, I>;
+      intent: OperationIntent<M, I>;
     } | null;
   };
-  onSettled?: (value: VoucherOperationSettlement<M, I, B>) => void;
+  onSettled?: (value: OperationSettlement<M, I, B>) => void;
 };
-export function defineVoucherOperationPage<
-  M extends VoucherOperationModel,
+export function defineOperationPage<
+  M extends OperationModel,
   I,
   B,
   H extends object = object,
   R extends object = object,
   C extends object = object,
->(source: PageSource<VoucherOperationPage<M, I, B, H, R, C>>): PageDefinition {
+>(
+  source: PageSource<OperationPageDefinition<M, I, B, H, R, C>>,
+): PageDefinition {
   return page(
     "voucher",
     () => {
@@ -596,5 +602,69 @@ export function defineAccountPage<D extends object>(
         onProtection: protect(context, value),
       }),
     (value) => ({ record: value.kind }),
+  );
+}
+
+import TaskPageView from "./TaskPage.vue";
+import type { TaskPage } from "./tasks";
+export function defineTaskPage<
+  D extends object,
+  M extends OperationModel,
+  I,
+  B,
+>(source: PageSource<TaskPage<D, M, I, B>>): PageDefinition {
+  return page(
+    "task",
+    () => {
+      const value = toValue(source);
+      return {
+        ...value,
+        owner: clone(value.owner),
+        identity: clone(value.identity),
+        values: clone(value.values),
+      };
+    },
+    (value, context) =>
+      h(TaskPageView<D, M, I, B>, {
+        options: value,
+        scope: context.scope,
+        discardVersion: context.discardVersion,
+        onProtection: protect(context, value),
+      }),
+    (value) => ({
+      definition: value.definition,
+      record: [value.owner.resource, value.instance],
+      security: [value.owner.scope, value.owner.operator],
+    }),
+  );
+}
+
+import BatchPageView from "./BatchPage.vue";
+import type { BatchPage } from "./batch";
+export function defineBatchPage<M extends OperationModel, I, B>(
+  source: PageSource<BatchPage<M, I, B>>,
+): PageDefinition {
+  return page(
+    "batch",
+    () => {
+      const value = toValue(source);
+      return {
+        ...value,
+        owner: clone(value.owner),
+        entries: clone(value.entries),
+      };
+    },
+    (value, context) =>
+      h(BatchPageView<M, I, B>, {
+        options: value,
+        scope: context.scope,
+        onProtection: protect(context, value),
+      }),
+    (value) => ({
+      definition: value.definition,
+      scriptDefinition: value.persistence,
+      record: value.owner.resource,
+      security: [value.owner.scope, value.owner.operator],
+    }),
   );
 }

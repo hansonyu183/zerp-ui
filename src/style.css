@@ -367,3 +367,9 @@
 .zerp-progress-reserve {
   block-size: 4px;
 }
+
+.zerp-print-preview {
+  width: 100%;
+  height: 70vh;
+  border: 0;
+}
