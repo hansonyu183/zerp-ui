@@ -22,6 +22,7 @@ import {
 import { voucherOperationSmoke } from "./voucher-operation-smoke.mjs";
 import { chromium } from "@playwright/test";
 import { capabilitiesSmoke } from "./capabilities-smoke.mjs";
+import { materialShellSmoke } from "./material-shell-smoke.mjs";
 const capabilitiesMode = process.argv.includes("--capabilities");
 const detailsMode = process.argv.includes("--details");
 const shellMode = process.argv.includes("--shell");
@@ -636,7 +637,7 @@ async function directSmoke(page) {
     .getByRole("button", { name: "查看历史资料接缝", exact: true })
     .click();
   await contracts
-    .getByRole("dialog", { name: "查看资料", exact: true })
+    .getByRole("region", { name: "查看资料", exact: true })
     .getByText("（空字符串）")
     .waitFor();
   assert.equal(
@@ -662,7 +663,7 @@ async function configurationSmoke(page) {
   const scenario = (value) => page.getByLabel("写入情景").selectOption(value);
   const edit = async () => {
     await button("编辑").click();
-    await page.getByRole("dialog", { name: "编辑配置" }).waitFor();
+    await page.getByRole("region", { name: "编辑配置" }).waitFor();
   };
   const save = () => button("保存").click();
   await page
@@ -672,7 +673,10 @@ async function configurationSmoke(page) {
   await page
     .getByRole("textbox", { name: "名称", exact: true })
     .fill("离仓配置");
-  await page.getByLabel("映射目标").selectOption("目标乙");
+  await page
+    .getByRole("combobox", { name: "映射目标", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "目标乙", exact: true }).click();
   await save();
   await page.getByRole("cell", { name: "离仓配置", exact: true }).waitFor();
   await edit();
@@ -1013,7 +1017,10 @@ async function documentSmoke(page) {
   await button("编辑档案").click();
   await name().fill("新候选定价");
   await button("编辑合成客户定价 1").click();
-  await page.getByLabel("定价客户").selectOption("客户乙");
+  await page
+    .getByRole("combobox", { name: "定价客户", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "客户乙", exact: true }).click();
   await button("确定合成客户定价").click();
   await page.getByLabel("本地附件").setInputFiles({
     name: "synthetic.txt",
@@ -1081,7 +1088,10 @@ async function documentSmoke(page) {
   await page.getByText("0.0100", { exact: true }).waitFor();
   await button("编辑档案").click();
   await button("编辑合成产品配方 1").click();
-  await page.getByLabel("配方原料").selectOption("b");
+  await page
+    .getByRole("combobox", { name: "配方原料", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "合成原料乙", exact: true }).click();
   await page.getByLabel("配方用量").fill("1.2300");
   await button("确定合成产品配方").click();
   await scenario("conflict");
@@ -1298,7 +1308,10 @@ async function workflowSmoke(page) {
   await button("重试读取").click();
   await button("查看 流程一").click();
   assert.equal(await page.getByText("未授权目标", { exact: true }).count(), 0);
-  await page.getByLabel("根节点创建目标").selectOption("receipt");
+  await page
+    .getByRole("combobox", { name: "根节点创建目标", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "合成收据", exact: true }).click();
   await scenario("unknown");
   await button("创建下级").click();
   await page
@@ -1365,7 +1378,10 @@ async function workflowSmoke(page) {
   assert.ok(await button("创建下级").isDisabled());
   await page.getByLabel("会话作用域").selectOption("session-b");
   await button("查看 流程二").click();
-  await page.getByLabel("根节点创建目标").selectOption("receipt");
+  await page
+    .getByRole("combobox", { name: "根节点创建目标", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "合成收据", exact: true }).click();
   assert.ok(await button("创建下级").isEnabled());
   await page.getByLabel("会话作用域").selectOption("session-a");
   await button("查看 流程二").click();
@@ -1535,4 +1551,5 @@ async function shellSmoke(page) {
   await page
     .getByRole("heading", { name: "合成报表 · 分批", exact: true })
     .waitFor();
+  await materialShellSmoke(page);
 }
