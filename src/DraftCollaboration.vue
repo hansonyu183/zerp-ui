@@ -23,6 +23,7 @@ const emit = defineEmits<{
 const items = shallowRef<readonly Interaction<T>[]>([]),
   answers = shallowRef<InteractionAnswers>({}),
   error = ref("");
+const calculating = ref(false);
 let generation = 0,
   controller: AbortController | undefined,
   adopted: D | undefined,
@@ -38,6 +39,7 @@ async function run(
     value = clone(props.modelValue),
     scope = props.scope,
     instance = props.instance;
+  calculating.value = true;
   emit("pending", true);
   error.value = "";
   try {
@@ -59,6 +61,7 @@ async function run(
       !equalValues(value, props.modelValue)
     )
       return;
+    calculating.value = false;
     const previous = items.value;
     items.value = clone(result.interactions ?? []);
     // Only retain answers for identical prompts, never reinterpret an old answer under a new question.
@@ -90,6 +93,7 @@ async function run(
     );
   } catch (cause) {
     if (alive && epoch === generation && !signal.aborted) {
+      calculating.value = false;
       error.value = message(cause);
       emit("pending", true);
     }
@@ -113,20 +117,32 @@ watch(
       return;
     }
     answers.value = {};
+    items.value = [];
     if (!props.disabled) void run("change");
   },
-  { deep: true },
+  { deep: true, flush: "sync" },
 );
 watch(
   () => props.disabled,
   (disabled) => {
     controller?.abort();
     generation++;
+    calculating.value = false;
+    items.value = [];
+    answers.value = {};
     if (!disabled) void run("change");
   },
 );
 function answer(id: string, value: string | boolean) {
-  if (props.disabled) return;
+  if (
+    props.disabled ||
+    calculating.value ||
+    !items.value.some(
+      (item) =>
+        item.id === id && (item.kind === "confirm" || item.kind === "input"),
+    )
+  )
+    return;
   answers.value = { ...answers.value, [id]: value };
   void run("answer");
 }
@@ -145,8 +161,10 @@ onBeforeUnmount(() => {
   <BusinessInteractions
     :items="items"
     :answers="answers"
-    :disabled="disabled"
+    :disabled="disabled || calculating || !!error"
     @answer="answer"
-    @intent="(target) => run('action', target)"
+    @intent="
+      (target) => !disabled && !calculating && !error && run('action', target)
+    "
   />
 </template>

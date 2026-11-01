@@ -108,6 +108,7 @@ export type {
 
 export { defineOperation, operationLabels } from "./operation";
 export type {
+  OperationAssociation,
   OperationAction,
   OperationOwner,
   OperationPreview,

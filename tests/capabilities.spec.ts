@@ -566,3 +566,230 @@ it("refuses out-of-bounds or active-content image facts instead of rendering uns
   expect(w.text()).toContain("打印内容无效");
   w.unmount();
 });
+it("never adopts the previous completed receipt into a new identical batch after reload", async () => {
+  const op = operation();
+  let stored: BatchJournal<Model, string, number> | null = null;
+  const get = (): BatchJournal<Model, string, number> | null => stored;
+  const options = {
+    title: "重复批次",
+    owner,
+    definition: op.definition,
+    persistence: {
+      load: async () => structuredClone(stored),
+      save: async (value: BatchJournal<Model, string, number>) => {
+        stored = structuredClone(value);
+      },
+    },
+    entries: [
+      {
+        key: "one",
+        label: "唯一项",
+        intent: {
+          owner,
+          identity: "same",
+          action: "process" as const,
+          input: { value: "same" },
+        },
+      },
+    ],
+    eligible: true,
+    recoveryAllowed: true,
+  };
+  let w = await start(defineBatchPage(options));
+  await click(w, "建立批次");
+  await click(w, "准备执行处理");
+  await click(w, "确认执行处理");
+  await click(w, "核实原请求");
+  await click(w, "继续下一项");
+  const previous = get()!.id;
+  await click(w, "建立批次");
+  expect(get()!.id).not.toBe(previous);
+  w.unmount();
+  w = await start(defineBatchPage(options));
+  expect(get()!.entries[0]!.settlement).toBeUndefined();
+  expect(button(w, "继续下一项").attributes("disabled")).toBeDefined();
+  expect(op.execute).toHaveBeenCalledTimes(1);
+  await click(w, "准备执行处理");
+  await click(w, "确认执行处理");
+  expect(op.execute).toHaveBeenCalledTimes(2);
+  w.unmount();
+});
+it("retries saving a known terminal outcome without reconcile or re-executing business", async () => {
+  const store = writeStore<Attempt<{ name: string }, string>>();
+  const d = crud(store.port);
+  d.reconcile = undefined;
+  d.adapter.save = vi.fn(async () => {
+    vi.mocked(store.port.save).mockRejectedValueOnce(Error("终态存储失败"));
+    return { status: "success" as const };
+  });
+  const w = await start(
+    defineCrudPage({
+      definition: d,
+      permissions: { query: true, create: true, write: true },
+      initialRow: { id: "one", name: "原值" },
+      readOnly: false,
+    }),
+  );
+  await click(w, "保存");
+  expect(w.text()).toContain("结果已确认");
+  expect(w.text()).not.toContain("写入结果未知，保持锁定");
+  await click(w, "重试读取");
+  expect(store.value?.completed).toBe(true);
+  expect(d.adapter.save).toHaveBeenCalledTimes(1);
+  expect(button(w, "新增").attributes("disabled")).toBeUndefined();
+  w.unmount();
+});
+it("stores a reconciled configuration creation identity before an authoritative reread can fail", async () => {
+  const store = writeStore<
+    import("../src/index").ConfigurationAttempt<{ name: string }, string>,
+    { retain: boolean; identity?: string }
+  >({
+    attempt: {
+      id: "create-config",
+      scope: "s",
+      resource: "new-config",
+      operation: "save",
+      input: { name: "新配置" },
+    },
+    context: { retain: true },
+  });
+  const get = vi.fn(async () => ({
+    values: { name: "权威配置" },
+    identity: "created-one",
+  }));
+  get.mockRejectedValueOnce(Error("读取失败"));
+  const definition = defineConfiguration<
+    { name: string },
+    {},
+    { id: string },
+    string,
+    { id: string }
+  >({
+    resource: "new-config",
+    title: "新配置",
+    fields: [{ key: "name", label: "名称", type: "text" }],
+    filters: [],
+    initialFilters: () => ({}),
+    columns: [{ key: "id", label: "编号" }],
+    identity: (r) => r.id,
+    persistence: store.port,
+    adapter: {
+      query: async () => ({ items: [{ id: "created-one" }], total: 1 }),
+      get,
+      save: async () => ({ status: "unknown" }),
+    },
+    reconcile: async (a) => ({
+      status: "applied",
+      attemptId: a.id,
+      evidence: { id: a.id },
+      identity: "created-one",
+    }),
+  });
+  let w = await start(
+    defineConfigurationPage({
+      definition,
+      permissions: { read: true, write: true, reconcile: true },
+      retainEditor: true,
+    }),
+  );
+  await click(w, "核实本次请求");
+  expect(store.value?.context?.identity).toBe("created-one");
+  w.unmount();
+  w = await start(
+    defineConfigurationPage({
+      definition: { ...definition, adapter: { ...definition.adapter } },
+      permissions: { read: true, write: true, reconcile: true },
+      retainEditor: true,
+    }),
+  );
+  expect(get).toHaveBeenLastCalledWith({ scope: "s", identity: "created-one" });
+  expect(store.value?.completed).toBe(true);
+  expect(
+    (w.get('input[aria-label="名称"]').element as HTMLInputElement).value,
+  ).toBe("权威配置");
+  w.unmount();
+});
+it("invalidates old prompts while the next draft calculation is pending", async () => {
+  const op = operation();
+  const calls: { event: string; value: string; answers: unknown }[] = [];
+  let resolve!: (value: { value: { value: string }; interactions: [] }) => void;
+  const collaboration: DraftCollaboration<{ value: string }, unknown> = {
+    change: async (input) => {
+      calls.push({
+        event: input.event,
+        value: input.value.value,
+        answers: input.answers,
+      });
+      if (input.value.value === "20")
+        return await new Promise((r) => {
+          resolve = r;
+        });
+      return {
+        value: input.value,
+        interactions: [
+          {
+            kind: "confirm",
+            id: "amount",
+            label: "确认金额10",
+            required: true,
+          },
+        ],
+      };
+    },
+  };
+  const w = await start(
+    defineTaskPage<{ value: string }, Model, string, number>({
+      title: "提示隔离",
+      instance: "one",
+      owner,
+      identity: "one",
+      definition: op.definition,
+      values: { value: "10" },
+      fields: [{ key: "value", label: "金额", type: "text" }],
+      actions: ["process"],
+      toIntent: (value, action, base) => ({ ...base, action, input: value }),
+      eligible: true,
+      recoveryAllowed: true,
+      collaboration,
+    }),
+  );
+  const old = w.get('input[type="checkbox"]');
+  await w.get('input[aria-label="金额"]').setValue("20");
+  await flushPromises();
+  expect(w.find('input[type="checkbox"]').exists()).toBe(false);
+  await old.setValue(true);
+  await flushPromises();
+  expect(calls.some((c) => c.event === "answer")).toBe(false);
+  resolve({ value: { value: "20" }, interactions: [] });
+  await flushPromises();
+  w.unmount();
+});
+it("preserves the durable read marker when completing a known request fails and is retried", async () => {
+  const store = writeStore<Attempt<{ name: string }, string>>();
+  const save = store.port.save;
+  store.port.save = vi.fn(async (journal, expected) => {
+    if (store.value?.refreshed && !journal.refreshed)
+      throw Error("不能回退已完成读取");
+    await save(journal, expected);
+  });
+  vi.mocked(store.port.complete).mockRejectedValueOnce(Error("完成标记失败"));
+  const d = crud(store.port);
+  d.reconcile = undefined;
+  d.adapter.save = vi.fn(async () => ({ status: "success" as const }));
+  const w = await start(
+    defineCrudPage({
+      definition: d,
+      permissions: { query: true, create: true, write: true },
+      initialRow: { id: "one", name: "原值" },
+      readOnly: false,
+    }),
+  );
+  await click(w, "保存");
+  expect(store.value?.refreshed).toBe(true);
+  expect(store.value?.completed).not.toBe(true);
+  await click(w, "重试读取");
+  expect(store.value?.completed).toBe(true);
+  expect(button(w, "新增").attributes("disabled")).toBeUndefined();
+  expect(d.adapter.save).toHaveBeenCalledTimes(1);
+  w.unmount();
+});

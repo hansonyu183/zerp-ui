@@ -5,6 +5,7 @@ type Lock<A, C = unknown> = {
   attempt: A | null;
   context?: C;
   outcome?: "applied" | "not-applied";
+  refreshed?: true;
 };
 // Keep unresolved writes across component removal and scope changes. Adapter identity
 // must remain stable for the lifetime of a consumer session; no public unlock API.

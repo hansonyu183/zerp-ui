@@ -96,10 +96,16 @@ export type OperationReceipt<
 export type OperationOutcome<M extends OperationModel> =
   OperationReceipt<M> | { status: "unknown" };
 /** The authoritative outcome stays paired with its original action and input. */
+export type OperationAssociation = Readonly<{
+  kind: "batch";
+  batchId: string;
+  entryKey: string;
+}>;
 export type OperationSettlement<M extends OperationModel, I, B> = {
   [A in OperationActionOf<M>]: Readonly<{
     request: OperationRequest<M, I, B, A>;
     receipt: OperationReceipt<M, A>;
+    association?: OperationAssociation;
   }>;
 }[OperationActionOf<M>];
 export type OperationJournal<
@@ -111,6 +117,7 @@ export type OperationJournal<
   [K in A]: Readonly<{
     request: OperationRequest<M, I, B, K>;
     receipt?: OperationReceipt<M, K>;
+    association?: OperationAssociation;
     refreshed?: true;
     completed?: true;
   }>;

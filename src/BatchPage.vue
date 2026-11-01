@@ -62,7 +62,10 @@ function check(value: BatchJournal<M, I, B>) {
         !e.key ||
         !equalValues(e.intent.owner, value.owner) ||
         (e.settlement &&
-          (!equalValues(e.settlement.request.owner, value.owner) ||
+          (e.settlement.association?.kind !== "batch" ||
+            e.settlement.association.batchId !== value.id ||
+            e.settlement.association.entryKey !== e.key ||
+            !equalValues(e.settlement.request.owner, value.owner) ||
             !equalValues(e.settlement.request.identity, e.intent.identity) ||
             !equalValues(e.settlement.request.input, e.intent.input) ||
             e.settlement.request.action !== e.intent.action ||
@@ -149,6 +152,9 @@ async function settled(value: OperationSettlement<M, I, B>) {
     selected = entry.value;
   if (!current || !selected || terminal.value || busy.value) return;
   if (
+    value.association?.kind !== "batch" ||
+    value.association.batchId !== current.id ||
+    value.association.entryKey !== selected.key ||
     value.request.action !== selected.intent.action ||
     !equalValues(value.request.identity, selected.intent.identity) ||
     !equalValues(value.request.input, selected.intent.input) ||
@@ -233,6 +239,11 @@ onBeforeUnmount(() => {
         :key="journal.index"
         :definition="options.definition"
         :intent="entry.intent"
+        :association="{
+          kind: 'batch',
+          batchId: journal.id,
+          entryKey: entry.key,
+        }"
         :eligible="options.eligible && !terminal && !busy"
         :recovery-allowed="options.recoveryAllowed"
         @protection="runtime = $event"

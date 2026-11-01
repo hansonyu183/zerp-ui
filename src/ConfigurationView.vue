@@ -205,6 +205,8 @@ async function query(next = page.value, submit = false) {
   loading.value = true;
   error.value = "";
   try {
+    if (refreshing && target.outcome) await recovery().settle(target.outcome);
+    if (!current(g) || q !== queryId) return;
     const value = await props.definition.adapter.query({
       scope: props.scope,
       filters: clone(requested),
@@ -392,6 +394,7 @@ async function save() {
   target.phase = "pending";
   target.attempt = attempt;
   target.outcome = undefined;
+  target.refreshed = undefined;
   queryId++;
   loading.value = false;
   error.value = "";
@@ -435,6 +438,11 @@ async function save() {
       if (current(g)) error.value = outcome.message ?? "保存结果未知。";
     }
   } catch {
+    if (target.outcome) {
+      target.phase = "refresh";
+      if (current(g)) error.value = "结果已确认，请重试保存终态并读取。";
+      return;
+    }
     target.phase = "unknown";
     if (current(g)) error.value = "保存结果未知。";
   }
@@ -463,7 +471,6 @@ async function reconcile() {
       target.attempt === attempt &&
       target.phase === "unknown"
     ) {
-      await originalRecovery.settle(outcome.status);
       if (outcome.status === "applied") {
         target.context = {
           retain: target.context?.retain ?? false,
@@ -474,12 +481,14 @@ async function reconcile() {
           ),
         };
         target.phase = "refresh";
+        await originalRecovery.settle("applied");
         if (current(g)) {
           notice.value = "已核实保存成功。";
           await query();
         }
       } else {
         target.phase = "refresh";
+        await originalRecovery.settle("not-applied");
         await originalRecovery.complete();
         target.phase = "idle";
         target.attempt = null;

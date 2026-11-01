@@ -17,8 +17,8 @@ export async function capabilitiesSmoke(page) {
   ).toContainText("合成业务 · 已确认");
   await page.getByRole("button", { name: "确认执行处理", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "准备执行处理", exact: true }),
-  ).toBeEnabled();
+    page.getByText("已应用，读取完成；可显式准备新请求。", { exact: true }),
+  ).toBeVisible();
   const base = new URL(page.url()).origin;
   await page.goto(base + "/batch");
   await page.getByRole("button", { name: "建立批次", exact: true }).click();

@@ -150,6 +150,8 @@ async function query(next = 1, submit = false) {
   loading.value = true;
   error.value = "";
   try {
+    if (refreshing && target.outcome) await recovery().settle(target.outcome);
+    if (!current(v) || q !== queryVersion) return;
     const value = await props.definition.adapter.query({
       scope: props.scope,
       filters: clone(requested),
@@ -167,6 +169,12 @@ async function query(next = 1, submit = false) {
       target.attempt === refreshAttempt
     ) {
       await recovery().complete();
+      if (target.outcome === "applied" && current(v) && q === queryVersion) {
+        editor.value = null;
+        initial.value = null;
+        formPending.value = false;
+        blockPending.value = {};
+      }
       target.phase = "idle";
       target.attempt = null;
     }
@@ -423,6 +431,7 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
   target.phase = "pending";
   target.attempt = attempt;
   target.outcome = undefined;
+  target.refreshed = undefined;
   error.value = "";
   notice.value = "";
   confirming.value = null;
@@ -461,6 +470,11 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
         error.value = outcome.message ?? "写入结果未知，保持锁定。";
     }
   } catch {
+    if (target.outcome) {
+      target.phase = "refresh";
+      if (current(v)) error.value = "结果已确认，请重试保存终态并读取。";
+      return;
+    }
     target.phase = "unknown";
     if (current(v)) error.value = "写入结果未知，保持锁定。";
   }
@@ -490,6 +504,7 @@ async function reconcile() {
       target.attempt === attempt &&
       target.phase === "unknown"
     ) {
+      target.phase = "refresh";
       await originalRecovery.settle(outcome.status);
       if (outcome.status === "applied") {
         target.phase = "refresh";

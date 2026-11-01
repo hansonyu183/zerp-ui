@@ -221,7 +221,7 @@ onBeforeUnmount(() => {
       :disabled="disabled"
     />
     <label
-      >操作<select v-model="action" :disabled="disabled">
+      >操作<select aria-label="操作" v-model="action" :disabled="disabled">
         <option
           v-for="available in options.actions"
           :key="available"

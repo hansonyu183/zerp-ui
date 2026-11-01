@@ -6,6 +6,7 @@ import { clone } from "./clone";
 import { equalValues } from "./editor-values";
 import { operationLabels } from "./operation";
 import type {
+  OperationAssociation,
   OperationHandle,
   OperationModel,
   OperationDefinition,
@@ -18,6 +19,7 @@ const props = defineProps<{
   intent: OperationIntent<M, I>;
   eligible: boolean;
   recoveryAllowed: boolean;
+  association?: OperationAssociation;
 }>();
 const emit = defineEmits<{
   protection: [state: EditProtection];
@@ -124,7 +126,11 @@ defineExpose<OperationHandle>({ prepare });
 async function confirm() {
   const current = generation,
     target = session.value;
-  await target.confirm(live(), () => current === generation && props.eligible);
+  await target.confirm(
+    live(),
+    () => current === generation && props.eligible,
+    clone(props.association),
+  );
   publish(current, target);
 }
 async function resume() {

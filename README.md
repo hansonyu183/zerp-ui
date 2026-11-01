@@ -187,7 +187,7 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 
 库先预留原请求再调用业务 Adapter，写入前存储失败阻止执行。重载仅加载原请求、核实或重读，不重放 create/save。核实仍通过原 reconcile 的精确 attemptId/evidence，失败恢复或记录损坏持续锁定；普通查询不解除未知锁。端口必须保留已确认终态，终态保存/读取/完成失败可安全重试，不允许重新提交。未提供端口时只保留原 JS 会话的内存锁，不宣称具备跨重载恢复。
 
-`defineBatchPage` 接收稳定 key、标签和逐项完整 intent，以及单项 OperationDefinition 与独立 BatchPersistence。先耐久保存原始批次清单，再逐项完整预览、确认、核实和封存；用户显式继续下一项。未知项不能跳过，停止仅标记尚未发送的项。整页重载恢复原清单及当前项；completed 批次仍保留结果。批次存储同样必须原子 CAS，不得改变已预留清单或回退结果；各项必须使用同一 owner，具体身份在每项 intent 中提供。
+`defineBatchPage` 接收稳定 key、标签和逐项完整 intent，以及单项 OperationDefinition 与独立 BatchPersistence。先耐久保存原始批次清单，再逐项完整预览、确认、核实和封存；用户显式继续下一项。未知项不能跳过，停止仅标记尚未发送的项。整页重载恢复原清单及当前项；completed 批次仍保留结果。批次存储同样必须原子 CAS，不得改变已预留清单或回退结果；各项必须使用同一 owner，具体身份在每项 intent 中提供。原请求 Journal/Settlement 中的 association 由库写入批次 ID 与条目 key，持久端口必须原样保留且不可改写；同身份/输入的历史回执不能完成新批次。
 
 处理页面可接 `printing: { document, state }`。PrintDocument 提供毫米纸张、固定分页、文字、内嵌 PNG/JPEG/WebP/GIF 位图、线和矩形；文字/颜色/字体均受有限约束，不接任意 HTML/CSS。条码二维码由消费者生成安全位图，表达式、业务分页/小计与权限仍归后端。只有消费者提供已授权的 opened 状态才允许用户点击“打开打印窗口”；加载、重载及回执恢复不会自动再次打印。print/printed/not-printed 的业务登记经同一原请求协议，物理输出结果由用户明确确认，不根据浏览器对话框关闭推断。
 
