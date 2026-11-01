@@ -1,5 +1,5 @@
 import type { DraftCollaboration, ReportInteractions } from "./collaboration";
-import BusinessInteractions from "./BusinessInteractions.vue";
+import ReportInteractionPanel from "./ReportInteractionPanel.vue";
 import { equalValues } from "./editor-values";
 import { h, toValue, type MaybeRefOrGetter, type VNodeChild } from "vue";
 import DetailsPageView from "./DetailsPage.vue";
@@ -329,7 +329,7 @@ export function defineReportPage<
           onDrill: value.onDrill,
         }),
         panel
-          ? h(BusinessInteractions<T>, {
+          ? h(ReportInteractionPanel<T>, {
               key: JSON.stringify([context.scope, panel.instance]),
               items,
               answers: clone(panel.answers),

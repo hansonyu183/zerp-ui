@@ -911,3 +911,64 @@ it("keeps report interaction intents on the adopted result and invalidates old p
   expect(seen).toEqual(["result-two"]);
   w.unmount();
 });
+it("invalidates old report prompts and targets when items change within the same result", async () => {
+  const version = ref("one"),
+    seen: string[] = [],
+    answers: string[] = [];
+  const definition = defineReport<{}, { name: string }, string, string, string>(
+    {
+      kind: "parameter",
+      resource: "same-report",
+      title: "同结果提示",
+      parameters: [],
+      initialParameters: () => ({}),
+      columns: [{ key: "name", label: "名称" }],
+      rowKey: (r) => r.name,
+      adapter: { query: async () => ({ items: [], total: 0 }) },
+    },
+  );
+  const page = defineReportPage(() => ({
+    definition,
+    permissions: { query: true, export: false },
+    interactions: {
+      instance: "fixed-result",
+      enabled: true,
+      items: [
+        {
+          kind: "confirm" as const,
+          id: "confirm",
+          label: "确认" + version.value,
+        },
+        {
+          kind: "menu" as const,
+          id: "actions",
+          label: "操作",
+          items: [
+            {
+              key: version.value,
+              label: "处理" + version.value,
+              target: version.value,
+            },
+          ],
+        },
+      ],
+      answers: {},
+      onIntent: (target: string) => seen.push(target),
+      onAnswer: (id: string) => answers.push(id),
+    },
+  }));
+  const w = await start(page),
+    old = button(w, "处理one"),
+    oldConfirm = w.get('input[type="checkbox"]');
+  version.value = "two";
+  await flushPromises();
+  await old.trigger("click");
+  await oldConfirm.setValue(true);
+  expect(seen).toEqual([]);
+  expect(answers).toEqual([]);
+  await click(w, "处理two");
+  expect(seen).toEqual(["two"]);
+  await w.get('input[type="checkbox"]').setValue(true);
+  expect(answers).toEqual(["confirm"]);
+  w.unmount();
+});
