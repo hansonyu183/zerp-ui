@@ -590,7 +590,7 @@ function listAction(action: ListAction, row: R) {
     emit("listAction", action, row);
   }
 }
-const confirmationCancel = ref<InstanceType<typeof VBtn> | null>(null);
+const confirmationCancel = ref<InstanceType<typeof VBtn>[]>([]);
 function cancelConfirmation() {
   const prompt = confirming.value;
   const scope = props.scope;
@@ -827,30 +827,35 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       @action="listAction"
     />
     <VDialog
-      v-if="confirming"
+      v-for="prompt in confirming ? [confirming] : []"
+      :key="scope + ':' + prompt.action"
       :model-value="true"
       max-width="560"
       scrollable
       aria-label="确认操作"
-      @update:model-value="!$event && cancelConfirmation()"
-      @after-enter="confirming && confirmationCancel?.$el?.focus()"
+      @update:model-value="
+        !$event && confirming === prompt && cancelConfirmation()
+      "
+      @after-enter="
+        confirming === prompt && confirmationCancel[0]?.$el?.focus()
+      "
       ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
-        <p>确认{{ captions[confirming.action] }}？</p>
+        <p>确认{{ captions[prompt.action] }}？</p>
         <VBtn
           ref="confirmationCancel"
           color=""
           variant="tonal"
           type="button"
-          @click="cancelConfirmation"
+          @click="confirming === prompt && cancelConfirmation()"
           >取消操作</VBtn
         ><VBtn
-          :color="confirming.action === 'delete' ? 'error' : 'primary'"
+          :color="prompt.action === 'delete' ? 'error' : 'primary'"
           variant="flat"
           type="button"
           :disabled="blocked"
-          @click="write(confirming.action, confirming.row)"
+          @click="confirming === prompt && write(prompt.action, prompt.row)"
         >
-          确认{{ captions[confirming.action] }}
+          确认{{ captions[prompt.action] }}
         </VBtn>
       </VCard></VDialog
     >
