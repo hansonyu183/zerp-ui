@@ -193,6 +193,10 @@
 .zerp-report-scroll > .zerp-list--wide {
   overflow: visible;
 }
+/* ReportView snapshots both axes on its outer result region. */
+.zerp-report-scroll > .zerp-list--wide > .v-table > .v-table__wrapper {
+  overflow: visible;
+}
 
 .zerp-facts > div {
   margin-block: 0.6rem;

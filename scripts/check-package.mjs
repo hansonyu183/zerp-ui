@@ -996,6 +996,13 @@ async function reportSmoke(page) {
   await button("下一页").click();
   await page.getByText("第 2 页", { exact: false }).waitFor();
   await page.setViewportSize({ width: 390, height: 600 });
+  await expect
+    .poll(() =>
+      page
+        .locator(".v-main")
+        .evaluate((main) => getComputedStyle(main).paddingLeft),
+    )
+    .toBe("0px");
   const scroll = page.locator(".zerp-report-scroll");
   // Check actual overflow and layout without screenshot/visual comparisons.
   const position = await scroll.evaluate((element) => {
@@ -1056,7 +1063,8 @@ async function reportSmoke(page) {
   await page.getByLabel("重验资格").selectOption("expired");
   await button("返回报表").click();
   await page
-    .getByText("结果已失效或无权访问，请重新查询。", { exact: true })
+    .getByRole("status", { name: "状态提示", exact: true })
+    .filter({ hasText: "结果已失效或无权访问，请重新查询。" })
     .waitFor();
   assert.ok(await button("导出").isDisabled());
   await page.getByLabel("重验资格").selectOption("valid");
