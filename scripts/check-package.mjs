@@ -20,7 +20,7 @@ import {
   assertBelowToolbar,
 } from "./shell-interaction-smoke.mjs";
 import { voucherOperationSmoke } from "./voucher-operation-smoke.mjs";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { capabilitiesSmoke } from "./capabilities-smoke.mjs";
 import { materialShellSmoke } from "./material-shell-smoke.mjs";
 const capabilitiesMode = process.argv.includes("--capabilities");
@@ -659,9 +659,18 @@ async function directSmoke(page) {
   await contracts
     .getByRole("button", { name: "取消编辑", exact: true })
     .click();
-  await choose("resources");
-  await page.setViewportSize({ width: 390, height: 844 });
-  const mobileTable = crud.getByRole("table").first();
+  // Four row actions plus selection require real horizontal scrolling even
+  // after the mobile drawer has finished releasing its desktop layout space.
+  await choose("actions");
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect
+    .poll(() =>
+      rows
+        .locator(".v-main")
+        .evaluate((main) => getComputedStyle(main).paddingLeft),
+    )
+    .toBe("0px");
+  const mobileTable = rows.getByRole("table").first();
   assert.ok(await mobileTable.getByRole("columnheader").count());
   assert.equal(
     await mobileTable
@@ -690,21 +699,44 @@ async function directSmoke(page) {
   );
   const lastCell = mobileTable.getByRole("cell").last();
   await lastCell.scrollIntoViewIfNeeded();
-  assert.ok(
-    await lastCell.evaluate((cell) => {
-      const box = cell.getBoundingClientRect();
-      return (
-        box.x >= 0 &&
-        box.right <= innerWidth &&
-        cell.contains(
-          document.elementFromPoint(
-            box.x + box.width / 2,
-            box.y + box.height / 2,
-          ),
-        )
-      );
-    }),
-    "the last cell remains visible and reachable after horizontal scrolling",
+  await expect
+    .poll(
+      () =>
+        lastCell.evaluate((cell) => {
+          const box = cell.getBoundingClientRect();
+          return (
+            box.x >= 0 &&
+            box.right <= innerWidth &&
+            box.y >= 0 &&
+            box.bottom <= innerHeight &&
+            cell.contains(
+              document.elementFromPoint(
+                box.x + box.width / 2,
+                box.y + box.height / 2,
+              ),
+            )
+          );
+        }),
+      {
+        message:
+          "the last cell remains visible and reachable after horizontal scrolling",
+      },
+    )
+    .toBe(true);
+  await lastCell.click({ trial: true });
+  console.log(
+    "Mobile table reachability",
+    await lastCell.evaluate((cell) => ({
+      viewport: [innerWidth, innerHeight],
+      cell: cell.getBoundingClientRect().toJSON(),
+      wrapper: cell
+        .closest(".v-table__wrapper")
+        ?.getBoundingClientRect()
+        .toJSON(),
+      scrollLeft: cell.closest(".v-table__wrapper")?.scrollLeft,
+      scrollWidth: cell.closest(".v-table__wrapper")?.scrollWidth,
+      clientWidth: cell.closest(".v-table__wrapper")?.clientWidth,
+    })),
   );
   assert.ok(
     await page.evaluate(
