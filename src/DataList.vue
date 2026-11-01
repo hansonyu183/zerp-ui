@@ -9,6 +9,7 @@
   "
 >
 import Feedback from "./Feedback.vue";
+import { VBtn, VCheckboxBtn, VTable } from "vuetify/components";
 import { computed } from "vue";
 import RowActions from "./RowActions.vue";
 import {
@@ -203,25 +204,19 @@ function display(row: Partial<R>, column: Column<R>) {
     <Feedback :message="presentationError" kind="error" />
     <template v-if="!presentationError">
       <p v-if="summary">{{ summary.caption }}</p>
-      <table>
+      <VTable hover>
         <thead>
           <tr>
             <th v-if="selectedKeys !== undefined" scope="col">
-              <input
-                type="checkbox"
+              <VCheckboxBtn
                 aria-label="全选当前页"
-                :checked="allSelected"
+                :model-value="allSelected"
                 :indeterminate="
                   !allSelected &&
                   eligible.some((row) => selectedKeys?.includes(identity(row)))
                 "
                 :disabled="disabled || loading || !eligible.length"
-                @change="
-                  selectRows(
-                    eligible,
-                    ($event.target as HTMLInputElement).checked,
-                  )
-                "
+                @update:model-value="selectRows(eligible, !!$event)"
               />
             </th>
             <th
@@ -251,17 +246,11 @@ function display(row: Partial<R>, column: Column<R>) {
             </tr>
             <tr :style="presentationStyle(row)">
               <td v-if="selectedKeys !== undefined" data-label="选择">
-                <input
-                  type="checkbox"
+                <VCheckboxBtn
                   :aria-label="`选择 ${identity(row)}`"
-                  :checked="selectedKeys.includes(identity(row))"
+                  :model-value="selectedKeys.includes(identity(row))"
                   :disabled="disabled || loading || selectable?.(row) === false"
-                  @change="
-                    selectRows(
-                      [row],
-                      ($event.target as HTMLInputElement).checked,
-                    )
-                  "
+                  @update:model-value="selectRows([row], !!$event)"
                 />
               </td>
               <td
@@ -284,8 +273,10 @@ function display(row: Partial<R>, column: Column<R>) {
                     @click="activateCell($event, row, column.key)"
                     >{{ display(row, column) }}</a
                   >
-                  <button
+                  <VBtn
                     v-else-if="intent"
+                    variant="text"
+                    color="on-surface"
                     type="button"
                     :aria-label="intent.label"
                     :style="presentationStyle(row, column.key)"
@@ -293,7 +284,7 @@ function display(row: Partial<R>, column: Column<R>) {
                     @click="activateCell($event, row, column.key)"
                   >
                     {{ display(row, column) }}
-                  </button>
+                  </VBtn>
                   <template v-else>{{ display(row, column) }}</template>
                 </template>
               </td>
@@ -343,20 +334,20 @@ function display(row: Partial<R>, column: Column<R>) {
             <td v-if="hasActions"></td>
           </tr>
         </tfoot>
-      </table>
+      </VTable>
       <p v-if="!loading && !result.items.length">暂无数据</p>
       <nav aria-label="分页">
-        <button
+        <VBtn
           type="button"
           :disabled="page <= 1 || loading || disabled"
           @click="emit('page', page - 1)"
         >
-          上一页</button
+          上一页</VBtn
         ><span
           >第 {{ page }} 页<span v-if="result.total !== undefined">
             · 共 {{ result.total }} 条</span
           ></span
-        ><button
+        ><VBtn
           type="button"
           :disabled="
             disabled ||
@@ -368,7 +359,7 @@ function display(row: Partial<R>, column: Column<R>) {
           @click="emit('page', page + 1)"
         >
           下一页
-        </button>
+        </VBtn>
       </nav>
     </template>
   </div>

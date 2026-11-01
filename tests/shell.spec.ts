@@ -331,3 +331,13 @@ it("keeps the three account intents fixed and shows the consumer avatar", async 
     wrapper.unmount();
   }
 });
+
+it("chooses readable foregrounds for light and saturated brand surfaces in every preset", () => {
+  for (const primary of ["#ffff00", "#2196f3"]) {
+    const themes = createShellThemes({ primary, secondary: "#000080" }).themes;
+    for (const theme of Object.values(themes)) {
+      expect(theme.colors?.["on-primary"]).toBe("#000000");
+      expect(theme.colors?.["on-secondary"]).toBe("#ffffff");
+    }
+  }
+});

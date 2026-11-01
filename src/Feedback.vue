@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { VAlert, VBtn } from "vuetify/components";
 const props = withDefaults(
   defineProps<{
     message?: string;
@@ -26,15 +27,28 @@ const label = computed(() =>
 </script>
 <template>
   <div class="zerp-feedback" :class="`zerp-feedback--${kind}`">
-    <div
+    <VAlert
       v-if="visible"
+      :type="kind === 'status' ? 'info' : kind"
+      color="surface"
+      border="start"
+      :border-color="kind === 'status' ? 'info' : kind"
+      variant="flat"
+      density="compact"
+      :icon="false"
       class="zerp-feedback__content"
       :role="kind === 'error' ? 'alert' : 'status'"
       :aria-label="label"
     >
-      <span>{{ message }}</span>
+      <span
+        ><strong>{{ label }}：</strong>{{ message }}</span
+      >
       <slot />
-      <button
+      <VBtn
+        variant="text"
+        color=""
+        :min-width="48"
+        :min-height="48"
         v-if="!persistent"
         type="button"
         class="zerp-feedback__close"
@@ -42,7 +56,7 @@ const label = computed(() =>
         @click="dismissed = true"
       >
         关闭
-      </button>
-    </div>
+      </VBtn>
+    </VAlert>
   </div>
 </template>

@@ -16,39 +16,9 @@
   max-width: 100%;
   padding: 1rem;
 }
-.zerp-ui button,
-.zerp-form button,
-.zerp-reference button {
-  font: inherit;
-  cursor: pointer;
-  margin: 0.3rem;
-  padding: 0.35rem 0.7rem;
-}
-.zerp-ui button:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
 .zerp-form {
   display: grid;
   gap: 0.75rem;
-}
-.zerp-form label {
-  display: grid;
-  gap: 0.25rem;
-}
-.zerp-form input:not([type="checkbox"]),
-.zerp-form textarea,
-.zerp-form select {
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  padding: 0.5rem;
-  font: inherit;
-}
-.zerp-ui [role="dialog"] {
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  padding: 1rem;
-  margin: 1rem 0;
 }
 .zerp-list table {
   width: 100%;
@@ -69,7 +39,7 @@
 .zerp-voucher-editor td {
   padding: 0.5rem;
   text-align: start;
-  border-bottom: 1px solid #888;
+  border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 .zerp-voucher-editor__overlay {
   position: fixed;
@@ -89,12 +59,6 @@
   background: rgb(var(--v-theme-surface, 255, 255, 255));
   color: rgb(var(--v-theme-on-surface, 0, 0, 0));
 }
-.zerp-list th,
-.zerp-list td {
-  padding: 0.5rem;
-  text-align: start;
-  border-bottom: 1px solid #888;
-}
 .zerp-list nav {
   display: flex;
   align-items: center;
@@ -107,25 +71,6 @@
 .zerp-reference ul {
   list-style: none;
   padding: 0;
-}
-@media (max-width: 600px) {
-  .zerp-list:not(.zerp-list--wide) thead {
-    display: none;
-  }
-  .zerp-list:not(.zerp-list--wide) tr {
-    display: block;
-    border: 1px solid #888;
-    margin: 0.5rem 0;
-  }
-  .zerp-list:not(.zerp-list--wide) td {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-  .zerp-list:not(.zerp-list--wide) td::before {
-    content: attr(data-label);
-    font-weight: bold;
-  }
 }
 .zerp-shell {
   min-height: 100vh;
@@ -162,19 +107,8 @@
   color: rgb(var(--v-theme-on-primary));
   font-size: 1.5rem;
 }
-.zerp-auth-card form,
-.zerp-auth-card label {
-  display: grid;
-  gap: 0.5rem;
-}
 .zerp-auth-card form {
   gap: 1rem;
-}
-.zerp-auth-card input {
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  padding: 0.65rem;
-  font: inherit;
 }
 .zerp-auth-card nav {
   display: flex;
@@ -330,24 +264,7 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
-.zerp-feedback__content {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0.35rem;
-  min-block-size: 2.5rem;
-  border-inline-start: 3px solid rgb(var(--v-theme-primary, 65, 90, 180));
-  background: rgba(var(--v-theme-primary, 65, 90, 180), 0.08);
-  overflow-wrap: anywhere;
-}
-.zerp-feedback--error .zerp-feedback__content {
-  border-color: rgb(var(--v-theme-error, 180, 35, 45));
-}
-.zerp-feedback--warning .zerp-feedback__content {
-  border-color: rgb(var(--v-theme-warning, 150, 100, 0));
-}
-.zerp-feedback__close {
+.zerp-feedback--error .zerp-feedback--warning .zerp-feedback__close {
   margin-inline-start: auto;
 }
 .zerp-feedback-region {
@@ -372,4 +289,144 @@
   width: 100%;
   height: 70vh;
   border: 0;
+}
+
+/* Library-owned layout; Vuetify owns component appearance and interaction states. */
+.zerp-ui {
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.zerp-ui h1,
+.zerp-auth-card h1 {
+  font-size: 2rem;
+  line-height: 1.25;
+  font-weight: 400;
+  margin-block-end: 1rem;
+}
+.zerp-ui h2 {
+  font-size: 1.5rem;
+  line-height: 1.35;
+  font-weight: 500;
+  margin-block: 1rem 0.5rem;
+}
+.zerp-ui h3 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+.zerp-ui,
+.zerp-shell-content,
+.zerp-form-field {
+  min-inline-size: 0;
+}
+.zerp-ui :is(a, summary):focus-visible,
+.zerp-shell :is(a, summary):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.zerp-list {
+  max-inline-size: 100%;
+}
+.zerp-list .v-table__wrapper {
+  overscroll-behavior-inline: contain;
+}
+.zerp-list table {
+  min-inline-size: 100%;
+}
+.zerp-list--wide table {
+  inline-size: max-content;
+}
+.zerp-list nav {
+  flex-wrap: wrap;
+  padding-block: 0.5rem;
+}
+.zerp-list :is(th, td) {
+  overflow-wrap: anywhere;
+}
+.zerp-list .v-selection-control {
+  justify-content: center;
+}
+.zerp-shell .v-selection-control,
+.zerp-auth-page .v-selection-control {
+  --v-selection-control-size: 48px;
+}
+.zerp-shell nav :is(a, summary) {
+  min-block-size: 48px;
+  align-content: center;
+}
+.zerp-shell-brand {
+  min-block-size: 48px;
+}
+.zerp-field-messages {
+  block-size: 3rem;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  color: rgb(var(--v-theme-error));
+}
+.zerp-field-control .v-input__details {
+  block-size: 3rem;
+  overflow: auto;
+}
+.zerp-field-group {
+  min-inline-size: 0;
+  border: 0;
+  padding: 0;
+}
+.zerp-field-group legend {
+  font-size: 1rem;
+  font-weight: 500;
+  padding-block: 0.5rem;
+}
+.zerp-date-range {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.zerp-reference-search {
+  display: flex;
+  align-items: start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.zerp-reference-search > .v-input {
+  min-inline-size: min(100%, 12rem);
+  flex: 1;
+}
+.zerp-reference-pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.zerp-reference-progress {
+  block-size: 4px;
+}
+.zerp-row-facts {
+  display: grid;
+  gap: 0.5rem;
+}
+.zerp-row-facts dd {
+  margin-inline-start: 0;
+  overflow-wrap: anywhere;
+}
+.zerp-feedback__content {
+  min-block-size: 48px;
+  overflow-wrap: anywhere;
+}
+.zerp-feedback__content .v-alert__content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.zerp-feedback__close {
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .zerp-date-range {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .zerp-ui {
+    padding: 0.5rem;
+  }
 }
