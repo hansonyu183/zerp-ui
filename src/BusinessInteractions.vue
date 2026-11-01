@@ -1,15 +1,26 @@
 <script setup lang="ts" generic="T">
+import { onBeforeUnmount } from "vue";
 import Feedback from "./Feedback.vue";
 import type { Interaction, InteractionAnswers } from "./collaboration";
-defineProps<{
+const props = defineProps<{
   items: readonly Interaction<T>[];
   answers: InteractionAnswers;
   disabled?: boolean;
 }>();
-const emit = defineEmits<{
+const dispatch = defineEmits<{
   answer: [id: string, value: string | boolean];
   intent: [target: T];
 }>();
+let alive = true;
+function answer(id: string, value: string | boolean) {
+  if (alive && !props.disabled) dispatch("answer", id, value);
+}
+function intent(target: T) {
+  if (alive && !props.disabled) dispatch("intent", target);
+}
+onBeforeUnmount(() => {
+  alive = false;
+});
 </script>
 <template>
   <section v-if="items.length" aria-label="业务提示">
@@ -26,7 +37,7 @@ const emit = defineEmits<{
           :checked="answers[item.id] === true"
           :disabled="disabled"
           @change="
-            emit('answer', item.id, ($event.target as HTMLInputElement).checked)
+            answer(item.id, ($event.target as HTMLInputElement).checked)
           "
       /></label>
       <label v-else-if="item.kind === 'input'"
@@ -35,9 +46,7 @@ const emit = defineEmits<{
           type="text"
           :value="answers[item.id] ?? ''"
           :disabled="disabled"
-          @change="
-            emit('answer', item.id, ($event.target as HTMLInputElement).value)
-          "
+          @change="answer(item.id, ($event.target as HTMLInputElement).value)"
       /></label>
       <section
         v-else-if="item.kind === 'menu' || item.kind === 'tree'"
@@ -48,7 +57,7 @@ const emit = defineEmits<{
             <button
               type="button"
               :disabled="disabled || entry.disabled"
-              @click="emit('intent', entry.target)"
+              @click="intent(entry.target)"
             >
               {{ entry.label }}
             </button>
@@ -57,7 +66,7 @@ const emit = defineEmits<{
                 <button
                   type="button"
                   :disabled="disabled || entry.disabled || child.disabled"
-                  @click="emit('intent', child.target)"
+                  @click="intent(child.target)"
                 >
                   {{ child.label }}
                 </button>
@@ -93,7 +102,7 @@ const emit = defineEmits<{
         v-else-if="item.kind === 'related' || item.kind === 'download'"
         type="button"
         :disabled="disabled"
-        @click="emit('intent', item.target)"
+        @click="intent(item.target)"
       >
         {{ item.label }}
       </button>

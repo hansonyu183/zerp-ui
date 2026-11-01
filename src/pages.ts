@@ -1,4 +1,6 @@
-import type { DraftCollaboration } from "./collaboration";
+import type { DraftCollaboration, ReportInteractions } from "./collaboration";
+import BusinessInteractions from "./BusinessInteractions.vue";
+import { equalValues } from "./editor-values";
 import { h, toValue, type MaybeRefOrGetter, type VNodeChild } from "vue";
 import DetailsPageView from "./DetailsPage.vue";
 import type { DetailGroup } from "./details";
@@ -286,6 +288,7 @@ export type ReportPageDefinition<
   onParameters?: (value: P) => void;
   onAdopted?: (value: { parameters: P; resultId: I | null } | null) => void;
   onDrill?: (value: ReportDrill<I, K, T>) => void;
+  interactions?: ReportInteractions<T>;
 };
 export function defineReportPage<
   P extends object,
@@ -300,19 +303,47 @@ export function defineReportPage<
       const value = toValue(source);
       return { ...value, title: value.definition.title };
     },
-    (value, context) =>
-      h(ReportView<P, R, I, K, T>, {
-        definition: value.definition,
-        permissions: value.permissions,
-        scope: context.scope,
-        active: context.active,
-        pageSize: value.pageSize,
-        restore: value.restore,
-        onSnapshot: value.onSnapshot,
-        onParameters: value.onParameters,
-        onAdopted: value.onAdopted,
-        onDrill: value.onDrill,
-      }),
+    (value, context) => {
+      const panel = value.interactions,
+        items = panel ? clone(panel.items) : [];
+      const current = () => {
+        const next = toValue(source);
+        return (
+          next.permissions.query &&
+          next.interactions?.enabled &&
+          next.interactions.instance === panel?.instance &&
+          equalValues(next.interactions.items, items)
+        );
+      };
+      return h("section", [
+        h(ReportView<P, R, I, K, T>, {
+          definition: value.definition,
+          permissions: value.permissions,
+          scope: context.scope,
+          active: context.active,
+          pageSize: value.pageSize,
+          restore: value.restore,
+          onSnapshot: value.onSnapshot,
+          onParameters: value.onParameters,
+          onAdopted: value.onAdopted,
+          onDrill: value.onDrill,
+        }),
+        panel
+          ? h(BusinessInteractions<T>, {
+              key: JSON.stringify([context.scope, panel.instance]),
+              items,
+              answers: clone(panel.answers),
+              disabled: !panel.enabled || !value.permissions.query,
+              onAnswer: (id: string, answer: string | boolean) => {
+                if (current()) panel.onAnswer?.(id, answer);
+              },
+              onIntent: (target: T) => {
+                if (current()) panel.onIntent?.(clone(target));
+              },
+            })
+          : null,
+      ]);
+    },
     (value) => ({ definition: value.definition }),
   );
 }

@@ -47,3 +47,13 @@ export type DraftCollaboration<D extends object, T = never> = {
     signal: AbortSignal;
   }): Promise<{ value: D; interactions?: readonly Interaction<T>[] }>;
 };
+
+/** Adopted report/result context; callbacks are local intents, final writes use a processing page. */
+export type ReportInteractions<T> = {
+  instance: string | number;
+  items: readonly Interaction<T>[];
+  answers: InteractionAnswers;
+  enabled: boolean;
+  onAnswer?: (id: string, value: string | boolean) => void;
+  onIntent?: (target: T) => void;
+};

@@ -181,9 +181,9 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 
 源码及模板属性沿 textarea、fields/rows/voucher 区块表达。消费者可用字段提供版本选择、历史目录及参数，用 diagnostics 提供有限消息/只读表格；业务版本规则、验证/试运行/发布、计算及权威证据归消费者。`importResource.read` 只解析本地资源到草稿，不执行最终导入；真正写入仍须选择 import 并完整确认。downloads 只提供读取/下载，不获得业务写入能力。
 
-`DraftCollaboration<D, T>` 可用于 CRUD、配置、operation 编辑器与处理页面。change 接收隔离草稿、scope、initialize/change/answer/action、有限回答及取消信号，返回新草稿及 Interaction。库负责 pending、错误重试、取消与迟到隔离；错误或必填回答缺失时不能提交。消费者必须把需要提交的回答和计算事实映射进返回草稿，后端仍须在最终写入时重验。计算端口只能执行读取和草稿计算，不执行最终业务命令。Interaction 支持消息、确认、输入、菜单/两层树、只读表格、关联及下载的局部意图；不运行消费者脚本、HTML、组件或模板。
+`DraftCollaboration<D, T>` 可用于 CRUD、配置、operation 编辑器与处理页面。change 接收隔离草稿、scope、initialize/change/answer/action、有限回答及取消信号，返回新草稿及 Interaction。库负责 pending、错误重试、取消与迟到隔离；错误或必填回答缺失时不能提交。消费者必须把需要提交的回答和计算事实映射进返回草稿，后端仍须在最终写入时重验。计算端口只能执行读取和草稿计算，不执行最终业务命令。报表页面还可提供带 instance 的 interactions，将已采用结果产生的提示与有限意图呈现在原报表旁；结果/提示变化使旧事件失效，最终业务写入转入处理页面。Interaction 支持消息、确认、输入、菜单/两层树、只读表格、关联及下载的局部意图；不运行消费者脚本、HTML、组件或模板。
 
-`CrudDefinition.persistence` 与 `ConfigurationDefinition.persistence` 接收 `WritePersistence`。load 返回原 WriteJournal；save(journal, expectedId) 必须是耐久原子 CAS：null 仅预留空/已完成槽，非空比较精确原 ID，并禁止改变原 Attempt 或回退终态。complete 必须保留 completed/refreshed/outcome 与原请求证据。配置还保存 retain/权威 identity。存储解码、版本转换、终态权威性及跨标签原子性归消费者；不能将当前值相同当作本次已应用。
+`CrudDefinition.persistence` 与 `ConfigurationDefinition.persistence` 接收 `WritePersistence`。load(owner, requestId?) 无 ID 读取当前槽，有 ID 必须读取该精确原 WriteJournal（包括槽替换后的已完成记录）；save(journal, expectedId) 必须是耐久原子 CAS：null 仅预留空/已完成槽，非空比较精确原 ID，并禁止改变原 Attempt 或回退终态。complete 必须幂等并保留 completed/refreshed/outcome 与原请求证据，旧 ID 的完成记录不能因开始新请求而丢失。配置还保存 retain/权威 identity。存储解码、版本转换、终态权威性及跨标签原子性归消费者；不能将当前值相同当作本次已应用。
 
 库先预留原请求再调用业务 Adapter，写入前存储失败阻止执行。重载仅加载原请求、核实或重读，不重放 create/save。核实仍通过原 reconcile 的精确 attemptId/evidence，失败恢复或记录损坏持续锁定；普通查询不解除未知锁。端口必须保留已确认终态，终态保存/读取/完成失败可安全重试，不允许重新提交。未提供端口时只保留原 JS 会话的内存锁，不宣称具备跨重载恢复。
 

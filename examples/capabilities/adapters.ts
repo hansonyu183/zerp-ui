@@ -158,30 +158,36 @@ export function batches(
 export function recovery(): WritePersistence<
   Attempt<{ name: string }, string>
 > {
+  type Journal = WriteJournal<Attempt<{ name: string }, string>>;
+  type Store = { head: string | null; records: Record<string, Journal> };
   const key = "capabilities:crud";
+  const read = (): Store =>
+    JSON.parse(localStorage.getItem(key) ?? '{"head":null,"records":{}}');
   return {
-    load: async () => JSON.parse(localStorage.getItem(key) ?? "null"),
+    load: async (_owner, id) =>
+      atomic(key, () => {
+        const store = read();
+        return copy(store.records[id ?? store.head ?? ""] ?? null);
+      }),
     save: async (journal, expected) =>
       atomic(key, () => {
-        const old = JSON.parse(
-          localStorage.getItem(key) ?? "null",
-        ) as WriteJournal<Attempt<{ name: string }, string>> | null;
-        if (
-          expected === null
-            ? old && !old.completed
-            : old?.attempt.id !== expected
-        )
+        const store = read(),
+          old = store.head ? store.records[store.head] : null;
+        if (expected === null ? old && !old.completed : store.head !== expected)
           throw Error("原请求已变化。");
-        localStorage.setItem(key, JSON.stringify(journal));
+        if (expected !== null && old?.refreshed && !journal.refreshed)
+          throw Error("不能回退读取完成记录。");
+        store.head = journal.attempt.id;
+        store.records[store.head] = copy(journal);
+        localStorage.setItem(key, JSON.stringify(store));
       }),
     complete: async (_owner, id) =>
       atomic(key, () => {
-        const old = JSON.parse(
-          localStorage.getItem(key) ?? "null",
-        ) as WriteJournal<Attempt<{ name: string }, string>>;
-        if (old?.attempt.id !== id || !old.outcome || !old.refreshed)
-          throw Error("原请求尚未完成。");
-        localStorage.setItem(key, JSON.stringify({ ...old, completed: true }));
+        const store = read(),
+          old = store.records[id];
+        if (!old?.outcome || !old.refreshed) throw Error("原请求尚未完成。");
+        store.records[id] = { ...old, completed: true };
+        localStorage.setItem(key, JSON.stringify(store));
       }),
   };
 }

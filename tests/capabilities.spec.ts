@@ -1,8 +1,11 @@
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
+import { ref } from "vue";
 import { expect, it, vi, beforeEach } from "vitest";
 import {
   AppPage,
+  defineReport,
+  defineReportPage,
   defineCrud,
   defineCrudPage,
   defineConfiguration,
@@ -149,6 +152,9 @@ function writeStore<A, C = unknown>(initial: WriteJournal<A, C> | null = null) {
   };
   return {
     port,
+    replace(next: WriteJournal<A, C> | null) {
+      value = structuredClone(next);
+    },
     get value() {
       return value;
     },
@@ -791,5 +797,117 @@ it("preserves the durable read marker when completing a known request fails and 
   expect(store.value?.completed).toBe(true);
   expect(button(w, "新增").attributes("disabled")).toBeUndefined();
   expect(d.adapter.save).toHaveBeenCalledTimes(1);
+  w.unmount();
+});
+it("recovers a read marker that persisted before the storage response was lost", async () => {
+  const store = writeStore<Attempt<{ name: string }, string>>(),
+    save = store.port.save;
+  let lost = false;
+  store.port.save = vi.fn(async (journal, expected) => {
+    if (store.value?.refreshed && !journal.refreshed)
+      throw Error("不能回退读取完成");
+    await save(journal, expected);
+    if (journal.refreshed && !lost) {
+      lost = true;
+      throw Error("保存已落盘，响应丢失");
+    }
+  });
+  const d = crud(store.port);
+  d.reconcile = undefined;
+  d.adapter.save = vi.fn(async () => ({ status: "success" as const }));
+  const w = await start(
+    defineCrudPage({
+      definition: d,
+      permissions: { query: true, create: true, write: true },
+      initialRow: { id: "one", name: "原值" },
+      readOnly: false,
+    }),
+  );
+  await click(w, "保存");
+  expect(store.value?.refreshed).toBe(true);
+  await click(w, "重试读取");
+  expect(store.value?.completed).toBe(true);
+  expect(d.adapter.save).toHaveBeenCalledTimes(1);
+  expect(button(w, "新增").attributes("disabled")).toBeUndefined();
+  w.unmount();
+});
+it("does not carry a previous request read marker into a newly restored original", async () => {
+  const attempt = (id: string): Attempt<{ name: string }, string> => ({
+    id,
+    scope: "s",
+    resource: "records",
+    operation: "save",
+    identity: "one",
+    input: { name: id },
+  });
+  const store = writeStore({ attempt: attempt("first") });
+  const d = crud(store.port);
+  let w = await start(
+    defineCrudPage({
+      definition: d,
+      permissions: { query: true, create: true, write: true, reconcile: true },
+    }),
+  );
+  await click(w, "核实本次请求");
+  expect(store.value?.completed).toBe(true);
+  w.unmount();
+  store.replace({ attempt: attempt("second") });
+  w = await start(
+    defineCrudPage({
+      definition: d,
+      permissions: { query: true, create: true, write: true, reconcile: true },
+    }),
+  );
+  await click(w, "核实本次请求");
+  expect(store.value?.outcome).toBe("applied");
+  expect(store.value?.refreshed).toBe(true);
+  expect(store.value?.completed).toBe(true);
+  expect(store.value?.attempt.id).toBe("second");
+  w.unmount();
+});
+
+it("keeps report interaction intents on the adopted result and invalidates old panels", async () => {
+  const instance = ref("result-one"),
+    seen: string[] = [];
+  const definition = defineReport<{}, { name: string }, string, string, string>(
+    {
+      kind: "parameter",
+      resource: "report",
+      title: "报表交互",
+      parameters: [],
+      initialParameters: () => ({}),
+      columns: [{ key: "name", label: "名称" }],
+      rowKey: (row) => row.name,
+      adapter: { query: async () => ({ items: [{ name: "记录" }], total: 1 }) },
+    },
+  );
+  const page = defineReportPage(() => ({
+    definition,
+    permissions: { query: true, export: false },
+    interactions: {
+      instance: instance.value,
+      enabled: true,
+      items: [
+        {
+          kind: "menu" as const,
+          id: "actions",
+          label: "相关操作",
+          items: [
+            { key: "process", label: "处理本次结果", target: instance.value },
+          ],
+        },
+      ],
+      answers: {},
+      onIntent: (target: string) => seen.push(target),
+    },
+  }));
+  const w = await start(page);
+  const old = button(w, "处理本次结果");
+  instance.value = "result-two";
+  await flushPromises();
+  await old.trigger("click");
+  expect(seen).toEqual([]);
+  await click(w, "处理本次结果");
+  expect(seen).toEqual(["result-two"]);
   w.unmount();
 });

@@ -8,9 +8,12 @@ export type WriteJournal<A, C = unknown> = {
   refreshed?: true;
   completed?: true;
 };
-/** Atomic durable compare-and-set; completed records retain the original terminal evidence. */
+/** Atomic durable CAS. Exact-ID reads and idempotent completion retain terminal evidence after slot replacement. */
 export type WritePersistence<A, C = unknown> = {
-  load(owner: WriteOwner): Promise<WriteJournal<A, C> | null>;
+  load(
+    owner: WriteOwner,
+    requestId?: string,
+  ): Promise<WriteJournal<A, C> | null>;
   save(journal: WriteJournal<A, C>, expectedId: string | null): Promise<void>;
   complete(owner: WriteOwner, expectedId: string): Promise<void>;
 };
@@ -32,57 +35,61 @@ export function writeRecovery<A extends Original, C>(
   persistence: WritePersistence<A, C> | undefined,
   owner: WriteOwner,
 ) {
+  async function read(original: A | null) {
+    const journal = await persistence!.load(clone(owner), original?.id);
+    if (!journal) {
+      if (original) throw Error("原请求记录缺失，请保留原请求并重试核实。");
+      return null;
+    }
+    const a = journal.attempt;
+    if (
+      typeof a?.id !== "string" ||
+      !a.id ||
+      !["create", "save", "enable", "disable", "delete"].includes(
+        a.operation,
+      ) ||
+      a.scope !== owner.scope ||
+      a.resource !== owner.resource ||
+      (original && !equalValues(a, original)) ||
+      (journal.outcome !== undefined &&
+        !["applied", "not-applied"].includes(journal.outcome)) ||
+      (journal.completed !== undefined && journal.completed !== true) ||
+      (journal.refreshed !== undefined && journal.refreshed !== true) ||
+      (journal.refreshed && !journal.outcome) ||
+      (journal.completed && !journal.refreshed) ||
+      (target.outcome &&
+        original &&
+        journal.outcome &&
+        target.outcome !== journal.outcome)
+    )
+      throw Error("原请求记录或终态不匹配，请保留证据。");
+    return journal;
+  }
+  function merge(journal: WriteJournal<A, C>) {
+    target.refreshed = target.refreshed || journal.refreshed;
+  }
   return {
     async restore() {
       if (!persistence || target.phase === "pending") return;
       const known = target.attempt,
         knownOutcome = target.outcome,
-        knownContext = target.context,
-        knownRefreshed = target.refreshed;
+        knownContext = target.context;
       target.phase = "blocked";
-      const journal = await persistence.load(clone(owner));
+      const journal = await read(known);
       if (target.phase !== "blocked" || target.attempt !== known) return;
       if (!journal) {
-        if (known) throw Error("原请求记录缺失，请保留原请求并重试核实。");
         target.phase = "idle";
         return;
       }
-      if (target.phase !== "blocked" || target.attempt !== known) return;
-      const a = journal.attempt;
-      if (
-        typeof a?.id !== "string" ||
-        !a.id ||
-        !["create", "save", "enable", "disable", "delete"].includes(
-          a.operation,
-        ) ||
-        (journal.completed !== undefined && journal.completed !== true) ||
-        (journal.refreshed !== undefined && journal.refreshed !== true) ||
-        a.scope !== owner.scope ||
-        a.resource !== owner.resource ||
-        (known && !equalValues(known, a)) ||
-        (journal.outcome !== undefined &&
-          !["applied", "not-applied"].includes(journal.outcome)) ||
-        (knownOutcome && journal.outcome && knownOutcome !== journal.outcome) ||
-        (journal.completed && (!journal.refreshed || !journal.outcome)) ||
-        (journal.refreshed && !journal.outcome)
-      )
-        throw Error("原请求记录不匹配，请重试恢复。");
-      if (known && knownOutcome && !journal.completed) {
-        if (journal.outcome && journal.outcome !== knownOutcome)
-          throw Error("原请求终态不匹配，请保留证据。");
-        target.context = knownContext;
-        target.refreshed = knownRefreshed;
-        target.outcome = knownOutcome;
-        target.phase = "refresh";
-        return;
-      }
-      target.context = clone(journal.context);
-      target.outcome = journal.outcome;
-      target.refreshed = journal.refreshed;
-      target.attempt = journal.completed ? null : clone(a);
+      if (known) merge(journal);
+      else target.refreshed = journal.refreshed;
+      target.context =
+        known && knownOutcome ? knownContext : clone(journal.context);
+      target.outcome = known && knownOutcome ? knownOutcome : journal.outcome;
+      target.attempt = journal.completed ? null : clone(journal.attempt);
       target.phase = journal.completed
         ? "idle"
-        : journal.outcome
+        : target.outcome
           ? "refresh"
           : "unknown";
     },
@@ -97,34 +104,37 @@ export function writeRecovery<A extends Original, C>(
       if (target.outcome && target.outcome !== outcome)
         throw Error("不能回退原请求终态。");
       target.outcome = outcome;
-      if (target.refreshed) return;
-      if (persistence && target.attempt)
-        await persistence.save(
-          {
-            attempt: clone(target.attempt),
-            outcome,
-            refreshed: target.refreshed,
-            context: clone(target.context),
-          },
-          target.attempt.id,
-        );
+      if (!persistence || !target.attempt) return;
+      const original = target.attempt,
+        journal = await read(original);
+      if (!journal) throw Error("原请求记录缺失。");
+      merge(journal);
+      if (journal.completed || target.refreshed) return;
+      await persistence.save(
+        { attempt: clone(original), outcome, context: clone(target.context) },
+        original.id,
+      );
     },
     async complete() {
-      if (persistence && target.attempt) {
-        if (!target.refreshed) {
-          await persistence.save(
-            {
-              attempt: clone(target.attempt),
-              outcome: target.outcome ?? "applied",
-              context: clone(target.context),
-              refreshed: true,
-            },
-            target.attempt.id,
-          );
-          target.refreshed = true;
-        }
-        await persistence.complete(clone(owner), target.attempt.id);
+      if (!persistence || !target.attempt) return;
+      const original = target.attempt,
+        journal = await read(original);
+      if (!journal || !target.outcome) throw Error("原请求终态尚未确认。");
+      merge(journal);
+      if (journal.completed) return;
+      if (!target.refreshed) {
+        await persistence.save(
+          {
+            attempt: clone(original),
+            outcome: target.outcome,
+            context: clone(target.context),
+            refreshed: true,
+          },
+          original.id,
+        );
+        target.refreshed = true;
       }
+      await persistence.complete(clone(owner), original.id);
     },
   };
 }

@@ -171,6 +171,7 @@ export type {
   DraftCollaboration,
   Interaction,
   InteractionAnswers,
+  ReportInteractions,
 } from "./collaboration";
 export type {
   WriteOwner,
