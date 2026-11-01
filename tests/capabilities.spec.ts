@@ -972,3 +972,220 @@ it("invalidates old report prompts and targets when items change within the same
   expect(answers).toEqual(["confirm"]);
   w.unmount();
 });
+
+it.each(["crud", "configuration"] as const)(
+  "%s retains the reserved original and sends no save after session invalidation or permission revocation",
+  async (kind) => {
+    for (const invalidation of ["session", "write", "read", "scope"] as const) {
+      const store = writeStore<
+        import("../src/index").ConfigurationAttempt<{ name: string }, string>,
+        { retain: boolean; identity?: string }
+      >();
+      let release!: () => void;
+      const reserve = store.port.save;
+      store.port.save = vi.fn(async (journal, expected) => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        await reserve(journal, expected);
+      });
+      const base = crud(store.port);
+      const permissions = ref({
+        query: true,
+        create: true,
+        read: true,
+        write: true,
+        reconcile: true,
+      });
+      const configuration = defineConfiguration({
+        ...base,
+        persistence: store.port,
+      });
+      const page =
+        kind === "crud"
+          ? defineCrudPage(() => ({
+              definition: base,
+              permissions: permissions.value,
+              initialRow: { id: "one", name: "原值" },
+              readOnly: false,
+            }))
+          : defineConfigurationPage(() => ({
+              definition: configuration,
+              permissions: permissions.value,
+              initialRow: { id: "one", name: "原值" },
+            }));
+      const w = await start(page);
+      await click(w, "保存");
+      expect(store.port.save).toHaveBeenCalledTimes(1);
+      if (invalidation === "session") await w.setProps({ active: false });
+      else if (invalidation === "scope") await w.setProps({ scope: "other" });
+      else
+        permissions.value = {
+          ...permissions.value,
+          ...(invalidation === "write"
+            ? { write: false }
+            : { query: false, read: false }),
+        };
+      await flushPromises();
+      release();
+      await flushPromises();
+      expect(
+        base.adapter.save,
+        `${kind}/${invalidation}`,
+      ).not.toHaveBeenCalled();
+      expect(store.value?.attempt.scope).toBe("s");
+      expect(store.value?.attempt.id).toBeTruthy();
+      expect(store.value?.outcome).toBeUndefined();
+      expect(store.port.complete).not.toHaveBeenCalled();
+      // Returning to the original owner restores the same reserved request, never a new write.
+      permissions.value = {
+        query: true,
+        create: true,
+        read: true,
+        write: true,
+        reconcile: true,
+      };
+      await w.setProps({ active: true, scope: "s" });
+      await flushPromises();
+      expect(w.text()).toMatch(/结果未知/);
+      expect(base.adapter.save).not.toHaveBeenCalled();
+      w.unmount();
+    }
+  },
+);
+
+it("adopts in-place edits to the isolated collaboration draft and releases pending", async () => {
+  const op = operation();
+  const collaboration: DraftCollaboration<{ value: string }> = {
+    change: async ({ value }) => {
+      await Promise.resolve();
+      value.value = value.value + "计算完成";
+      return { value };
+    },
+  };
+  const w = await start(
+    defineTaskPage<{ value: string }, Model, string, number>({
+      title: "可变隔离草稿",
+      instance: "one",
+      owner,
+      identity: "one",
+      definition: op.definition,
+      values: { value: "初始" },
+      fields: [{ key: "value", label: "内容", type: "text" }],
+      actions: ["process"],
+      toIntent: (value, action, base) => ({ ...base, action, input: value }),
+      eligible: true,
+      recoveryAllowed: true,
+      collaboration,
+    }),
+  );
+  expect(
+    (w.get('input[aria-label="内容"]').element as HTMLInputElement).value,
+  ).toBe("初始计算完成");
+  expect(button(w, "准备执行处理").attributes("disabled")).toBeUndefined();
+  await w.get('input[aria-label="内容"]').setValue("新值");
+  await flushPromises();
+  expect(
+    (w.get('input[aria-label="内容"]').element as HTMLInputElement).value,
+  ).toBe("新值计算完成");
+  await click(w, "准备执行处理");
+  await click(w, "确认执行处理");
+  expect(op.execute).toHaveBeenCalledWith(
+    expect.objectContaining({ input: { value: "新值计算完成" } }),
+  );
+  w.unmount();
+});
+
+it.each(["eligible", "recoveryAllowed"] as const)(
+  "recovers a batch when %s is granted after initial denial",
+  async (permission) => {
+    const op = operation();
+    const allowed = ref(false);
+    const load = vi.fn(async () => null);
+    const persistence = { load, save: async () => {} };
+    const w = await start(
+      defineBatchPage(() => ({
+        title: "批量获权",
+        owner,
+        definition: op.definition,
+        persistence,
+        entries: [
+          {
+            key: "one",
+            label: "one",
+            intent: {
+              owner,
+              identity: "one",
+              action: "process" as const,
+              input: { value: "one" },
+            },
+          },
+        ],
+        eligible: permission === "eligible" && allowed.value,
+        recoveryAllowed: permission === "recoveryAllowed" && allowed.value,
+      })),
+    );
+    expect(load).not.toHaveBeenCalled();
+    expect(button(w, "重试恢复批次")).toBeDefined();
+    expect(button(w, "建立批次").attributes("disabled")).toBeDefined();
+    allowed.value = true;
+    await flushPromises();
+    expect(load).toHaveBeenCalledTimes(1);
+    if (permission === "eligible") {
+      expect(button(w, "建立批次").attributes("disabled")).toBeUndefined();
+      await click(w, "建立批次");
+      expect(button(w, "准备执行处理").attributes("disabled")).toBeUndefined();
+    } else {
+      expect(button(w, "建立批次").attributes("disabled")).toBeDefined();
+      expect(
+        await (
+          w.vm as unknown as import("../src/index").AppPageHandle
+        ).requestLeave(),
+      ).toBe(true);
+    }
+    expect(op.execute).not.toHaveBeenCalled();
+    w.unmount();
+  },
+);
+
+it("keeps a permanent business message reserve when messages are added, dismissed and removed", async () => {
+  const op = operation();
+  let messages: import("../src/index").Interaction<never>[] = [];
+  const w = await start(
+    defineTaskPage<{ value: string }, Model, string, number>({
+      title: "固定反馈",
+      instance: "one",
+      owner,
+      identity: "one",
+      definition: op.definition,
+      values: { value: "初始" },
+      fields: [{ key: "value", label: "内容", type: "text" }],
+      actions: ["process"],
+      toIntent: (value, action, base) => ({ ...base, action, input: value }),
+      eligible: true,
+      recoveryAllowed: true,
+      collaboration: {
+        change: async ({ value }) => ({ value, interactions: messages }),
+      },
+    }),
+  );
+  const region = w.get('[aria-label="业务消息"]');
+  expect(region.classes()).toContain("zerp-feedback-region");
+  const reserve = region.element;
+  messages = [
+    { kind: "message", id: "one", level: "warning", message: "第一条" },
+    { kind: "message", id: "two", level: "status", message: "第二条" },
+  ];
+  await w.get('input[aria-label="内容"]').setValue("触发消息");
+  await flushPromises();
+  expect(w.get('[aria-label="业务消息"]').element).toBe(reserve);
+  expect(region.findAll(".zerp-feedback")).toHaveLength(2);
+  await region.get('[aria-label="关闭警告提示"]').trigger("click");
+  expect(w.get('[aria-label="业务消息"]').element).toBe(reserve);
+  messages = [];
+  await w.get('input[aria-label="内容"]').setValue("移除消息");
+  await flushPromises();
+  expect(w.get('[aria-label="业务消息"]').element).toBe(reserve);
+  expect(region.findAll(".zerp-feedback")).toHaveLength(0);
+  w.unmount();
+});

@@ -448,6 +448,21 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       if (current(v)) error.value = message(cause);
       return;
     }
+    // Durable reservation can outlive the admitted session or its permissions.
+    // Keep the original recoverable, but never start a write for stale authority.
+    if (
+      !current(v) ||
+      !props.permissions.query ||
+      !props.permissions.write ||
+      (operation === "create" && !props.permissions.create) ||
+      (row &&
+        !definition
+          .actions(row)
+          .includes(operation === "save" ? "edit" : (operation as CrudAction)))
+    ) {
+      target.phase = "unknown";
+      return;
+    }
     const outcome = await execute.call(definition.adapter, clone(attempt));
     if (outcome.status === "success") {
       target.phase = "refresh";

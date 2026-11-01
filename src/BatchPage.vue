@@ -93,6 +93,7 @@ function check(value: BatchJournal<M, I, B>) {
 async function load() {
   if (!props.options.recoveryAllowed && !props.options.eligible) {
     busy.value = false;
+    error.value = "等待批量办理或恢复资格，请获权后重试恢复。";
     return;
   }
   busy.value = true;
@@ -102,6 +103,11 @@ async function load() {
       clone(props.options.owner),
     );
     if (!alive) return;
+    if (!props.options.recoveryAllowed && !props.options.eligible) {
+      ready.value = false;
+      error.value = "等待批量办理或恢复资格，请获权后重试恢复。";
+      return;
+    }
     if (value) check(value);
     journal.value = clone(value);
     ready.value = true;
@@ -199,6 +205,12 @@ async function stop() {
     await save({ ...current, entries, completed: true }, current.id);
   });
 }
+watch(
+  () => props.options.recoveryAllowed || props.options.eligible,
+  (allowed) => {
+    if (allowed && !ready.value && !busy.value) void load();
+  },
+);
 void load();
 onBeforeUnmount(() => {
   alive = false;
@@ -207,7 +219,11 @@ onBeforeUnmount(() => {
 <template>
   <section aria-label="批量办理">
     <Feedback :message="error" kind="error" persistent
-      ><button type="button" :disabled="busy" @click="load">
+      ><button
+        type="button"
+        :disabled="busy || (!options.recoveryAllowed && !options.eligible)"
+        @click="load"
+      >
         重试恢复批次
       </button></Feedback
     >

@@ -412,6 +412,17 @@ async function save() {
       if (current(g)) error.value = message(cause);
       return;
     }
+    // Recheck authority after the asynchronous durable reservation, retaining
+    // the original recovery lock when the admitted session has become stale.
+    if (
+      !current(g) ||
+      !props.permissions.read ||
+      !props.permissions.write ||
+      !editor.value?.writable
+    ) {
+      target.phase = "unknown";
+      return;
+    }
     const outcome = await definition.adapter.save(clone(attempt));
     if (outcome.status === "success") {
       target.context = {

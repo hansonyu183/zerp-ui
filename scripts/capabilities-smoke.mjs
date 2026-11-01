@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { expect } from "@playwright/test";
+import { assertStableFeedback } from "./feedback-smoke.mjs";
 export async function capabilitiesSmoke(page) {
   await expect(
     page.getByRole("heading", { name: "业务处理", exact: true }),
@@ -7,7 +8,36 @@ export async function capabilitiesSmoke(page) {
   await expect(
     page.getByRole("button", { name: "准备执行处理", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("checkbox", { name: "我已核对业务输入" }).check();
+  const messages = page.locator('[aria-label="业务消息"]').first();
+  const confirmation = page.getByRole("checkbox", { name: "我已核对业务输入" });
+  const prepare = page.getByRole("button", {
+    name: "准备执行处理",
+    exact: true,
+  });
+  const controls = [messages, confirmation, prepare];
+  await prepare.scrollIntoViewIfNeeded();
+  await expect(messages.locator(".zerp-feedback")).toHaveCount(0);
+  await assertStableFeedback(page, controls, async () => {
+    await confirmation.check();
+    await expect(prepare).toBeEnabled();
+    await expect(messages.locator(".zerp-feedback")).toHaveCount(2);
+  });
+  for (const label of ["关闭状态提示", "关闭警告提示"])
+    await assertStableFeedback(page, controls, async () => {
+      await messages.getByRole("button", { name: label, exact: true }).click();
+      await expect(
+        messages.getByRole("button", { name: label, exact: true }),
+      ).toHaveCount(0);
+    });
+  await assertStableFeedback(page, controls, async () => {
+    await page
+      .getByRole("textbox", { name: "内容", exact: true })
+      .fill("合成业务");
+    await expect(messages.locator(".zerp-feedback")).toHaveCount(0);
+    await expect(confirmation).toBeVisible();
+    await expect(prepare).toBeDisabled();
+  });
+  await confirmation.check();
   await expect(
     page.getByRole("button", { name: "准备执行处理", exact: true }),
   ).toBeEnabled();

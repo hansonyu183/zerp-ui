@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T">
-import { onBeforeUnmount } from "vue";
+import { computed, onBeforeUnmount } from "vue";
 import Feedback from "./Feedback.vue";
 import type { Interaction, InteractionAnswers } from "./collaboration";
 const props = defineProps<{
@@ -11,6 +11,12 @@ const dispatch = defineEmits<{
   answer: [id: string, value: string | boolean];
   intent: [target: T];
 }>();
+const messages = computed(() =>
+  props.items.filter((item) => item.kind === "message"),
+);
+const controls = computed(() =>
+  props.items.filter((item) => item.kind !== "message"),
+);
 let alive = true;
 function answer(id: string, value: string | boolean) {
   if (alive && !props.disabled) dispatch("answer", id, value);
@@ -23,14 +29,17 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section v-if="items.length" aria-label="业务提示">
-    <template v-for="item in items" :key="item.id">
-      <Feedback
-        v-if="item.kind === 'message'"
-        :message="item.message"
-        :kind="item.level"
-      />
-      <label v-else-if="item.kind === 'confirm'"
+  <div class="zerp-feedback-region" aria-label="业务消息">
+    <Feedback
+      v-for="item in messages"
+      :key="item.id"
+      :message="item.message"
+      :kind="item.level"
+    />
+  </div>
+  <section v-if="controls.length" aria-label="业务提示">
+    <template v-for="item in controls" :key="item.id">
+      <label v-if="item.kind === 'confirm'"
         >{{ item.label
         }}<input
           type="checkbox"

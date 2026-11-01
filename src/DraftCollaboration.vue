@@ -36,7 +36,8 @@ async function run(
   const epoch = ++generation;
   controller = new AbortController();
   const signal = controller.signal,
-    value = clone(props.modelValue),
+    baseline = clone(props.modelValue),
+    value = clone(baseline),
     scope = props.scope,
     instance = props.instance;
   calculating.value = true;
@@ -58,7 +59,7 @@ async function run(
       props.disabled ||
       scope !== props.scope ||
       instance !== props.instance ||
-      !equalValues(value, props.modelValue)
+      !equalValues(baseline, props.modelValue)
     )
       return;
     calculating.value = false;

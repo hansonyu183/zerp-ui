@@ -49,12 +49,26 @@ const collaborator: DraftCollaboration<{ value: string }, unknown> = {
         { once: true },
       );
     });
+    if (answers["confirm"] === true) value.value += " · 已确认";
     return {
-      value: {
-        value:
-          answers["confirm"] === true ? value.value + " · 已确认" : value.value,
-      },
+      value,
       interactions: [
+        ...(answers["confirm"] === true
+          ? ([
+              {
+                kind: "message",
+                id: "checked",
+                level: "status",
+                message: "业务输入已核对。",
+              },
+              {
+                kind: "message",
+                id: "review",
+                level: "warning",
+                message: "请在办理预览中再次核对。",
+              },
+            ] as const)
+          : []),
         {
           kind: "confirm",
           id: "confirm",
