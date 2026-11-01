@@ -1,7 +1,37 @@
 import assert from "node:assert/strict";
 import { expect } from "@playwright/test";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
+export async function taskMaterialSmoke(page) {
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const control = page.getByRole("group", { name: "操作选择", exact: true });
+    await control.scrollIntoViewIfNeeded();
+    const box = await control.boundingBox();
+    assert.ok(box && box.height >= 48, "task action has a 48px hit region");
+    for (const y of [2, box.height - 2]) {
+      await control.click({ position: { x: box.width / 2, y } });
+      await expect(
+        page.getByRole("combobox", { name: "操作", exact: true }),
+      ).toHaveAttribute("aria-expanded", "true");
+      await page.keyboard.press("Escape");
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 1400 });
+  const upload = page.getByLabel("读取资源包", { exact: true });
+  const value = page.getByRole("textbox", { name: "内容", exact: true });
+  for (const content of ["9007199254740993.0100", "再次读取同名文件"]) {
+    await upload.setInputFiles({
+      name: "synthetic.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify({ value: content })),
+    });
+    await expect(value).toHaveValue(content);
+    await expect(upload).toHaveValue("");
+  }
+  await value.fill("合成业务");
+}
 export async function capabilitiesSmoke(page) {
+  await taskMaterialSmoke(page);
   await page.setViewportSize({ width: 1280, height: 1400 });
   await expect(
     page.getByRole("heading", { name: "业务处理", exact: true }),
@@ -44,7 +74,7 @@ export async function capabilitiesSmoke(page) {
   ).toBeEnabled();
   await page.getByRole("button", { name: "准备执行处理", exact: true }).click();
   await expect(
-    page.getByRole("dialog", { name: "完整办理预览" }),
+    page.getByRole("region", { name: "完整办理预览" }),
   ).toContainText("合成业务 · 已确认");
   await page.getByRole("button", { name: "确认执行处理", exact: true }).click();
   await expect(
@@ -99,7 +129,10 @@ export async function capabilitiesSmoke(page) {
   await expect(
     page.getByRole("button", { name: "打开打印窗口", exact: true }),
   ).toBeDisabled();
-  await page.getByLabel("操作", { exact: true }).selectOption("print");
+  await page
+    .getByRole("combobox", { name: "操作", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "打印", exact: true }).click();
   await page.getByRole("button", { name: "准备打印", exact: true }).click();
   await page.getByRole("button", { name: "确认打印", exact: true }).click();
   await expect(

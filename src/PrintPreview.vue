@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { printMarkup, type PrintDocument } from "./printing";
+import { VBtn } from "vuetify/components";
 import Feedback from "./Feedback.vue";
 const props = defineProps<{
   document: PrintDocument;
@@ -36,13 +37,13 @@ function print() {
 </script>
 <template>
   <section aria-label="打印输出">
-    <Feedback :message="error" kind="error" /><button
+    <Feedback :message="error" kind="error" /><VBtn
       type="button"
       :disabled="!allowed || disabled || !ready || !markup"
       @click="print"
     >
       打开打印窗口
-    </button>
+    </VBtn>
     <p>请在打印结束后明确确认已打印或未打印。关闭打印窗口不会自动登记。</p>
     <iframe
       v-if="markup"
