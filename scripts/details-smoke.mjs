@@ -18,7 +18,7 @@ export async function detailsSmoke(page) {
     exact: true,
   });
   await assertBelowToolbar(page, children);
-  await assertBelowToolbar(page, page.locator(".zerp-voucher-editor__overlay"));
+  await assertBelowToolbar(page, page.locator(".zerp-voucher-child-dialog"));
   assert.equal(
     await button("关闭原料").evaluate((el) => document.activeElement === el),
     true,
@@ -26,7 +26,7 @@ export async function detailsSmoke(page) {
   await page.keyboard.press("Tab");
   assert.equal(
     await children
-      .locator("summary")
+      .getByRole("button", { name: "原料 · 记录 1", exact: true })
       .evaluate((el) => document.activeElement === el),
     true,
   );
@@ -40,7 +40,7 @@ export async function detailsSmoke(page) {
     ),
     true,
   );
-  await page.getByText("历史记录 · history-one", { exact: true }).click();
+  await button("历史记录 · history-one").click();
   await page
     .getByText("历史金额 ?", { exact: true })
     .waitFor({ state: "visible" });
@@ -55,7 +55,7 @@ export async function detailsSmoke(page) {
   const dialog = page.getByRole("dialog", { name: "未保存修改", exact: true });
   await dialog.waitFor();
   await assertBelowToolbar(page, dialog);
-  await assertBelowToolbar(page, page.locator(".zerp-edit-guard__overlay"));
+  await assertBelowToolbar(page, page.locator(".zerp-leave-dialog"));
   assert.equal(
     await button("继续编辑").evaluate((el) => document.activeElement === el),
     true,

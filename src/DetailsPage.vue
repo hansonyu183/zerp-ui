@@ -9,6 +9,7 @@
     C extends object = object
   "
 >
+import { VBtn } from "vuetify/components";
 import { computed, ref, shallowRef, watch } from "vue";
 import RecordDetails from "./RecordDetails.vue";
 import VoucherEditor from "./VoucherEditor.vue";
@@ -103,21 +104,25 @@ const bindings = computed(() => {
 <template>
   <section aria-label="完整资料详情">
     <template v-if="options.editor && draft"
-      ><button
+      ><VBtn
         v-if="!editing"
         type="button"
+        variant="tonal"
+        color=""
         :disabled="writeState !== 'idle'"
         @click="editing = true"
       >
-        编辑资料</button
-      ><button
+        编辑资料</VBtn
+      ><VBtn
         v-else
         type="button"
+        variant="tonal"
+        color=""
         :disabled="writeState !== 'idle'"
         @click="discard"
       >
         取消编辑
-      </button>
+      </VBtn>
       <VoucherEditor
         :key="generation"
         v-bind="options.editor.definition"

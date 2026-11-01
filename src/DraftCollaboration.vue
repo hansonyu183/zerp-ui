@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="D extends object, T = never">
+import { VBtn, VProgressLinear } from "vuetify/components";
 import { ref, shallowRef, watch, onBeforeUnmount } from "vue";
 import { clone, message } from "./clone";
 import { equalValues } from "./editor-values";
@@ -154,10 +155,28 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
+  <div
+    class="zerp-collaboration-progress"
+    role="status"
+    :aria-label="calculating ? '业务计算中' : undefined"
+    :aria-busy="calculating"
+  >
+    <VProgressLinear
+      :active="calculating"
+      :indeterminate="calculating"
+      height="4"
+    />
+  </div>
   <Feedback :message="error" kind="error" persistent
-    ><button type="button" :disabled="disabled" @click="run('change')">
+    ><VBtn
+      type="button"
+      variant="text"
+      color=""
+      :disabled="disabled || calculating"
+      @click="run('change')"
+    >
       重试业务计算
-    </button></Feedback
+    </VBtn></Feedback
   >
   <BusinessInteractions
     :items="items"
