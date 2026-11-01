@@ -1,3 +1,4 @@
+import { DOMWrapper } from "@vue/test-utils";
 import { defineComponent, h, ref } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
@@ -62,6 +63,11 @@ async function click(wrapper: ReturnType<typeof mount>, text: string) {
   await flushPromises();
   await wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((button) => button.text() === text)!
     .trigger("click");
   await flushPromises();
@@ -73,7 +79,9 @@ it("leaves clean input, continues editing, then discards only the local draft", 
   expect(departures).toEqual([true]);
   dirty.value = true;
   await click(wrapper, "离开");
-  expect(wrapper.get('[role="dialog"]').text()).toContain("放弃本地修改");
+  expect(new DOMWrapper(document.body).get('[role="dialog"]').text()).toContain(
+    "放弃本地修改",
+  );
   expect(document.activeElement?.textContent?.trim()).toBe("继续编辑");
   await click(wrapper, "继续编辑");
   expect(departures).toEqual([true, false]);
@@ -92,7 +100,9 @@ it("keeps pending and unknown writes locked even when the local draft is clean",
   state.value = "unknown";
   await click(wrapper, "离开");
   expect(wrapper.text()).toContain("写入结果未知");
-  expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  expect(new DOMWrapper(document.body).find('[role="dialog"]').exists()).toBe(
+    false,
+  );
   expect(departures).toEqual([false, false]);
   wrapper.unmount();
 });
@@ -104,6 +114,13 @@ it.each(["scope", "instance", "active", "state", "unmount"] as const)(
     await click(context.wrapper, "离开");
     const discard = context.wrapper
       .findAll("button")
+      .concat(
+        Array.from(
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
+        ).map((el) => new DOMWrapper(el)),
+      )
       .find((b) => b.text() === "放弃本地修改")!;
     if (change === "unmount") context.wrapper.unmount();
     else if (change === "active") context.active.value = false;
@@ -123,7 +140,9 @@ it("protects unfinished local input independently of dirty and identifies known 
   const { wrapper, localPending, state, departures } = host();
   localPending.value = true;
   await click(wrapper, "离开");
-  expect(wrapper.find('[role="dialog"]').exists()).toBe(true);
+  expect(new DOMWrapper(document.body).find('[role="dialog"]').exists()).toBe(
+    true,
+  );
   await click(wrapper, "放弃本地修改");
   expect(departures).toEqual([true]);
   state.value = "refresh";

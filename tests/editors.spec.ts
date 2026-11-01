@@ -1,3 +1,4 @@
+import { DOMWrapper } from "@vue/test-utils";
 import { defineComponent, h, ref, shallowRef, type Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
@@ -49,6 +50,11 @@ const config = (): ConfigurationDefinition<
 const button = (w: ReturnType<typeof mount>, name: string) =>
   w
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
 async function click(w: ReturnType<typeof mount>, name: string) {
   await button(w, name).trigger("click");
@@ -168,11 +174,15 @@ for (const kind of ["crud", "configuration"] as const) {
     await flushPromises();
     await click(w, "编辑");
     await click(w, closeLabel);
-    expect(w.find('[aria-label="未保存修改"]').exists()).toBe(false);
+    expect(
+      new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+    ).toBe(false);
     await click(w, "编辑");
     await w.get('input[aria-label="名称"]').setValue("修改");
     await click(w, closeLabel);
-    expect(w.find('[aria-label="未保存修改"]').exists()).toBe(true);
+    expect(
+      new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+    ).toBe(true);
     await click(w, "继续编辑");
     expect(w.get('input[aria-label="名称"]').element).toHaveProperty(
       "value",
@@ -242,11 +252,11 @@ it("views historical facts without create validation and refuses a server-denied
   });
   await flushPromises();
   await click(w, "查看");
-  expect(w.get('[role="dialog"]').text()).toContain("（空字符串）");
+  expect(w.get('[role="region"]').text()).toContain("（空字符串）");
   expect(w.find('input[aria-label="名称"]').exists()).toBe(false);
   expect(
     w
-      .get('[role="dialog"]')
+      .get('[role="region"]')
       .findAll("button")
       .map((b) => b.text()),
   ).not.toContain("编辑");

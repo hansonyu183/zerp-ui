@@ -3,6 +3,7 @@
   lang="ts"
   generic="H extends object, R extends object, C extends object = object"
 >
+import { VBtn, VCard, VTable, VDialog } from "vuetify/components";
 import {
   computed,
   nextTick,
@@ -45,14 +46,14 @@ const visibleColumns = computed(() =>
 const editing = shallowRef<{ key: string | null; value: R } | null>(null);
 const deleting = ref<string | null>(null);
 const childEditing = shallowRef<{
+  token: symbol;
   parentKey: string;
   column: VoucherEditorChildColumn<R, C>;
   rows: C[];
   sourceRows: readonly R[];
 } | null>(null);
 let childTrigger: HTMLButtonElement | null = null;
-const childClose = ref<HTMLButtonElement | null>(null);
-const childDialog = ref<HTMLElement | null>(null);
+const childClose = ref<InstanceType<typeof VBtn>[]>([]);
 const headerPending = ref(false);
 const rowPending = ref(false);
 const childPending = ref(false);
@@ -86,13 +87,14 @@ function beginChild(
   if (childEditing.value || editing.value) return;
   childTrigger = event.currentTarget as HTMLButtonElement;
   childEditing.value = {
+    token: Symbol(),
     parentKey: props.rowKey(row),
     column,
     rows: clone(Array.isArray(row[column.key]) ? (row[column.key] as C[]) : []),
     sourceRows: props.modelValue.rows,
   };
   pending();
-  nextTick(() => childClose.value?.focus());
+  nextTick(() => childClose.value[0]?.$el?.focus());
 }
 const childFields = computed(
   () =>
@@ -109,52 +111,23 @@ const childFields = computed(
       : []) as unknown as Fields<{ items: C[] }>,
 );
 function cancelChild(restoreFocus = true) {
+  const trigger = childTrigger,
+    scope = props.scope,
+    instance = props.instance;
+  childTrigger = null;
   childEditing.value = null;
   childPending.value = false;
   pending();
   if (restoreFocus)
     nextTick(() => {
-      if (childTrigger?.isConnected) childTrigger.focus();
-      childTrigger = null;
-    });
-  else childTrigger = null;
-}
-function childKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    event.preventDefault();
-    cancelChild();
-    return;
-  }
-  if (event.key !== "Tab" || !childDialog.value) return;
-  const focusable = Array.from(
-    childDialog.value.querySelectorAll<HTMLElement>(
-      "summary, button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled)",
-    ),
-  ).filter((element) => {
-    for (
-      let parent = element.parentElement;
-      parent && parent !== childDialog.value;
-      parent = parent.parentElement
-    ) {
       if (
-        parent.tagName === "DETAILS" &&
-        !parent.hasAttribute("open") &&
-        parent.querySelector("summary") !== element
+        props.scope === scope &&
+        props.instance === instance &&
+        !childEditing.value &&
+        trigger?.isConnected
       )
-        return false;
-    }
-    return true;
-  });
-  if (!focusable.length) return;
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
+        trigger.focus({ preventScroll: true });
+    });
 }
 function finishChild() {
   const draft = childEditing.value;
@@ -271,7 +244,7 @@ onBeforeUnmount(() => emit("pending", false));
       />
     </div>
     <div class="zerp-voucher-editor__table">
-      <table aria-label="单据明细">
+      <VTable aria-label="单据明细">
         <thead>
           <tr>
             <th v-for="column in visibleColumns" :key="column.key" scope="col">
@@ -288,7 +261,9 @@ onBeforeUnmount(() => emit("pending", false));
               :data-label="column.label"
             >
               <template v-if="column.type === 'children'">
-                <button
+                <VBtn
+                  color=""
+                  variant="tonal"
                   type="button"
                   :disabled="
                     !!editing ||
@@ -299,48 +274,71 @@ onBeforeUnmount(() => emit("pending", false));
                 >
                   {{ writable ? "编辑" : "查看" }}{{ column.label }} · 明细行
                   {{ index + 1 }}
-                </button>
+                </VBtn>
                 <span>{{ display(row, column) }}</span>
               </template>
               <template v-else>{{ display(row, column) }}</template>
             </td>
             <td v-if="writable" data-label="操作">
-              <button
+              <VBtn
+                color=""
+                variant="tonal"
                 type="button"
                 :disabled="!!editing || !!childEditing"
                 @click="begin(row)"
               >
                 编辑明细行 {{ index + 1 }}
-              </button>
-              <button
+              </VBtn>
+              <VBtn
+                color=""
+                variant="tonal"
                 type="button"
                 :disabled="!!editing || !!childEditing"
                 @click="deleting = rowKey(row)"
               >
                 删除明细行 {{ index + 1 }}
-              </button>
+              </VBtn>
               <span v-if="deleting === rowKey(row)">
                 确认删除该行？
-                <button type="button" @click="removeRow">
+                <VBtn
+                  color="error"
+                  variant="flat"
+                  type="button"
+                  @click="removeRow"
+                >
                   确认删除明细行 {{ index + 1 }}
-                </button>
-                <button type="button" @click="deleting = null">取消删除</button>
+                </VBtn>
+                <VBtn
+                  color=""
+                  variant="tonal"
+                  type="button"
+                  @click="deleting = null"
+                  >取消删除</VBtn
+                >
               </span>
             </td>
           </tr>
         </tbody>
-      </table>
+      </VTable>
       <p v-if="modelValue.rows.length === 0">暂无明细行</p>
-      <button
+      <VBtn
+        color=""
+        variant="tonal"
         v-if="writable"
         type="button"
         :disabled="!!editing || !!childEditing"
         @click="begin()"
       >
         新增明细行
-      </button>
+      </VBtn>
     </div>
-    <section v-if="editing" role="dialog" aria-label="编辑明细行">
+    <VCard
+      tag="section"
+      class="zerp-business-card pa-4"
+      v-if="editing"
+      role="region"
+      aria-label="编辑明细行"
+    >
       <DynamicForm
         :fields="rowFields"
         :model-value="editing.value"
@@ -353,55 +351,77 @@ onBeforeUnmount(() => emit("pending", false));
           pending();
         "
       />
-      <button
+      <VBtn
+        color="primary"
+        variant="flat"
         type="button"
         :disabled="!writable || rowPending"
         @click="finishRow"
       >
         确定明细行
-      </button>
-      <button type="button" @click="cancelRow">取消明细行</button>
-    </section>
-    <div v-if="childEditing" class="zerp-voucher-editor__overlay">
-      <section
-        ref="childDialog"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="`${childEditing.column.label} · 明细行 ${modelValue.rows.findIndex((row) => rowKey(row) === childEditing?.parentKey) + 1}`"
-        @keydown="childKeydown"
+      </VBtn>
+      <VBtn color="" variant="tonal" type="button" @click="cancelRow"
+        >取消明细行</VBtn
       >
+    </VCard>
+    <VDialog
+      class="zerp-voucher-child-dialog"
+      v-for="child in childEditing ? [childEditing] : []"
+      :key="scope + ':' + instance + ':' + child.parentKey"
+      :model-value="true"
+      max-width="720"
+      scrollable
+      @update:model-value="
+        !$event && childEditing?.token === child.token && cancelChild()
+      "
+      @after-enter="
+        childEditing?.token === child.token && childClose[0]?.$el?.focus()
+      "
+      :aria-label="`${child.column.label} · 明细行 ${modelValue.rows.findIndex((row) => rowKey(row) === child.parentKey) + 1}`"
+      ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
         <FactFields
           v-if="mode === 'read'"
           :fields="formFacts(childFields)"
-          :value="{ items: childEditing.rows }"
+          :value="{ items: child.rows }"
         />
         <DynamicForm
           v-else
           :fields="childFields"
-          :model-value="{ items: childEditing.rows }"
+          :model-value="{ items: child.rows }"
           :scope="scope"
           :mode="formMode"
           :disabled="!writable"
           @update:model-value="
-            childEditing = { ...childEditing!, rows: $event.items }
+            childEditing?.token === child.token &&
+            (childEditing = { ...child, rows: $event.items })
           "
           @pending="
-            childPending = $event;
-            pending();
+            if (childEditing?.token === child.token) {
+              childPending = $event;
+              pending();
+            }
           "
         />
-        <button
+        <VBtn
+          color="primary"
+          variant="flat"
           v-if="writable"
           type="button"
           :disabled="childPending"
-          @click="finishChild"
+          @click="childEditing?.token === child.token && finishChild()"
         >
-          确定{{ childEditing.column.label }}
-        </button>
-        <button ref="childClose" type="button" @click="cancelChild()">
-          {{ writable ? "取消" : "关闭" }}{{ childEditing.column.label }}
-        </button>
-      </section>
-    </div>
+          确定{{ child.column.label }}
+        </VBtn>
+        <VBtn
+          color=""
+          variant="tonal"
+          ref="childClose"
+          type="button"
+          @click="childEditing?.token === child.token && cancelChild()"
+        >
+          {{ writable ? "取消" : "关闭" }}{{ child.column.label }}
+        </VBtn>
+      </VCard></VDialog
+    >
   </section>
 </template>

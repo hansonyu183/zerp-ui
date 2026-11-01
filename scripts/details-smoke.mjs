@@ -87,7 +87,8 @@ export async function detailsSmoke(page) {
   );
   await page.getByRole("link", { name: "离开资料", exact: true }).click();
   await page
-    .getByText("写入结果未知，须核实原请求后再离开。", { exact: true })
+    .getByRole("status", { name: "警告提示", exact: true })
+    .filter({ hasText: "写入结果未知，须核实原请求后再离开。" })
     .waitFor();
   assert.equal(await dialog.count(), 0);
   assert.equal(await button("编辑资料").isDisabled(), true);

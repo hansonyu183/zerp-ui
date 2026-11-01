@@ -3,9 +3,17 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
+import { VBtn, VCard, VDialog } from "vuetify/components";
 import DomainBlockHost from "./DomainBlockHost.vue";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
-import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  ref,
+  shallowRef,
+  watch,
+} from "vue";
 import Feedback from "./Feedback.vue";
 import { VProgressLinear } from "vuetify/components";
 import type {
@@ -77,6 +85,7 @@ const editor = shallowRef<{
   detailLoading = ref(false),
   confirming = shallowRef<{
     row: R;
+    trigger: HTMLElement | null;
     action: Exclude<CrudAction, "edit" | "view">;
   } | null>(null),
   verifying = ref(false);
@@ -569,10 +578,31 @@ function listAction(action: ListAction, row: R) {
     action === "disable" ||
     action === "delete"
   ) {
-    confirming.value = { row, action };
+    confirming.value = {
+      row,
+      action,
+      trigger:
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null,
+    };
   } else {
     emit("listAction", action, row);
   }
+}
+const confirmationCancel = ref<InstanceType<typeof VBtn>[]>([]);
+function cancelConfirmation() {
+  const prompt = confirming.value;
+  const scope = props.scope;
+  confirming.value = null;
+  nextTick(() => {
+    if (
+      props.scope === scope &&
+      !confirming.value &&
+      prompt?.trigger?.isConnected
+    )
+      prompt.trigger.focus({ preventScroll: true });
+  });
 }
 function selectRows(keys: (string | number)[]) {
   if (
@@ -678,14 +708,22 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         v-model="filters"
         :scope="scope"
         @pending="filterPending = $event"
-      /><button
+      /><VBtn
+        color=""
+        variant="tonal"
         v-if="definition.filters.length > 1"
         type="button"
         :disabled="filterPending"
         @click="moreFilters = !moreFilters"
       >
-        {{ moreFilters ? "收起条件" : "更多条件" }}</button
-      ><button type="submit" :disabled="loading || filterPending">查询</button>
+        {{ moreFilters ? "收起条件" : "更多条件" }}</VBtn
+      ><VBtn
+        color=""
+        variant="tonal"
+        type="submit"
+        :disabled="loading || filterPending"
+        >查询</VBtn
+      >
     </form>
     <div class="zerp-progress-reserve">
       <VProgressLinear
@@ -699,14 +737,26 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         :message="lock.phase === 'blocked' ? '请先恢复原请求' : undefined"
         kind="warning"
         persistent
-        ><button type="button" :disabled="verifying" @click="restoreWrite">
+        ><VBtn
+          color=""
+          variant="tonal"
+          type="button"
+          :disabled="verifying"
+          @click="restoreWrite"
+        >
           重试恢复原请求
-        </button></Feedback
+        </VBtn></Feedback
       >
       <Feedback :message="error" kind="error"
-        ><button v-if="permissions.query" type="button" @click="query(page)">
+        ><VBtn
+          color=""
+          variant="tonal"
+          v-if="permissions.query"
+          type="button"
+          @click="query(page)"
+        >
           重试读取
-        </button></Feedback
+        </VBtn></Feedback
       >
       <Feedback :message="notice" />
       <Feedback
@@ -714,14 +764,16 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         kind="warning"
         persistent
       >
-        写入结果未知。普通查询或关闭编辑不能解除锁定。<button
+        写入结果未知。普通查询或关闭编辑不能解除锁定。<VBtn
+          color=""
+          variant="tonal"
           v-if="definition.reconcile && permissions.reconcile"
           type="button"
           :disabled="verifying"
           @click="reconcile"
         >
           核实本次请求
-        </button>
+        </VBtn>
       </Feedback>
       <Feedback
         :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
@@ -735,7 +787,9 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         }}
       </Feedback>
     </div>
-    <button
+    <VBtn
+      color=""
+      variant="tonal"
       v-if="permissions.create && permissions.write"
       aria-label="新增"
       type="button"
@@ -743,7 +797,7 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       @click="begin()"
     >
       <span class="zerp-ui-icon" aria-hidden="true">&#xf0415;</span>新增
-    </button>
+    </VBtn>
     <DataList
       :columns="definition.columns"
       :cell="
@@ -772,21 +826,45 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       @page="query($event)"
       @action="listAction"
     />
-    <section v-if="confirming" role="dialog" aria-label="确认操作">
-      <p>确认{{ captions[confirming.action] }}？</p>
-      <button type="button" @click="confirming = null">取消操作</button
-      ><button
-        type="button"
-        :disabled="blocked"
-        @click="write(confirming.action, confirming.row)"
-      >
-        确认{{ captions[confirming.action] }}
-      </button>
-    </section>
-    <section
+    <VDialog
+      v-for="prompt in confirming ? [confirming] : []"
+      :key="scope + ':' + prompt.action"
+      :model-value="true"
+      max-width="560"
+      scrollable
+      aria-label="确认操作"
+      @update:model-value="
+        !$event && confirming === prompt && cancelConfirmation()
+      "
+      @after-enter="
+        confirming === prompt && confirmationCancel[0]?.$el?.focus()
+      "
+      ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
+        <p>确认{{ captions[prompt.action] }}？</p>
+        <VBtn
+          ref="confirmationCancel"
+          color=""
+          variant="tonal"
+          type="button"
+          @click="confirming === prompt && cancelConfirmation()"
+          >取消操作</VBtn
+        ><VBtn
+          :color="prompt.action === 'delete' ? 'error' : 'primary'"
+          variant="flat"
+          type="button"
+          :disabled="blocked"
+          @click="confirming === prompt && write(prompt.action, prompt.row)"
+        >
+          确认{{ captions[prompt.action] }}
+        </VBtn>
+      </VCard></VDialog
+    >
+    <VCard
+      tag="section"
+      class="zerp-business-card pa-4"
       v-if="editor"
       :key="editVersion"
-      role="dialog"
+      role="region"
       :aria-label="
         editor.readOnly ? (definition.viewTitle ?? '查看资料') : '编辑资料'
       "
@@ -822,7 +900,9 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         :key="block.key"
         v-bind="block.props"
       />
-      <button
+      <VBtn
+        color=""
+        variant="tonal"
         v-if="
           editor.readOnly &&
           editor.writable &&
@@ -835,16 +915,24 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         @click="openRow(editor.row, false)"
       >
         编辑
-      </button>
-      <button type="button" :disabled="blocked" @click="cancel">取消编辑</button
-      ><button
+      </VBtn>
+      <VBtn
+        color=""
+        variant="tonal"
+        type="button"
+        :disabled="blocked"
+        @click="cancel"
+        >取消编辑</VBtn
+      ><VBtn
+        color="primary"
+        variant="flat"
         type="button"
         v-if="!editor.readOnly"
         :disabled="blocked || localPending || !permissions.write"
         @click="write(editor.row ? 'save' : 'create', editor.row)"
       >
         保存
-      </button>
-    </section>
+      </VBtn>
+    </VCard>
   </section>
 </template>

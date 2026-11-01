@@ -32,6 +32,10 @@ const documentMode = process.argv.includes("--document");
 const reportMode = process.argv.includes("--report");
 const configuration = process.argv.includes("--configuration");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const sourceBase = execFileSync("git", ["rev-parse", "HEAD"], {
+  cwd: root,
+  encoding: "utf8",
+}).trim();
 const commands = [];
 const run = (cmd, args, cwd = root) => {
   try {
@@ -381,12 +385,16 @@ try {
     );
   }
   assert.deepEqual(errors, []);
-  const sha = execFileSync("git", ["rev-parse", "HEAD"], {
-    cwd: root,
-    encoding: "utf8",
-  }).trim();
+  assert.equal(
+    execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: root,
+      encoding: "utf8",
+    }).trim(),
+    sourceBase,
+    "source HEAD must remain unchanged throughout package validation",
+  );
   const report = {
-    sourceBase: sha,
+    sourceBase,
     commands,
     sha256: createHash("sha256")
       .update(await readFile(tgz))
@@ -454,7 +462,7 @@ try {
   console.log(
     JSON.stringify({
       slice: exampleName,
-      sourceBase: sha,
+      sourceBase,
       sha256: report.sha256,
       exitCode: report.exitCode,
     }),
@@ -642,7 +650,7 @@ async function directSmoke(page) {
     .waitFor();
   assert.equal(
     await contracts
-      .getByRole("dialog")
+      .getByRole("region", { name: "查看资料", exact: true })
       .getByRole("button", { name: "保存", exact: true })
       .count(),
     0,
@@ -1125,7 +1133,7 @@ async function voucherSmoke(page) {
   await page.getByLabel("单据演示", { exact: true }).selectOption("editor");
   await page.getByRole("button", { name: "编辑资料", exact: true }).click();
   await standalone.getByRole("button", { name: "编辑配方 · 明细行 1" }).click();
-  await assertBelowToolbar(page, page.locator(".zerp-voucher-editor__overlay"));
+  await assertBelowToolbar(page, page.locator(".zerp-voucher-child-dialog"));
   await standalone.getByRole("button", { name: "新增配方" }).click();
   await standalone.getByLabel("原料").fill("合成原料甲");
   await standalone.getByLabel("用量").fill("0.0100");

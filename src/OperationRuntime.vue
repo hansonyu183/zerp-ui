@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="M extends OperationModel, I, B">
+import { VBtn, VCard } from "vuetify/components";
 import Feedback from "./Feedback.vue";
 import { computed, watch, onBeforeUnmount } from "vue";
 import { operationSession } from "./operation-session";
@@ -180,24 +181,30 @@ onBeforeUnmount(() => {
       原请求：{{ state.journal.request.requestId }} ·
       {{ operationLabels[state.journal.request.action] }}
     </p>
-    <button
+    <VBtn
+      color=""
+      variant="tonal"
       type="button"
       :disabled="state.busy || state.phase !== 'idle' || !eligible"
       @click="prepare"
     >
       准备{{ operationLabels[intent.action] }}
-    </button>
-    <button
+    </VBtn>
+    <VBtn
+      color=""
+      variant="tonal"
       v-if="state.phase === 'blocked'"
       type="button"
       :disabled="state.busy || !recoveryAllowed"
       @click="restore(true)"
     >
       重试恢复
-    </button>
-    <div
+    </VBtn>
+    <VCard
+      tag="section"
+      class="zerp-business-card pa-4"
       v-if="state.prepared && eligible"
-      role="dialog"
+      role="region"
       aria-label="完整办理预览"
     >
       <h2>{{ state.prepared.preview.title }}</h2>
@@ -227,7 +234,9 @@ onBeforeUnmount(() => {
           >
         </dl>
       </section>
-      <button
+      <VBtn
+        color="primary"
+        variant="flat"
         type="button"
         :disabled="state.busy || !eligible"
         @click="confirm"
@@ -235,16 +244,20 @@ onBeforeUnmount(() => {
         {{
           definition.confirmationLabel ??
           `确认${operationLabels[state.prepared.action]}`
-        }}</button
-      ><button
+        }}</VBtn
+      ><VBtn
+        color=""
+        variant="tonal"
         type="button"
         :disabled="state.busy"
         @click="session.cancelPreview()"
       >
         取消预览
-      </button>
-    </div>
-    <button
+      </VBtn>
+    </VCard>
+    <VBtn
+      color=""
+      variant="tonal"
       v-if="
         state.journal && ['unknown', 'seal', 'refresh'].includes(state.phase)
       "
@@ -259,7 +272,7 @@ onBeforeUnmount(() => {
             ? (definition.sealLabel ?? "封存原请求")
             : (definition.reconcileLabel ?? "核实原请求")
       }}
-    </button>
+    </VBtn>
   </section>
   <Feedback v-else message="无办理或核实权限。" persistent />
 </template>

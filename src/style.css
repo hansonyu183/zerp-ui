@@ -41,24 +41,6 @@
   text-align: start;
   border-bottom: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.zerp-voucher-editor__overlay {
-  position: fixed;
-  inset: var(--zerp-app-bar-height, 0px) 0 0;
-  z-index: 2000;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: #0008;
-}
-.zerp-voucher-editor__overlay > [role="dialog"] {
-  width: min(100%, 720px);
-  max-height: calc(100dvh - var(--zerp-app-bar-height, 0px) - 2rem);
-  overflow: auto;
-  padding: 1rem;
-  border-radius: 6px;
-  background: rgb(var(--v-theme-surface, 255, 255, 255));
-  color: rgb(var(--v-theme-on-surface, 0, 0, 0));
-}
 .zerp-list nav {
   display: flex;
   align-items: center;
@@ -223,27 +205,6 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.zerp-facts summary {
-  cursor: pointer;
-}
-.zerp-edit-guard__overlay {
-  position: fixed;
-  inset: var(--zerp-app-bar-height, 0px) 0 0;
-  z-index: 2400;
-  display: grid;
-  place-items: center;
-  background: rgb(0 0 0 / 40%);
-}
-.zerp-edit-guard__overlay > section {
-  max-width: calc(100vw - 2rem);
-  max-height: calc(100dvh - var(--zerp-app-bar-height, 0px) - 2rem);
-  overflow: auto;
-  padding: 1.5rem;
-  background: rgb(var(--v-theme-surface, 255, 255, 255));
-  color: rgb(var(--v-theme-on-surface, 0, 0, 0));
-  border-radius: 0.5rem;
-}
-
 .zerp-report-group th {
   text-align: left;
   background: rgb(var(--v-theme-surface-variant));
@@ -429,4 +390,44 @@
   .zerp-ui {
     padding: 0.5rem;
   }
+}
+
+.zerp-business-card,
+.zerp-detail-group {
+  margin-block: 1rem;
+}
+.zerp-business-card {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.zerp-business-card > .v-btn {
+  margin-block: 0.5rem;
+  margin-inline-end: 0.5rem;
+}
+.zerp-interactions {
+  display: grid;
+  gap: 1rem;
+}
+.zerp-business-catalog {
+  max-width: 100%;
+}
+.zerp-business-catalog .v-list-item {
+  min-height: 48px;
+}
+
+.zerp-business-catalog .v-btn {
+  height: auto;
+  min-height: 48px;
+  max-width: 100%;
+}
+.zerp-business-catalog .v-btn__content {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.zerp-business-children {
+  padding-inline-start: 1rem;
+}
+
+.zerp-collaboration-progress {
+  block-size: 4px;
 }

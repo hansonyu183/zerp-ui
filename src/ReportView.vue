@@ -9,6 +9,7 @@
     T = never
   "
 >
+import { VBtn } from "vuetify/components";
 import Feedback from "./Feedback.vue";
 import {
   computed,
@@ -696,14 +697,18 @@ onBeforeUnmount(() => {
         @update:model-value="updateInput"
         @pending="pending = $event"
       />
-      <button
+      <VBtn
+        color=""
+        variant="tonal"
         v-if="canQuery"
         type="submit"
         :disabled="pending || cancelling || checking"
       >
         查询
-      </button>
-      <button
+      </VBtn>
+      <VBtn
+        color=""
+        variant="tonal"
         v-if="canExport"
         type="button"
         :disabled="
@@ -713,7 +718,7 @@ onBeforeUnmount(() => {
         @click="download"
       >
         导出
-      </button>
+      </VBtn>
     </form>
     <p v-if="!canQuery && canExport && definition.kind === 'parameter'">
       你可以填写参数并导出此报表。
@@ -721,16 +726,20 @@ onBeforeUnmount(() => {
     <p v-if="!canQuery && !canExport">没有可用的报表操作。</p>
     <div class="zerp-feedback-region">
       <Feedback :message="loading ? '正在查询…' : undefined" persistent>
-        <button type="button" @click="stop">停止等待</button>
+        <VBtn color="" variant="tonal" type="button" @click="stop"
+          >停止等待</VBtn
+        >
       </Feedback>
-      <button
+      <VBtn
+        color=""
+        variant="tonal"
         v-if="job?.adapter.cancel"
         type="button"
         :disabled="cancelling"
         @click="cancel"
       >
         取消服务端查询
-      </button>
+      </VBtn>
       <Feedback
         :message="pageLoading ? '正在读取结果页…' : undefined"
         persistent
@@ -745,24 +754,28 @@ onBeforeUnmount(() => {
         kind="warning"
         persistent
       >
-        <button
+        <VBtn
+          color=""
+          variant="tonal"
           type="button"
           :disabled="checking || !enabled"
           @click="revalidate"
         >
           重验结果
-        </button>
+        </VBtn>
       </Feedback>
       <Feedback :message="error" kind="error">
         <span v-if="result && usable">仍显示上次成功结果。</span
-        ><button
+        ><VBtn
+          color=""
+          variant="tonal"
           v-if="retry && canQuery"
           type="button"
           :disabled="loading || !valid"
           @click="retry()"
         >
           重试查询
-        </button>
+        </VBtn>
       </Feedback>
       <Feedback
         :message="

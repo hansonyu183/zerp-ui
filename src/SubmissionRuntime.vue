@@ -3,6 +3,7 @@
   lang="ts"
   generic="D extends object, I, S, O, H, A extends object, E = never"
 >
+import { VBtn, VCard, VFileInput } from "vuetify/components";
 import { equalValues } from "./editor-values";
 import type { EditProtection } from "./edit-guard";
 import DomainBlockHost from "./DomainBlockHost.vue";
@@ -358,10 +359,8 @@ watch(
     }
   },
 );
-function addFiles(event: Event) {
-  const input = event.target as HTMLInputElement,
-    files = Array.from(input.files ?? []);
-  input.value = "";
+function addFiles(value: File | File[] | null) {
+  const files = value === null ? [] : Array.isArray(value) ? value : [value];
   if (!editor.value || disabled.value || !props.definition.adapter.attachments)
     return;
   for (const file of files) {
@@ -675,13 +674,15 @@ onBeforeUnmount(() => {
         {{
           lock.attempt?.operation === "stage" ? "附件暂存" : "业务写入"
         }}结果未知。普通读取或关闭不能解锁。
-        <button
+        <VBtn
+          color=""
+          variant="tonal"
           v-if="definition.reconcile && permissions.reconcile"
           :disabled="verifying"
           @click="reconcile"
         >
           核实本次请求
-        </button>
+        </VBtn>
       </Feedback>
       <Feedback
         :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
@@ -691,10 +692,18 @@ onBeforeUnmount(() => {
         业务写入已成功，请重试读取；不会再次提交。
       </Feedback>
     </div>
-    <button v-if="permissions.read" :disabled="loading" @click="query">
+    <VBtn
+      color=""
+      variant="tonal"
+      v-if="permissions.read"
+      :disabled="loading"
+      @click="query"
+    >
       重试读取
-    </button>
-    <button
+    </VBtn>
+    <VBtn
+      color=""
+      variant="tonal"
       v-if="
         vouchers &&
         lock.context &&
@@ -706,15 +715,17 @@ onBeforeUnmount(() => {
       @click="resumeDraft"
     >
       恢复 Draft
-    </button>
+    </VBtn>
     <section v-if="vouchers && permissions.read" aria-label="单据列表">
-      <button
+      <VBtn
+        color=""
+        variant="tonal"
         v-if="vouchers.empty && permissions.write"
         :disabled="disabled || loading || editor"
         @click="prepare('create')"
       >
         创建 Draft
-      </button>
+      </VBtn>
       <DataList
         :columns="[
           { key: 'number', label: '编号' },
@@ -726,34 +737,59 @@ onBeforeUnmount(() => {
         :loading="loading || editor"
         @page="pageVouchers"
       />
-      <button
+      <VBtn
+        color=""
+        variant="tonal"
         v-for="(row, index) in rows.items"
         :key="index"
         :disabled="loading || editor"
         @click="openVoucher(row.identity)"
       >
         查看 {{ row.number }}
-      </button>
+      </VBtn>
     </section>
     <nav
       v-if="permissions.read"
       :aria-label="vouchers ? '单据视图' : '档案视图'"
     >
-      <button :disabled="editor" @click="select('official')">
+      <VBtn
+        color=""
+        :disabled="editor"
+        :aria-pressed="selected === 'official'"
+        :variant="selected === 'official' ? 'outlined' : 'tonal'"
+        @click="select('official')"
+      >
         {{ vouchers ? "当前单据" : "正式资料" }}
-      </button>
-      <button v-if="!vouchers" :disabled="editor" @click="select('candidate')">
+      </VBtn>
+      <VBtn
+        color=""
+        v-if="!vouchers"
+        :disabled="editor"
+        :aria-pressed="selected === 'candidate'"
+        :variant="selected === 'candidate' ? 'outlined' : 'tonal'"
+        @click="select('candidate')"
+      >
         开放候选
-      </button>
-      <button
+      </VBtn>
+      <VBtn
+        color=""
+        variant="tonal"
         v-for="(item, index) in archive?.history"
         :key="index"
         :disabled="editor"
+        :aria-pressed="selected === 'history' && historyIndex === index"
         @click="select('history', index)"
       >
         历史 {{ item.label }}
-      </button>
-      <button :disabled="editor" @click="select('audit')">审计</button>
+      </VBtn>
+      <VBtn
+        color=""
+        :disabled="editor"
+        :aria-pressed="selected === 'audit'"
+        :variant="selected === 'audit' ? 'outlined' : 'tonal'"
+        @click="select('audit')"
+        >审计</VBtn
+      >
     </nav>
     <template v-if="permissions.read && archive">
       <DataList
@@ -769,7 +805,9 @@ onBeforeUnmount(() => {
             snapshot.state
           }}
         </p>
-        <button
+        <VBtn
+          color=""
+          variant="tonal"
           v-if="
             vouchers?.clone &&
             vouchers.canClone?.(snapshot) &&
@@ -780,7 +818,7 @@ onBeforeUnmount(() => {
           @click="prepare('clone')"
         >
           克隆 Draft
-        </button>
+        </VBtn>
         <DynamicForm
           v-if="!editor"
           :key="`${selected}:${historyIndex}`"
@@ -792,49 +830,61 @@ onBeforeUnmount(() => {
         <ul v-if="!editor">
           <li v-for="(item, index) in snapshot.attachments" :key="index">
             {{ item.label }}
-            <button
+            <VBtn
+              color=""
+              variant="tonal"
               v-if="definition.adapter.attachments"
               :disabled="downloading"
               @click="readAttachment(item.handle, snapshot.owner)"
             >
               读取附件 {{ item.label }}
-            </button>
+            </VBtn>
           </li>
         </ul>
         <template v-if="selected !== 'history' && permissions.write && !editor">
-          <button
+          <VBtn
+            color=""
+            variant="tonal"
             v-if="snapshot.eligible.edit"
             :disabled="disabled || loading"
             @click="begin"
           >
             {{ editCaption }}
-          </button>
-          <button
+          </VBtn>
+          <VBtn
+            color=""
+            variant="tonal"
             v-if="snapshot.eligible.approve && definition.adapter.approve"
             :disabled="disabled || loading"
             @click="act('approve')"
           >
             审批通过
-          </button>
-          <button
+          </VBtn>
+          <VBtn
+            color=""
+            variant="tonal"
             v-if="snapshot.eligible.enable && definition.adapter.enable"
             :disabled="disabled || loading"
             @click="act('enable')"
           >
             启用档案
-          </button>
-          <button
+          </VBtn>
+          <VBtn
+            color=""
+            variant="tonal"
             v-if="snapshot.eligible.disable && definition.adapter.disable"
             :disabled="disabled || loading"
             @click="act('disable')"
           >
             停用档案
-          </button>
+          </VBtn>
         </template>
-        <section
+        <VCard
+          tag="section"
+          class="zerp-business-card pa-4"
           v-if="editor && lock.context"
           :key="instance"
-          role="dialog"
+          role="region"
           :aria-label="editCaption"
         >
           <DynamicForm
@@ -846,14 +896,16 @@ onBeforeUnmount(() => {
             :onUpdate:modelValue="bindings.form"
             :onPending="bindings.pending"
           />
-          <label v-if="definition.adapter.attachments"
-            >本地附件<input
-              type="file"
-              multiple
-              aria-label="本地附件"
-              :disabled="disabled"
-              @change="addFiles"
-          /></label>
+          <VFileInput
+            :prepend-icon="''"
+            :clearable="false"
+            v-if="definition.adapter.attachments"
+            label="本地附件"
+            multiple
+            :model-value="[]"
+            :disabled="disabled"
+            @update:model-value="addFiles"
+          />
           <ul>
             <li v-for="file in lock.context.files" :key="file.id">
               {{ file.file.name }}：{{
@@ -861,13 +913,23 @@ onBeforeUnmount(() => {
               }}
             </li>
           </ul>
-          <button :disabled="lock.phase === 'pending'" @click="close">
+          <VBtn
+            color=""
+            variant="tonal"
+            :disabled="lock.phase === 'pending'"
+            @click="close"
+          >
             关闭编辑
-          </button>
-          <button :disabled="disabled || busy" @click="submit">
+          </VBtn>
+          <VBtn
+            color="primary"
+            variant="flat"
+            :disabled="disabled || busy"
+            @click="submit"
+          >
             {{ submitCaption }}
-          </button>
-        </section>
+          </VBtn>
+        </VCard>
         <DomainBlockHost
           v-for="block in bindings.blocks"
           :block="block.block"

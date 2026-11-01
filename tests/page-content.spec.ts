@@ -1,3 +1,4 @@
+import { DOMWrapper } from "@vue/test-utils";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it } from "vitest";
 import { AppPage, defineDetailsPage } from "../src/index";
@@ -63,6 +64,11 @@ it("shows grouped facts and related intents through the complete page entrance",
   expect(wrapper.text()).toContain("9007199254740993.0100");
   const button = wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((node) => node.attributes("aria-label") === "查看来源：历史名称");
   expect(button).toBeDefined();
   await button!.trigger("click");
@@ -148,6 +154,11 @@ it("keeps unfinished library block input protected when a different page is requ
   await count.setValue("-");
   const save = wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((node) => node.text() === "保存")!;
   expect(save.attributes("disabled")).toBeDefined();
   const next = defineDetailsPage({
@@ -164,10 +175,17 @@ it("keeps unfinished library block input protected when a different page is requ
   });
   await wrapper.setProps({ page: next });
   expect(
-    wrapper.find('[role="dialog"][aria-label="未保存修改"]').exists(),
+    new DOMWrapper(document.body)
+      .find('[role="dialog"][aria-label="未保存修改"]')
+      .exists(),
   ).toBe(true);
   const continueEditing = wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((node) => node.text() === "继续编辑")!;
   await continueEditing.trigger("click");
   await flushPromises();
@@ -192,6 +210,11 @@ it("keeps the current page and original write lock after an unknown save", async
   await wrapper.get('input[aria-label="名称"]').setValue("修改名称");
   await wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((node) => node.text() === "保存")!
     .trigger("click");
   await flushPromises();
@@ -204,7 +227,9 @@ it("keeps the current page and original write lock after an unknown save", async
   await wrapper.setProps({ page: next });
   await flushPromises();
   expect(wrapper.get("h1").text()).toBe("资料维护");
-  expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(false);
+  expect(
+    new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+  ).toBe(false);
   expect(wrapper.text()).toContain("未知");
   expect(writes).toBe(1);
   wrapper.unmount();
@@ -295,6 +320,13 @@ it("owns voucher editing and restores an original not-applied request inside the
   const click = async (text: string) => {
     await wrapper
       .findAll("button")
+      .concat(
+        Array.from(
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
+        ).map((el) => new DOMWrapper(el)),
+      )
       .find((node) => node.text() === text)!
       .trigger("click");
     await flushPromises();
@@ -340,6 +372,11 @@ it("owns account validation, unfinished inputs and local cancel without inventin
   await wrapper.get('input[aria-label="验证数量"]').setValue("-");
   const submit = wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((node) => node.attributes("type") === "submit")!;
   expect(submit.attributes("disabled")).toBeDefined();
   expect(submissions).toHaveLength(0);
@@ -389,15 +426,27 @@ it("guards a record switch within the same details definition and clears a saved
   await flushPromises();
   await wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((node) => node.text() === "编辑资料")!
     .trigger("click");
   await wrapper.get('input[aria-label="详情备注"]').setValue("未保存内容");
   selected.instance = "two";
   selected.note = "新记录";
   await flushPromises();
-  expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+  expect(
+    new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+  ).toBe(true);
   await wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((node) => node.text() === "继续编辑")!
     .trigger("click");
   await flushPromises();
@@ -465,6 +514,13 @@ it("isolates an admitted details record from in-place reactive source changes", 
   const click = async (text: string) => {
     await wrapper
       .findAll("button")
+      .concat(
+        Array.from(
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
+        ).map((el) => new DOMWrapper(el)),
+      )
       .find((node) => node.text() === text)!
       .trigger("click");
     await flushPromises();
@@ -477,7 +533,9 @@ it("isolates an admitted details record from in-place reactive source changes", 
     source.value.label = "替换记录";
     source.editor!.value.header.note = "替换内容";
     await flushPromises();
-    expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+    expect(
+      new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+    ).toBe(true);
     expect(wrapper.text()).toContain("原记录");
     expect(wrapper.text()).not.toContain("替换记录");
     await click("继续编辑");
@@ -583,6 +641,13 @@ it.each(["replace", "remove"] as const)(
     const click = async (text: string) => {
       await wrapper
         .findAll("button")
+        .concat(
+          Array.from(
+            document.querySelectorAll<HTMLButtonElement>(
+              '[role="dialog"] button',
+            ),
+          ).map((el) => new DOMWrapper(el)),
+        )
         .find(
           (node) =>
             node.text() === text || node.attributes("aria-label") === text,
@@ -668,6 +733,11 @@ it("emits finite list selection and related operation intents without invoking a
   expect(chosen.keys).toEqual(["one"]);
   const withdraw = wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find(
       (node) =>
         node.attributes("aria-label")?.includes("反送审") ||
@@ -720,6 +790,13 @@ it("denies an ordinary switch from an unknown operation to another page but clea
   const click = async (text: string) => {
     await wrapper
       .findAll("button")
+      .concat(
+        Array.from(
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
+        ).map((el) => new DOMWrapper(el)),
+      )
       .find((node) => node.text() === text)!
       .trigger("click");
     await flushPromises();
@@ -747,6 +824,13 @@ it("denies an ordinary switch from an unknown operation to another page but clea
   expect(
     wrapper
       .findAll("button")
+      .concat(
+        Array.from(
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
+        ).map((el) => new DOMWrapper(el)),
+      )
       .find((node) => node.text() === "准备作废")!
       .attributes("disabled"),
   ).toBeUndefined();
@@ -811,6 +895,13 @@ it("guards an in-place operation identity change while preserving same-record pr
   const click = async (text: string) => {
     await wrapper
       .findAll("button")
+      .concat(
+        Array.from(
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
+        ).map((el) => new DOMWrapper(el)),
+      )
       .find((node) => node.text() === text)!
       .trigger("click");
     await flushPromises();
@@ -824,7 +915,9 @@ it("guards an in-place operation identity change while preserving same-record pr
     expect(wrapper.get('[aria-label="完整办理预览"]').text()).toContain("one");
     identity.voucher = "two";
     await flushPromises();
-    expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+    expect(
+      new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+    ).toBe(true);
     await click("继续编辑");
     expect(wrapper.get('[aria-label="完整办理预览"]').text()).toContain("one");
   } finally {
@@ -862,6 +955,11 @@ it("keeps controlled details echoes dirty and requests leave confirmation", asyn
   await flushPromises();
   await wrapper
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((node) => node.text() === "编辑资料")!
     .trigger("click");
   await wrapper.get('input[aria-label="详情备注"]').setValue("未保存备注");
@@ -876,7 +974,9 @@ it("keeps controlled details echoes dirty and requests leave confirmation", asyn
   });
   await wrapper.setProps({ page: next });
   await flushPromises();
-  expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+  expect(
+    new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+  ).toBe(true);
   wrapper.unmount();
 });
 it("accepts nested reactive operation values and preserves typed Date Map and Set data", async () => {
@@ -1071,6 +1171,13 @@ it.each(
     const click = async (text: string) => {
       await wrapper
         .findAll("button")
+        .concat(
+          Array.from(
+            document.querySelectorAll<HTMLButtonElement>(
+              '[role="dialog"] button',
+            ),
+          ).map((el) => new DOMWrapper(el)),
+        )
         .find(
           (node) =>
             node.text() === text || node.attributes("aria-label") === text,

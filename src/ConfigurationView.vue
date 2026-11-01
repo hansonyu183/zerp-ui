@@ -3,6 +3,7 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
+import { VBtn, VCard } from "vuetify/components";
 import DomainBlockHost from "./DomainBlockHost.vue";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
@@ -594,7 +595,13 @@ onBeforeUnmount(() => {
         :scope="scope"
         @pending="filterPending = $event"
       />
-      <button type="submit" :disabled="loading || filterPending">查询</button>
+      <VBtn
+        color=""
+        variant="tonal"
+        type="submit"
+        :disabled="loading || filterPending"
+        >查询</VBtn
+      >
     </form>
     <div class="zerp-progress-reserve">
       <VProgressLinear
@@ -608,9 +615,15 @@ onBeforeUnmount(() => {
         :message="lock.phase === 'blocked' ? '请先恢复原请求' : undefined"
         kind="warning"
         persistent
-        ><button type="button" :disabled="verifying" @click="restoreWrite">
+        ><VBtn
+          color=""
+          variant="tonal"
+          type="button"
+          :disabled="verifying"
+          @click="restoreWrite"
+        >
           重试恢复原请求
-        </button></Feedback
+        </VBtn></Feedback
       >
       <Feedback :message="error" kind="error" />
       <Feedback :message="notice" />
@@ -620,14 +633,16 @@ onBeforeUnmount(() => {
         persistent
       >
         保存结果未知。普通读取或关闭编辑不能解除锁定。
-        <button
+        <VBtn
+          color=""
+          variant="tonal"
           v-if="definition.reconcile && permissions.reconcile"
           type="button"
           :disabled="verifying"
           @click="reconcile"
         >
           核实本次请求
-        </button>
+        </VBtn>
       </Feedback>
       <Feedback
         :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
@@ -637,22 +652,26 @@ onBeforeUnmount(() => {
         保存已成功，请重试读取；不会再次提交。
       </Feedback>
     </div>
-    <button
+    <VBtn
+      color=""
+      variant="tonal"
       v-if="permissions.read"
       type="button"
       :disabled="loading"
       @click="query()"
     >
       重试读取
-    </button>
-    <button
+    </VBtn>
+    <VBtn
+      color=""
+      variant="tonal"
       v-if="definition.adapter.empty && permissions.write && permissions.read"
       type="button"
       :disabled="blocked || !!editor || detailLoading"
       @click="enter()"
     >
       {{ definition.createLabel ?? "新增配置" }}
-    </button>
+    </VBtn>
     <DataList
       :columns="definition.columns"
       :result="result"
@@ -666,7 +685,14 @@ onBeforeUnmount(() => {
       @page="query($event)"
       @action="(_action, row) => enter(row)"
     />
-    <section v-if="editor" :key="editId" role="dialog" aria-label="编辑配置">
+    <VCard
+      tag="section"
+      class="zerp-business-card pa-4"
+      v-if="editor"
+      :key="editId"
+      role="region"
+      aria-label="编辑配置"
+    >
       <FactFields
         v-if="!editor.writable"
         :value="editor.values"
@@ -698,14 +724,23 @@ onBeforeUnmount(() => {
         :key="block.key"
         v-bind="block.props"
       />
-      <button type="button" :disabled="blocked" @click="close">关闭编辑</button>
-      <button
+      <VBtn
+        color=""
+        variant="tonal"
+        type="button"
+        :disabled="blocked"
+        @click="close"
+        >关闭编辑</VBtn
+      >
+      <VBtn
+        color="primary"
+        variant="flat"
         type="button"
         :disabled="disabled || Object.values(pending).some(Boolean)"
         @click="save"
       >
         {{ definition.saveLabel ?? "保存" }}
-      </button>
-    </section>
+      </VBtn>
+    </VCard>
   </section>
 </template>
