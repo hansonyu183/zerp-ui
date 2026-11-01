@@ -33,7 +33,9 @@ const click = async (w: ReturnType<typeof mount>, name: string) => {
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .find((b) => b.text() === name || b.attributes("aria-label") === name)!
@@ -102,7 +104,7 @@ const button = (w: ReturnType<typeof mount>, name: string) =>
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
@@ -239,7 +241,9 @@ it("hides actions when the consumer denies permission", async () => {
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .map((b) => b.text()),
@@ -249,7 +253,9 @@ it("hides actions when the consumer denies permission", async () => {
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .map((b) => b.text()),

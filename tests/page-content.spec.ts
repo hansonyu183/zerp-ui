@@ -66,7 +66,7 @@ it("shows grouped facts and related intents through the complete page entrance",
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((node) => node.attributes("aria-label") === "查看来源：历史名称");
@@ -156,7 +156,7 @@ it("keeps unfinished library block input protected when a different page is requ
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((node) => node.text() === "保存")!;
@@ -183,7 +183,7 @@ it("keeps unfinished library block input protected when a different page is requ
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((node) => node.text() === "继续编辑")!;
@@ -212,7 +212,7 @@ it("keeps the current page and original write lock after an unknown save", async
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((node) => node.text() === "保存")!
@@ -322,7 +322,9 @@ it("owns voucher editing and restores an original not-applied request inside the
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .find((node) => node.text() === text)!
@@ -372,7 +374,7 @@ it("owns account validation, unfinished inputs and local cancel without inventin
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((node) => node.attributes("type") === "submit")!;
@@ -426,7 +428,7 @@ it("guards a record switch within the same details definition and clears a saved
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((node) => node.text() === "编辑资料")!
@@ -442,7 +444,7 @@ it("guards a record switch within the same details definition and clears a saved
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((node) => node.text() === "继续编辑")!
@@ -514,7 +516,9 @@ it("isolates an admitted details record from in-place reactive source changes", 
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .find((node) => node.text() === text)!
@@ -639,7 +643,9 @@ it.each(["replace", "remove"] as const)(
         .findAll("button")
         .concat(
           Array.from(
-            document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+            document.querySelectorAll<HTMLButtonElement>(
+              '[role="dialog"] button',
+            ),
           ).map((el) => new DOMWrapper(el)),
         )
         .find(
@@ -729,7 +735,7 @@ it("emits finite list selection and related operation intents without invoking a
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find(
@@ -786,7 +792,9 @@ it("denies an ordinary switch from an unknown operation to another page but clea
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .find((node) => node.text() === text)!
@@ -818,7 +826,9 @@ it("denies an ordinary switch from an unknown operation to another page but clea
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .find((node) => node.text() === "准备作废")!
@@ -887,7 +897,9 @@ it("guards an in-place operation identity change while preserving same-record pr
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .find((node) => node.text() === text)!
@@ -945,7 +957,7 @@ it("keeps controlled details echoes dirty and requests leave confirmation", asyn
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((node) => node.text() === "编辑资料")!
@@ -1161,7 +1173,9 @@ it.each(
         .findAll("button")
         .concat(
           Array.from(
-            document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+            document.querySelectorAll<HTMLButtonElement>(
+              '[role="dialog"] button',
+            ),
           ).map((el) => new DOMWrapper(el)),
         )
         .find(

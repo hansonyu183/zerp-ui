@@ -46,7 +46,7 @@ async function click(wrapper: ReturnType<typeof mount>, text: string) {
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((b) => b.text() === text)!
@@ -82,7 +82,9 @@ it("shows the same details without editing actions in read mode", () => {
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       ),
   ).toHaveLength(0);
@@ -206,7 +208,9 @@ it("discards an open formula draft on scope change and allows read-only inspecti
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .some((b) => b.text() === "确定配方"),
@@ -219,7 +223,7 @@ it("moves focus into the formula dialog and restores it on close", async () => {
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((b) => b.text() === "编辑配方 · 明细行 1")!;
@@ -239,7 +243,9 @@ it("keeps the formula draft pending while a child row is being edited", async ()
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .find((b) => b.text() === "确定配方")!

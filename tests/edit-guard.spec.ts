@@ -65,7 +65,7 @@ async function click(wrapper: ReturnType<typeof mount>, text: string) {
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((button) => button.text() === text)!
@@ -116,7 +116,9 @@ it.each(["scope", "instance", "active", "state", "unmount"] as const)(
       .findAll("button")
       .concat(
         Array.from(
-          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+          document.querySelectorAll<HTMLButtonElement>(
+            '[role="dialog"] button',
+          ),
         ).map((el) => new DOMWrapper(el)),
       )
       .find((b) => b.text() === "放弃本地修改")!;

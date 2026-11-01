@@ -52,7 +52,7 @@ const button = (w: ReturnType<typeof mount>, name: string) =>
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
       ).map((el) => new DOMWrapper(el)),
     )
     .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
