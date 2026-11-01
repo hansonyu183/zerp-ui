@@ -409,23 +409,23 @@ it("validates exact field values through the public engine while retaining reado
     ],
     { tags: ["a", "b"], choice: "b" },
   );
-  const selected = () =>
-    Array.from(
-      (w.get('select[aria-label="多选"]').element as HTMLSelectElement)
-        .selectedOptions,
-      (option) => option.value,
-    );
-  expect(selected()).toEqual(["a", "b"]);
-  expect(w.get('select[aria-label="单选"]').element).toHaveProperty(
+  expect(w.get('input[aria-label="多选"]').element).toHaveProperty(
     "value",
-    "b",
+    "甲, 乙",
+  );
+  expect(w.get('input[aria-label="单选"]').element).toHaveProperty(
+    "value",
+    "乙",
   );
   value.value = { tags: ["b"], choice: "a" };
   await flushPromises();
-  expect(selected()).toEqual(["b"]);
-  expect(w.get('select[aria-label="单选"]').element).toHaveProperty(
+  expect(w.get('input[aria-label="多选"]').element).toHaveProperty(
     "value",
-    "a",
+    "乙",
+  );
+  expect(w.get('input[aria-label="单选"]').element).toHaveProperty(
+    "value",
+    "甲",
   );
   w.unmount();
 });
@@ -458,7 +458,7 @@ it("blocks invalid child drafts and preserves readonly historical values without
     ],
     { rows: [], history: "retired", oldDate: "legacy-date" },
   );
-  expect(w.get('select[aria-label="历史类别"]').element).toHaveProperty(
+  expect(w.get('input[aria-label="历史类别"]').element).toHaveProperty(
     "value",
     "retired",
   );
