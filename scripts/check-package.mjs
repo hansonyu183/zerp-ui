@@ -445,7 +445,7 @@ try {
                       ]
                     : [
                         "browser create/edit and 20 examples",
-                        "mobile card surface",
+                        "mobile semantic table headers, contained horizontal scrolling and reachable last cell",
                       ]),
     ],
     exitCode: 0,
@@ -660,9 +660,56 @@ async function directSmoke(page) {
     .click();
   await choose("resources");
   await page.setViewportSize({ width: 390, height: 844 });
+  const mobileTable = crud.getByRole("table").first();
+  assert.ok(await mobileTable.getByRole("columnheader").count());
   assert.equal(
-    await crud.locator("thead").evaluate((el) => getComputedStyle(el).display),
-    "none",
+    await mobileTable
+      .locator("thead")
+      .evaluate((el) => getComputedStyle(el).display),
+    "table-header-group",
+  );
+  assert.ok(
+    await mobileTable.evaluate((table) => {
+      for (
+        let container = table.parentElement;
+        container;
+        container = container.parentElement
+      ) {
+        if (
+          container.scrollWidth > container.clientWidth &&
+          ["auto", "scroll"].includes(getComputedStyle(container).overflowX)
+        ) {
+          container.scrollLeft = container.scrollWidth;
+          return container.scrollLeft > 0;
+        }
+      }
+      return false;
+    }),
+    "wide mobile table scrolls inside its own container",
+  );
+  const lastCell = mobileTable.getByRole("cell").last();
+  await lastCell.scrollIntoViewIfNeeded();
+  assert.ok(
+    await lastCell.evaluate((cell) => {
+      const box = cell.getBoundingClientRect();
+      return (
+        box.x >= 0 &&
+        box.right <= innerWidth &&
+        cell.contains(
+          document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          ),
+        )
+      );
+    }),
+    "the last cell remains visible and reachable after horizontal scrolling",
+  );
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    "table overflow does not create page-level horizontal scrolling",
   );
 }
 
