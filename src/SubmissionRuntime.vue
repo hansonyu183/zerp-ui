@@ -897,6 +897,8 @@ onBeforeUnmount(() => {
             :onPending="bindings.pending"
           />
           <VFileInput
+            :prepend-icon="''"
+            :clearable="false"
             v-if="definition.adapter.attachments"
             label="本地附件"
             multiple
