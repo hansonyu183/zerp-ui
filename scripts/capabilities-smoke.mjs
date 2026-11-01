@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { expect } from "@playwright/test";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
 export async function capabilitiesSmoke(page) {
+  await page.setViewportSize({ width: 1280, height: 1400 });
   await expect(
     page.getByRole("heading", { name: "业务处理", exact: true }),
   ).toBeVisible();
