@@ -1,4 +1,4 @@
-import { DOMWrapper } from "@vue/test-utils";
+import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
@@ -30,14 +30,9 @@ const definition = () =>
   });
 const permissions = { read: true, write: true, reconcile: true };
 const button = (w: ReturnType<typeof mount>, name: string) =>
-  w
-    .findAll("button")
-    .concat(
-      Array.from(
-        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
-      ).map((el) => new DOMWrapper(el)),
-    )
-    .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
+  hostAndDialogButtons(w).find(
+    (b) => b.text() === name || b.attributes("aria-label") === name,
+  )!;
 const click = async (w: ReturnType<typeof mount>, name: string) => {
   await button(w, name).trigger("click");
   await flushPromises();
