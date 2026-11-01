@@ -4,6 +4,17 @@ import { assertStableFeedback } from "./feedback-smoke.mjs";
 import { assertBelowToolbar } from "./shell-interaction-smoke.mjs";
 
 async function touchTarget(control) {
+  await expect
+    .poll(
+      async () => {
+        const box = await control.boundingBox();
+        return !!box && box.width >= 48 && box.height >= 48;
+      },
+      {
+        message: `48px target settles after enter/reflow: ${await control.textContent()}`,
+      },
+    )
+    .toBe(true);
   const box = await control.boundingBox();
   assert.ok(
     box && box.width >= 48 && box.height >= 48,
@@ -204,12 +215,15 @@ async function materialFieldsAndModalSmoke(page, preset, mode) {
     await page.setViewportSize({ width, height: 720 });
     await submit.scrollIntoViewIfNeeded();
     await touchTarget(submit);
-    assert.ok(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
-      "field page fits narrow viewport",
-    );
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+        { message: "field page fits narrow viewport after reflow" },
+      )
+      .toBe(true);
   }
   await page.setViewportSize({ width: 1280, height: 720 });
   await submit.click();
@@ -321,6 +335,99 @@ async function brightBrandSmoke(page) {
       .click();
   }
   await cancel.click();
+}
+
+async function zoomReflowSmoke(page) {
+  const viewport = page.viewportSize();
+  const original = await page.evaluate(() => ({
+    width: innerWidth,
+    height: innerHeight,
+    dpr: devicePixelRatio,
+  }));
+  const client = await page.context().newCDPSession(page);
+  try {
+    // Desktop 200% zoom halves the CSS viewport and doubles DPR at the same physical window size.
+    await client.send("Emulation.setDeviceMetricsOverride", {
+      width: Math.floor(original.width / 2),
+      height: Math.floor(original.height / 2),
+      deviceScaleFactor: original.dpr * 2,
+      mobile: false,
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          width: innerWidth,
+          height: innerHeight,
+          dpr: devicePixelRatio,
+        })),
+      )
+      .toEqual({
+        width: Math.floor(original.width / 2),
+        height: Math.floor(original.height / 2),
+        dpr: original.dpr * 2,
+      });
+    const mode = page.getByLabel("资料演示", { exact: true });
+    await mode.selectOption("form");
+    await page
+      .getByRole("textbox", { name: "独立名称", exact: true })
+      .fill("缩放账户");
+    const submit = page.getByRole("button", {
+      name: "提交独立表单",
+      exact: true,
+    });
+    await submit.scrollIntoViewIfNeeded();
+    await touchTarget(submit);
+    await submit.click();
+    await expect(page.getByLabel("独立提交值", { exact: true })).toHaveText(
+      '{"title":"缩放账户","count":0,"amount":"9007199254740993.0100"}',
+    );
+    await page.getByRole("button", { name: "取消", exact: true }).click();
+    await mode.selectOption("contracts");
+    await page
+      .getByRole("button", { name: "打开资料接缝", exact: true })
+      .click();
+    const editor = page.getByRole("region", { name: "编辑资料", exact: true });
+    await editor
+      .getByRole("textbox", { name: "资料名称", exact: true })
+      .fill("缩放草稿");
+    const cancel = editor.getByRole("button", {
+      name: "取消编辑",
+      exact: true,
+    });
+    await cancel.click();
+    const dialog = page.getByRole("dialog", {
+      name: "未保存修改",
+      exact: true,
+    });
+    const keep = dialog.getByRole("button", { name: "继续编辑", exact: true });
+    const discard = dialog.getByRole("button", {
+      name: "放弃本地修改",
+      exact: true,
+    });
+    await expect(keep).toBeFocused();
+    await assertBelowToolbar(page, dialog);
+    await keep.scrollIntoViewIfNeeded();
+    await touchTarget(keep);
+    await discard.scrollIntoViewIfNeeded();
+    await touchTarget(discard);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(cancel).toBeFocused();
+    await cancel.click();
+    await discard.click();
+    await expect(editor).toBeHidden();
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      "200% desktop zoom reflows without page overflow and keeps actions reachable",
+    );
+    await mode.selectOption("actions");
+  } finally {
+    await client.send("Emulation.clearDeviceMetricsOverride");
+    await client.detach();
+    await page.setViewportSize(viewport);
+  }
 }
 
 /** Representative shared shell/list/feedback states through an installed AppPage consumer. */
@@ -449,5 +556,6 @@ export async function materialShellSmoke(page) {
     }
   }
   await brightBrandSmoke(page);
+  await zoomReflowSmoke(page);
   await page.evaluate(() => window.scrollTo(0, 0));
 }

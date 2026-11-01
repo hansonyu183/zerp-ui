@@ -1,3 +1,4 @@
+import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import { DOMWrapper } from "@vue/test-utils";
 import { defineComponent, h, ref, shallowRef, type Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
@@ -48,14 +49,9 @@ const config = (): ConfigurationDefinition<
   });
 };
 const button = (w: ReturnType<typeof mount>, name: string) =>
-  w
-    .findAll("button")
-    .concat(
-      Array.from(
-        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
-      ).map((el) => new DOMWrapper(el)),
-    )
-    .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
+  hostAndDialogButtons(w).find(
+    (b) => b.text() === name || b.attributes("aria-label") === name,
+  )!;
 async function click(w: ReturnType<typeof mount>, name: string) {
   await button(w, name).trigger("click");
   await flushPromises();

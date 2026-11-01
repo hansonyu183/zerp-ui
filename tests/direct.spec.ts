@@ -1,4 +1,4 @@
-import { DOMWrapper } from "@vue/test-utils";
+import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { describe, it, expect, vi } from "vitest";
@@ -29,15 +29,7 @@ const definition = () =>
 const click = async (w: ReturnType<typeof mount>, name: string) => {
   if (name === "查询") await w.get("form").trigger("submit");
   else
-    await w
-      .findAll("button")
-      .concat(
-        Array.from(
-          document.querySelectorAll<HTMLButtonElement>(
-            '[role="dialog"] button',
-          ),
-        ).map((el) => new DOMWrapper(el)),
-      )
+    await hostAndDialogButtons(w)
       .find((b) => b.text() === name || b.attributes("aria-label") === name)!
       .trigger("click");
   await flushPromises();
@@ -100,14 +92,9 @@ const start = async (
   return w;
 };
 const button = (w: ReturnType<typeof mount>, name: string) =>
-  w
-    .findAll("button")
-    .concat(
-      Array.from(
-        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
-      ).map((el) => new DOMWrapper(el)),
-    )
-    .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
+  hostAndDialogButtons(w).find(
+    (b) => b.text() === name || b.attributes("aria-label") === name,
+  )!;
 it("preserves an unknown write after closing, querying and remounting", async () => {
   const d = definition();
   vi.mocked(d.adapter.save).mockResolvedValue({ status: "unknown" });
@@ -236,30 +223,8 @@ it("hides actions when the consumer denies permission", async () => {
   await w.setProps({
     permissions: { query: true, write: false, create: false },
   });
-  expect(
-    w
-      .findAll("button")
-      .concat(
-        Array.from(
-          document.querySelectorAll<HTMLButtonElement>(
-            '[role="dialog"] button',
-          ),
-        ).map((el) => new DOMWrapper(el)),
-      )
-      .map((b) => b.text()),
-  ).not.toContain("编辑");
-  expect(
-    w
-      .findAll("button")
-      .concat(
-        Array.from(
-          document.querySelectorAll<HTMLButtonElement>(
-            '[role="dialog"] button',
-          ),
-        ).map((el) => new DOMWrapper(el)),
-      )
-      .map((b) => b.text()),
-  ).not.toContain("新增");
+  expect(hostAndDialogButtons(w).map((b) => b.text())).not.toContain("编辑");
+  expect(hostAndDialogButtons(w).map((b) => b.text())).not.toContain("新增");
   w.unmount();
 });
 it("rejects an incomplete decimal without calling the write adapter", async () => {

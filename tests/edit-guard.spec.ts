@@ -1,3 +1,4 @@
+import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import { DOMWrapper } from "@vue/test-utils";
 import { defineComponent, h, ref } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
@@ -61,13 +62,7 @@ function host() {
 }
 async function click(wrapper: ReturnType<typeof mount>, text: string) {
   await flushPromises();
-  await wrapper
-    .findAll("button")
-    .concat(
-      Array.from(
-        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
-      ).map((el) => new DOMWrapper(el)),
-    )
+  await hostAndDialogButtons(wrapper)
     .find((button) => button.text() === text)!
     .trigger("click");
   await flushPromises();
@@ -112,16 +107,9 @@ it.each(["scope", "instance", "active", "state", "unmount"] as const)(
     const context = host();
     context.dirty.value = true;
     await click(context.wrapper, "离开");
-    const discard = context.wrapper
-      .findAll("button")
-      .concat(
-        Array.from(
-          document.querySelectorAll<HTMLButtonElement>(
-            '[role="dialog"] button',
-          ),
-        ).map((el) => new DOMWrapper(el)),
-      )
-      .find((b) => b.text() === "放弃本地修改")!;
+    const discard = hostAndDialogButtons(context.wrapper).find(
+      (b) => b.text() === "放弃本地修改",
+    )!;
     if (change === "unmount") context.wrapper.unmount();
     else if (change === "active") context.active.value = false;
     else if (change === "state") context.state.value = "unknown";

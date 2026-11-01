@@ -76,7 +76,7 @@ onBeforeUnmount(() => emit("pending", false));
           color=""
           variant="tonal"
           type="button"
-          :disabled="!!editing"
+          :disabled="disabled || !!editing"
           @click="begin(index)"
         >
           编辑{{ label }} {{ index + 1 }}</VBtn
@@ -84,7 +84,7 @@ onBeforeUnmount(() => emit("pending", false));
           color=""
           variant="tonal"
           type="button"
-          :disabled="!!editing"
+          :disabled="disabled || !!editing"
           @click="remove(index)"
         >
           删除{{ label }} {{ index + 1 }}
@@ -96,7 +96,7 @@ onBeforeUnmount(() => emit("pending", false));
       variant="tonal"
       v-if="mode === 'edit'"
       type="button"
-      :disabled="!!editing"
+      :disabled="disabled || !!editing"
       @click="begin(null)"
     >
       新增{{ label }}
@@ -125,7 +125,12 @@ onBeforeUnmount(() => emit("pending", false));
         @click="finish"
       >
         确定{{ label }}</VBtn
-      ><VBtn color="" variant="tonal" type="button" @click="cancel"
+      ><VBtn
+        color=""
+        variant="tonal"
+        type="button"
+        :disabled="disabled"
+        @click="cancel"
         >取消{{ label }}</VBtn
       >
     </VCard>
