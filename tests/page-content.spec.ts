@@ -1109,3 +1109,109 @@ it.each(
     wrapper.unmount();
   },
 );
+
+it("links account field validation to its input and submits exact controlled values", async () => {
+  const submissions: {
+    amount: string;
+    count: number;
+    enabled: boolean;
+    note: string | null;
+  }[] = [];
+  const page = defineAccountPage<(typeof submissions)[number]>({
+    kind: "profile",
+    title: "合成精确账户",
+    values: { amount: "1.2300", count: 0, enabled: false, note: null },
+    fields: [
+      { key: "amount", label: "精确账户金额", type: "decimal", required: true },
+      { key: "count", label: "精确账户数量", type: "integer" },
+      { key: "enabled", label: "精确账户启用", type: "boolean" },
+      { key: "note", label: "精确账户备注", type: "text" },
+    ],
+    submit: (value) => submissions.push(value),
+  });
+  const w = mountPage(page);
+  await flushPromises();
+  const amount = w.get('input[aria-label="精确账户金额"]');
+  await amount.setValue("-");
+  expect(amount.attributes("aria-invalid")).toBe("true");
+  expect(
+    w.get(`[id="${amount.attributes("aria-describedby")}"]`).text(),
+  ).toContain("应为完整十进制数");
+  await amount.setValue("9007199254740993.0100");
+  await w.get("form").trigger("submit");
+  expect(submissions).toEqual([
+    { amount: "9007199254740993.0100", count: 0, enabled: false, note: null },
+  ]);
+  w.unmount();
+});
+
+it("submits selected catalog values and date strings from the complete account page", async () => {
+  type Values = {
+    choice: string;
+    tags: string[];
+    date: string;
+    period: string[];
+  };
+  const submissions: Values[] = [];
+  const page = defineAccountPage({
+    kind: "profile",
+    title: "合成目录账户",
+    values: {
+      choice: "old",
+      tags: ["a"],
+      date: "2026-11-01",
+      period: ["2026-11-01", "2026-11-02"],
+    },
+    fields: [
+      {
+        key: "choice",
+        type: "enum",
+        label: "账户类别",
+        options: [
+          { value: "a", label: "甲类" },
+          { value: "b", label: "乙类" },
+        ],
+      },
+      {
+        key: "tags",
+        type: "multi-enum",
+        label: "账户标签",
+        options: [
+          { value: "a", label: "甲标签" },
+          { value: "b", label: "乙标签" },
+        ],
+      },
+      { key: "date", type: "date", label: "账户日期" },
+      { key: "period", type: "date-range", label: "账户期间" },
+    ],
+    submit: (value) => submissions.push(value),
+  });
+  const w = mountPage(page);
+  await flushPromises();
+  expect(w.get('input[aria-label="账户类别"]').element).toHaveProperty(
+    "value",
+    "old",
+  );
+  await w
+    .get('input[aria-label="账户类别"]')
+    .trigger("keydown", { key: "ArrowDown" });
+  await flushPromises();
+  const option = Array.from(document.querySelectorAll('[role="option"]')).find(
+    (node) => node.textContent?.trim() === "乙类",
+  );
+  expect(option).toBeDefined();
+  (option as HTMLElement).click();
+  await flushPromises();
+  await w.get('input[aria-label="账户日期"]').setValue("2026-11-03");
+  await w.get('input[aria-label="账户期间止"]').setValue("2026-11-04");
+  await w.get("form").trigger("submit");
+  expect(submissions).toEqual([
+    {
+      choice: "b",
+      tags: ["a"],
+      date: "2026-11-03",
+      period: ["2026-11-01", "2026-11-04"],
+    },
+  ]);
+  w.unmount();
+});
