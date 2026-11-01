@@ -75,7 +75,10 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
           :href="action === 'view' && !disabled ? viewHref : undefined"
           :disabled="disabled"
           variant="text"
-          size="small"
+          color="on-surface"
+          size="default"
+          :min-width="48"
+          :min-height="48"
           @click="choose($event, action)"
         />
       </template>
@@ -94,7 +97,10 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
           icon="mdi-dots-horizontal"
           :disabled="disabled"
           variant="text"
-          size="small"
+          color="on-surface"
+          size="default"
+          :min-width="48"
+          :min-height="48"
         />
       </template>
       <VList role="menu" aria-label="更多操作">

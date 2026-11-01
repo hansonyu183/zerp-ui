@@ -74,6 +74,16 @@ const navigationToggle =
   useTemplateRef<InstanceType<typeof VBtn>>("navigationToggle");
 const navigationElement = useTemplateRef<HTMLElement>("navigationElement");
 const drawer = ref<boolean | null>(null);
+const themeMenu = ref(false);
+const accountMenu = ref(false);
+watch(
+  () => [props.scope, props.active, props.account],
+  () => {
+    themeMenu.value = false;
+    accountMenu.value = false;
+  },
+  { flush: "sync" },
+);
 const defaults = computed(() => ({
   ...shellDefaults(props.theme),
   VOverlay: overlayDefaults.value,
@@ -99,7 +109,7 @@ const accountActions: readonly AccountIntent[] = [
 ];
 const presets = ["md1", "md2", "md3"] as const;
 function preset(value: ThemeChoice["preset"]) {
-  emit("update:theme", { ...props.theme, preset: value });
+  if (props.active) emit("update:theme", { ...props.theme, preset: value });
 }
 watch(drawer, async (open, previous) => {
   if (open || !previous || !mobile.value) return;
@@ -156,7 +166,7 @@ function navigated(event: MouseEvent) {
               aria-label="切换导航"
               title="切换导航"
               icon
-              size="small"
+              size="default"
               @click="drawer = !(drawer ?? !mobile)"
               >☰</VBtn
             >
@@ -199,12 +209,17 @@ function navigated(event: MouseEvent) {
               ></Feedback
             >
             <div class="zerp-shell-actions">
-              <VMenu location="bottom end" content-class="zerp-shell-overlay">
+              <VMenu
+                v-model="themeMenu"
+                :disabled="!active"
+                location="bottom end"
+                content-class="zerp-shell-overlay"
+              >
                 <template #activator="{ props: activator }"
                   ><VBtn
                     v-bind="activator"
                     icon
-                    size="small"
+                    size="default"
                     aria-label="主题预设"
                     title="主题预设"
                     ><span class="zerp-ui-icon" aria-hidden="true"
@@ -228,7 +243,7 @@ function navigated(event: MouseEvent) {
                 aria-label="切换明暗模式"
                 title="切换明暗模式"
                 icon
-                size="small"
+                size="default"
                 @click="
                   emit('update:theme', {
                     ...theme,
@@ -241,6 +256,8 @@ function navigated(event: MouseEvent) {
               >
               <VMenu
                 v-if="account"
+                v-model="accountMenu"
+                :disabled="!active"
                 location="bottom end"
                 content-class="zerp-shell-overlay"
               >
@@ -250,7 +267,7 @@ function navigated(event: MouseEvent) {
                     :aria-label="`账户：${account.label}`"
                     :title="account.label"
                     class="zerp-shell-account-button"
-                    size="small"
+                    size="default"
                     ><VAvatar color="primary" :size="xs ? 28 : 34"
                       ><img
                         v-if="account.avatar"
@@ -269,7 +286,7 @@ function navigated(event: MouseEvent) {
                     v-for="action in accountActions"
                     :key="action"
                     role="menuitem"
-                    @click="emit('account-action', action)"
+                    @click="active && emit('account-action', action)"
                     >{{ labels[action] }}</VBtn
                   >
                 </div>
