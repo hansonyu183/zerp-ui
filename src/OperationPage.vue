@@ -10,6 +10,7 @@
     C extends object = object
   "
 >
+import { VBtn } from "vuetify/components";
 import { computed, ref, shallowRef, watch } from "vue";
 import DraftCollaborationView from "./DraftCollaboration.vue";
 import VoucherEditor from "./VoucherEditor.vue";
@@ -228,11 +229,25 @@ function adopt() {
       @protection="runtimeProtection = $event"
       @settled="settledResult"
     />
-    <button v-if="restored" type="button" :disabled="disabled" @click="restore">
+    <VBtn
+      color=""
+      variant="tonal"
+      v-if="restored"
+      type="button"
+      :disabled="disabled"
+      @click="restore"
+    >
       恢复原内容
-    </button>
-    <button v-if="adopted" type="button" :disabled="disabled" @click="adopt">
+    </VBtn>
+    <VBtn
+      color=""
+      variant="tonal"
+      v-if="adopted"
+      type="button"
+      :disabled="disabled"
+      @click="adopt"
+    >
       编辑此结果
-    </button>
+    </VBtn>
   </section>
 </template>

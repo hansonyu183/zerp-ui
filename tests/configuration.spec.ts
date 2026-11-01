@@ -1,3 +1,4 @@
+import { DOMWrapper } from "@vue/test-utils";
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
@@ -31,6 +32,11 @@ const permissions = { read: true, write: true, reconcile: true };
 const button = (w: ReturnType<typeof mount>, name: string) =>
   w
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
 const click = async (w: ReturnType<typeof mount>, name: string) => {
   await button(w, name).trigger("click");

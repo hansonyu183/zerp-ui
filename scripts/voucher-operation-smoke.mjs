@@ -16,13 +16,13 @@ export async function voucherOperationSmoke(page) {
     .getByText("storage-check:已拒绝封存终态回退并保留原证据", { exact: true })
     .waitFor();
   await button("准备作废").click();
-  await region.getByRole("dialog", { name: "完整办理预览" }).waitFor();
+  await region.getByRole("region", { name: "完整办理预览" }).waitFor();
   assert.deepEqual(
     JSON.parse(await region.getByLabel("办理保护状态").textContent()),
     { dirty: true, localPending: false, invalid: false, writeState: "idle" },
   );
   await region
-    .getByRole("dialog", { name: "完整办理预览", exact: true })
+    .getByRole("region", { name: "完整办理预览", exact: true })
     .getByText("9007199254740993.0100", { exact: true })
     .waitFor();
   await button("取消预览").click();

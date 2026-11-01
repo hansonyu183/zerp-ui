@@ -1,3 +1,4 @@
+import { DOMWrapper } from "@vue/test-utils";
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { ref } from "vue";
@@ -44,6 +45,7 @@ async function start(page: PageDefinition) {
     routes: [{ path: "/", component: { template: "<span />" } }],
   });
   const w = mount(AppPage, {
+    attachTo: document.body,
     props: {
       page,
       scope: "s",
@@ -419,6 +421,12 @@ it("collects required prompt answers in a library-owned form before preparing th
   await w.get('input[type="checkbox"]').setValue(true);
   await flushPromises();
   await click(w, "准备执行处理");
+  expect(w.find('[role="dialog"][aria-label="完整办理预览"]').exists()).toBe(
+    false,
+  );
+  expect(w.get('[role="region"][aria-label="完整办理预览"]').text()).toContain(
+    "完整处理预览",
+  );
   await click(w, "确认执行处理");
   expect(op.execute).toHaveBeenCalledWith(
     expect.objectContaining({ input: { value: "已确认" } }),
@@ -1188,4 +1196,48 @@ it("keeps a permanent business message reserve when messages are added, dismisse
   expect(w.get('[aria-label="业务消息"]').element).toBe(reserve);
   expect(region.findAll(".zerp-feedback")).toHaveLength(0);
   w.unmount();
+});
+
+it("opens a real Material leave portal, cancels without writing and invalidates old scope choices", async () => {
+  const d = crud(writeStore<Attempt<{ name: string }, string>>().port);
+  const w = await start(
+    defineCrudPage({
+      definition: d,
+      permissions: { query: true, create: true, write: true, reconcile: true },
+    }),
+  );
+  try {
+    await click(w, "新增");
+    await w.get('input[aria-label="名称"]').setValue("未保存的新内容");
+    const trigger = button(w, "取消编辑");
+    (trigger.element as HTMLElement).focus();
+    const pending = w.vm.requestLeave();
+    await flushPromises();
+    const modal = new DOMWrapper(document.body).get(
+      '[role="dialog"][aria-label="未保存修改"]',
+    );
+    const controls = modal.findAll("button");
+    expect(controls.map((b) => b.text())).toEqual(["继续编辑", "放弃本地修改"]);
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await flushPromises();
+    expect(await pending).toBe(false);
+    expect(document.activeElement).toBe(trigger.element);
+    expect(
+      w.get<HTMLInputElement>('input[aria-label="名称"]').element.value,
+    ).toBe("未保存的新内容");
+    const next = w.vm.requestLeave();
+    await flushPromises();
+    const oldDiscard = new DOMWrapper(document.body)
+      .get('[role="dialog"]')
+      .findAll("button")[1];
+    await w.setProps({ scope: "new-scope" });
+    await oldDiscard.trigger("click");
+    expect(await next).toBe(false);
+    expect(d.adapter.create).not.toHaveBeenCalled();
+    expect(d.adapter.save).not.toHaveBeenCalled();
+  } finally {
+    w.unmount();
+  }
 });

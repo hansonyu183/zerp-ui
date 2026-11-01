@@ -1,3 +1,4 @@
+import { DOMWrapper } from "@vue/test-utils";
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { describe, it, expect, vi } from "vitest";
@@ -30,6 +31,11 @@ const click = async (w: ReturnType<typeof mount>, name: string) => {
   else
     await w
       .findAll("button")
+      .concat(
+        Array.from(
+          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        ).map((el) => new DOMWrapper(el)),
+      )
       .find((b) => b.text() === name || b.attributes("aria-label") === name)!
       .trigger("click");
   await flushPromises();
@@ -94,6 +100,11 @@ const start = async (
 const button = (w: ReturnType<typeof mount>, name: string) =>
   w
     .findAll("button")
+    .concat(
+      Array.from(
+        document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+      ).map((el) => new DOMWrapper(el)),
+    )
     .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
 it("preserves an unknown write after closing, querying and remounting", async () => {
   const d = definition();
@@ -223,8 +234,26 @@ it("hides actions when the consumer denies permission", async () => {
   await w.setProps({
     permissions: { query: true, write: false, create: false },
   });
-  expect(w.findAll("button").map((b) => b.text())).not.toContain("编辑");
-  expect(w.findAll("button").map((b) => b.text())).not.toContain("新增");
+  expect(
+    w
+      .findAll("button")
+      .concat(
+        Array.from(
+          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        ).map((el) => new DOMWrapper(el)),
+      )
+      .map((b) => b.text()),
+  ).not.toContain("编辑");
+  expect(
+    w
+      .findAll("button")
+      .concat(
+        Array.from(
+          document.querySelectorAll<HTMLElement>('[role="dialog"] button'),
+        ).map((el) => new DOMWrapper(el)),
+      )
+      .map((b) => b.text()),
+  ).not.toContain("新增");
   w.unmount();
 });
 it("rejects an incomplete decimal without calling the write adapter", async () => {
@@ -285,7 +314,7 @@ it("reports actual draft changes and blocks closing an unknown write", async () 
     localPending: false,
   });
   await click(w, "取消编辑");
-  expect(w.find('[role="dialog"]').exists()).toBe(true);
+  expect(w.find('[role="region"][aria-label="编辑资料"]').exists()).toBe(true);
   w.unmount();
 });
 it("does not validate readonly historical fields when saving other edits", async () => {
