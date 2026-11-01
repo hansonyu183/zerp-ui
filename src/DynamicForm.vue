@@ -6,9 +6,21 @@ import {
   watch,
   watchEffect,
   onBeforeUnmount,
+  useId,
 } from "vue";
 import type { AnyField, Fields, ReferenceValue } from "./contracts";
-import Feedback from "./Feedback.vue";
+import {
+  VTextField,
+  VTextarea,
+  VSelect,
+  VCheckbox,
+  VBtn,
+  VCard,
+  VCardText,
+  VCardActions,
+} from "vuetify/components";
+import FactFields from "./FactFields.vue";
+import { formFacts } from "./details";
 import ReferencePicker from "./ReferencePicker.vue";
 import { validateFields, type FormValidationState } from "./validation";
 import { clone } from "./clone";
@@ -44,22 +56,37 @@ function set(key: string, value: unknown) {
   }
   emit("update:modelValue", next as T);
 }
+const formId = useId();
+function errors(field: AnyField) {
+  return validation.value.issues
+    .filter((issue) => issue.key === field.key)
+    .map((issue) => issue.message);
+}
+function control(field: AnyField) {
+  return {
+    label: field.label,
+    "aria-label": field.label,
+    disabled: props.disabled || field.readonly,
+    required: field.required,
+    error: errors(field).length > 0,
+    "aria-invalid": errors(field).length ? "true" : undefined,
+    "aria-describedby": `${formId}-${field.key}-messages`,
+    hideDetails: true,
+  };
+}
 const integerInput = ref<Record<string, string>>({});
 const emittedInteger = new Map<string, number | null>();
-function input(field: AnyField, target: HTMLInputElement) {
+function input(field: AnyField, value: string) {
   if (field.type === "integer") {
-    integerInput.value[field.key] = target.value;
-    const valid =
-      /^-?\d+$/.test(target.value) &&
-      Number.isSafeInteger(Number(target.value));
-    pending("$integer:" + field.key, !valid && target.value !== "");
-    if (valid || target.value === "") {
-      const value = target.value === "" ? null : Number(target.value);
-      emittedInteger.set(field.key, value);
-      set(field.key, value);
+    integerInput.value[field.key] = value;
+    const valid = /^-?\d+$/.test(value) && Number.isSafeInteger(Number(value));
+    pending("$integer:" + field.key, !valid && value !== "");
+    if (valid || value === "") {
+      const parsed = value === "" ? null : Number(value);
+      emittedInteger.set(field.key, parsed);
+      set(field.key, parsed);
     }
-  } else
-    set(field.key, field.type === "boolean" ? target.checked : target.value);
+  } else set(field.key, value);
 }
 const editing = shallowRef<{
   key: string;
@@ -182,7 +209,7 @@ onBeforeUnmount(() => emit("pending", false));
 </script>
 <template>
   <div class="zerp-form">
-    <template v-for="field in visible" :key="field.key">
+    <div v-for="field in visible" :key="field.key" class="zerp-form-field">
       <ReferencePicker
         v-if="field.type === 'reference' || field.type === 'references'"
         :adapter="field.adapter"
@@ -199,170 +226,159 @@ onBeforeUnmount(() => emit("pending", false));
         :label="field.label"
         :multiple="field.type === 'references'"
         :disabled="disabled || field.readonly"
+        :description-id="`${formId}-${field.key}-messages`"
+        :invalid="errors(field).length > 0"
         @update:model-value="set(field.key, $event)"
         @pending="pending(field.key, $event)"
       />
       <fieldset
         v-else-if="field.type === 'rows'"
         :disabled="disabled || field.readonly"
+        class="zerp-field-group"
       >
-        <legend>{{ field.label }}</legend>
+        <legend class="text-subtitle-1">{{ field.label }}</legend>
         <ol>
           <li v-for="(row, index) in rows(field.key)" :key="index">
-            <span>{{ JSON.stringify(row) }}</span
-            ><button
+            <FactFields :value="row" :fields="formFacts(field.fields)" />
+            <VBtn
               type="button"
-              :disabled="!!editing"
+              variant="text"
+              :disabled="disabled || field.readonly || !!editing"
               @click="begin(field, index)"
+              >编辑{{ field.label }}{{ index + 1 }}</VBtn
             >
-              编辑{{ field.label }}{{ index + 1 }}</button
-            ><button
+            <VBtn
               type="button"
-              :disabled="!!editing"
+              variant="text"
+              color="error"
+              :disabled="disabled || field.readonly || !!editing"
               @click="
                 set(
                   field.key,
                   rows(field.key).filter((_, i) => i !== index),
                 )
               "
+              >删除{{ field.label }}{{ index + 1 }}</VBtn
             >
-              删除{{ field.label }}{{ index + 1 }}
-            </button>
           </li>
         </ol>
-        <button type="button" :disabled="!!editing" @click="begin(field, -1)">
-          新增{{ field.label }}
-        </button>
+        <VBtn
+          type="button"
+          variant="tonal"
+          :disabled="disabled || field.readonly || !!editing"
+          @click="begin(field, -1)"
+          >新增{{ field.label }}</VBtn
+        >
       </fieldset>
       <fieldset
         v-else-if="field.type === 'date-range'"
         :disabled="disabled || field.readonly"
+        class="zerp-field-group"
       >
-        <legend>{{ field.label }}</legend>
-        <label v-for="(suffix, index) in ['起', '止']" :key="suffix"
-          >{{ field.label + suffix }}
-          <input
-            :type="field.readonly ? 'text' : 'date'"
+        <legend class="text-subtitle-1">{{ field.label }}</legend>
+        <div class="zerp-date-range">
+          <VTextField
+            v-for="(suffix, index) in ['起', '止']"
+            :key="suffix"
+            v-bind="control(field)"
+            :label="field.label + suffix"
             :aria-label="field.label + suffix"
-            :value="range(field.key)[index] ?? ''"
-            @input="
-              setRange(
-                field.key,
-                index,
-                ($event.target as HTMLInputElement).value,
-              )
-            "
+            :type="field.readonly ? 'text' : 'date'"
+            :model-value="range(field.key)[index] ?? ''"
+            @update:model-value="setRange(field.key, index, $event)"
           />
-        </label>
+        </div>
       </fieldset>
-      <label v-else
-        >{{ field.label
-        }}<textarea
-          v-if="field.type === 'textarea'"
-          :aria-label="field.label"
-          :disabled="disabled || field.readonly"
-          :value="values[field.key] as string"
-          @input="set(field.key, ($event.target as HTMLTextAreaElement).value)"
-        />
-        <select
-          v-else-if="field.type === 'enum' || field.type === 'multi-enum'"
-          :multiple="field.type === 'multi-enum'"
-          :aria-label="field.label"
-          :disabled="disabled || field.readonly"
-          @change="
-            set(
-              field.key,
-              field.type === 'multi-enum'
-                ? Array.from(
-                    ($event.target as HTMLSelectElement).selectedOptions,
-                    (option) => option.value,
-                  )
-                : ($event.target as HTMLSelectElement).value,
-            )
-          "
-        >
-          <option
-            value=""
-            :selected="field.type !== 'multi-enum' && values[field.key] === ''"
-          >
-            请选择
-          </option>
-          <option
-            v-for="option in options(field)"
-            :key="option.value"
-            :value="option.value"
-            :disabled="option.historical"
-            :selected="
-              field.type === 'multi-enum'
-                ? Array.isArray(values[field.key]) &&
-                  (values[field.key] as string[]).includes(option.value)
-                : values[field.key] === option.value
-            "
-          >
-            {{ option.label }}
-          </option>
-        </select>
-        <input
-          v-else
-          :type="
-            field.type === 'boolean'
-              ? 'checkbox'
-              : field.type === 'password'
-                ? 'password'
-                : field.type === 'date' && !field.readonly
-                  ? 'date'
-                  : 'text'
-          "
-          :inputmode="
-            field.type === 'decimal'
-              ? 'decimal'
-              : field.type === 'integer'
-                ? 'numeric'
-                : undefined
-          "
-          :aria-label="field.label"
-          :disabled="disabled || field.readonly"
-          :checked="values[field.key] === true"
-          :value="
-            field.type === 'integer'
-              ? (integerInput[field.key] ?? values[field.key] ?? '')
-              : (values[field.key] ?? '')
-          "
-          @input="input(field, $event.target as HTMLInputElement)"
-        />
-      </label>
-      <Feedback
-        kind="error"
-        :message="
-          validation.issues
-            .filter((issue) => issue.key === field.key)
-            .map((issue) => issue.message)
-            .join('；')
-        "
+      <VTextarea
+        v-else-if="field.type === 'textarea'"
+        v-bind="control(field)"
+        :model-value="values[field.key] as string"
+        @update:model-value="set(field.key, $event)"
       />
-    </template>
-    <section v-if="editing" role="dialog" aria-label="编辑子项">
-      <DynamicForm
-        :fields="editing.fields"
-        :model-value="editing.value"
-        :scope="scope"
-        :disabled="disabled"
-        :mode="mode"
-        @update:model-value="editing = { ...editing!, value: $event }"
-        @validation="childInvalid = !$event.valid"
-        @pending="
-          childPending = $event;
-          pending('$child', $event);
+      <VSelect
+        v-else-if="field.type === 'enum' || field.type === 'multi-enum'"
+        v-bind="control(field)"
+        :multiple="field.type === 'multi-enum'"
+        :model-value="values[field.key]"
+        :items="
+          field.type === 'multi-enum'
+            ? options(field)
+            : [
+                { value: '', label: '请选择', historical: false },
+                ...options(field),
+              ]
         "
-      /><button
-        type="button"
-        :disabled="disabled || childPending || childInvalid"
-        @click="confirm"
+        item-title="label"
+        item-value="value"
+        :item-props="(item) => ({ disabled: item.historical })"
+        @update:model-value="set(field.key, $event)"
+      />
+      <VCheckbox
+        v-else-if="field.type === 'boolean'"
+        v-bind="control(field)"
+        :model-value="values[field.key] as boolean | null"
+        @update:model-value="set(field.key, $event)"
+      />
+      <VTextField
+        v-else
+        v-bind="control(field)"
+        :type="
+          field.type === 'password'
+            ? 'password'
+            : field.type === 'date' && !field.readonly
+              ? 'date'
+              : 'text'
+        "
+        :inputmode="
+          field.type === 'decimal'
+            ? 'decimal'
+            : field.type === 'integer'
+              ? 'numeric'
+              : undefined
+        "
+        :model-value="
+          field.type === 'integer'
+            ? (integerInput[field.key] ?? values[field.key] ?? '')
+            : (values[field.key] ?? '')
+        "
+        @update:model-value="input(field, $event)"
+      />
+      <div
+        :id="`${formId}-${field.key}-messages`"
+        class="zerp-field-messages text-caption text-error"
+        aria-live="polite"
       >
-        确定子项</button
-      ><button type="button" :disabled="disabled" @click="cancelEditing">
-        取消子项
-      </button>
-    </section>
+        {{ errors(field).join("；") }}
+      </div>
+    </div>
+    <VCard v-if="editing" aria-label="编辑子项" variant="outlined">
+      <VCardText
+        ><DynamicForm
+          :fields="editing.fields"
+          :model-value="editing.value"
+          :scope="scope"
+          :disabled="disabled"
+          :mode="mode"
+          @update:model-value="editing = { ...editing!, value: $event }"
+          @validation="childInvalid = !$event.valid"
+          @pending="
+            childPending = $event;
+            pending('$child', $event);
+          "
+      /></VCardText>
+      <VCardActions
+        ><VBtn
+          type="button"
+          color="primary"
+          variant="flat"
+          :disabled="disabled || childPending || childInvalid"
+          @click="confirm"
+          >确定子项</VBtn
+        >
+        <VBtn type="button" :disabled="disabled" @click="cancelEditing"
+          >取消子项</VBtn
+        ></VCardActions
+      >
+    </VCard>
   </div>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="D extends object">
+import { VBtn } from "vuetify/components";
 import { computed, ref, shallowRef, watch } from "vue";
 import type { Fields } from "./contracts";
 import type { EditProtection } from "./edit-guard";
@@ -140,14 +141,17 @@ function cancel() {
       @pending="handlers.pending"
       @validation="handlers.validation"
     />
-    <button
+    <VBtn
       type="submit"
+      color="primary"
+      variant="flat"
+      :loading="busy"
       :disabled="busy || protection.localPending || invalid"
     >
       {{ submitLabel ?? "保存" }}
-    </button>
-    <button type="button" :disabled="busy" @click="cancel">
+    </VBtn>
+    <VBtn type="button" :disabled="busy" @click="cancel">
       {{ cancelLabel ?? "取消" }}
-    </button>
+    </VBtn>
   </form>
 </template>

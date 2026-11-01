@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import { createVuetify } from "vuetify";
 import { AuthPage, createShellThemes, type AuthValues } from "../src/index";
 
@@ -43,7 +43,12 @@ it("validates registration confirmation and clears secrets when switching modes"
     mode: "register",
     values: { identifier: "user", password: "one", confirmation: "two" },
   });
-  expect(w.get('[role="alert"]').text()).toContain("不一致");
+  await flushPromises();
+  expect(
+    w
+      .findAll('[role="alert"]')
+      .some((alert) => alert.text().includes("不一致")),
+  ).toBe(true);
   expect(w.get('button[type="submit"]').attributes("disabled")).toBeDefined();
   await w.setProps({
     values: { identifier: "user", password: "one", confirmation: "one" },
@@ -89,5 +94,26 @@ it("dismisses authentication feedback without changing controlled values and reo
   expect(
     (w.get('input[autocomplete="username"]').element as HTMLInputElement).value,
   ).toBe("user");
+  w.unmount();
+});
+
+it("associates confirmation errors with the controlled password field", async () => {
+  const w = page({
+    mode: "register",
+    values: { identifier: "user", password: "one", confirmation: "two" },
+  });
+  await flushPromises();
+  const confirmation = w.findAll('input[autocomplete="new-password"]').at(-1)!;
+  expect(confirmation.attributes("aria-invalid")).toBe("true");
+  const description = confirmation.attributes("aria-describedby");
+  expect(description).toBeTruthy();
+  expect(w.get(`[id="${description}"]`).text()).toContain(
+    "两次输入的密码不一致",
+  );
+  await w.setProps({
+    values: { identifier: "user", password: "one", confirmation: "one" },
+  });
+  expect(confirmation.attributes("aria-invalid")).not.toBe("true");
+
   w.unmount();
 });
