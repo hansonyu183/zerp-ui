@@ -1133,7 +1133,7 @@ async function voucherSmoke(page) {
   await page.getByLabel("单据演示", { exact: true }).selectOption("editor");
   await page.getByRole("button", { name: "编辑资料", exact: true }).click();
   await standalone.getByRole("button", { name: "编辑配方 · 明细行 1" }).click();
-  await assertBelowToolbar(page, page.locator(".zerp-voucher-editor__overlay"));
+  await assertBelowToolbar(page, page.locator(".zerp-voucher-child-dialog"));
   await standalone.getByRole("button", { name: "新增配方" }).click();
   await standalone.getByLabel("原料").fill("合成原料甲");
   await standalone.getByLabel("用量").fill("0.0100");
