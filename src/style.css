@@ -205,9 +205,6 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.zerp-facts summary {
-  cursor: pointer;
-}
 .zerp-report-group th {
   text-align: left;
   background: rgb(var(--v-theme-surface-variant));
