@@ -673,7 +673,9 @@ async function configurationSmoke(page) {
   await page
     .getByRole("textbox", { name: "名称", exact: true })
     .fill("离仓配置");
-  await page.getByRole("combobox", { name: "映射目标", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "映射目标", exact: true })
+    .press("ArrowDown");
   await page.getByRole("option", { name: "目标乙", exact: true }).click();
   await save();
   await page.getByRole("cell", { name: "离仓配置", exact: true }).waitFor();
@@ -1015,7 +1017,9 @@ async function documentSmoke(page) {
   await button("编辑档案").click();
   await name().fill("新候选定价");
   await button("编辑合成客户定价 1").click();
-  await page.getByRole("combobox", { name: "定价客户", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "定价客户", exact: true })
+    .press("ArrowDown");
   await page.getByRole("option", { name: "客户乙", exact: true }).click();
   await button("确定合成客户定价").click();
   await page.getByLabel("本地附件").setInputFiles({
@@ -1084,7 +1088,9 @@ async function documentSmoke(page) {
   await page.getByText("0.0100", { exact: true }).waitFor();
   await button("编辑档案").click();
   await button("编辑合成产品配方 1").click();
-  await page.getByRole("combobox", { name: "配方原料", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "配方原料", exact: true })
+    .press("ArrowDown");
   await page.getByRole("option", { name: "合成原料乙", exact: true }).click();
   await page.getByLabel("配方用量").fill("1.2300");
   await button("确定合成产品配方").click();
@@ -1304,7 +1310,7 @@ async function workflowSmoke(page) {
   assert.equal(await page.getByText("未授权目标", { exact: true }).count(), 0);
   await page
     .getByRole("combobox", { name: "根节点创建目标", exact: true })
-    .click();
+    .press("ArrowDown");
   await page.getByRole("option", { name: "合成收据", exact: true }).click();
   await scenario("unknown");
   await button("创建下级").click();
@@ -1374,7 +1380,7 @@ async function workflowSmoke(page) {
   await button("查看 流程二").click();
   await page
     .getByRole("combobox", { name: "根节点创建目标", exact: true })
-    .click();
+    .press("ArrowDown");
   await page.getByRole("option", { name: "合成收据", exact: true }).click();
   assert.ok(await button("创建下级").isEnabled());
   await page.getByLabel("会话作用域").selectOption("session-a");
