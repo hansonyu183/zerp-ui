@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+  VBtn,
+  VExpansionPanels,
+  VExpansionPanel,
+  VExpansionPanelTitle,
+  VExpansionPanelText,
+} from "vuetify/components";
 import { onBeforeUnmount } from "vue";
 import { factText, type FactField } from "./details";
 import type { ReferenceValue } from "./contracts";
@@ -28,27 +35,31 @@ function rows(value: unknown): object[] {
 <template>
   <dl class="zerp-facts">
     <div v-for="field in fields" :key="field.key">
-      <dt>{{ field.label }}</dt>
-      <dd>
+      <dt class="text-subtitle-2">{{ field.label }}</dt>
+      <dd class="text-body-1">
         <template v-if="field.type === 'records'">
           <span v-if="!Array.isArray(get(value, field.key))">{{
             factText(get(value, field.key), field)
           }}</span>
           <p v-else-if="!rows(get(value, field.key)).length">暂无记录</p>
-          <details
-            v-for="(row, index) in rows(get(value, field.key))"
-            :key="field.rowKey?.(row) ?? index"
-          >
-            <summary>
-              {{ field.label }} ·
-              {{ field.rowLabel?.(row) ?? `记录 ${index + 1}` }}
-            </summary>
-            <FactFields
-              :value="row"
-              :fields="field.fields ?? []"
-              @related="active && emit('related', $event)"
-            />
-          </details>
+          <VExpansionPanels v-else variant="accordion" multiple>
+            <VExpansionPanel
+              v-for="(row, index) in rows(get(value, field.key))"
+              :key="field.rowKey?.(row) ?? index"
+            >
+              <VExpansionPanelTitle>
+                {{ field.label }} ·
+                {{ field.rowLabel?.(row) ?? `记录 ${index + 1}` }}
+              </VExpansionPanelTitle>
+              <VExpansionPanelText eager>
+                <FactFields
+                  :value="row"
+                  :fields="field.fields ?? []"
+                  @related="active && emit('related', $event)"
+                />
+              </VExpansionPanelText>
+            </VExpansionPanel>
+          </VExpansionPanels>
         </template>
         <template
           v-else-if="field.type === 'texts' || field.type === 'reference-list'"
@@ -78,18 +89,20 @@ function rows(value: unknown): object[] {
         </template>
         <template v-else>
           <span>{{ factText(get(value, field.key), field) }}</span>
-          <button
+          <VBtn
             v-if="
               field.type === 'reference' &&
               field.related &&
               get(value, field.key) != null
             "
             type="button"
+            variant="text"
+            color=""
             :aria-label="`查看${field.label}：${factText(get(value, field.key), field)}`"
             @click="related(field, get(value, field.key))"
           >
             查看关联
-          </button>
+          </VBtn>
         </template>
       </dd>
     </div>

@@ -4,6 +4,7 @@
   generic="D extends object, M extends OperationModel, I, B"
 >
 import { computed, ref, shallowRef, watch, onBeforeUnmount } from "vue";
+import { VBtn, VSelect, VFileInput } from "vuetify/components";
 import DynamicForm from "./DynamicForm.vue";
 import DomainBlockHost from "./DomainBlockHost.vue";
 import DraftCollaborationView from "./DraftCollaboration.vue";
@@ -134,15 +135,17 @@ async function read(work: (signal: AbortSignal) => Promise<void>) {
     if (alive && controller === current) reading.value = false;
   }
 }
-async function importResource(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0],
+const importedFile = shallowRef<File | null>(null);
+async function importResource(value: File | File[] | null) {
+  const file = Array.isArray(value) ? value[0] : value,
     resource = props.options.importResource;
   if (!file || !resource) return;
+  importedFile.value = file;
   await read(async (signal) => {
     const value = await resource.read({ file, scope: props.scope, signal });
     if (alive && !signal.aborted) draft.value = clone(value);
   });
-  (event.target as HTMLInputElement).value = "";
+  importedFile.value = null;
 }
 async function download(
   item: NonNullable<TaskPage<D, M, I, B>["downloads"]>[number],
@@ -220,34 +223,43 @@ onBeforeUnmount(() => {
       :answers="{}"
       :disabled="disabled"
     />
-    <label
-      >操作<select aria-label="操作" v-model="action" :disabled="disabled">
-        <option
-          v-for="available in options.actions"
-          :key="available"
-          :value="available"
-        >
-          {{ operationLabels[available] }}
-        </option>
-      </select></label
-    >
-    <label v-if="options.importResource"
-      >{{ options.importResource.label
-      }}<input
-        type="file"
-        :accept="options.importResource.accept"
+    <div role="group" aria-label="操作选择" class="mb-4">
+      <VSelect
+        hide-details
+        label="操作"
+        aria-label="操作"
+        v-model="action"
+        :items="
+          options.actions.map((value) => ({
+            value,
+            title: operationLabels[value],
+          }))
+        "
         :disabled="disabled"
-        @change="importResource"
-    /></label>
-    <button
+      />
+    </div>
+    <VFileInput
+      v-if="options.importResource"
+      :model-value="importedFile"
+      prepend-icon=""
+      :clearable="false"
+      :label="options.importResource.label"
+      :aria-label="options.importResource.label"
+      :accept="options.importResource.accept"
+      :disabled="disabled"
+      @update:model-value="importResource"
+    />
+    <VBtn
       v-for="item in options.downloads"
+      variant="text"
+      color=""
       :key="item.key"
       type="button"
       :disabled="disabled"
       @click="download(item)"
     >
       {{ item.label }}
-    </button>
+    </VBtn>
     <OperationRuntime
       :definition="options.definition"
       :intent="intent"
@@ -258,9 +270,9 @@ onBeforeUnmount(() => {
       @protection="runtime = $event"
       @settled="settled"
     />
-    <button v-if="adopted" type="button" :disabled="disabled" @click="adopt">
+    <VBtn v-if="adopted" type="button" :disabled="disabled" @click="adopt">
       采用处理结果
-    </button>
+    </VBtn>
     <PrintPreview
       v-if="options.printing"
       :document="options.printing.document"

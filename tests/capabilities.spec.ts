@@ -371,6 +371,9 @@ it("rejects late draft calculations, holds submission through calculation failur
   });
   const w = await start(page);
   expect(requests.length).toBeGreaterThan(0);
+  expect(
+    w.get('[role="status"][aria-label="业务计算中"]').attributes("aria-busy"),
+  ).toBe("true");
   await w.get('input[aria-label="内容"]').setValue("新值");
   await flushPromises();
   requests.at(-1)!.resolve({ value: { value: "新计算值" } });
@@ -1240,4 +1243,91 @@ it("opens a real Material leave portal, cancels without writing and invalidates 
   } finally {
     w.unmount();
   }
+});
+
+it("commits required business input answers on change without sending partial edits", async () => {
+  const seen: unknown[] = [];
+  const definition = defineReport<{}, { name: string }, string, string, string>(
+    {
+      kind: "parameter",
+      resource: "prompt-report",
+      title: "合成业务输入",
+      parameters: [],
+      initialParameters: () => ({}),
+      columns: [{ key: "name", label: "名称" }],
+      rowKey: (row) => row.name,
+      adapter: { query: async () => ({ items: [], total: 0 }) },
+    },
+  );
+  const w = await start(
+    defineReportPage({
+      definition,
+      permissions: { query: true, export: false },
+      interactions: {
+        instance: "one",
+        enabled: true,
+        items: [
+          { kind: "input", id: "reason", label: "业务说明", required: true },
+        ],
+        answers: {},
+        onAnswer: (id, value) => seen.push([id, value]),
+      },
+    }),
+  );
+  const input = w.get('input[aria-label="业务说明"]');
+  expect(input.attributes("required")).toBeDefined();
+  (input.element as HTMLInputElement).value = "  精确说明  ";
+  await input.trigger("input");
+  expect(seen).toEqual([]);
+  await input.trigger("change");
+  expect(seen).toEqual([["reason", "  精确说明  "]]);
+  w.unmount();
+});
+
+it("imports a file through AppPage and prepares the exact imported decimal string", async () => {
+  const op = operation();
+  const prepare = vi.spyOn(op.definition.adapter, "prepare");
+  const read = vi.fn(async () => ({ value: "9007199254740993.0100" }));
+  const w = await start(
+    defineTaskPage<{ value: string }, Model, string, number>({
+      title: "资源导入",
+      instance: "import",
+      owner,
+      identity: "one",
+      definition: op.definition,
+      values: { value: "原值" },
+      fields: [{ key: "value", label: "导入内容", type: "text" }],
+      actions: ["process"],
+      toIntent: (value, action, base) => ({ ...base, action, input: value }),
+      eligible: true,
+      recoveryAllowed: true,
+      importResource: { label: "读取资源包", accept: ".json", read },
+    }),
+  );
+  const file = new File(
+    ['{"value":"9007199254740993.0100"}'],
+    "synthetic.json",
+    { type: "application/json" },
+  );
+  const upload = w.get('input[type="file"]');
+  Object.defineProperty(upload.element, "files", {
+    configurable: true,
+    value: [file],
+  });
+  await upload.trigger("change");
+  await flushPromises();
+  expect(read).toHaveBeenCalledWith(
+    expect.objectContaining({ file, scope: "s" }),
+  );
+  expect(
+    (w.get('input[aria-label="导入内容"]').element as HTMLInputElement).value,
+  ).toBe("9007199254740993.0100");
+  await click(w, "准备执行处理");
+  expect(prepare).toHaveBeenCalledWith(
+    expect.objectContaining({
+      action: "process",
+      input: { value: "9007199254740993.0100" },
+    }),
+  );
+  w.unmount();
 });

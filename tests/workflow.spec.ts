@@ -193,7 +193,16 @@ it("sends a typed target and emits voucher navigation only after an applied open
   const d = definition(),
     w = await start(d);
   await click(w, "查看 流程一");
-  await w.get('select[aria-label="合成节点创建目标"]').setValue("allowed");
+  await w
+    .get('input[aria-label="合成节点创建目标"]')
+    .trigger("keydown", { key: "ArrowDown" });
+  await flushPromises();
+  const option = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((item) => item.textContent?.includes("目标甲"))!;
+  expect(option).toBeDefined();
+  option.click();
+  await flushPromises();
   await click(w, "创建下级");
   expect(d.adapter.act).toHaveBeenLastCalledWith(
     expect.objectContaining({
