@@ -28,6 +28,8 @@ import { equalValues } from "./editor-values";
 import { clone, message } from "./clone";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
+import { writeRecovery } from "./write-recovery";
+import DraftCollaborationView from "./DraftCollaboration.vue";
 const props = defineProps<{
   definition: CrudDefinition<D, F, R, I, E>;
   scope: string;
@@ -106,6 +108,19 @@ const lock = computed(() =>
     props.scope,
   ),
 );
+const recovery = () =>
+  writeRecovery(lock.value, props.definition.persistence, {
+    scope: props.scope,
+    resource: props.definition.resource,
+  });
+async function restoreWrite() {
+  const recover = recovery();
+  try {
+    await recover.restore();
+  } catch (cause) {
+    error.value = message(cause);
+  }
+}
 const blocked = computed(() => lock.value.phase !== "idle");
 let version = 0,
   queryVersion = 0,
@@ -135,6 +150,8 @@ async function query(next = 1, submit = false) {
   loading.value = true;
   error.value = "";
   try {
+    if (refreshing && target.outcome) await recovery().settle(target.outcome);
+    if (!current(v) || q !== queryVersion) return;
     const value = await props.definition.adapter.query({
       scope: props.scope,
       filters: clone(requested),
@@ -151,6 +168,13 @@ async function query(next = 1, submit = false) {
       target.phase === "refresh" &&
       target.attempt === refreshAttempt
     ) {
+      await recovery().complete();
+      if (target.outcome === "applied" && current(v) && q === queryVersion) {
+        editor.value = null;
+        initial.value = null;
+        formPending.value = false;
+        blockPending.value = {};
+      }
       target.phase = "idle";
       target.attempt = null;
     }
@@ -406,19 +430,52 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
   loading.value = false;
   target.phase = "pending";
   target.attempt = attempt;
+  target.outcome = undefined;
+  target.refreshed = undefined;
   error.value = "";
   notice.value = "";
   confirming.value = null;
   try {
+    const originalRecovery = writeRecovery(target, definition.persistence, {
+      scope: attempt.scope,
+      resource: attempt.resource,
+    });
+    try {
+      await originalRecovery.reserve();
+    } catch (cause) {
+      target.attempt = null;
+      target.phase = "blocked";
+      if (current(v)) error.value = message(cause);
+      return;
+    }
+    // Durable reservation can outlive the admitted session or its permissions.
+    // Keep the original recoverable, but never start a write for stale authority.
+    if (
+      !current(v) ||
+      !props.permissions.query ||
+      !props.permissions.write ||
+      (operation === "create" && !props.permissions.create) ||
+      (row &&
+        !definition
+          .actions(row)
+          .includes(operation === "save" ? "edit" : (operation as CrudAction)))
+    ) {
+      target.phase = "unknown";
+      return;
+    }
     const outcome = await execute.call(definition.adapter, clone(attempt));
     if (outcome.status === "success") {
       target.phase = "refresh";
+      await originalRecovery.settle("applied");
       if (current(v)) {
         editor.value = null;
         notice.value = "写入成功。";
         await query(page.value);
       }
     } else if (outcome.status === "failure") {
+      target.phase = "refresh";
+      await originalRecovery.settle("not-applied");
+      await originalRecovery.complete();
       target.phase = "idle";
       target.attempt = null;
       if (current(v)) error.value = outcome.message;
@@ -428,6 +485,11 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
         error.value = outcome.message ?? "写入结果未知，保持锁定。";
     }
   } catch {
+    if (target.outcome) {
+      target.phase = "refresh";
+      if (current(v)) error.value = "结果已确认，请重试保存终态并读取。";
+      return;
+    }
     target.phase = "unknown";
     if (current(v)) error.value = "写入结果未知，保持锁定。";
   }
@@ -447,6 +509,7 @@ async function reconcile() {
     return;
   verifying.value = true;
   try {
+    const originalRecovery = recovery();
     const outcome = await reconcile(clone(attempt));
     if (
       outcome.status !== "unknown" &&
@@ -456,6 +519,8 @@ async function reconcile() {
       target.attempt === attempt &&
       target.phase === "unknown"
     ) {
+      target.phase = "refresh";
+      await originalRecovery.settle(outcome.status);
       if (outcome.status === "applied") {
         target.phase = "refresh";
         if (current(v)) {
@@ -463,6 +528,8 @@ async function reconcile() {
           await query(page.value);
         }
       } else {
+        target.phase = "refresh";
+        await originalRecovery.complete();
         target.phase = "idle";
         target.attempt = null;
       }
@@ -551,7 +618,12 @@ watch(
     verifying.value = false;
     error.value = "";
     notice.value = "";
-    void query();
+    void restoreWrite()
+      .then(() => query())
+      .then(() => {
+        if (active && !editor.value && props.initialRow)
+          void openRow(props.initialRow, props.readOnly ?? true);
+      });
   },
   { immediate: true, flush: "sync" },
 );
@@ -623,6 +695,14 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       />
     </div>
     <div class="zerp-feedback-region">
+      <Feedback
+        :message="lock.phase === 'blocked' ? '请先恢复原请求' : undefined"
+        kind="warning"
+        persistent
+        ><button type="button" :disabled="verifying" @click="restoreWrite">
+          重试恢复原请求
+        </button></Feedback
+      >
       <Feedback :message="error" kind="error"
         ><button v-if="permissions.query" type="button" @click="query(page)">
           重试读取
@@ -648,7 +728,11 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         kind="warning"
         persistent
       >
-        写入已成功，请重试读取；不会再次提交。
+        {{
+          lock.outcome === "not-applied"
+            ? "原请求已确认未应用，请完成读取；不会再次提交。"
+            : "写入已成功，请重试读取；不会再次提交。"
+        }}
       </Feedback>
     </div>
     <button
@@ -721,6 +805,16 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         :mode="editor.row ? 'edit' : 'create'"
         :onUpdate:modelValue="bindings.form"
         :onPending="bindings.pending"
+      />
+      <DraftCollaborationView
+        v-if="definition.collaboration && editor && !editor.readOnly"
+        :adapter="definition.collaboration"
+        :model-value="editor.values"
+        :scope="scope"
+        :instance="editVersion"
+        :disabled="blocked"
+        @update:model-value="bindings.form($event)"
+        @pending="blockPending = { ...blockPending, collaboration: $event }"
       />
       <DomainBlockHost
         v-for="block in bindings.blocks"

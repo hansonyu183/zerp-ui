@@ -15,7 +15,7 @@ assert.equal(
 );
 const sourceSHA = git("rev-parse", "HEAD");
 const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-assert.equal(pkg.version, "0.8.1");
+assert.equal(pkg.version, "0.9.1");
 const dir = join(root, ".scratch", "release", sourceSHA);
 await mkdir(dir, { recursive: true });
 const commands = [];
@@ -59,6 +59,12 @@ const slices = [
     flag: [`--${name}`],
   })),
   { issue: 26, name: "details", build: "build:details", flag: ["--details"] },
+  {
+    issue: 47,
+    name: "capabilities",
+    build: "build:capabilities",
+    flag: ["--capabilities"],
+  },
 ];
 for (const slice of slices) run("pnpm", [slice.build]);
 if (artifactIndex < 0) run("pnpm", ["pack", "--pack-destination", dir]);

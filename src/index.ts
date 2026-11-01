@@ -106,24 +106,22 @@ export type {
   NavigationGroup,
 } from "./shell";
 
-export {
-  defineVoucherOperation,
-  voucherOperationLabels,
-} from "./voucher-operation";
+export { defineOperation, operationLabels } from "./operation";
 export type {
-  VoucherOperationAction,
-  VoucherOperationOwner,
-  VoucherOperationPreview,
-  VoucherOperationModel,
-  VoucherOperationIntent,
-  VoucherOperationRequest,
-  VoucherOperationReceipt,
-  VoucherOperationOutcome,
-  VoucherOperationSettlement,
-  VoucherOperationJournal,
-  VoucherOperationPersistence,
-  VoucherOperationDefinition,
-} from "./voucher-operation";
+  OperationAssociation,
+  OperationAction,
+  OperationOwner,
+  OperationPreview,
+  OperationModel,
+  OperationIntent,
+  OperationRequest,
+  OperationReceipt,
+  OperationOutcome,
+  OperationSettlement,
+  OperationJournal,
+  OperationPersistence,
+  OperationDefinition,
+} from "./operation";
 
 export type { DetailFields, DetailGroup } from "./details";
 export type { EditWriteState, EditProtection } from "./edit-guard";
@@ -162,7 +160,30 @@ export type {
   VoucherPage,
   WorkflowPage,
 } from "./pages";
-export { defineVoucherOperationPage } from "./pages";
-export type { VoucherOperationPage } from "./pages";
+export { defineOperationPage } from "./pages";
+export type { OperationPageDefinition } from "./pages";
 export { defineAccountPage } from "./pages";
 export type { AccountPage } from "./pages";
+
+export { defineTaskPage } from "./pages";
+export type { TaskPage, TaskAction } from "./tasks";
+export type {
+  DraftCollaboration,
+  Interaction,
+  InteractionAnswers,
+  ReportInteractions,
+} from "./collaboration";
+export type {
+  WriteOwner,
+  WriteJournal,
+  WritePersistence,
+} from "./write-recovery";
+export type { PrintItem, PrintDocument } from "./printing";
+export { defineBatchPage } from "./pages";
+export type {
+  BatchPage,
+  BatchEntry,
+  BatchJournal,
+  BatchPersistence,
+} from "./batch";
+export type { OperationActionOf } from "./operation";

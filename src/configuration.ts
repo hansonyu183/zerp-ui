@@ -1,3 +1,5 @@
+import type { WritePersistence } from "./write-recovery";
+import type { DraftCollaboration } from "./collaboration";
 import type {
   Attempt,
   Column,
@@ -47,6 +49,11 @@ export type ConfigurationDefinition<
   columns: readonly Column<R>[];
   identity: (row: R) => I;
   adapter: ConfigurationAdapter<D, F, R, I>;
+  collaboration?: DraftCollaboration<D, unknown>;
+  persistence?: WritePersistence<
+    ConfigurationAttempt<D, I>,
+    { retain: boolean; identity?: I }
+  >;
   reconcile?: (
     attempt: ConfigurationAttempt<D, I>,
   ) => Promise<ConfigurationReconcileResult<E, I>>;

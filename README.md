@@ -10,32 +10,32 @@
 
 ## 固定版本安装
 
-0.8.1 修复响应式记录切换的草稿保护及内嵌脚本未知请求的恢复入口。0.8.0 工件不包含这些修复，历史工件保持不可变。
+0.9.1 包含 0.9.0 的耐久恢复、异步草稿协作、有限业务交互、批量办理、处理及打印输出页面，并修复预留后失效写入、业务消息占位、可变隔离草稿和批次获权恢复。历史工件保持不可变。
 
-从 [ui-v0.8.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.8.1) 下载 `zerp-ui-0.8.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.9.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.9.1) 下载 `zerp-ui-0.9.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.8.1.tgz
+pnpm add ./zerp-ui-0.9.1.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
 
 ## 完整页面
 
-先用原有 `defineCrud`、`defineConfiguration`、`defineReport`、`defineDocument`、`defineVoucher`、`defineVoucherOperation` 或 `defineWorkflow` 定义领域契约，再用对应页面工厂封装。工厂保留字段/值、行/身份、动作/输入/证据的类型配对；返回的 `PageDefinition` 不能携带任意组件或布局回调。
+先用原有 `defineCrud`、`defineConfiguration`、`defineReport`、`defineDocument`、`defineVoucher`、`defineOperation` 或 `defineWorkflow` 定义领域契约，再用对应页面工厂封装。工厂保留字段/值、行/身份、动作/输入/证据的类型配对；返回的 `PageDefinition` 不能携带任意组件或布局回调。
 
-| 页面工厂                     | 承接能力                                                                   |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| `defineCrudPage`             | 查询、分页、查看、编辑、创建、启停/删除、局部区块、受控勾选与有限列表意图  |
-| `defineConfigurationPage`    | 新建、打开、保存、权威身份与重读、保留编辑及只读草稿事实                   |
-| `defineReportPage`           | 参数型或固定结果报表、分页、分组、权威合计、导出、下钻、取消与返回恢复     |
-| `defineDocumentPage`         | 资料/档案正式内容、开放候选、精确历史、附件暂存/读取及审批                 |
-| `defineVoucherPage`          | submission 单据列表、表头/明细/子项、创建/克隆、附件、审批和独立脚本配置   |
-| `defineVoucherOperationPage` | operation 单据编辑、完整预览、办理、耐久原请求、核实/封存/刷新与原内容恢复 |
-| `defineWorkflowPage`         | 节点动作、审计及打开单据的强类型意图                                       |
-| `defineDetailsPage`          | 分组事实、历史引用、关联跳转与可选本地单据内容编辑                         |
-| `defineAccountPage`          | `profile` / `change-password` 受控账户表单、校验、提交与取消               |
+| 页面工厂                  | 承接能力                                                                   |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `defineCrudPage`          | 查询、分页、查看、编辑、创建、启停/删除、局部区块、受控勾选与有限列表意图  |
+| `defineConfigurationPage` | 新建、打开、保存、权威身份与重读、保留编辑及只读草稿事实                   |
+| `defineReportPage`        | 参数型或固定结果报表、分页、分组、权威合计、导出、下钻、取消与返回恢复     |
+| `defineDocumentPage`      | 资料/档案正式内容、开放候选、精确历史、附件暂存/读取及审批                 |
+| `defineVoucherPage`       | submission 单据列表、表头/明细/子项、创建/克隆、附件、审批和独立脚本配置   |
+| `defineOperationPage`     | operation 单据编辑、完整预览、办理、耐久原请求、核实/封存/刷新与原内容恢复 |
+| `defineWorkflowPage`      | 节点动作、审计及打开单据的强类型意图                                       |
+| `defineDetailsPage`       | 分组事实、历史引用、关联跳转与可选本地单据内容编辑                         |
+| `defineAccountPage`       | `profile` / `change-password` 受控账户表单、校验、提交与取消               |
 
 ```vue
 <script setup lang="ts">
@@ -91,7 +91,7 @@ const page = defineCrudPage({ definition, permissions, blocks });
 
 ## 写入、恢复与离页保护
 
-六类生命周期仍使用各自 Adapter；不存在第七类通用写入运行时。明确成功、明确失败与结果未知保持区别。普通查询、关闭消息、取消等待、丢弃本地输入或卸载重挂均不证明业务未应用，不能解除原请求锁；终态后的刷新失败只能重读，不能重发业务命令。
+六类生命周期仍使用各自 Adapter；处理/批量页面复用同一个 Operation 原请求引擎，不增加第二套通用写入控制器。明确成功、明确失败与结果未知保持区别。普通查询、关闭消息、取消等待、丢弃本地输入或卸载重挂均不证明业务未应用，不能解除原请求锁；终态后的刷新失败只能重读，不能重发业务命令。
 
 AppPage 持有草稿及确认 UI，`@protection` 提供有限 `EditProtection` 事实，唯一公开句柄为 `AppPageHandle.requestLeave(): Promise<boolean>`。消费者在 Router 守卫中等待它再导航，并根据 dirty/localPending/writeState 事实装配浏览器 beforeunload；消费者负责清理自己的监听器。同页定义中的资源、记录切换同样受保护。`active=false` 或会话作用域变化使旧画面及确认回调失效，身份失效的敏感内容清理优先。
 
@@ -125,7 +125,7 @@ Vuetify 布局登记的实际顶栏高度用于内容避让；菜单、抽屉遮
 | 独立 `ReportView`                                             | `defineReportPage`；保留 snapshot/restore/parameters/adopted/drill 语义回调   |
 | 独立 `DocumentView` / `WorkflowView`                          | 对应页面工厂，Adapter 与精确领域身份不变                                      |
 | `VoucherView` submission                                      | `defineVoucherPage`；库内组合单据区块与脚本配置                               |
-| `VoucherView` operation + 外挂 `VoucherEditor`                | `defineVoucherOperationPage` 的有限 editor 定义、原输入与权威结果映射         |
+| `VoucherView` operation + 外挂 `VoucherEditor`                | `defineOperationPage` 的有限 editor 定义、原输入与权威结果映射                |
 | 独立 `DynamicForm` / `ReferencePicker` / `DataList`           | 业务页面 fields/blocks/selection/listActions，由库装配                        |
 | 独立 `RecordDetails` + 本地编辑器                             | `defineDetailsPage` 的分组事实及可选 editor                                   |
 | 外部 `EditGuard`、各 View / prepare 句柄                      | AppPage 内部保护与唯一 `requestLeave` 句柄，宿主继续装配 Router/beforeunload  |
@@ -142,7 +142,7 @@ Vuetify 布局登记的实际顶栏高度用于内容避让；菜单、抽屉遮
 
 Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scripts 为准。各 examples 子目录是独立运行的合成消费者；通过公开 AuthPage/AppPage 操作，不编译库私有源码。使用当前切片命令定向验证，正式发行运行既定 `check:release`。
 
-发行 gate 只 pack 一次，同一 tgz 在 direct/configuration/report/document/voucher/workflow/shell/details 八类全新安装消费者内验证类型、公开出口/私有子路径拒绝、生产构建、CSS/字体、唯一宿主依赖和浏览器交互。记录源码 SHA、tgz SHA-256、实际命令及退出码，正式 Release 上传原已测工件；下载后再校验并复验同一工件。浏览器及临时预览服务在 finally 中关闭，不做截图工程。
+发行 gate 只 pack 一次，同一 tgz 在 direct/configuration/report/document/voucher/workflow/shell/details 九类全新安装消费者内验证类型、公开出口/私有子路径拒绝、生产构建、CSS/字体、唯一宿主依赖和浏览器交互。记录源码 SHA、tgz SHA-256、实际命令及退出码，正式 Release 上传原已测工件；下载后再校验并复验同一工件。浏览器及临时预览服务在 finally 中关闭，不做截图工程。
 
 全部数据、资格、业务 Adapter、回执和持久化记录均为合成；这些证据不代表真实 ZERP/oit-go API/E2E 或生产验收。
 
@@ -174,3 +174,29 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 | aux/vehicle             | 内/外承运条件切换及引用；精确快照由消费者提供         |
 
 此表保留直接维护切片的行为来源；当前库同时提供下述配置、报表、资料档案、单据、流程和外壳。各切片的实施与交付记录见 GitHub Issues，真实应用接入另行验收。
+
+## 0.9.0 完整业务交互（#47）
+
+`defineTaskPage<D, M, Identity, Baseline>` 提供字段、有限区块、动作选择、完整预览、确认及原请求恢复。动作固定为 process（处理）、publish（发布）、restore（启用历史版本）、validate、run、stop、import、preview、print、printed、not-printed；每个 Model 只需声明实际支持的动作。每个动作分别配对 input、preview、evidence，不提供任意字符串命令。`toIntent` 是纯输入映射，必须保留原 owner/identity 和当前选定动作；异步请求不能藏在映射器中。`adopt` 返回可显式采用的权威结果，不把未提交草稿自动当作已保存。
+
+源码及模板属性沿 textarea、fields/rows/voucher 区块表达。消费者可用字段提供版本选择、历史目录及参数，用 diagnostics 提供有限消息/只读表格；业务版本规则、验证/试运行/发布、计算及权威证据归消费者。`importResource.read` 只解析本地资源到草稿，不执行最终导入；真正写入仍须选择 import 并完整确认。downloads 只提供读取/下载，不获得业务写入能力。
+
+`DraftCollaboration<D, T>` 可用于 CRUD、配置、operation 编辑器与处理页面。change 接收隔离草稿、scope、initialize/change/answer/action、有限回答及取消信号，返回新草稿及 Interaction。库负责 pending、错误重试、取消与迟到隔离；错误或必填回答缺失时不能提交。消费者必须把需要提交的回答和计算事实映射进返回草稿，后端仍须在最终写入时重验。计算端口只能执行读取和草稿计算，不执行最终业务命令。报表页面还可提供带 instance 的 interactions，将已采用结果产生的提示与有限意图呈现在原报表旁；结果/提示变化使旧事件失效，最终业务写入转入处理页面。Interaction 支持消息、确认、输入、菜单/两层树、只读表格、关联及下载的局部意图；不运行消费者脚本、HTML、组件或模板。
+
+`CrudDefinition.persistence` 与 `ConfigurationDefinition.persistence` 接收 `WritePersistence`。load(owner, requestId?) 无 ID 读取当前槽，有 ID 必须读取该精确原 WriteJournal（包括槽替换后的已完成记录）；save(journal, expectedId) 必须是耐久原子 CAS：null 仅预留空/已完成槽，非空比较精确原 ID，并禁止改变原 Attempt 或回退终态。complete 必须幂等并保留 completed/refreshed/outcome 与原请求证据，旧 ID 的完成记录不能因开始新请求而丢失。配置还保存 retain/权威 identity。存储解码、版本转换、终态权威性及跨标签原子性归消费者；不能将当前值相同当作本次已应用。
+
+库先预留原请求再调用业务 Adapter，写入前存储失败阻止执行。重载仅加载原请求、核实或重读，不重放 create/save。核实仍通过原 reconcile 的精确 attemptId/evidence，失败恢复或记录损坏持续锁定；普通查询不解除未知锁。端口必须保留已确认终态，终态保存/读取/完成失败可安全重试，不允许重新提交。未提供端口时只保留原 JS 会话的内存锁，不宣称具备跨重载恢复。
+
+`defineBatchPage` 接收稳定 key、标签和逐项完整 intent，以及单项 OperationDefinition 与独立 BatchPersistence。先耐久保存原始批次清单，再逐项完整预览、确认、核实和封存；用户显式继续下一项。未知项不能跳过，停止仅标记尚未发送的项。整页重载恢复原清单及当前项；completed 批次仍保留结果。批次存储同样必须原子 CAS，不得改变已预留清单或回退结果；各项必须使用同一 owner，具体身份在每项 intent 中提供。原请求 Journal/Settlement 中的 association 由库写入批次 ID 与条目 key，持久端口必须原样保留且不可改写；同身份/输入的历史回执不能完成新批次。
+
+处理页面可接 `printing: { document, state }`。PrintDocument 提供毫米纸张、固定分页、文字、内嵌 PNG/JPEG/WebP/GIF 位图、线和矩形；文字/颜色/字体均受有限约束，不接任意 HTML/CSS。条码二维码由消费者生成安全位图，表达式、业务分页/小计与权限仍归后端。只有消费者提供已授权的 opened 状态才允许用户点击“打开打印窗口”；加载、重载及回执恢复不会自动再次打印。print/printed/not-printed 的业务登记经同一原请求协议，物理输出结果由用户明确确认，不根据浏览器对话框关闭推断。
+
+[examples/capabilities](examples/capabilities) 是可运行的合成消费者，展示处理/发布/试运行入口、异步计算与必填确认、资源读取/下载、批量继续/停止、CRUD 重载核实及固定打印预览。合成权威与存储仅用于演示，不是业务服务实现。运行、构建及同一 tgz 独立安装命令见 package.json。
+
+### 从 0.8.1 一次性迁移
+
+- `defineVoucherOperation` → `defineOperation`；`voucherOperationLabels` → `operationLabels`。
+- 所有 `VoucherOperation*` 协议类型 → `Operation*`；`VoucherOperationPage` → `OperationPageDefinition`，`defineVoucherOperationPage` → `defineOperationPage`。
+- 现有单据动作、输入、回执和持久化端口的语义保持；存储转换必须保留原 binding、终态及完成事实，不以版本升级清空原请求。
+- 新处理/打印/批量通过相应页面定义接入；只公开 AuthPage/AppPage，旧独立 View、消费者组件区块及私有子路径仍不可用。
+- 原 ZERP/oit-go 未升级或部署。本库合成验收不代表这些应用已可直接替换依赖，也不代表真实 API/E2E。

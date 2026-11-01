@@ -210,7 +210,7 @@ it("keeps the current page and original write lock after an unknown save", async
   wrapper.unmount();
 });
 
-import { defineVoucherOperationPage, defineAccountPage } from "../src/index";
+import { defineOperationPage, defineAccountPage } from "../src/index";
 import { reactive, ref } from "vue";
 import {
   synthetic,
@@ -221,9 +221,9 @@ import {
   type Baseline,
 } from "../examples/voucher/operation-adapter";
 import type {
-  VoucherOperationIntent,
-  VoucherOperationSettlement,
-  VoucherOperationDefinition,
+  OperationIntent,
+  OperationSettlement,
+  OperationDefinition,
 } from "../src/index";
 Object.defineProperty(navigator, "locks", {
   configurable: true,
@@ -244,27 +244,21 @@ it("owns voucher editing and restores an original not-applied request inside the
   };
   const scenario: Scenario = "not-applied";
   const events: string[] = [];
-  const definition: VoucherOperationDefinition<
-    SyntheticModel,
-    Identity,
-    Baseline
-  > = synthetic(
-    storage,
-    () => scenario,
-    (event) => events.push(event),
-  );
-  const intent: VoucherOperationIntent<SyntheticModel, Identity> = {
+  const definition: OperationDefinition<SyntheticModel, Identity, Baseline> =
+    synthetic(
+      storage,
+      () => scenario,
+      (event) => events.push(event),
+    );
+  const intent: OperationIntent<SyntheticModel, Identity> = {
     action: "edit",
     owner: { scope: "synthetic", operator: "operator", resource: "voucher" },
     identity: { voucher: "one" },
     input: { note: "原内容", rows: [{ key: "r1", quantity: "1.0100" }] },
   };
-  const settlements: VoucherOperationSettlement<
-    SyntheticModel,
-    Identity,
-    Baseline
-  >[] = [];
-  const page = defineVoucherOperationPage({
+  const settlements: OperationSettlement<SyntheticModel, Identity, Baseline>[] =
+    [];
+  const page = defineOperationPage({
     title: "单据内容",
     definition,
     intent,
@@ -697,22 +691,19 @@ it("denies an ordinary switch from an unknown operation to another page but clea
       values.delete(key);
     },
   };
-  const definition: VoucherOperationDefinition<
-    SyntheticModel,
-    Identity,
-    Baseline
-  > = synthetic(
-    storage,
-    () => "unknown",
-    () => {},
-  );
+  const definition: OperationDefinition<SyntheticModel, Identity, Baseline> =
+    synthetic(
+      storage,
+      () => "unknown",
+      () => {},
+    );
   const actor = reactive({ operator: "operator-a" });
   const originalOwner = {
     scope: "synthetic",
     operator: "operator-a",
     resource: "operation-guard",
   };
-  const page = defineVoucherOperationPage(() => ({
+  const page = defineOperationPage(() => ({
     title: "原办理页面",
     definition,
     intent: {
@@ -792,18 +783,15 @@ it("guards an in-place operation identity change while preserving same-record pr
       values.delete(key);
     },
   };
-  const definition: VoucherOperationDefinition<
-    SyntheticModel,
-    Identity,
-    Baseline
-  > = synthetic(
-    storage,
-    () => "success",
-    () => {},
-  );
+  const definition: OperationDefinition<SyntheticModel, Identity, Baseline> =
+    synthetic(
+      storage,
+      () => "success",
+      () => {},
+    );
   const identity = reactive({ voucher: "one" });
   const title = ref("原办理页面");
-  const page = defineVoucherOperationPage(() => ({
+  const page = defineOperationPage(() => ({
     title: title.value,
     definition,
     intent: {
@@ -902,15 +890,12 @@ it("accepts nested reactive operation values and preserves typed Date Map and Se
       values.delete(key);
     },
   };
-  const definition: VoucherOperationDefinition<
-    SyntheticModel,
-    Identity,
-    Baseline
-  > = synthetic(
-    storage,
-    () => "success",
-    () => {},
-  );
+  const definition: OperationDefinition<SyntheticModel, Identity, Baseline> =
+    synthetic(
+      storage,
+      () => "success",
+      () => {},
+    );
   const rows = ref([
     {
       key: "r1",
@@ -925,7 +910,7 @@ it("accepts nested reactive operation values and preserves typed Date Map and Se
   const facts = reactive({ eligible: true });
   const observed: (typeof rows.value)[number]["facts"][] = [];
   const events: EditProtection[] = [];
-  const intent: VoucherOperationIntent<SyntheticModel, Identity> = {
+  const intent: OperationIntent<SyntheticModel, Identity> = {
     action: "edit",
     owner: {
       scope: "synthetic",
@@ -935,7 +920,7 @@ it("accepts nested reactive operation values and preserves typed Date Map and Se
     identity: { voucher: "one" },
     input: { note: "原备注", rows: [] },
   };
-  const page = defineVoucherOperationPage(() => ({
+  const page = defineOperationPage(() => ({
     title: "响应式单据",
     definition,
     intent,

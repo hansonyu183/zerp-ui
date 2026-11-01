@@ -25,6 +25,8 @@ import { equalValues, freezeValues } from "./editor-values";
 import { clone, message } from "./clone";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
+import { writeRecovery } from "./write-recovery";
+import DraftCollaborationView from "./DraftCollaboration.vue";
 const props = defineProps<{
   definition: ConfigurationDefinition<D, F, R, I, E>;
   scope: string;
@@ -71,6 +73,19 @@ const lock = computed(() =>
     props.scope,
   ),
 );
+const recovery = () =>
+  writeRecovery(lock.value, props.definition.persistence, {
+    scope: props.scope,
+    resource: props.definition.resource,
+  });
+async function restoreWrite() {
+  const recover = recovery();
+  try {
+    await recover.restore();
+  } catch (cause) {
+    error.value = message(cause);
+  }
+}
 const blocked = computed(() => lock.value.phase !== "idle");
 const disabled = computed(
   () =>
@@ -190,6 +205,8 @@ async function query(next = page.value, submit = false) {
   loading.value = true;
   error.value = "";
   try {
+    if (refreshing && target.outcome) await recovery().settle(target.outcome);
+    if (!current(g) || q !== queryId) return;
     const value = await props.definition.adapter.query({
       scope: props.scope,
       filters: clone(requested),
@@ -233,6 +250,7 @@ async function query(next = page.value, submit = false) {
           creating: false,
         };
       } else clearEditor();
+      await recovery().complete();
       target.phase = "idle";
       target.attempt = null;
       target.context = undefined;
@@ -375,11 +393,36 @@ async function save() {
   target.context = { retain: !!props.retainEditor };
   target.phase = "pending";
   target.attempt = attempt;
+  target.outcome = undefined;
+  target.refreshed = undefined;
   queryId++;
   loading.value = false;
   error.value = "";
   notice.value = "";
   try {
+    const originalRecovery = writeRecovery(target, definition.persistence, {
+      scope: attempt.scope,
+      resource: attempt.resource,
+    });
+    try {
+      await originalRecovery.reserve();
+    } catch (cause) {
+      target.attempt = null;
+      target.phase = "blocked";
+      if (current(g)) error.value = message(cause);
+      return;
+    }
+    // Recheck authority after the asynchronous durable reservation, retaining
+    // the original recovery lock when the admitted session has become stale.
+    if (
+      !current(g) ||
+      !props.permissions.read ||
+      !props.permissions.write ||
+      !editor.value?.writable
+    ) {
+      target.phase = "unknown";
+      return;
+    }
     const outcome = await definition.adapter.save(clone(attempt));
     if (outcome.status === "success") {
       target.context = {
@@ -389,11 +432,15 @@ async function save() {
         ),
       };
       target.phase = "refresh";
+      await originalRecovery.settle("applied");
       if (current(g)) {
         notice.value = definition.savedMessage ?? "配置已保存。";
         await query();
       }
     } else if (outcome.status === "failure") {
+      target.phase = "refresh";
+      await originalRecovery.settle("not-applied");
+      await originalRecovery.complete();
       target.phase = "idle";
       target.attempt = null;
       if (current(g)) error.value = outcome.message;
@@ -402,6 +449,11 @@ async function save() {
       if (current(g)) error.value = outcome.message ?? "保存结果未知。";
     }
   } catch {
+    if (target.outcome) {
+      target.phase = "refresh";
+      if (current(g)) error.value = "结果已确认，请重试保存终态并读取。";
+      return;
+    }
     target.phase = "unknown";
     if (current(g)) error.value = "保存结果未知。";
   }
@@ -421,6 +473,7 @@ async function reconcile() {
     return;
   verifying.value = true;
   try {
+    const originalRecovery = recovery();
     const outcome = await verify(clone(attempt));
     if (
       outcome.status !== "unknown" &&
@@ -439,11 +492,15 @@ async function reconcile() {
           ),
         };
         target.phase = "refresh";
+        await originalRecovery.settle("applied");
         if (current(g)) {
           notice.value = "已核实保存成功。";
           await query();
         }
       } else {
+        target.phase = "refresh";
+        await originalRecovery.settle("not-applied");
+        await originalRecovery.complete();
         target.phase = "idle";
         target.attempt = null;
         if (current(g)) notice.value = "已确认本次请求未应用。";
@@ -481,10 +538,12 @@ watch(
     notice.value = "";
     const g = generation,
       e = editId;
-    void query(1).then(() => {
-      if (current(g) && e === editId && props.initialRow)
-        void begin(clone(props.initialRow));
-    });
+    void restoreWrite()
+      .then(() => query(1))
+      .then(() => {
+        if (current(g) && e === editId && props.initialRow)
+          void begin(clone(props.initialRow));
+      });
   },
   { immediate: true, flush: "sync" },
 );
@@ -545,6 +604,14 @@ onBeforeUnmount(() => {
       />
     </div>
     <div class="zerp-feedback-region">
+      <Feedback
+        :message="lock.phase === 'blocked' ? '请先恢复原请求' : undefined"
+        kind="warning"
+        persistent
+        ><button type="button" :disabled="verifying" @click="restoreWrite">
+          重试恢复原请求
+        </button></Feedback
+      >
       <Feedback :message="error" kind="error" />
       <Feedback :message="notice" />
       <Feedback
@@ -614,6 +681,16 @@ onBeforeUnmount(() => {
         :disabled="disabled"
         :onUpdate:modelValue="bindings.form"
         :onPending="bindings.formPending"
+      />
+      <DraftCollaborationView
+        v-if="definition.collaboration && editor && !!editor.writable"
+        :adapter="definition.collaboration"
+        :model-value="editor.values"
+        :scope="scope"
+        :instance="editId"
+        :disabled="blocked"
+        @update:model-value="bindings.form($event)"
+        @pending="pending = { ...pending, collaboration: $event }"
       />
       <DomainBlockHost
         v-for="block in bindings.blocks"

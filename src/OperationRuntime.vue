@@ -1,27 +1,29 @@
-<script setup lang="ts" generic="M extends VoucherOperationModel, I, B">
+<script setup lang="ts" generic="M extends OperationModel, I, B">
 import Feedback from "./Feedback.vue";
 import { computed, watch, onBeforeUnmount } from "vue";
-import { operationSession } from "./voucher-operation-session";
+import { operationSession } from "./operation-session";
 import { clone } from "./clone";
 import { equalValues } from "./editor-values";
-import { voucherOperationLabels } from "./voucher-operation";
+import { operationLabels } from "./operation";
 import type {
-  VoucherOperationHandle,
-  VoucherOperationModel,
-  VoucherOperationDefinition,
-  VoucherOperationIntent,
-  VoucherOperationSettlement,
-} from "./voucher-operation";
+  OperationAssociation,
+  OperationHandle,
+  OperationModel,
+  OperationDefinition,
+  OperationIntent,
+  OperationSettlement,
+} from "./operation";
 import type { EditProtection } from "./edit-guard";
 const props = defineProps<{
-  definition: VoucherOperationDefinition<M, I, B>;
-  intent: VoucherOperationIntent<M, I>;
+  definition: OperationDefinition<M, I, B>;
+  intent: OperationIntent<M, I>;
   eligible: boolean;
   recoveryAllowed: boolean;
+  association?: OperationAssociation;
 }>();
 const emit = defineEmits<{
   protection: [state: EditProtection];
-  settled: [settlement: VoucherOperationSettlement<M, I, B>];
+  settled: [settlement: OperationSettlement<M, I, B>];
 }>();
 const session = computed(() =>
   operationSession(props.definition, props.intent.owner),
@@ -120,11 +122,15 @@ function live() {
 async function prepare() {
   if (props.eligible) await session.value.prepare(props.intent, live());
 }
-defineExpose<VoucherOperationHandle>({ prepare });
+defineExpose<OperationHandle>({ prepare });
 async function confirm() {
   const current = generation,
     target = session.value;
-  await target.confirm(live(), () => current === generation && props.eligible);
+  await target.confirm(
+    live(),
+    () => current === generation && props.eligible,
+    clone(props.association),
+  );
   publish(current, target);
 }
 async function resume() {
@@ -172,14 +178,14 @@ onBeforeUnmount(() => {
     </div>
     <p v-if="state.journal">
       原请求：{{ state.journal.request.requestId }} ·
-      {{ voucherOperationLabels[state.journal.request.action] }}
+      {{ operationLabels[state.journal.request.action] }}
     </p>
     <button
       type="button"
       :disabled="state.busy || state.phase !== 'idle' || !eligible"
       @click="prepare"
     >
-      准备{{ voucherOperationLabels[intent.action] }}
+      准备{{ operationLabels[intent.action] }}
     </button>
     <button
       v-if="state.phase === 'blocked'"
@@ -196,7 +202,7 @@ onBeforeUnmount(() => {
     >
       <h2>{{ state.prepared.preview.title }}</h2>
       <p>
-        动作：{{ voucherOperationLabels[state.prepared.action] }} · 原请求：{{
+        动作：{{ operationLabels[state.prepared.action] }} · 原请求：{{
           state.prepared.requestId
         }}
       </p>
@@ -228,7 +234,7 @@ onBeforeUnmount(() => {
       >
         {{
           definition.confirmationLabel ??
-          `确认${voucherOperationLabels[state.prepared.action]}`
+          `确认${operationLabels[state.prepared.action]}`
         }}</button
       ><button
         type="button"

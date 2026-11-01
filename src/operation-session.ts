@@ -1,19 +1,17 @@
 import { shallowReactive } from "vue";
 import { clone } from "./clone";
-import {
-  sameOperationOwner,
-  voucherOperationLabels,
-} from "./voucher-operation";
+import { sameOperationOwner, operationLabels } from "./operation";
 import type {
-  VoucherOperationModel as Model,
-  VoucherOperationDefinition as Definition,
-  VoucherOperationOwner as Owner,
-  VoucherOperationIntent as Intent,
-  VoucherOperationRequest as Request,
-  VoucherOperationJournal as Journal,
-  VoucherOperationReceipt as Receipt,
-  VoucherOperationSettlement as Settlement,
-} from "./voucher-operation";
+  OperationAssociation,
+  OperationModel as Model,
+  OperationDefinition as Definition,
+  OperationOwner as Owner,
+  OperationIntent as Intent,
+  OperationRequest as Request,
+  OperationJournal as Journal,
+  OperationReceipt as Receipt,
+  OperationSettlement as Settlement,
+} from "./operation";
 type Phase =
   | "loading"
   | "idle"
@@ -93,10 +91,14 @@ function createSession<M extends Model, I, B>(
       !r.requestId ||
       typeof r.binding !== "string" ||
       !r.binding ||
-      !Object.hasOwn(voucherOperationLabels, r.action) ||
+      !Object.hasOwn(operationLabels, r.action) ||
       !r.preview ||
       !Array.isArray(r.preview.sections) ||
       (record.receipt && !accepted(r, record.receipt)) ||
+      (record.association &&
+        (record.association.kind !== "batch" ||
+          !record.association.batchId ||
+          !record.association.entryKey)) ||
       (record.completed !== undefined && record.completed !== true) ||
       (record.refreshed !== undefined && record.refreshed !== true) ||
       (record.completed && !record.refreshed) ||
@@ -119,6 +121,7 @@ function createSession<M extends Model, I, B>(
       ? (clone({
           request: record.request,
           receipt: record.receipt,
+          association: record.association,
         }) as Settlement<M, I, B>)
       : undefined;
   }
@@ -211,6 +214,7 @@ function createSession<M extends Model, I, B>(
         clone({
           request: record.request,
           receipt: record.receipt,
+          association: record.association,
         }) as Settlement<M, I, B>,
       );
       completed = { ...record, refreshed: true };
@@ -240,6 +244,7 @@ function createSession<M extends Model, I, B>(
     const settled = {
       request: record.request,
       receipt: clone(receipt),
+      association: record.association,
     } as Journal<M, I, B>;
     await persistence.save(clone(settled), record.request.requestId);
     state.journal = settled;
@@ -252,10 +257,17 @@ function createSession<M extends Model, I, B>(
         : "已确认终态，等待读取。";
     if (state.phase === "refresh" && live()) await refresh(settled, live);
   }
-  async function confirm(live: () => boolean, allowed: () => boolean) {
+  async function confirm(
+    live: () => boolean,
+    allowed: () => boolean,
+    association?: OperationAssociation,
+  ) {
     if (state.phase !== "preview" || !state.prepared || !allowed()) return;
     await run(async () => {
-      const record = { request: clone(state.prepared!) } as Journal<M, I, B>;
+      const record = {
+        request: clone(state.prepared!),
+        association: clone(association),
+      } as Journal<M, I, B>;
       state.notice = "正在可靠保存原请求。";
       try {
         await persistence.save(clone(record), null);

@@ -1,20 +1,20 @@
-import { voucherOperationLabels } from "@zerp/ui";
+import { operationLabels } from "@zerp/ui";
 import type {
-  VoucherOperationAction,
-  VoucherOperationDefinition,
-  VoucherOperationIntent,
-  VoucherOperationJournal,
-  VoucherOperationPreview,
-  VoucherOperationReceipt,
-  VoucherOperationRequest,
-  VoucherOperationOwner,
+  OperationAction,
+  OperationDefinition,
+  OperationIntent,
+  OperationJournal,
+  OperationPreview,
+  OperationReceipt,
+  OperationRequest,
+  OperationOwner,
 } from "@zerp/ui";
 export type SyntheticModel = {
-  [A in VoucherOperationAction]: {
+  [A in OperationAction]: {
     input: { note: string } & (A extends "create" | "edit"
       ? { rows: readonly { key: string; quantity: string }[] }
       : object);
-    preview: VoucherOperationPreview & { action: A };
+    preview: OperationPreview & { action: A };
     evidence: { action: A; receipt: string } & (A extends
       "create" | "edit" | "delete"
       ? { result: { voucher: string | null; deleted: boolean } }
@@ -23,12 +23,12 @@ export type SyntheticModel = {
 };
 export type Identity = { voucher: string | null };
 export type Baseline = { revision: string; configuration: string };
-export type SyntheticRequest = VoucherOperationRequest<
+export type SyntheticRequest = OperationRequest<
   SyntheticModel,
   Identity,
   Baseline
 >;
-export type SyntheticJournal = VoucherOperationJournal<
+export type SyntheticJournal = OperationJournal<
   SyntheticModel,
   Identity,
   Baseline
@@ -78,7 +78,7 @@ export function decodeJournal(value: unknown): SyntheticJournal {
     ].every((v) => typeof v === "string") ||
     !r.requestId ||
     !r.binding ||
-    !Object.hasOwn(voucherOperationLabels, r.action) ||
+    !Object.hasOwn(operationLabels, r.action) ||
     !r.identity ||
     (r.action === "create"
       ? r.identity.voucher !== null
@@ -161,10 +161,10 @@ export function synthetic(
   scenario: () => Scenario,
   log: (message: string) => void = () => {},
 ) {
-  const key = (owner: VoucherOperationOwner) =>
+  const key = (owner: OperationOwner) =>
     `SYNTHETIC-OPERATIONS-wipe-me:${JSON.stringify([owner.scope, owner.operator, owner.resource])}`;
   const read = (
-    owner: VoucherOperationOwner,
+    owner: OperationOwner,
     requestId?: string,
   ): SyntheticJournal | null => {
     const raw = storage.getItem(
@@ -177,7 +177,7 @@ export function synthetic(
     request: SyntheticRequest,
     status: "applied" | "not-applied",
     sealed = false,
-  ): VoucherOperationReceipt<SyntheticModel> =>
+  ): OperationReceipt<SyntheticModel> =>
     ({
       action: request.action,
       owner: request.owner,
@@ -200,15 +200,15 @@ export function synthetic(
           : {}),
       },
       ...(status === "applied" ? { status } : { status, sealed }),
-    }) as VoucherOperationReceipt<SyntheticModel>;
+    }) as OperationReceipt<SyntheticModel>;
   function storedProof(
     request: SyntheticRequest,
-  ): VoucherOperationReceipt<SyntheticModel> | null {
+  ): OperationReceipt<SyntheticModel> | null {
     const raw = storage.getItem(
       `SYNTHETIC-OPERATIONS-authority:${request.requestId}`,
     );
     if (!raw) return null;
-    const proof = JSON.parse(raw) as VoucherOperationReceipt<SyntheticModel>;
+    const proof = JSON.parse(raw) as OperationReceipt<SyntheticModel>;
     if (
       proof.binding !== request.binding ||
       request.binding !== operationBinding(request)
@@ -216,11 +216,7 @@ export function synthetic(
       throw new Error("合成原请求内容冲突");
     return proof;
   }
-  const definition: VoucherOperationDefinition<
-    SyntheticModel,
-    Identity,
-    Baseline
-  > = {
+  const definition: OperationDefinition<SyntheticModel, Identity, Baseline> = {
     protocol: "operation",
     persistence: {
       async load(owner, requestId) {
@@ -275,7 +271,7 @@ export function synthetic(
       },
     },
     adapter: {
-      async prepare(intent: VoucherOperationIntent<SyntheticModel, Identity>) {
+      async prepare(intent: OperationIntent<SyntheticModel, Identity>) {
         const base = {
           ...structuredClone(intent),
           concurrency: { revision: "r7", configuration: "c3" },

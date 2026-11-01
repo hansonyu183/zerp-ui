@@ -39,6 +39,7 @@ const config = (): ConfigurationDefinition<
   const d = crud();
   return defineConfiguration({
     ...d,
+    persistence: undefined,
     adapter: {
       ...d.adapter,
       save: vi.fn(async () => ({ status: "success" as const })),

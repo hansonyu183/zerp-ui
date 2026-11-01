@@ -1,6 +1,6 @@
 {
   "name": "@zerp/ui",
-  "version": "0.8.1",
+  "version": "0.9.1",
   "type": "module",
   "license": "MIT",
   "files": [
@@ -58,7 +58,10 @@
     "check:release": "node scripts/check-release.mjs",
     "dev:details": "vite examples/details --host 127.0.0.1",
     "build:details": "vite build examples/details",
-    "check:details": "pnpm build && pnpm build:details && node scripts/check-package.mjs --details"
+    "check:details": "pnpm build && pnpm build:details && node scripts/check-package.mjs --details",
+    "dev:capabilities": "vite examples/capabilities --host 127.0.0.1",
+    "build:capabilities": "vite build examples/capabilities",
+    "check:capabilities": "pnpm build && pnpm build:capabilities && node scripts/check-package.mjs --capabilities"
   },
   "devDependencies": {
     "vue": "3.5.40",

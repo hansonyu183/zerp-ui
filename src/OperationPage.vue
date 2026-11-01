@@ -2,7 +2,7 @@
   setup
   lang="ts"
   generic="
-    M extends VoucherOperationModel,
+    M extends OperationModel,
     I,
     B,
     H extends object,
@@ -11,21 +11,22 @@
   "
 >
 import { computed, ref, shallowRef, watch } from "vue";
+import DraftCollaborationView from "./DraftCollaboration.vue";
 import VoucherEditor from "./VoucherEditor.vue";
-import VoucherOperationRuntime from "./VoucherOperationRuntime.vue";
+import OperationRuntime from "./OperationRuntime.vue";
 import { clone } from "./clone";
 import { equalValues } from "./editor-values";
 import { validateVoucherContent } from "./voucher-editor";
-import type { VoucherOperationPage } from "./pages";
+import type { OperationPageDefinition } from "./pages";
 import type { VoucherEditorValue } from "./voucher-editor";
 import type {
-  VoucherOperationModel,
-  VoucherOperationSettlement,
-  VoucherOperationIntent,
-} from "./voucher-operation";
+  OperationModel,
+  OperationSettlement,
+  OperationIntent,
+} from "./operation";
 import type { EditProtection } from "./edit-guard";
 const props = defineProps<{
-  options: VoucherOperationPage<M, I, B, H, R, C>;
+  options: OperationPageDefinition<M, I, B, H, R, C>;
   scope: string;
   discardVersion: number;
 }>();
@@ -33,6 +34,7 @@ const emit = defineEmits<{ protection: [state: EditProtection] }>();
 const draft = shallowRef<VoucherEditorValue<H, R> | null>(null),
   baseline = shallowRef<VoucherEditorValue<H, R> | null>(null),
   lastInput = shallowRef<VoucherEditorValue<H, R> | null>(null);
+const collaborationPending = ref(false);
 const editorPending = ref(false),
   instance = ref(0);
 const runtimeProtection = shallowRef<EditProtection>({
@@ -41,8 +43,8 @@ const runtimeProtection = shallowRef<EditProtection>({
   invalid: false,
   writeState: "blocked",
 });
-const settled = shallowRef<VoucherOperationSettlement<M, I, B> | null>(null);
-const restoredIntent = shallowRef<VoucherOperationIntent<M, I> | null>(null);
+const settled = shallowRef<OperationSettlement<M, I, B> | null>(null);
+const restoredIntent = shallowRef<OperationIntent<M, I> | null>(null);
 const baseIntent = computed(() => restoredIntent.value ?? props.options.intent);
 const proposedIntent = computed(() =>
   props.options.editor && draft.value
@@ -73,7 +75,10 @@ const protection = computed<EditProtection>(() => ({
   dirty:
     runtimeProtection.value.dirty ||
     (!!draft.value && !equalValues(draft.value, baseline.value)),
-  localPending: runtimeProtection.value.localPending || editorPending.value,
+  localPending:
+    runtimeProtection.value.localPending ||
+    editorPending.value ||
+    collaborationPending.value,
   invalid: !!validation.value,
   writeState: runtimeProtection.value.writeState,
 }));
@@ -93,6 +98,7 @@ function reset() {
   baseline.value = value ? clone(value) : null;
   lastInput.value = value ? clone(value) : null;
   editorPending.value = false;
+  collaborationPending.value = false;
   settled.value = null;
   restoredIntent.value = null;
   instance.value++;
@@ -121,6 +127,7 @@ watch(
     draft.value = value ? clone(value) : null;
     baseline.value = value ? clone(value) : null;
     editorPending.value = false;
+    collaborationPending.value = false;
     instance.value++;
   },
   { deep: true },
@@ -131,6 +138,7 @@ watch(
     if (runtimeProtection.value.writeState === "idle") {
       draft.value = baseline.value ? clone(baseline.value) : null;
       editorPending.value = false;
+      collaborationPending.value = false;
       instance.value++;
     }
   },
@@ -148,7 +156,7 @@ function bindings() {
   };
 }
 const editorBindings = computed(bindings);
-function settledResult(value: VoucherOperationSettlement<M, I, B>) {
+function settledResult(value: OperationSettlement<M, I, B>) {
   settled.value = clone(value);
   props.options.onSettled?.(clone(value));
 }
@@ -167,6 +175,7 @@ function restore() {
   restoredIntent.value = clone(settled.value.request);
   draft.value = clone(restored.value);
   editorPending.value = false;
+  collaborationPending.value = false;
   instance.value++;
   settled.value = null;
 }
@@ -176,6 +185,7 @@ function adopt() {
   baseline.value = clone(adopted.value.value);
   restoredIntent.value = clone(adopted.value.intent);
   editorPending.value = false;
+  collaborationPending.value = false;
   instance.value++;
   settled.value = null;
 }
@@ -195,10 +205,25 @@ function adopt() {
       :onUpdate:modelValue="editorBindings.change"
       :onPending="editorBindings.pending"
     />
-    <VoucherOperationRuntime
+    <DraftCollaborationView
+      v-if="options.editor?.collaboration && draft"
+      :adapter="options.editor.collaboration"
+      :model-value="draft"
+      :scope="scope"
+      :instance="instance"
+      :disabled="disabled"
+      @update:model-value="editorBindings.change"
+      @pending="collaborationPending = $event"
+    />
+    <OperationRuntime
       :definition="options.definition"
       :intent="intent"
-      :eligible="options.eligible && !editorPending && !validation"
+      :eligible="
+        options.eligible &&
+        !editorPending &&
+        !collaborationPending &&
+        !validation
+      "
       :recovery-allowed="options.recoveryAllowed"
       @protection="runtimeProtection = $event"
       @settled="settledResult"
