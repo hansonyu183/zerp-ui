@@ -10,15 +10,13 @@
 
 ## 固定版本安装
 
-0.9.0 补齐耐久恢复、异步草稿协作、有限业务交互、批量办理、处理及打印输出页面；包含 0.8.1 的页面切换修复。历史工件保持不可变。
+0.9.1 包含 0.9.0 的耐久恢复、异步草稿协作、有限业务交互、批量办理、处理及打印输出页面，并修复预留后失效写入、业务消息占位、可变隔离草稿和批次获权恢复。历史工件保持不可变。
 
-当前源码为待发布的 0.9.1，修复预留后失效写入、业务消息占位、可变隔离草稿和批次获权恢复；以下 0.9.0 安装工件不含这些修复。
-
-从 [ui-v0.9.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.9.0) 下载 `zerp-ui-0.9.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.9.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.9.1) 下载 `zerp-ui-0.9.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.9.0.tgz
+pnpm add ./zerp-ui-0.9.1.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
