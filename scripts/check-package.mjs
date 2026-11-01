@@ -315,6 +315,7 @@ try {
   assert.ok(address && typeof address !== "string");
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
+  context.setDefaultTimeout(30_000);
   const page = await context.newPage();
   const errors = [];
   const observe = (page) => {
@@ -1289,6 +1290,12 @@ async function voucherSmoke(page) {
   });
   const openingButton = (name) =>
     opening.getByRole("button", { name, exact: true });
+  const formulaDialog = page.getByRole("dialog", {
+    name: "配方 · 明细行 1",
+    exact: true,
+  });
+  const formulaButton = (name) =>
+    formulaDialog.getByRole("button", { name, exact: true });
   await openingButton("新增明细行").click();
   await page.getByLabel("行名称").fill("取消行");
   await openingButton("取消明细行").click();
@@ -1297,26 +1304,26 @@ async function voucherSmoke(page) {
   await page.getByLabel("行名称").fill("保留行");
   await openingButton("确定明细行").click();
   await openingButton("编辑配方 · 明细行 1").click();
-  await openingButton("新增配方").click();
-  await opening.getByLabel("子项金额").fill("2.5000");
-  await openingButton("确定子项").click();
-  await openingButton("取消配方").click();
+  await formulaButton("新增配方").click();
+  await formulaDialog.getByLabel("子项金额").fill("2.5000");
+  await formulaButton("确定子项").click();
+  await formulaButton("取消配方").click();
   assert.ok(
     (
       await opening.getByRole("table", { name: "单据明细" }).textContent()
     )?.includes("0 项"),
   );
   await openingButton("编辑配方 · 明细行 1").click();
-  await openingButton("新增配方").click();
-  await opening.getByLabel("子项金额").fill("2.5000");
-  await openingButton("确定子项").click();
-  await openingButton("确定配方").click();
+  await formulaButton("新增配方").click();
+  await formulaDialog.getByLabel("子项金额").fill("2.5000");
+  await formulaButton("确定子项").click();
+  await formulaButton("确定配方").click();
   await button("提交单据").click();
   await button("查看 SYN-2").click();
   await page.getByRole("cell", { name: "保留行", exact: true }).waitFor();
   await openingButton("查看配方 · 明细行 1").click();
-  assert.equal(await openingButton("确定配方").count(), 0);
-  await openingButton("关闭配方").click();
+  assert.equal(await formulaButton("确定配方").count(), 0);
+  await formulaButton("关闭配方").click();
   await page.getByLabel("单据示例").selectOption("system");
   await button("查看 SYN-system").click();
   assert.equal(await button("创建 Draft").count(), 0);

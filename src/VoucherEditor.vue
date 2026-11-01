@@ -3,7 +3,14 @@
   lang="ts"
   generic="H extends object, R extends object, C extends object = object"
 >
-import { VBtn, VCard, VTable, VDialog } from "vuetify/components";
+import { injectDefaults } from "vuetify/lib/composables/defaults.js";
+import {
+  VDefaultsProvider,
+  VBtn,
+  VCard,
+  VTable,
+  VDialog,
+} from "vuetify/components";
 import {
   computed,
   nextTick,
@@ -24,6 +31,8 @@ import type {
   VoucherEditorValue,
 } from "./voucher-editor";
 
+// VDialog starts a Vuetify defaults root; preserve this page's preset and bounded overlays.
+const pageDefaults = injectDefaults();
 const props = defineProps<
   VoucherEditorDefinition<H, R, C> & {
     modelValue: VoucherEditorValue<H, R>;
@@ -378,50 +387,52 @@ onBeforeUnmount(() => emit("pending", false));
         childEditing?.token === child.token && childClose[0]?.$el?.focus()
       "
       :aria-label="`${child.column.label} · 明细行 ${modelValue.rows.findIndex((row) => rowKey(row) === child.parentKey) + 1}`"
-      ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
-        <FactFields
-          v-if="mode === 'read'"
-          :fields="formFacts(childFields)"
-          :value="{ items: child.rows }"
-        />
-        <DynamicForm
-          v-else
-          :fields="childFields"
-          :model-value="{ items: child.rows }"
-          :scope="scope"
-          :mode="formMode"
-          :disabled="!writable"
-          @update:model-value="
-            childEditing?.token === child.token &&
-            (childEditing = { ...child, rows: $event.items })
-          "
-          @pending="
-            if (childEditing?.token === child.token) {
-              childPending = $event;
-              pending();
-            }
-          "
-        />
-        <VBtn
-          color="primary"
-          variant="flat"
-          v-if="writable"
-          type="button"
-          :disabled="childPending"
-          @click="childEditing?.token === child.token && finishChild()"
-        >
-          确定{{ child.column.label }}
-        </VBtn>
-        <VBtn
-          color=""
-          variant="tonal"
-          ref="childClose"
-          type="button"
-          @click="childEditing?.token === child.token && cancelChild()"
-        >
-          {{ writable ? "取消" : "关闭" }}{{ child.column.label }}
-        </VBtn>
-      </VCard></VDialog
+      ><VDefaultsProvider :defaults="pageDefaults"
+        ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
+          <FactFields
+            v-if="mode === 'read'"
+            :fields="formFacts(childFields)"
+            :value="{ items: child.rows }"
+          />
+          <DynamicForm
+            v-else
+            :fields="childFields"
+            :model-value="{ items: child.rows }"
+            :scope="scope"
+            :mode="formMode"
+            :disabled="!writable"
+            @update:model-value="
+              childEditing?.token === child.token &&
+              (childEditing = { ...child, rows: $event.items })
+            "
+            @pending="
+              if (childEditing?.token === child.token) {
+                childPending = $event;
+                pending();
+              }
+            "
+          />
+          <VBtn
+            color="primary"
+            variant="flat"
+            v-if="writable"
+            type="button"
+            :disabled="childPending"
+            @click="childEditing?.token === child.token && finishChild()"
+          >
+            确定{{ child.column.label }}
+          </VBtn>
+          <VBtn
+            color=""
+            variant="tonal"
+            ref="childClose"
+            type="button"
+            @click="childEditing?.token === child.token && cancelChild()"
+          >
+            {{ writable ? "取消" : "关闭" }}{{ child.column.label }}
+          </VBtn>
+        </VCard></VDefaultsProvider
+      ></VDialog
     >
   </section>
 </template>

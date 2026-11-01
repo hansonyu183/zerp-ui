@@ -254,7 +254,14 @@ watchEffect(
     <component :is="current[2]" :key="current[0]" />
     <aside class="example-controls" aria-label="合成外壳控制">
       <p>全部业务 Adapter 为合成数据；账户流程和会话恢复由本示例持有。</p>
-      <button @click="brandState = { kind: 'error', caption: '品牌读取失败' }">
+      <button
+        @click="
+          brandState = {
+            kind: 'error',
+            caption: '品牌读取失败。'.repeat(50) + '长提示末尾',
+          }
+        "
+      >
         模拟品牌失败</button
       ><button
         @click="navigationState = { kind: 'error', caption: '导航读取失败' }"

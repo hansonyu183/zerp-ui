@@ -5,7 +5,7 @@ import type {
   VoucherEditorValue,
 } from "@zerp/ui";
 export type Header = { name: string; amount: string };
-export type Child = { material: string; amount: string };
+export type Child = { material: string; amount: string; unit?: string };
 export type Row = {
   id: string;
   name: string;
@@ -75,6 +75,15 @@ export const editor: VoucherEditorDefinition<Header, Row, Child> = {
       fields: [
         { key: "material", label: "原料名称", type: "text" },
         { key: "amount", label: "原料用量", type: "decimal" },
+        {
+          key: "unit",
+          label: "原料单位",
+          type: "enum",
+          options: [
+            { value: "kg", label: "公斤" },
+            { value: "piece", label: "件" },
+          ],
+        },
       ],
       empty: () => ({ material: "", amount: "" }),
       summary: (rows) => `${rows.length} 项`,

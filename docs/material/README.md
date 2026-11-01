@@ -1,43 +1,68 @@
 # Material 对照矩阵
 
-正式规格与状态以 [#49](https://github.com/hansonyu183/zerp-ui/issues/49) 和子票为准；本表记录实现依据、产品适配与验收证据边界，不替代工单。实现基线为 Vuetify 4.1.5。所有消费者、Adapter、账户与记录均为合成数据，不构成真实 ZERP API/E2E 证据。
+正式规格与状态以 [#49](https://github.com/hansonyu183/zerp-ui/issues/49) 及 [#53](https://github.com/hansonyu183/zerp-ui/issues/53) 为准。本表映射库拥有的表面、状态、实现依据和实际验证入口，不维护第二套工单状态。实现基线保持 Vue 3.5.40、Vuetify 4.1.5、Router 5.2.0；没有升级依赖或扩大公开接口。消费者、Adapter、账户、资格、回执、附件和存储均为合成资料，不构成真实 ZERP API/E2E 或生产接入证据。
 
-依据：[Blueprints](https://vuetifyjs.com/en/features/blueprints/)、[Buttons](https://vuetifyjs.com/en/components/buttons/)、[Tables](https://vuetifyjs.com/en/components/tables/)、[Alerts](https://vuetifyjs.com/en/components/alerts/)、[Typography](https://vuetifyjs.com/en/styles/text-and-typography/)、[Dialogs](https://vuetifyjs.com/en/components/dialogs/)、[Material accessibility](https://m1.material.io/usability/accessibility.html)。具体预设以安装包 `vuetify/lib/blueprints/md1.js`、`md2.js`、`md3.js` 与其组件运行行为为准。
+依据：[Blueprints](https://vuetifyjs.com/en/features/blueprints/)、[Text fields](https://vuetifyjs.com/en/components/text-fields/)、[Buttons](https://vuetifyjs.com/en/components/buttons/)、[Tables](https://vuetifyjs.com/en/components/tables/)、[Alerts](https://vuetifyjs.com/en/components/alerts/)、[Typography](https://vuetifyjs.com/en/styles/text-and-typography/)、[Dialogs](https://vuetifyjs.com/en/components/dialogs/)、[Material accessibility](https://m1.material.io/usability/accessibility.html)。具体默认值按已安装的 `vuetify/lib/blueprints/md1.js`、`md2.js`、`md3.js` 及运行行为核对；不是仅凭 blueprint 名称判定符合。
 
-## 入口与交互表面
+## 完整页面和控件映射
 
-| 公开入口 / 用户任务 | 内部表面 | Vuetify 能力 / 业务约束 | 定向证据与边界 |
-| --- | --- | --- | --- |
-| AppPage 导航、账户与主题 | AppPage、shell | VAppBar/VLayout/VNavigationDrawer/VMenu/VBtn；MD1/MD2/MD3 blueprint，明暗独立受控；RouterLink 保留真实链接 | shellInteractionSmoke：320px 控件实际命中、菜单 Escape/焦点归还、导航与修饰键、固定高度、遮罩边界 |
-| AppPage 列表、报表结果 | DataList、RowActions | VTable/VCheckboxBtn/VBtn/VMenu/VList；服务端分页与 hasMore 保留；不额外分页/排序/计算合计 | materialShellSmoke：六主题、320/390px 勾选及行操作；既有选择/行操作/报表行为检查保护组与权威值 |
-| AuthPage / AppPage 消息 | Feedback | VAlert/VBtn；error=alert，warning/status=status；固定反馈区域，长消息内部滚动 | materialShellSmoke：六主题显示/关闭几何稳定与计算对比度；feedback-smoke 共用几何比较 |
-| AuthPage 认证 / AppPage 账户 | AuthPage、ControlledAccountForm | VTextField/VBtn 与受控字段；敏感值清理不变 | #50 补充各认证模式、账户及错误的安装包证据 |
-| AppPage 字段、引用与局部行 | DynamicForm、ReferencePicker、DomainRows、VoucherEditor、DomainBlockHost | 有限字段与强类型 Adapter；十进制原字符串、历史引用、局部草稿权限不变 | #50 补充精确值、父依赖、只读/禁用及局部确认/取消证据 |
-| AppPage 维护与配置 | CrudView、ConfigurationView | 字段/列表复用；恢复入口保留原请求锁 | #52 补充编辑、确认、未知与待刷新证据 |
-| AppPage 报表与详情 | ReportView、DetailsPage、RecordDetails、FactFields | 结构化事实、分组续页、列显隐、下钻/返回与链接 | #52 补充完整页面运行证据，不以 VTable 引用推断通过 |
-| AppPage 档案与单据 | DocumentView、VoucherSubmission、SubmissionRuntime、OperationPage、OperationRuntime | 正式/候选/历史、完整预览与同一原请求引擎 | #52 补充模态焦点/长内容/关闭与锁状态证据 |
-| AppPage 流程与草稿协作 | WorkflowView、DraftCollaboration、BusinessInteractions、ReportInteractionPanel | 节点、原因、有限输入/菜单树/表格；异步迟到隔离 | #52 补充状态与高风险路径证据 |
-| AppPage 处理、批量及打印 | TaskPage、BatchPage、PrintPreview、EditGuard | 有限动作、逐项原清单、离页保护；纸张毫米布局独立 | #52 补充批量未知锁、打印周边、离页模态证据 |
-| AppPage 内容装配 | PageContentHost | 唯一页面主标题、有限内容定义，布局由库持有 | 类型与公开出口拒绝检查；#53 同一 tgz 最终复验 |
+所有运行验证从公开 AuthPage/AppPage 发起。下表的脚本在现有独立 tgz 消费者内运行；单元文件用于定向业务回归，不能替代安装包浏览器证据。确切 SHA、命令退出码及同一 tgz 哈希以工单验收评论和 release gate 的 `evidence.json` 为准。
 
-## 状态与主题
+| 用户任务 / 库内表面                                              | Material 实现与保留的契约                                                                                                                       | 可观察证据入口                                                                                                                |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| AuthPage 登录、注册、找回、重设                                  | VTextField、VBtn、VCard；账号与密码 autocomplete、受控同步、确认错误关联及模式切换敏感值清理                                                    | `auth.spec.ts`；`shellSmoke` 完整认证往返及反馈关闭                                                                           |
+| AppPage 固定顶栏、导航、主题、账户；PageContentHost              | VAppBar/VLayout/VNavigationDrawer/VMenu/VList/VBtn；唯一主标题、固定排列、实际高度与 RouterLink                                                 | `shellInteractionSmoke`、`shellSmoke`：菜单键盘、焦点归还、普通/修饰键/新标签导航、账户资料与改密、320/390px                  |
+| ControlledAccountForm                                            | VBtn 与共用字段；最终提交和真实基线仍由账户运行时持有                                                                                           | `page-content.spec.ts`；`directSmoke` 的 IndependentForm；六主题字段/提交矩阵                                                 |
+| DynamicForm 文本、密码、多行、精确十进制、整数                   | VTextField/VTextarea；十进制保持原字符串和尾零，整数保留负号等中间输入；0/false/null/空值不归一化                                               | `forms.spec.ts`、`page-content.spec.ts`；`directSmoke`、六主题字段错误/焦点及精确提交                                         |
+| DynamicForm 布尔、单/多枚举、日期/范围、局部 rows                | VCheckbox/VSelect/VTextField；选项资格、历史值、受控回显、模式/只读、递归确认取消；日期不做 Date/时区转换                                       | `forms.spec.ts`、`page-content.spec.ts`、`matrix.spec.ts`；direct/configuration/document/voucher 消费者                       |
+| ReferencePicker                                                  | VTextField/VList/VBtn/VProgressLinear；服务端搜索、页次/hasMore、精确 resolve、停用/历史已选、移除、父依赖与 scope 隔离                         | `forms.spec.ts`；direct/voucher 消费者采用引用快照及父依赖操作                                                                |
+| DataList、RowActions                                             | VTable/VCheckboxBtn/VBtn/VMenu/VList；稳定行身份、受控当前页选择、前三图标/更多；服务端结果无额外排序、分页或汇总                               | `materialShellSmoke` 六主题实际选择、菜单及命中；direct/report 消费者行意图和普通/修饰键链接                                  |
+| CrudView、ConfigurationView                                      | VCard、VBtn、VDialog；查询、新建、查看、编辑具名内联 region；危险确认为真模态；耐久预留、未知核实、封存、待刷新和只重读不变                     | direct/configuration 消费者；`capabilities.spec.ts` 耐久原请求和撤权隔离；六主题真实 dirty modal                              |
+| ReportView                                                       | 共用字段/列表、VBtn、VList；固定与参数结果、列选择、层级分组/续组、权威合计、已知/未知总数、下钻/返回、导出/停止等待                            | `report.spec.ts`；report 消费者按原格式、权威身份与页次实际操作                                                               |
+| DocumentView、VoucherSubmission、SubmissionRuntime               | 共用 VCard、字段/领域区块、VBtn/VFileInput；正式、开放候选、历史、审计、附件及审批按原来源呈现                                                  | document/voucher 消费者：历史、候选、冲突、附件下载、成功/未知/刷新失败                                                       |
+| VoucherEditor、DomainBlockHost、DomainRows                       | VTable、共用字段、VCard/VDialog、VBtn；表头、明细、所属行子项和递归局部草稿；局部确定不等于最终保存                                             | `voucher-editor.spec.ts`、`page-content.spec.ts`；voucher/details 消费者局部新增/取消/确认、只读检查、宽表滚动                |
+| DetailsPage、RecordDetails、FactFields                           | VCard、语义 dl/dt/dd、VExpansionPanels/VBtn；分组、递归记录、精确原值、历史引用意图；不以 JSON 代替正常事实                                     | `details.spec.ts`；`detailsSmoke` 递归展开、历史原值、关联、编辑保护、子项内 VSelect 浮层归属                                 |
+| OperationPage、OperationRuntime                                  | VCard/VBtn/VTable；完整办理预览是可滚动内联 region；显式确认、取消、停止等待与原请求恢复相互区分                                                | `voucher-operation.spec.ts`；`voucherOperationSmoke`、capabilities 消费者：迟到、unknown、封存、权威重读、旧弹层失效          |
+| WorkflowView                                                     | 共用列表、VSelect/VTextField/VBtn/VTable；节点、原因、有限动作及审计不变                                                                        | `workflow.spec.ts`；workflow 消费者查询失败/空/重试、目标资格、未知恢复、会话切换                                             |
+| DraftCollaboration、BusinessInteractions、ReportInteractionPanel | VProgressLinear、VCheckbox/VTextField、持久 VList 两层菜单/树、VTable、VBtn；输入保留 change 提交时机；回答与原问题、已采用结果及 instance 配对 | `capabilities.spec.ts`：必填回答、失败/重试、迟到计算和旧提示失效；capabilities 消费者实际确认与固定消息占位                  |
+| TaskPage                                                         | VSelect/VFileInput/VBtn、共用字段/诊断表/预览；有限动作、导入草稿、下载；文件字段保留一个完整触发面，移除冗余小图标                             | `capabilities.spec.ts`；`capabilitiesSmoke` 本地资源解析、下载、处理准备/确认；320/390px 文件字段边缘实际打开原生选择器后取消 |
+| BatchPage                                                        | VCard/VList/VBtn、同一 Operation 引擎；原清单、当前项、结果、显式继续/停止；未知项不可跳过                                                      | `capabilities.spec.ts`；capabilities 消费者重载恢复、逐项继续/停止                                                            |
+| PrintPreview                                                     | VCard/VBtn/VProgressLinear；预览周边操作统一；有限 PrintDocument 的毫米坐标、纸张、分页、文字/位图/线矩形不变                                   | capabilities 消费者：授权打开打印窗口、显式物理结果、重载不自动打印；原 iframe 工件检查                                       |
+| Feedback、EditGuard                                              | VAlert/VBtn 与固定预留区；error=alert，warning/status=status；VDialog 管理真实离页确认；关闭消息不改变业务写入状态                              | `assertStableFeedback`、六主题反馈/模态；details/capabilities 消费者迟到清理、未知离页限制、焦点/Tab/Escape                   |
 
-`materialShellSmoke` 从 AppPage 切换六个主题并实际操作代表性列表；不是检查主题数量或私有组件名。默认/selected 通过勾选与 `aria-checked`；disabled 由当前第一页“上一页”等既有分页检查；hover/pressed 与焦点的状态层由当前预设 Vuetify 持有，未将截图或 CSS 类名作为视觉合规证据。可见焦点、菜单 Escape/焦点归还由实际键盘检查验证。loading/error/empty/未知状态的完整页面装配按相关票记录，不推断所有页面已覆盖六主题笛卡尔组合。
+## 共用状态和六主题矩阵
 
-| 代表表面 | MD1 light/dark | MD2 light/dark | MD3 light/dark | 测量 |
-| --- | --- | --- | --- | --- |
-| 顶栏、列表勾选、前三图标及更多 | materialShellSmoke | materialShellSmoke | materialShellSmoke | 320/390px 实际 48×48 边缘命中；无页面级横向溢出 |
-| 列表正文 / 操作图标 / 菜单 | materialShellSmoke | materialShellSmoke | materialShellSmoke | 最终计算前景与祖先合成背景；正文/菜单 ≥4.5:1，图标 ≥3:1 |
-| 错误反馈及关闭 | materialShellSmoke | materialShellSmoke | materialShellSmoke | ≥4.5:1；出现/关闭前后主要操作、顶栏和文档滚动位置相同 |
-| 字段、主要提交、真实模态 | #50/#52 最终合并后补证 | #50/#52 最终合并后补证 | #50/#52 最终合并后补证 | 不依据依赖或默认值声明通过 |
+`materialShellSmoke` 在实际安装包消费者中遍历 MD1/MD2/MD3 的 light/dark。共享控件集中验收，页面消费者验证装配与高风险路径；没有将每页乘以全部主题重复运行，也没有以安装 Vuetify 推断未执行的状态通过。
 
-## 产品适配
+| 状态 / 表面                       | 六主题检查                                                                                                                              | 其它代表性状态与证据边界                                                                                                                                                        |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 默认正文、表面、字阶              | 列表正文、字段正文/浮动标签、错误文字、内联 Card 错误、真实模态正文的实际计算前景与合成背景 ≥4.5:1                                      | h1 唯一性由 shell 消费者检查；标题/区块标题/标签/辅助文字采用 Vuetify h5/h6/subtitle/body/caption 字阶及中文字体回退。不是逐字截图复刻                                          |
+| hover / pressed                   | 对实际主要提交悬停并 pointerdown，确认状态层确实绘制、其存在时文字仍 ≥4.5:1；松开指针到按钮外避免额外提交                               | 状态层及动效来自当前 blueprint；不以私有类名存在作为证明，不建立截图基线                                                                                                        |
+| focus / error                     | 从完整表单输入与受控回显，检查焦点保留、aria-invalid、aria-describedby 与原错误文本；测量实际绘制的焦点/错误边界 ≥3:1、标签/说明 ≥4.5:1 | 说明出现/清除前后字段、提交及文档滚动位置保持；测量等待独立 viewport/drawer 过渡结束后开始                                                                                      |
+| selected                          | 列表勾选、当前预设 aria-checked、菜单选择；浅色品牌再测布尔已选图标 ≥3:1                                                                | 选择仅更新原受控选择和原 typed intent，不进行客户端资格判断                                                                                                                     |
+| disabled / readonly / pending     | 非法十进制及未完成整数禁止提交；只读历史/撤权、写入 unknown 禁用范围在各页面消费者验证                                                  | 禁用文本不套普通文字对比阈值；readonly 历史不强制转换成可提交新值。loading 与迟到隔离由 report/voucher/capabilities 的真实合成异步路径验证，未声称每个 loading 状态均运行六主题 |
+| loading / failure / retry / empty | VProgressLinear 的生命周期继续由原运行时持有                                                                                            | 默认 MD3 消费者覆盖查询空/失败/重试、异步草稿计算与失败、附件/导入读取、恢复失败；`capabilities.spec.ts` 从 AppPage 验证具名“业务计算中”状态与继续提交条件                      |
+| 主要/次要/危险操作                | 主要填充提交、普通操作、模态次要/危险确认分别测量 ≥4.5:1；保留不同强调                                                                  | 六主题同时复用一个浅品牌案例（primary=#FFFF00、secondary=#FFFFFF）检查填充前景、普通操作、字段焦点和已选控件；不把品牌色直接当作正文色                                          |
+| 320/390px 触控                    | 顶栏四项、行图标/更多、选择、主要提交、离页确认取消/放弃实际 ≥48×48，边缘命中对应控件且无页面横向溢出                                   | capabilities 消费者另验完整文件字段实际触发；宽表在自己的滚动区域内；桌面保持既有密度                                                                                           |
+| 菜单、真实模态和长内容            | 六主题 dirty modal：初始焦点、Tab/Shift+Tab 范围、Escape、恢复触发器、放弃动作、遮罩/内容均在顶栏下方                                   | details/voucher 消费者覆盖子项读/写、嵌套选项目录、局部取消、完整原值、长预览及旧 scope 清理；普通详情/编辑/办理预览具名 region，不冒充模态                                     |
+| 持久反馈及恢复                    | 六主题错误反馈显示/关闭前后顶栏、主要操作与 scroll 不变，消息文字 ≥4.5:1                                                                | details/capabilities 另验业务消息新增/移除/关闭及未知、封存、重读恢复入口；长消息区域内部滚动，关闭不解锁                                                                       |
 
-- ADR-0001 要求所有 overlay 限制在 Vuetify 实际登记的顶栏下方；这是产品布局适配，不称为官方默认全视口弹层。VMenu/VDialog/VTooltip/VOverlay 默认继承同一个 attach/contained 区域，焦点行为仍归 Vuetify。
-- 所有独立按钮/行操作最小 48px；保留各 blueprint 的圆角、字段 variant、表面和状态层。没有以全局原生 button/input/select 规则覆盖 Vuetify。顶栏窄屏隐藏企业和账户文字，维持固定顺序及品牌首页。
-- VTable 保留语义表格与列标题，宽表仅在自己的滚动区域溢出；不把记录改成客户端分页。行操作仍为前三项图标及更多菜单，查看/关联保留浏览器链接修饰键。
-- 消息保留固定区域，VAlert 的长内容在区域内滚动，关闭只影响呈现；恢复入口和写入状态由原运行时持有。字段错误也预留固定区域，实际未知结果不得经 UI 关闭解锁。
-- 公司提供的报表前景/背景属于消费者业务事实。库保留这些权威格式；任意外部自定义颜色组合的可读性不能由默认六主题测量自动担保。
-- 品牌 primary/secondary 的前景使用当前 Vuetify 已有 WCAG getContrast 选择黑/白的较高值，不重写解析或颜色算法；默认暗色也以实测对比度校正。文字图标操作使用 on-surface，避免浅色品牌直接作正文。品牌颜色的最终实际对比度须在实际消费者选择的颜色下验收，默认主题通过不代表任意品牌颜色通过。
+计算样式检查保留 RGBA alpha、祖先不透明度及 Vuetify 字段/按钮/列表/Alert 的实际状态层；在这些已知表面合成前景与背景。没有对任意消费方图片、渐变、外部 CSS 或自定义报表前景/背景作全局可读性担保。长文本及复杂报表的完整语义与可滚动性由对应消费者验证，不把小样本对比度外推到所有外部数据。
 
-源码 SHA、命令退出码、tgz SHA-256 与远端交付证据见各工单验收评论。#53 的最终发布必须复验同一已测 tgz；历史工件、本地示例与下载工件证据分别记录。
+## 产品适配与发现后的修正
+
+- ADR-0001 要求所有 overlay 限制在 Vuetify 实际登记的顶栏下方；这是产品布局适配，不称为官方默认全视口弹层。VMenu/VDialog/VTooltip/VOverlay 继承同一个 attach/contained 区域，焦点实现仍归 Vuetify。
+- 实测发现 VDialog 的内部 defaults root 会重置页面默认值，导致 MD1 离页按钮只有 36px，并可能丢失嵌套目录的 attach。三个真实模态宿主在创建时捕获已有 `injectDefaults()`，在 VDialog 内容内通过原生 VDefaultsProvider 重新提供同一个响应式 defaults；保留完整 blueprint、48px 和嵌套浮层区域，不复制弹层或焦点框架。
+- 实测默认暗色错误文字 #CF6679 在 Card surface #212121 上为 4.470:1；采用暗色语义错误色 #EF9A9A，并由现有 Vuetify getContrast 选择 error 的黑/白前景。浅色仍保留对应预设的 error；危险填充确认也使用显式 on-error。
+- 主要提交显式 primary，危险确认显式 error；普通按钮使用 on-surface，避免 MD3 默认 primary 变成浅品牌上的不可读文字。布尔/选择控件同样使用 on-surface，实测浅品牌的白色 secondary 原先形成 1:1 已选图标，现由共用 defaults 修正。品牌 primary/secondary 本身保持消费者提供的原值。
+- 保留 MD1/MD2/MD3 各自字段 variant、圆角、表面和状态层。48px 是控件实际有效区域，不用不可点击留白替代；没有全局 button/input/select 皮肤覆盖 Vuetify。
+- 日期使用 Material VTextField 的 date 输入，保存 YYYY-MM-DD 原字符串；日期选择器、文件选择器、浏览器原生打印对话框属于浏览器/系统 UI。没有为主题替换而引入 Date/时区转换或自建基础交互。
+- VTable 保留语义 table/caption/th 与权威结果。dl/dt/dd、链接、文本、图片和打印图文是有意保留的语义内容；示例 aside 中的 JSON 是合成 Adapter 诊断，不是库内正常业务事实呈现。
+
+## 验证和分发记录
+
+实施片的本地结果分别记录于 [#50](https://github.com/hansonyu183/zerp-ui/issues/50)、[#51](https://github.com/hansonyu183/zerp-ui/issues/51)、[#52](https://github.com/hansonyu183/zerp-ui/issues/52)、[#55](https://github.com/hansonyu183/zerp-ui/issues/55)、[#56](https://github.com/hansonyu183/zerp-ui/issues/56)、[#57](https://github.com/hansonyu183/zerp-ui/issues/57)；这些旧 SHA 的定向结果不冒充最终版本的同包验收。
+
+0.10.0 的候选代码补齐六主题字段、模态、浅品牌及指针状态矩阵。最终必须在审查修正后的干净提交上执行既有 `check:release`，只 pack 一次，在全部九类全新消费者验证类型、拒绝出口、生产构建、CSS/字体、唯一宿主 Vue/Vuetify/Router 和公开页面行为。release gate 报告给出源码 SHA、每条命令/退出码及工件 SHA-256；审查、CI、正式上传及下载字节核对/复验分别记录于 #53 和 Release 工件，不能用本地构建成功替代。此文不预先宣称这些后续阶段已经通过。
+
+所有独占浏览器、预览/开发服务器在 finally 显式关闭；未使用截图、生产凭证、公司资料或真实写入。下载复验须使用原已测 tgz，历史 Release 不覆盖。
