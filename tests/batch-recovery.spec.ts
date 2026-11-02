@@ -268,6 +268,82 @@ it("converts a sent single original without preparation or execution", async () 
   expect(w.text()).toContain("已应用");
   w.unmount();
 });
+it.each(["input", "concurrency", "preview"] as const)(
+  "keeps a migrated original locked after a fresh page loads corrupt persisted %s",
+  async (field) => {
+    let w = await migrated("single");
+    w.unmount();
+    const key = "synthetic-migration:single";
+    const stored = JSON.parse(localStorage.getItem(key)!);
+    const request = stored.records["legacy-request-single"].request;
+    if (field === "input") request.input.value = "corrupt-input";
+    else if (field === "concurrency") request.concurrency++;
+    else request.preview.title = "corrupt-preview";
+    const corrupt = JSON.stringify(stored);
+    const source = localStorage.getItem(`${key}:source`);
+    localStorage.setItem(key, corrupt);
+    w = await migrated("single");
+    try {
+      const reconcile = button(w, "核实原请求");
+      if (reconcile) await click(w, "核实原请求");
+      const recovered = JSON.parse(localStorage.getItem(key)!);
+      expect(recovered.records["legacy-request-single"].completed).not.toBe(
+        true,
+      );
+      expect(w.text()).toContain("权威原请求不匹配");
+      expect(button(w, "重试恢复")).toBeDefined();
+      await click(w, "重试恢复");
+      expect(localStorage.getItem(key)).toBe(corrupt);
+      expect(localStorage.getItem(`${key}:source`)).toBe(source);
+      expect(recovered.executed).toEqual([]);
+      expect(recovered.reconciled).toEqual([]);
+    } finally {
+      w.unmount();
+    }
+  },
+);
+it("refuses a corrupted settled original when reloading a migrated batch", async () => {
+  let w = await migrated("batch");
+  w.unmount();
+  const key = "synthetic-migration:batch";
+  const stored = JSON.parse(localStorage.getItem(key)!);
+  stored.batch.entries[0].settlement.request.input.value = "corrupt-settlement";
+  const corrupt = JSON.stringify(stored);
+  localStorage.setItem(key, corrupt);
+  w = await migrated("batch");
+  try {
+    expect(w.text()).toContain("权威原请求不匹配");
+    expect(button(w, "重试恢复批次")).toBeDefined();
+    expect(button(w, "核实原请求")).toBeUndefined();
+    expect(localStorage.getItem(key)).toBe(corrupt);
+  } finally {
+    w.unmount();
+  }
+});
+it("prepares and completes only a never-sent migrated entry with retained independent authority", async () => {
+  let w = await migrated("batch");
+  try {
+    await click(w, "核实原请求");
+    await click(w, "继续下一项");
+    await click(w, "准备执行处理");
+    await click(w, "确认执行处理");
+    const key = "synthetic-migration:batch";
+    let stored = JSON.parse(localStorage.getItem(key)!);
+    expect(stored.executed).toHaveLength(1);
+    const id = stored.executed[0];
+    expect(stored.records[id].request.input).toEqual({ value: "never-sent" });
+    expect(stored.records[id].completed).toBe(true);
+    w.unmount();
+    w = await migrated("batch");
+    expect(button(w, "继续下一项").attributes("disabled")).toBeUndefined();
+    await click(w, "继续下一项");
+    stored = JSON.parse(localStorage.getItem(key)!);
+    expect(stored.executed).toEqual([id]);
+    expect(stored.batch.completed).toBe(true);
+  } finally {
+    w.unmount();
+  }
+});
 it.each([
   [
     "sent unknown disguised as never sent",

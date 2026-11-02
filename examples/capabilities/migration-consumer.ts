@@ -11,9 +11,11 @@ import {
   legacyBatch,
   legacySingle,
   proof,
+  authoritativeOriginals,
   authoritativeReceipts,
   type MigrationModel,
   type Request,
+  type Receipt,
 } from "./migration-fixtures";
 type Journal = OperationJournal<MigrationModel, string, number>;
 type Store = {
@@ -36,6 +38,61 @@ export function migrationPage(
   const read = (): Store => JSON.parse(localStorage.getItem(key)!);
   const atomic = <T>(work: () => T): Promise<T> =>
     navigator.locks.request(key, work);
+  type Authority = { request: Request; receipt?: Receipt };
+  const authorityKey = `${key}:authority`;
+  const prepared = (): Record<string, Authority> =>
+    JSON.parse(localStorage.getItem(authorityKey) ?? "{}");
+  const unsent = legacyBatch.entries.find(
+    (entry) => entry.status === "never-sent",
+  )!;
+  function authority(request: Request): Authority {
+    const original = authoritativeOriginals.find(
+      (known) => known.requestId === request.requestId,
+    );
+    const record = original
+      ? {
+          request: original,
+          receipt: authoritativeReceipts[original.requestId],
+        }
+      : prepared()[request.requestId];
+    const belongsToPage = original
+      ? (kind === "single") ===
+        (original.requestId === legacySingle.original.requestId)
+      : kind === "batch";
+    if (!record || !belongsToPage || !same(record.request, request))
+      throw Error("迁移权威原请求不匹配；保持锁定。");
+    return record;
+  }
+  function accepts(request: Request, receipt: Receipt) {
+    try {
+      return same(authority(request).receipt, receipt);
+    } catch {
+      return false;
+    }
+  }
+  function checkJournal(journal: Journal) {
+    authority(journal.request);
+    const expectedAssociation =
+      kind === "single"
+        ? undefined
+        : (legacyBatch.entries.find(
+            (entry) => entry.original?.requestId === journal.request.requestId,
+          )?.association ?? {
+            kind: "batch",
+            batchId: legacyBatch.id,
+            entryKey: unsent.key,
+          });
+    if (
+      !same(journal.association, expectedAssociation) ||
+      (journal.receipt && !accepts(journal.request, journal.receipt))
+    )
+      throw Error("迁移权威关联或回执不匹配；保持锁定。");
+  }
+  function checkBatch(batch: Store["batch"]) {
+    if (!batch) throw Error("迁移批次记录缺失；保持锁定。");
+    for (const entry of batch.entries)
+      if (entry.settlement) checkJournal(entry.settlement);
+  }
   const update = <T>(work: (store: Store) => T) =>
     atomic(() => {
       const store = read();
@@ -80,12 +137,17 @@ export function migrationPage(
         await initialize();
         return atomic(() => {
           const s = read();
-          return copy(s.records[id ?? s.head ?? ""] ?? null);
+          if (!same(_owner, owner)) throw Error("迁移恢复身份不匹配。");
+          const journal = s.records[id ?? s.head ?? ""] ?? null;
+          if (journal) checkJournal(journal);
+          return copy(journal);
         });
       },
       save: async (journal, expected) =>
         update((s) => {
+          checkJournal(journal);
           const old = s.records[s.head ?? ""];
+          if (old) checkJournal(old);
           if (expected === null ? old && !old.completed : s.head !== expected)
             throw Error("原请求已变化。");
           if (
@@ -104,6 +166,8 @@ export function migrationPage(
       remove: async (_owner, id) =>
         update((s) => {
           const old = s.records[id];
+          if (!same(_owner, owner)) throw Error("迁移恢复身份不匹配。");
+          if (old) checkJournal(old);
           if (old?.completed) return;
           if (
             !old?.refreshed ||
@@ -115,37 +179,58 @@ export function migrationPage(
         }),
     },
     adapter: {
-      prepare: async (intent) => {
-        if (intent.input.value !== "never-sent")
-          throw Error("旧已发项不能重新准备。");
-        return {
-          ...copy(intent),
-          requestId: crypto.randomUUID(),
-          binding: JSON.stringify(intent),
-          concurrency: 8,
-          preview: { title: "未发项完整预览", sections: [] },
-        };
+      prepare: async (intent) =>
+        atomic(() => {
+          if (kind !== "batch" || !same(intent, unsent.intent))
+            throw Error("旧已发项不能重新准备。");
+          const facts = {
+            ...copy(intent),
+            requestId: crypto.randomUUID(),
+            concurrency: 8,
+            preview: { title: "未发项完整预览", sections: [] },
+          };
+          const request = { ...facts, binding: JSON.stringify(facts) };
+          const records = prepared();
+          records[request.requestId] = { request };
+          localStorage.setItem(authorityKey, JSON.stringify(records));
+          return request;
+        }),
+      acceptsPreparation: (intent, request) => {
+        try {
+          return (
+            same(intent, unsent.intent) &&
+            same(authority(request).request, request)
+          );
+        } catch {
+          return false;
+        }
       },
-      acceptsPreparation: (intent, request) =>
-        request.binding === JSON.stringify(intent),
       execute: async (request) =>
         update((s) => {
+          const record = authority(request);
+          if (record.receipt) return copy(record.receipt);
+          const receipt = proof(request);
+          const records = prepared();
+          records[request.requestId] = { request: copy(request), receipt };
+          localStorage.setItem(authorityKey, JSON.stringify(records));
           s.executed.push(request.requestId);
-          return proof(request);
+          return copy(receipt);
         }),
       reconcile: async (request) =>
         update((s) => {
+          const record = authority(request);
           s.reconciled.push(request.requestId);
-          return copy(
-            authoritativeReceipts[request.requestId] ?? {
-              status: "unknown" as const,
-            },
-          );
+          return copy(record.receipt ?? { status: "unknown" as const });
         }),
-      seal: async () => ({ status: "unknown" }),
-      accepts: (request, receipt) =>
-        same(receipt, proof(request)) || same(receipt, proof(request, false)),
-      refresh: async () => {},
+      seal: async (request) => {
+        authority(request);
+        return { status: "unknown" };
+      },
+      accepts,
+      refresh: async ({ request, receipt }) => {
+        if (!accepts(request, receipt))
+          throw Error("迁移权威原请求或回执不匹配；保持锁定。");
+      },
     },
   });
   if (kind === "batch")
@@ -159,10 +244,16 @@ export function migrationPage(
       persistence: {
         load: async () => {
           await initialize();
-          return atomic(() => copy(read().batch));
+          return atomic(() => {
+            const batch = read().batch;
+            checkBatch(batch);
+            return copy(batch);
+          });
         },
         save: async (journal, expected) =>
           update((s) => {
+            checkBatch(journal);
+            checkBatch(s.batch);
             if (s.batch?.id !== expected) throw Error("批次已变化。");
             s.batch = copy(journal);
           }),

@@ -20,6 +20,10 @@
 
 单据样例保留已发送的原 ID、owner、identity、input、binding、concurrency 和 preview；恢复仅核实这个原请求。它使用 TaskPage 的有限 process 动作展示原协议迁移，不宣称已完成真实 Voucher/OIT 接入。
 
+首次转换通过不代表后续持久记录可信。迁移消费者在恢复读取、保存、完成、核实、回执采用和刷新时，继续将完整原请求与独立合成权威原件逐项比对；批次已结算项中的原请求和关联同样核对。仅回显 requestId/binding 或根据当前请求重新生成一个 `proof` 不是验证。转换后修改客户端 input、concurrency 或 preview，即使 ID/binding 未变，重载也必须保持锁定与重试入口，保留原件及损坏记录，不得获得旧 applied 回执并标为 completed。
+
+真正从未发送项的新准备事实与执行回执保存在独立的 `:authority` 合成账本中，只有用户显式预览确认才执行；重载仍核对这份完整事实。历史原请求直接依据 `migration-fixtures.ts` 中的独立权威原件和回执，不从客户端 journal 补造。示例账本仍在同源浏览器内，只模拟后端权威；它不防止同时篡改模拟权威与客户端存储，真实消费者必须使用后端权威证据。
+
 拒绝样例覆盖复制 batchId、错误 entryKey、修改输入/owner、缺失完整原请求或 binding、只有 applied 状态以及把已发未知叫作 skipped。库另对恢复批次作有限保护：索引不能跨过前面的未决项；skipped/completed 必须为布尔 true，skipped 与 settlement 不能共存；已知批次重试读取为 null 时保持锁定。完整权威绑定、耐久 CAS、幂等封存和真实历史可转换性仍归消费者核实。
 
-验证入口为 `tests/batch-recovery.spec.ts` 和现有 `check:capabilities`，后者运行 `scripts/batch-recovery-smoke.mjs`，在 tgz 独立安装消费者中检查原 ID/关联、unknown 锁、显式继续、仅停止未发项、原件保留与完成后重载零执行。这些证据只覆盖合成 Adapter 与存储，不等同于真实 API/E2E 或生产历史数据验收。
+验证入口为 `tests/batch-recovery.spec.ts` 和现有 `check:capabilities`，后者运行 `scripts/batch-recovery-smoke.mjs`，在 tgz 独立安装消费者中检查原 ID/关联、unknown 锁、显式继续、仅停止未发项、原件保留与完成后重载零执行，以及转换后损坏原请求的真实页面 reload 拒绝和从未发送项的单次执行。这些证据只覆盖合成 Adapter 与存储，不等同于真实 API/E2E 或生产历史数据验收。
