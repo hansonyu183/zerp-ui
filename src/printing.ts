@@ -131,10 +131,24 @@ export function printMarkup(document: PrintDocument): string {
           keys.add(item.key);
           if (item.lineWidth !== undefined && !finite(item.lineWidth, 0.05, 10))
             throw Error("打印线宽无效。");
-          const stroke = `${item.lineWidth ?? 0.2}mm solid currentColor`;
-          let style = `${geometry(item)}color:${color(item.foreground, "#000000")};background:${color(item.background, "transparent")};${item.border ? `border:${stroke};` : ""}`;
+          const stroke = item.lineWidth ?? 0.2;
+          const style = `${geometry(item)}color:${color(item.foreground, "#000000")};background:${color(item.background, "transparent")};`;
+          // Internal finite SVG strokes retain fractional physical widths; CSS borders round to pixels.
+          const height = item.kind === "line" ? stroke : item.height;
+          if (
+            (item.border || item.kind === "rect") &&
+            (item.width < stroke || height < stroke)
+          )
+            throw Error("打印边框尺寸小于线宽。");
+          if (item.kind === "line" && item.y + stroke > document.height)
+            throw Error("打印线条超出纸张。");
+          const primitive =
+            item.kind === "line"
+              ? `<line x1="0" y1="${stroke / 2}mm" x2="${item.width}mm" y2="${stroke / 2}mm"/>`
+              : `<rect x="${stroke / 2}mm" y="${stroke / 2}mm" width="${item.width - stroke}mm" height="${height - stroke}mm"/>`;
+          const border = `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;left:0;top:0;width:${item.width}mm;height:${height}mm;pointer-events:none;overflow:visible" fill="none" stroke="currentColor" stroke-width="${stroke}mm">${primitive}</svg>`;
           if (item.kind === "text")
-            return `<div style="${style}${textStyle(item)}">${escape(item.text)}</div>`;
+            return `<div style="${style}${textStyle(item)}${item.border ? `padding:${stroke}mm;` : ""}">${escape(item.text)}${item.border ? border : ""}</div>`;
           if (item.kind === "image") {
             if (
               !/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=\r\n]+$/.test(
@@ -142,9 +156,9 @@ export function printMarkup(document: PrintDocument): string {
               )
             )
               throw Error("打印图像须为内嵌位图。");
-            return `<img style="${style}object-fit:contain" alt="${escape(item.alt)}" src="${escape(item.src)}">`;
+            return `<div style="${style}"><img style="width:100%;height:100%;object-fit:contain" alt="${escape(item.alt)}" src="${escape(item.src)}">${item.border ? border : ""}</div>`;
           }
-          return `<div style="${style}${item.kind === "line" ? "border-top" : "border"}:${stroke}"></div>`;
+          return `<div style="${style}">${border}</div>`;
         })
         .join("");
       return `<section class="page"><div class="sheet">${items}${watermark}</div></section>`;

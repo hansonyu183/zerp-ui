@@ -1404,8 +1404,8 @@ it("keeps rotated physical print pages and controlled typography in the public p
   expect(html).toContain("rotate(90deg)");
   expect(html).toContain("opacity:0.2");
   expect(html).toContain("rotate(270deg)");
-  expect(html).toContain("0.3mm solid");
-  expect(html).toContain("0.5mm solid");
+  expect(html).toContain('stroke-width="0.3mm"');
+  expect(html).toContain('stroke-width="0.5mm"');
   expect(html).toContain("line-height:1.4");
   expect(html).toContain("overflow-wrap:anywhere");
   expect(html).toContain("zerp-print-cjk-sans");

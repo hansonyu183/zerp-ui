@@ -33,9 +33,7 @@ export async function printOutputSmoke(page, evidence) {
       const watermark = Array.from(
         document.querySelectorAll(".sheet > div"),
       ).find((e) => e.textContent === "合成水印");
-      const line = Array.from(document.querySelectorAll(".sheet > div")).find(
-        (e) => e.style.borderTopWidth === "0.5mm",
-      );
+      const line = document.querySelector('svg[stroke-width="0.5mm"]');
       return {
         width: sheet.getBoundingClientRect().width,
         height: sheet.getBoundingClientRect().height,
@@ -43,8 +41,7 @@ export async function printOutputSmoke(page, evidence) {
         wrapScroll: wrapped.scrollHeight,
         clipWidth: clipped.clientWidth,
         clipScroll: clipped.scrollWidth,
-        line: parseFloat(getComputedStyle(line).borderTopWidth),
-        declaredLineWidth: line.style.borderTopWidth,
+        lineWidthMm: line.getAttribute("stroke-width"),
         opacity: getComputedStyle(watermark).opacity,
         font: getComputedStyle(wrapped).fontFamily,
       };
@@ -62,16 +59,21 @@ export async function printOutputSmoke(page, evidence) {
       geometry.clipScroll > geometry.clipWidth,
       "unwrapped long text clips to its fixed box",
     );
-    assert.ok(
-      Math.abs(geometry.line - 1) < 0.01,
-      "0.5mm stroke quantizes to one CSS pixel in this browser",
-    );
-    assert.equal(geometry.declaredLineWidth, "0.5mm");
+    assert.equal(geometry.lineWidthMm, "0.5mm");
     assert.equal(geometry.opacity, "0.2");
     assert.equal(geometry.font, "zerp-print-cjk-sans");
     const bitmap = PNG.sync.read(
       await output.locator(".page").first().screenshot(),
     );
+    // Rotated original y=70mm line occupies output x=90mm; sample away from other content.
+    let strokePixels = 0;
+    for (let x = 336; x <= 344; x++)
+      strokePixels += 1 - bitmap.data[(100 * bitmap.width + x) * 4] / 255;
+    assert.ok(
+      Math.abs(strokePixels - 1.8898) < 0.12,
+      `0.5mm raster stroke: ${strokePixels} CSS pixels`,
+    );
+    geometry.rasterStrokePixels = strokePixels;
     const luminance = new Uint8ClampedArray(bitmap.width * bitmap.height);
     for (let i = 0; i < luminance.length; i++)
       luminance[i] =
@@ -94,7 +96,7 @@ export async function printOutputSmoke(page, evidence) {
     );
     const pdf = await output.pdf({
       preferCSSPageSize: true,
-      printBackground: true,
+      printBackground: false,
     });
     const pdfText = pdf.toString("latin1");
     const pages = [...pdfText.matchAll(/\/Type\s*\/Page\b/g)].length;
