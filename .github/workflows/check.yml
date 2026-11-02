@@ -22,4 +22,5 @@ jobs:
           path: |
             .scratch/release/**
             .scratch/package-check-*/evidence.json
+            .scratch/print-output/**
           include-hidden-files: true
