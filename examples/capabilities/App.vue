@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { printDocument } from "./print-fixture";
 import { computed, provide, ref } from "vue";
 import { useRoute } from "vue-router";
 import {
@@ -7,7 +8,6 @@ import {
   defineCrud,
   defineCrudPage,
   type DraftCollaboration,
-  type PrintDocument,
 } from "@zerp/ui";
 import ExamplePage from "../shared/ExamplePage.vue";
 import { createExampleShell, exampleShellKey } from "../shared/shell";
@@ -153,38 +153,7 @@ const batch = defineBatchPage({
 });
 const printOwner = { ...owner, resource: "printing-demo" },
   printState = ref<"preview" | "opened" | "printed" | "not-printed">("preview");
-const printDocument: PrintDocument = {
-  id: "fixed-print-one",
-  title: "合成业务输出",
-  width: 210,
-  height: 297,
-  pages: [
-    {
-      key: "one",
-      items: [
-        {
-          key: "title",
-          kind: "text",
-          text: "合成打印输出",
-          x: 10,
-          y: 10,
-          width: 180,
-          height: 12,
-          size: 18,
-        },
-        {
-          key: "amount",
-          kind: "text",
-          text: "金额：9007199254740993.0100",
-          x: 10,
-          y: 30,
-          width: 180,
-          height: 10,
-        },
-      ],
-    },
-  ],
-};
+
 const printDefinition = operation(printOwner, (request) => {
   if (request.action === "print") printState.value = "opened";
   if (request.action === "printed") printState.value = "printed";

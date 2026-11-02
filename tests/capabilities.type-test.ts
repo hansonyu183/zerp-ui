@@ -129,3 +129,38 @@ void [
   collaboration,
   persistence,
 ];
+// Print geometry and typography are finite facts, never consumer CSS.
+const badRotation: PrintDocument = {
+  id: "rotation",
+  title: "输出",
+  width: 100,
+  height: 100,
+  pages: [],
+  // @ts-expect-error Only clockwise right angles are supported.
+  rotation: 45,
+};
+const badFont: PrintDocument = {
+  id: "font",
+  title: "输出",
+  width: 100,
+  height: 100,
+  pages: [
+    {
+      key: "one",
+      items: [
+        {
+          key: "text",
+          kind: "text",
+          text: "中文",
+          x: 0,
+          y: 0,
+          width: 10,
+          height: 10,
+          // @ts-expect-error A consumer cannot supply an arbitrary font-family string.
+          font: "Arial, sans-serif",
+        },
+      ],
+    },
+  ],
+};
+void [badRotation, badFont];
