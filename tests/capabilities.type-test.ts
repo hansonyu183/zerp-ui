@@ -164,3 +164,36 @@ const badFont: PrintDocument = {
   ],
 };
 void [badRotation, badFont];
+
+// Complex drafts keep nested field/value types and collaboration on the public contract.
+import { domainBlocks, type Fields } from "../src/index";
+type ComplexValues = {
+  profile: { count: number; amount: string };
+  rows: { ratio: string }[];
+};
+const complexBlocks = domainBlocks<ComplexValues>();
+complexBlocks.fields({
+  key: "profile",
+  label: "嵌套",
+  fields: [
+    { key: "count", label: "零数量", type: "integer" },
+    { key: "amount", label: "精确金额", type: "decimal" },
+  ],
+});
+complexBlocks.rows({
+  key: "rows",
+  label: "单位",
+  get: (rows) => rows,
+  set: (_rows, rows) => [...rows],
+  empty: () => ({ ratio: "1.0000" }),
+  fields: [{ key: "ratio", label: "换算比", type: "decimal" }],
+});
+const invalidComplexFields: Fields<ComplexValues["profile"]> = [
+  // @ts-expect-error Nested decimal facts remain strings, not integer fields.
+  { key: "amount", label: "金额", type: "integer" },
+];
+const invalidCollaboration: DraftCollaboration<ComplexValues> = {
+  // @ts-expect-error Calculation adoption must preserve the full nested draft shape.
+  change: async () => ({ value: { profile: { count: 0, amount: "1.0000" } } }),
+};
+void [invalidComplexFields, invalidCollaboration];
