@@ -580,7 +580,8 @@ it("keeps an applied result unresolved if its durable receipt cannot be saved", 
   await click(w, "确认作废");
   expect(w.text()).toContain("终态保存失败");
   expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
-  await click(w, "核实原请求");
+  await click(w, "重试读取");
+  expect(f.definition.adapter.reconcile).not.toHaveBeenCalled();
   expect(f.events.filter((e) => e.startsWith("execute:"))).toHaveLength(1);
   expect(f.events.filter((e) => e.startsWith("refresh:"))).toHaveLength(1);
   w.unmount();

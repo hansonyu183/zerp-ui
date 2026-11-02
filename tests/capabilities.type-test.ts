@@ -129,3 +129,71 @@ void [
   collaboration,
   persistence,
 ];
+// Print geometry and typography are finite facts, never consumer CSS.
+const badRotation: PrintDocument = {
+  id: "rotation",
+  title: "输出",
+  width: 100,
+  height: 100,
+  pages: [],
+  // @ts-expect-error Only clockwise right angles are supported.
+  rotation: 45,
+};
+const badFont: PrintDocument = {
+  id: "font",
+  title: "输出",
+  width: 100,
+  height: 100,
+  pages: [
+    {
+      key: "one",
+      items: [
+        {
+          key: "text",
+          kind: "text",
+          text: "中文",
+          x: 0,
+          y: 0,
+          width: 10,
+          height: 10,
+          // @ts-expect-error A consumer cannot supply an arbitrary font-family string.
+          font: "Arial, sans-serif",
+        },
+      ],
+    },
+  ],
+};
+void [badRotation, badFont];
+
+// Complex drafts keep nested field/value types and collaboration on the public contract.
+import { domainBlocks, type Fields } from "../src/index";
+type ComplexValues = {
+  profile: { count: number; amount: string };
+  rows: { ratio: string }[];
+};
+const complexBlocks = domainBlocks<ComplexValues>();
+complexBlocks.fields({
+  key: "profile",
+  label: "嵌套",
+  fields: [
+    { key: "count", label: "零数量", type: "integer" },
+    { key: "amount", label: "精确金额", type: "decimal" },
+  ],
+});
+complexBlocks.rows({
+  key: "rows",
+  label: "单位",
+  get: (rows) => rows,
+  set: (_rows, rows) => [...rows],
+  empty: () => ({ ratio: "1.0000" }),
+  fields: [{ key: "ratio", label: "换算比", type: "decimal" }],
+});
+const invalidComplexFields: Fields<ComplexValues["profile"]> = [
+  // @ts-expect-error Nested decimal facts remain strings, not integer fields.
+  { key: "amount", label: "金额", type: "integer" },
+];
+const invalidCollaboration: DraftCollaboration<ComplexValues> = {
+  // @ts-expect-error Calculation adoption must preserve the full nested draft shape.
+  change: async () => ({ value: { profile: { count: 0, amount: "1.0000" } } }),
+};
+void [invalidComplexFields, invalidCollaboration];

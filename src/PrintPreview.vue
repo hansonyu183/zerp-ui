@@ -18,14 +18,50 @@ const markup = computed(() => {
     return "";
   }
 });
+let loadGeneration = 0;
 watch(
   markup,
   () => {
+    ++loadGeneration;
     ready.value = false;
     error.value = markup.value ? "" : "打印内容无效，请重新生成预览。";
   },
   { immediate: true },
 );
+async function loaded() {
+  const generation = ++loadGeneration;
+  const preview = frame.value?.contentDocument;
+  ready.value = false;
+  if (!preview) return;
+  try {
+    if (
+      props.document.watermark?.font === "cjk-sans" ||
+      props.document.pages.some((page) =>
+        page.items.some(
+          (item) => item.kind === "text" && item.font === "cjk-sans",
+        ),
+      )
+    ) {
+      const fonts = await preview.fonts.load(
+        "10pt zerp-print-cjk-sans",
+        "中文",
+      );
+      if (!fonts.length) throw Error("font");
+    }
+    await Promise.all(Array.from(preview.images, (image) => image.decode()));
+    if (
+      generation === loadGeneration &&
+      preview === frame.value?.contentDocument
+    )
+      ready.value = true;
+  } catch {
+    if (
+      generation === loadGeneration &&
+      preview === frame.value?.contentDocument
+    )
+      error.value = "打印字体或位图不可用，请安装指定字体或重新生成位图。";
+  }
+}
 function print() {
   if (!props.allowed || props.disabled || !ready.value || !markup.value) return;
   try {
@@ -53,7 +89,7 @@ function print() {
       sandbox="allow-modals allow-same-origin"
       :srcdoc="markup"
       class="zerp-print-preview"
-      @load="ready = true"
+      @load="loaded"
     />
   </section>
 </template>

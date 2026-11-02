@@ -347,7 +347,22 @@ try {
                 : configuration
                   ? configurationSmoke
                   : directSmoke;
-  await smoke(page);
+  const printEvidenceRoot = join(
+    root,
+    ".scratch/print-output",
+    dir.split("/").at(-1),
+  );
+  const printEvidence = {
+    sourceBase,
+    tgzSha256: createHash("sha256")
+      .update(await readFile(tgz))
+      .digest("hex"),
+  };
+  await smoke(page, {
+    ...printEvidence,
+    mode: "installed-tgz",
+    directory: join(printEvidenceRoot, "installed-tgz"),
+  });
   const exampleName = capabilitiesMode
     ? "capabilities"
     : detailsMode
@@ -378,7 +393,11 @@ try {
     const examplePage = await exampleContext.newPage();
     observe(examplePage);
     await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
-    await smoke(examplePage);
+    await smoke(examplePage, {
+      ...printEvidence,
+      mode: "built-example",
+      directory: join(printEvidenceRoot, "built-example"),
+    });
     await exampleContext.close();
   } finally {
     await new Promise((yes, no) =>

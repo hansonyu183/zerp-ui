@@ -14,11 +14,15 @@
 
 0.10.1 修复必填布尔值 `false` 的原生表单提交，保留 `null` 校验及无障碍必填提示。
 
-从 [ui-v0.10.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.10.1) 下载 `zerp-ui-0.10.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+0.11.0 补齐有限打印事实、复杂草稿组合及耐久恢复边界；打印默认行高和毫米描边行为变化，按 0.x 规则提升 minor。完整迁移与消费者责任见 [#58 能力矩阵](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.11.1/docs/capability-gaps.md)。
+
+0.11.1 修复合成迁移消费者在转换后恢复时漏核对完整权威原请求的问题；损坏记录保持锁定和重试入口。库运行时及公开 API 不变，历史 0.11.0 工件不覆盖。
+
+从 [ui-v0.11.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.11.1) 下载 `zerp-ui-0.11.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.10.1.tgz
+pnpm add ./zerp-ui-0.11.1.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -191,7 +195,7 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 
 `defineBatchPage` 接收稳定 key、标签和逐项完整 intent，以及单项 OperationDefinition 与独立 BatchPersistence。先耐久保存原始批次清单，再逐项完整预览、确认、核实和封存；用户显式继续下一项。未知项不能跳过，停止仅标记尚未发送的项。整页重载恢复原清单及当前项；completed 批次仍保留结果。批次存储同样必须原子 CAS，不得改变已预留清单或回退结果；各项必须使用同一 owner，具体身份在每项 intent 中提供。原请求 Journal/Settlement 中的 association 由库写入批次 ID 与条目 key，持久端口必须原样保留且不可改写；同身份/输入的历史回执不能完成新批次。
 
-处理页面可接 `printing: { document, state }`。PrintDocument 提供毫米纸张、固定分页、文字、内嵌 PNG/JPEG/WebP/GIF 位图、线和矩形；文字/颜色/字体均受有限约束，不接任意 HTML/CSS。条码二维码由消费者生成安全位图，表达式、业务分页/小计与权限仍归后端。只有消费者提供已授权的 opened 状态才允许用户点击“打开打印窗口”；加载、重载及回执恢复不会自动再次打印。print/printed/not-printed 的业务登记经同一原请求协议，物理输出结果由用户明确确认，不根据浏览器对话框关闭推断。
+处理页面可接 `printing: { document, state }`。PrintDocument 提供毫米纸张、固定分页、文字、内嵌 PNG/JPEG/WebP/GIF 位图、线和矩形；文字/颜色/字体均受有限约束，不接任意 HTML/CSS。条码二维码由消费者生成安全位图，表达式、业务分页/小计与权限仍归后端。有限旋转、水印、字体、毫米线宽、换行裁切及迁移边界见 [打印契约](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.11.1/docs/printing/contract.md)。只有消费者提供已授权的 opened 状态才允许用户点击“打开打印窗口”；加载、重载及回执恢复不会自动再次打印。print/printed/not-printed 的业务登记经同一原请求协议，物理输出结果由用户明确确认，不根据浏览器对话框关闭推断。
 
 [examples/capabilities](examples/capabilities) 是可运行的合成消费者，展示处理/发布/试运行入口、异步计算与必填确认、资源读取/下载、批量继续/停止、CRUD 重载核实及固定打印预览。合成权威与存储仅用于演示，不是业务服务实现。运行、构建及同一 tgz 独立安装命令见 package.json。
 
