@@ -12,11 +12,13 @@
 
 0.10.0 全面统一 Material 字段、列表、事实、业务交互和弹层；保留 MD1/MD2/MD3 明暗预设与现有精确值、历史引用、局部草稿及原请求恢复协议。公开入口仍为 AuthPage/AppPage；呈现 DOM 改变按 0.x 规则提升 minor。实现与行为证据映射见 [Material 对照矩阵](docs/material/README.md)，历史工件保持不可变。
 
-从 [ui-v0.10.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.10.0) 下载 `zerp-ui-0.10.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+0.10.1 修复必填布尔值 `false` 的原生表单提交，保留 `null` 校验及无障碍必填提示。
+
+从 [ui-v0.10.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.10.1) 下载 `zerp-ui-0.10.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.10.0.tgz
+pnpm add ./zerp-ui-0.10.1.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
