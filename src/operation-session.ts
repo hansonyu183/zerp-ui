@@ -1,5 +1,6 @@
 import { shallowReactive } from "vue";
 import { clone } from "./clone";
+import { equalValues } from "./editor-values";
 import { sameOperationOwner, operationLabels } from "./operation";
 import type {
   OperationAssociation,
@@ -108,6 +109,35 @@ function createSession<M extends Model, I, B>(
     )
       throw new Error("原请求记录或精确证据不匹配；保持锁定。");
   }
+  function preserveOriginal(
+    latest: Journal<M, I, B>,
+    known?: Journal<M, I, B>,
+  ) {
+    if (!known) return latest;
+    if (
+      !equalValues(latest.request, known.request) ||
+      !equalValues(latest.association, known.association) ||
+      (known.receipt &&
+        latest.receipt &&
+        (known.receipt.status !== latest.receipt.status ||
+          ((known.receipt.status === "applied" ||
+            (known.receipt.status === "not-applied" &&
+              latest.receipt.status === "not-applied" &&
+              known.receipt.sealed === latest.receipt.sealed)) &&
+            !equalValues(known.receipt, latest.receipt))))
+    )
+      throw new Error("原请求或已确认终态已改变；保持锁定。");
+    // A durable write may have failed before or after commit. Keep accepted
+    // evidence locally and retry its persistence; never query a known outcome again.
+    return {
+      ...latest,
+      receipt:
+        known.receipt?.status === "not-applied" && known.receipt.sealed
+          ? known.receipt
+          : (latest.receipt ?? known.receipt),
+      ...(known.refreshed ? { refreshed: true as const } : {}),
+    } as Journal<M, I, B>;
+  }
   function phase(record: Journal<M, I, B>): Phase {
     return !record.receipt
       ? "unknown"
@@ -151,8 +181,15 @@ function createSession<M extends Model, I, B>(
       state.phase = "loading";
       state.settlement = undefined;
       try {
-        const record = await persistence.load(clone(owner));
-        if (record) check(record);
+        const known = state.journal;
+        let record = await persistence.load(
+          clone(owner),
+          known?.request.requestId,
+        );
+        if (record) {
+          check(record);
+          record = preserveOriginal(record, known);
+        }
         if (!record && state.journal)
           throw new Error("原请求持久记录缺失，不能以空查询解除已知请求。");
         state.journal = record && !record.completed ? clone(record) : undefined;
@@ -246,10 +283,10 @@ function createSession<M extends Model, I, B>(
       receipt: clone(receipt),
       association: record.association,
     } as Journal<M, I, B>;
-    await persistence.save(clone(settled), record.request.requestId);
     state.journal = settled;
     state.prepared = undefined;
     state.phase = phase(settled);
+    await persistence.save(clone(settled), record.request.requestId);
     state.settlement = settlement(settled);
     state.notice =
       state.phase === "seal"
@@ -298,8 +335,9 @@ function createSession<M extends Model, I, B>(
     if (!state.journal || !["unknown", "seal", "refresh"].includes(state.phase))
       return;
     await run(async () => {
-      const known = state.journal!.request;
-      const latest = await persistence.load(clone(owner), known.requestId);
+      const knownJournal = state.journal!;
+      const known = knownJournal.request;
+      let latest = await persistence.load(clone(owner), known.requestId);
       if (
         !latest ||
         latest.request.requestId !== known.requestId ||
@@ -307,7 +345,10 @@ function createSession<M extends Model, I, B>(
       )
         throw new Error("原请求记录缺失或已改变，不能以普通空查询解锁。");
       check(latest);
+      latest = preserveOriginal(latest, knownJournal);
       if (!live()) return;
+      if (latest.receipt && !latest.completed)
+        await persistence.save(clone(latest), known.requestId);
       state.settlement = settlement(latest);
       if (latest.completed) {
         state.journal = undefined;
