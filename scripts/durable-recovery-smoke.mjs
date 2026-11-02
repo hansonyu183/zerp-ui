@@ -124,7 +124,9 @@ export async function durableRecoverySmoke(page) {
       .getByRole("button", { name: "确认执行处理", exact: true })
       .click();
     await expect(
-      tabs[0].getByText("合成终态保存失败", { exact: true }),
+      tabs[0]
+        .getByRole("status", { name: "状态提示", exact: true })
+        .filter({ hasText: "合成终态保存失败" }),
     ).toBeVisible();
     await tabs[0]
       .getByRole("button", { name: "重试读取", exact: true })
