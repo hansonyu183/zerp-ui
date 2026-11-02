@@ -67,7 +67,9 @@ function control(field: AnyField) {
     label: field.label,
     "aria-label": field.label,
     disabled: props.disabled || field.readonly,
-    required: field.required,
+    // A required boolean must be present; false is a valid business value.
+    required: field.type === "boolean" ? undefined : field.required,
+    "aria-required": field.required ? "true" : undefined,
     error: errors(field).length > 0,
     "aria-invalid": errors(field).length ? "true" : undefined,
     "aria-describedby": `${formId}-${field.key}-messages`,

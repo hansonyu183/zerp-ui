@@ -365,6 +365,40 @@ it("owns account validation, unfinished inputs and local cancel without inventin
   wrapper.unmount();
 });
 
+it("submits a required boolean false through the native account submit button", async () => {
+  const submissions: { enabled: boolean | null }[] = [];
+  const page = defineAccountPage<{ enabled: boolean | null }>({
+    kind: "profile",
+    title: "账户布尔值",
+    values: { enabled: null },
+    fields: [
+      { key: "enabled", label: "账户启用", type: "boolean", required: true },
+    ],
+    submit: (value) => submissions.push(value),
+  });
+  const wrapper = mountPage(page);
+  try {
+    await flushPromises();
+    const checkbox = wrapper.get<HTMLInputElement>(
+      'input[aria-label="账户启用"]',
+    );
+    const submit = wrapper.get<HTMLButtonElement>('button[type="submit"]');
+    expect(submit.element.disabled).toBe(true);
+    submit.element.click();
+    expect(submissions).toEqual([]);
+
+    await checkbox.setValue(true);
+    await checkbox.setValue(false);
+    expect(submit.element.disabled).toBe(false);
+    submit.element.click();
+    await flushPromises();
+    expect(submissions).toEqual([{ enabled: false }]);
+    expect(checkbox.attributes("aria-required")).toBe("true");
+  } finally {
+    wrapper.unmount();
+  }
+});
+
 it("guards a record switch within the same details definition and clears a saved account baseline by explicit instance", async () => {
   const selected = reactive({ instance: "one", note: "原内容" });
   const page = defineDetailsPage(() => ({
