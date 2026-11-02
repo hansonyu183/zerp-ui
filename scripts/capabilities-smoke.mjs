@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { printOutputSmoke } from "./print-smoke.mjs";
 import { expect } from "@playwright/test";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
 export async function taskMaterialSmoke(page) {
@@ -30,7 +31,7 @@ export async function taskMaterialSmoke(page) {
   }
   await value.fill("合成业务");
 }
-export async function capabilitiesSmoke(page) {
+export async function capabilitiesSmoke(page, printEvidence) {
   await taskMaterialSmoke(page);
   await page.setViewportSize({ width: 1280, height: 1400 });
   await expect(
@@ -158,6 +159,12 @@ export async function capabilitiesSmoke(page) {
   await expect(
     page.getByRole("button", { name: "编辑", exact: true }),
   ).toBeEnabled();
+  await page.addInitScript(() => {
+    window.__printCalls = 0;
+    window.print = () => {
+      window.__printCalls++;
+    };
+  });
   await page.goto(base + "/printing");
   const frame = page.frameLocator('iframe[title="打印预览"]');
   await expect(
@@ -175,9 +182,19 @@ export async function capabilitiesSmoke(page) {
   await expect(
     page.getByRole("button", { name: "打开打印窗口", exact: true }),
   ).toBeEnabled();
+  assert.equal(
+    await (
+      await page.locator('iframe[title="打印预览"]').elementHandle()
+    )
+      .contentFrame()
+      .then((f) => f.evaluate(() => window.__printCalls)),
+    0,
+    "granting authorization does not print",
+  );
   await page.reload();
   await expect(
     page.getByRole("button", { name: "打开打印窗口", exact: true }),
   ).toBeEnabled();
   assert.equal(await frame.locator("script").count(), 0);
+  await printOutputSmoke(page, printEvidence);
 }

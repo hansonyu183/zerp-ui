@@ -24,6 +24,7 @@ import {
   type WriteJournal,
   type Attempt,
   type DraftCollaboration,
+  type PrintDocument,
 } from "../src/index";
 const owner = { scope: "s", operator: "op", resource: "processing" };
 type Model = {
@@ -1331,3 +1332,186 @@ it("imports a file through AppPage and prepares the exact imported decimal strin
   );
   w.unmount();
 });
+
+it("keeps rotated physical print pages and controlled typography in the public preview", async () => {
+  const op = operation();
+  const document: PrintDocument = {
+    id: "rotated",
+    title: "中文输出",
+    width: 100,
+    height: 60,
+    rotation: 90,
+    watermark: {
+      text: "合成",
+      x: 5,
+      y: 5,
+      width: 40,
+      height: 20,
+      rotation: 270,
+      opacity: 0.2,
+      font: "cjk-sans",
+      size: 18,
+    },
+    pages: [
+      {
+        key: "one",
+        items: [
+          {
+            key: "text",
+            kind: "text",
+            text: "中文长文本\n第二行",
+            x: 5,
+            y: 5,
+            width: 30,
+            height: 20,
+            font: "cjk-sans",
+            lineHeight: 1.4,
+            wrap: "word",
+            border: true,
+            lineWidth: 0.3,
+          },
+          {
+            key: "line",
+            kind: "line",
+            x: 5,
+            y: 30,
+            width: 40,
+            height: 0,
+            lineWidth: 0.5,
+          },
+        ],
+      },
+    ],
+  };
+  const w = await start(
+    defineTaskPage<{ value: string }, Model, string, number>({
+      title: "输出",
+      instance: "rotated",
+      owner,
+      identity: "one",
+      definition: op.definition,
+      values: { value: "输出" },
+      fields: [],
+      actions: ["process"],
+      toIntent: (value, action, base) => ({ ...base, action, input: value }),
+      eligible: true,
+      recoveryAllowed: true,
+      printing: { state: "preview", document },
+    }),
+  );
+  const html = w.get("iframe").attributes("srcdoc");
+  expect(html).toContain("size:60mm 100mm");
+  expect(html).toContain("rotate(90deg)");
+  expect(html).toContain("opacity:0.2");
+  expect(html).toContain("rotate(270deg)");
+  expect(html).toContain("0.3mm solid");
+  expect(html).toContain("0.5mm solid");
+  expect(html).toContain("line-height:1.4");
+  expect(html).toContain("overflow-wrap:anywhere");
+  expect(html).toContain("zerp-print-cjk-sans");
+  w.unmount();
+});
+it.each([
+  { rotation: 45 },
+  {
+    watermark: {
+      text: "unsafe",
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      opacity: 2,
+    },
+  },
+  {
+    pages: [
+      {
+        key: "one",
+        items: [
+          {
+            key: "one",
+            kind: "line",
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 1,
+            lineWidth: -1,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    pages: [
+      {
+        key: "one",
+        items: [
+          {
+            key: "one",
+            kind: "text",
+            text: "font",
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+            font: "Arial; color:red",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    pages: [
+      {
+        key: "one",
+        items: [
+          {
+            key: "one",
+            kind: "text",
+            text: "wrap",
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+            wrap: "<script>",
+          },
+        ],
+      },
+    ],
+  },
+])(
+  "rejects invalid finite print facts without enabling output (%j)",
+  async (invalid) => {
+    const op = operation();
+    const w = await start(
+      defineTaskPage<{ value: string }, Model, string, number>({
+        title: "输出",
+        instance: "rejected",
+        owner,
+        identity: "one",
+        definition: op.definition,
+        values: { value: "输出" },
+        fields: [],
+        actions: ["process"],
+        toIntent: (value, action, base) => ({ ...base, action, input: value }),
+        eligible: true,
+        recoveryAllowed: true,
+        printing: {
+          state: "opened",
+          document: {
+            id: "rejected",
+            title: "输出",
+            width: 100,
+            height: 60,
+            pages: [{ key: "one", items: [] }],
+            ...invalid,
+          } as PrintDocument,
+        },
+      }),
+    );
+    expect(w.find("iframe").exists()).toBe(false);
+    expect(button(w, "打开打印窗口").attributes("disabled")).toBeDefined();
+    expect(w.text()).toContain("打印内容无效");
+    w.unmount();
+  },
+);
