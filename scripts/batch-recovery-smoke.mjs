@@ -67,7 +67,9 @@ export async function batchRecoverySmoke(page) {
   await page.reload();
   await button("核实原请求").click();
   await expect(
-    page.getByText("已应用，读取完成；可显式准备新请求。", { exact: true }),
+    page
+      .getByRole("status", { name: "状态提示", exact: true })
+      .filter({ hasText: "已应用，读取完成；可显式准备新请求。" }),
   ).toBeVisible();
   stored = await state("single");
   assert.deepEqual(stored.executed, []);

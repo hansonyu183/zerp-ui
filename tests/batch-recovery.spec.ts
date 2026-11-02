@@ -270,6 +270,15 @@ it("converts a sent single original without preparation or execution", async () 
 });
 it.each([
   [
+    "sent unknown disguised as never sent",
+    (s: typeof legacyBatch) => {
+      const e = s.entries[2]!;
+      e.status = "never-sent";
+      delete e.original;
+      delete e.association;
+    },
+  ],
+  [
     "contradictory terminal proof",
     (s: typeof legacyBatch) => {
       s.entries[0]!.status = "sealed";

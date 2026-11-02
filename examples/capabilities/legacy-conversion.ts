@@ -99,7 +99,10 @@ export function convertLegacy(
         };
         if (entry.status === "never-sent") {
           require(
-            !entry.original &&
+            !authoritativeOriginals.some((known) =>
+              same(known.identity, entry.intent.identity),
+            ) &&
+              !entry.original &&
               !entry.receipt &&
               !entry.association &&
               index >= raw.index,
