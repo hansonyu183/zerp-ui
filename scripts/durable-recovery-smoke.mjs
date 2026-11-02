@@ -70,6 +70,18 @@ export async function durableRecoverySmoke(page) {
         tab.getByRole("button", { name: "确认执行处理", exact: true }).click(),
       ),
     );
+    await expect
+      .poll(async () => {
+        const snapshot = await tabs[0].evaluate(() =>
+          window.syntheticDurableRecovery.snapshot(),
+        );
+        return snapshot.events.filter((e) => e.kind === "execute").length;
+      })
+      .toBe(1);
+    for (const tab of tabs)
+      await expect(
+        tab.getByRole("button", { name: /^(核实原请求|重试恢复)$/ }),
+      ).toBeVisible();
     const initial = await tabs[0].evaluate(() =>
       window.syntheticDurableRecovery.snapshot(),
     );
