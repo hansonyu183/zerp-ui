@@ -61,15 +61,68 @@ export function operation(
   };
   const read = (): Store =>
     JSON.parse(localStorage.getItem(key) ?? '{"head":null,"records":{}}');
+  type Authority = {
+    request: OperationRequest<Model, string, number>;
+    receipt?: OperationReceipt<Model>;
+  };
+  const authorityKey = (id: string) => `${server}:${id}`;
+  // This ledger represents the synthetic server, independently of the client's
+  // recoverable journal. Real consumers validate against their actual authority.
+  function bindingFor(
+    request: Omit<OperationRequest<Model, string, number>, "binding">,
+  ) {
+    return canonical({
+      requestId: request.requestId,
+      owner: request.owner,
+      action: request.action,
+      identity: request.identity,
+      input: request.input,
+      concurrency: request.concurrency,
+      preview: request.preview,
+    });
+  }
+  function authority(
+    request: OperationRequest<Model, string, number>,
+  ): Authority {
+    const record = JSON.parse(
+      localStorage.getItem(authorityKey(request.requestId)) ?? "null",
+    ) as Authority | null;
+    if (
+      !same(request.owner, owner) ||
+      request.binding !== bindingFor(request) ||
+      !record ||
+      !same(record.request, request)
+    )
+      throw Error("合成权威原请求不匹配；保持锁定。");
+    return record;
+  }
+  function accepts(
+    request: OperationRequest<Model, string, number>,
+    result: OperationReceipt<Model>,
+  ) {
+    try {
+      return same(authority(request).receipt, result);
+    } catch {
+      return false;
+    }
+  }
+  function checkJournal(journal: OperationJournal<Model, string, number>) {
+    const record = authority(journal.request);
+    if (journal.receipt && !same(record.receipt, journal.receipt))
+      throw Error("合成权威回执不匹配；保持锁定。");
+  }
   const persistence: OperationPersistence<Model, string, number> = {
     load: async (requestedOwner, id) =>
       atomic(key, () => {
         if (!same(owner, requestedOwner)) throw Error("原请求身份不匹配。");
         const s = read();
-        return copy(s.records[id ?? s.head ?? ""] ?? null);
+        const journal = s.records[id ?? s.head ?? ""] ?? null;
+        if (journal) checkJournal(journal);
+        return copy(journal);
       }),
     save: async (journal, expected) =>
       atomic(key, () => {
+        checkJournal(journal);
         const s = read(),
           old = s.head ? s.records[s.head] : null;
         if (!same(journal.request.owner, owner))
@@ -124,6 +177,7 @@ export function operation(
         const s = read(),
           j = s.records[id];
         if (!same(owner, requestedOwner)) throw Error("原请求身份不匹配。");
+        if (j) checkJournal(j);
         if (
           !j?.receipt ||
           !j.refreshed ||
@@ -152,57 +206,79 @@ export function operation(
     protocol: "operation",
     persistence,
     adapter: {
-      prepare: async (intent) => ({
-        ...copy(intent),
-        requestId: crypto.randomUUID(),
-        concurrency: 1,
-        binding: JSON.stringify(intent),
-        preview: {
-          title: "核对完整输入",
-          sections: [
-            {
-              key: "content",
-              title: "本次内容",
-              rows: [
-                {
-                  key: "value",
-                  fields: [{ label: "内容", value: intent.input.value }],
-                },
-              ],
-            },
-          ],
-        },
-      }),
-      acceptsPreparation: (intent, request) =>
-        request.binding === JSON.stringify(intent),
-      execute: async (request) => {
-        const result = receipt(request);
+      prepare: async (intent) => {
+        const facts = {
+          ...copy(intent),
+          requestId: crypto.randomUUID(),
+          concurrency: 1,
+          preview: {
+            title: "核对完整输入",
+            sections: [
+              {
+                key: "content",
+                title: "本次内容",
+                rows: [
+                  {
+                    key: "value",
+                    fields: [{ label: "内容", value: intent.input.value }],
+                  },
+                ],
+              },
+            ],
+          },
+        };
+        const request = {
+          ...facts,
+          binding: bindingFor(facts),
+        } as OperationRequest<Model, string, number>;
         localStorage.setItem(
-          `${server}:${request.requestId}`,
-          JSON.stringify(result),
+          authorityKey(request.requestId),
+          JSON.stringify({ request }),
         );
-        return request.input.value === "unknown"
-          ? { status: "unknown" }
-          : result;
+        return request;
       },
+      acceptsPreparation: (intent, request) => {
+        try {
+          authority(request);
+          return same(intent, {
+            owner: request.owner,
+            action: request.action,
+            identity: request.identity,
+            input: request.input,
+          });
+        } catch {
+          return false;
+        }
+      },
+      execute: async (request) =>
+        atomic(server, () => {
+          const original = authority(request);
+          const result = original.receipt ?? receipt(original.request);
+          localStorage.setItem(
+            authorityKey(request.requestId),
+            JSON.stringify({ ...original, receipt: result }),
+          );
+          return request.input.value === "unknown"
+            ? { status: "unknown" as const }
+            : result;
+        }),
       reconcile: async (request) =>
-        JSON.parse(
-          localStorage.getItem(`${server}:${request.requestId}`) ?? "null",
-        ) ?? { status: "unknown" },
-      seal: async (request) => {
-        const prior = localStorage.getItem(`${server}:${request.requestId}`);
-        if (prior) return JSON.parse(prior);
-        const result = receipt(request, false);
-        localStorage.setItem(
-          `${server}:${request.requestId}`,
-          JSON.stringify(result),
-        );
-        return result;
-      },
-      accepts: (request, result) =>
-        request.requestId === result.evidence.requestId &&
-        request.binding === result.evidence.binding,
+        authority(request).receipt ?? { status: "unknown" },
+      seal: async (request) =>
+        atomic(server, () => {
+          const original = authority(request);
+          if (original.receipt) return copy(original.receipt);
+          const result = receipt(original.request, false);
+          localStorage.setItem(
+            authorityKey(request.requestId),
+            JSON.stringify({ ...original, receipt: result }),
+          );
+          return result;
+        }),
+      accepts,
       refresh: async (settlement) => {
+        if (!accepts(settlement.request, settlement.receipt))
+          throw Error("合成权威回执不匹配；保持锁定。");
         if (settlement.receipt.status === "applied")
           refresh(copy(settlement.request));
       },

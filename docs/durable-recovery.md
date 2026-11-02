@@ -14,6 +14,8 @@
 
 `/durable-recovery?run=<合成验证标识>` 使用同一 capabilities 消费者。`scripts/durable-recovery-smoke.mjs` 打开同一 BrowserContext 中的两个 Page，分别拥有独立 JavaScript 状态并共享同源存储：先直接竞争公开 Persistence 端口，证明只有 CAS 获胜者执行；再从两个 AppPage 同时确认已准备请求，证明只有一项业务发送、未知结果持续锁定、重载不重发、恢复只核实一次。另验证旧 ID 历史、槽替换后重复完成、终态回退拒绝与 owner 隔离。
 
+合成 operation Adapter 的 binding 覆盖原 request ID、owner、action、identity、input、concurrency 和完整 preview。准备时另存模拟权威原请求；prepare 验收、业务发送、核实、封存、回执采用及恢复读取均与该独立记录比较。即使重载丢失内存原请求，修改客户端草稿记录或重算其 binding 也不能采用旧权威回执。这里的 localStorage 权威记录仅模拟后端；真实消费者必须使用其真实服务端协议，不能把可改写的本地记录当作公司权威来源。
+
 该 fixture 的 `window.syntheticDurableRecovery` 只提供合成 Adapter 观察和有限存储探针，不属于包出口；未读取库内部 VM。运行命令以 package scripts 为准：定向单元检查使用 `pnpm exec vitest run tests/durable-recovery.spec.ts tests/voucher-operation.spec.ts tests/capabilities.spec.ts`，独立 tgz 安装使用 `pnpm check:capabilities`。
 
 这些证据只证明本库与合成 Adapter/浏览器存储的组合，不代表公司生产存储、真实 OIT/ZERP API、历史数据转换或真实应用验收。

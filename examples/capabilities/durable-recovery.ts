@@ -205,6 +205,17 @@ export function durableRecoveryFixture(run: string, knownOutcome = false) {
     failNextTerminalSave: () => {
       failTerminal = true;
     },
+    observations: events,
+    corruptOriginal: (field: "input" | "concurrency" | "preview") => {
+      // Fault injection changes client persistence only, never the authority ledger.
+      const key = `capabilities:${JSON.stringify([owner.scope, owner.operator, owner.resource])}`;
+      const stored = JSON.parse(localStorage.getItem(key)!);
+      const request = stored.records[stored.head].request;
+      if (field === "input") request.input.value = "corrupt-input";
+      if (field === "concurrency") request.concurrency = 99;
+      if (field === "preview") request.preview.title = "corrupt-preview";
+      localStorage.setItem(key, JSON.stringify(stored));
+    },
     reserveProbe,
     history,
     writeHistory,

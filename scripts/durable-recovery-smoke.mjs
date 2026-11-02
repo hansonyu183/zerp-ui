@@ -156,6 +156,47 @@ export async function durableRecoverySmoke(page) {
     );
     assert.equal(retried.events.filter((e) => e.kind === "refresh").length, 1);
     assert.equal(retried.journal.completed, true);
+    // Corruption across a real reload has no surviving in-memory original.
+    for (const field of ["input", "concurrency", "preview"]) {
+      await tabs[0].goto(
+        new URL(`/durable-recovery?run=${run}-corrupt-${field}`, page.url())
+          .href,
+      );
+      await tabs[0]
+        .getByRole("button", { name: "准备执行处理", exact: true })
+        .click();
+      await tabs[0]
+        .getByRole("button", { name: "确认执行处理", exact: true })
+        .click();
+      await expect(
+        tabs[0].getByRole("button", { name: "核实原请求", exact: true }),
+      ).toBeVisible();
+      await tabs[0].evaluate(
+        (field) => window.syntheticDurableRecovery.corruptOriginal(field),
+        field,
+      );
+      await tabs[0].reload();
+      const retry = tabs[0].getByRole("button", {
+        name: "重试恢复",
+        exact: true,
+      });
+      await expect(retry).toBeVisible();
+      await retry.click();
+      await expect(
+        tabs[0]
+          .getByRole("status", { name: "状态提示", exact: true })
+          .filter({ hasText: "合成权威原请求不匹配" }),
+      ).toBeVisible();
+      await expect(
+        tabs[0].getByRole("button", { name: "准备执行处理", exact: true }),
+      ).toBeDisabled();
+      const observed = await tabs[0].evaluate(() =>
+        window.syntheticDurableRecovery.observations(),
+      );
+      assert.equal(observed.filter((e) => e.kind === "execute").length, 1);
+      assert.equal(observed.filter((e) => e.kind === "reconcile").length, 0);
+      assert.equal(observed.filter((e) => e.kind === "refresh").length, 0);
+    }
   } finally {
     await Promise.all(tabs.map((tab) => tab.close()));
   }
