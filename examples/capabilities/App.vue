@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { migrationPage } from "./migration-consumer";
 import { createComplexDraft } from "./complex-draft";
 import { printDocument } from "./print-fixture";
 import { computed, provide, ref } from "vue";
@@ -23,8 +24,11 @@ shell.navigation = [
     items: [
       ["task", "业务处理"],
       ["batch", "批量办理"],
+      ["migration-batch", "合成旧批次转换"],
+      ["migration-single", "合成单据原请求转换"],
       ["printing", "打印输出"],
       ["recovery", "资料恢复"],
+      ["durable-recovery", "耐久恢复"],
       ["complex", "复杂资料协作"],
     ].map(([key, caption]) => ({
       key: key!,
@@ -238,18 +242,24 @@ const durable = durableRecoveryFixture(
   route.query.terminal === "true",
 );
 const complex = createComplexDraft().page;
+const migratedBatch = migrationPage("batch"),
+  migratedSingle = migrationPage("single");
 const page = computed(() =>
   route.path === "/durable-recovery"
     ? durable
-    : route.path === "/batch"
-      ? batch
-      : route.path === "/printing"
-        ? printing
-        : route.path === "/recovery"
-          ? recovering
-          : route.path === "/complex"
-            ? complex
-            : task,
+    : route.path === "/migration-batch"
+      ? migratedBatch
+      : route.path === "/migration-single"
+        ? migratedSingle
+        : route.path === "/batch"
+          ? batch
+          : route.path === "/printing"
+            ? printing
+            : route.path === "/recovery"
+              ? recovering
+              : route.path === "/complex"
+                ? complex
+                : task,
 );
 </script>
 <template><ExamplePage :page="page" /></template>
