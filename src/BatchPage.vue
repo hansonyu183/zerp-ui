@@ -52,15 +52,21 @@ watch(protection, (value) => emit("protection", value), {
 function check(value: BatchJournal<M, I, B>) {
   if (
     !value.id ||
+    (value.completed !== undefined && value.completed !== true) ||
     !equalValues(value.owner, props.options.owner) ||
     !Number.isInteger(value.index) ||
     value.index < 0 ||
     value.index >= value.entries.length ||
     !value.entries.length ||
+    value.entries
+      .slice(0, value.index)
+      .some((e) => !e.settlement && !e.skipped) ||
     new Set(value.entries.map((e) => e.key)).size !== value.entries.length ||
     value.entries.some(
       (e) =>
         !e.key ||
+        (e.skipped !== undefined && e.skipped !== true) ||
+        (!!e.skipped && !!e.settlement) ||
         !equalValues(e.intent.owner, value.owner) ||
         (e.settlement &&
           (e.settlement.association?.kind !== "batch" ||
@@ -109,6 +115,7 @@ async function load() {
       error.value = "等待批量办理或恢复资格，请获权后重试恢复。";
       return;
     }
+    if (journal.value && !value) throw Error("批次记录缺失，请重试恢复。");
     if (value) check(value);
     journal.value = clone(value);
     ready.value = true;
