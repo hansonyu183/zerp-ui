@@ -12,6 +12,7 @@ import {
 import ExamplePage from "../shared/ExamplePage.vue";
 import { createExampleShell, exampleShellKey } from "../shared/shell";
 import { operation, batches, recovery, type Model } from "./adapters";
+import { durableRecoveryFixture } from "./durable-recovery";
 const route = useRoute(),
   shell = createExampleShell();
 shell.navigation = [
@@ -230,14 +231,20 @@ const recovering = defineCrudPage({
   definition: crud,
   permissions: { query: true, create: false, write: true, reconcile: true },
 });
+const durable = durableRecoveryFixture(
+  String(route.query.run ?? "manual"),
+  route.query.terminal === "true",
+);
 const page = computed(() =>
-  route.path === "/batch"
-    ? batch
-    : route.path === "/printing"
-      ? printing
-      : route.path === "/recovery"
-        ? recovering
-        : task,
+  route.path === "/durable-recovery"
+    ? durable
+    : route.path === "/batch"
+      ? batch
+      : route.path === "/printing"
+        ? printing
+        : route.path === "/recovery"
+          ? recovering
+          : task,
 );
 </script>
 <template><ExamplePage :page="page" /></template>

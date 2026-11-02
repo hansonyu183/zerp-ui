@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { durableRecoverySmoke } from "./durable-recovery-smoke.mjs";
 import { printOutputSmoke } from "./print-smoke.mjs";
 import { expect } from "@playwright/test";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
@@ -32,6 +33,7 @@ export async function taskMaterialSmoke(page) {
   await value.fill("合成业务");
 }
 export async function capabilitiesSmoke(page, printEvidence) {
+  await durableRecoverySmoke(page);
   await taskMaterialSmoke(page);
   await page.setViewportSize({ width: 1280, height: 1400 });
   await expect(
