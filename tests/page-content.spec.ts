@@ -1,3 +1,5 @@
+import { hostAndDialogButtons } from "./host-and-dialog-buttons";
+import { DOMWrapper } from "@vue/test-utils";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it } from "vitest";
 import { AppPage, defineDetailsPage } from "../src/index";
@@ -61,9 +63,9 @@ it("shows grouped facts and related intents through the complete page entrance",
     "资料事实",
   ]);
   expect(wrapper.text()).toContain("9007199254740993.0100");
-  const button = wrapper
-    .findAll("button")
-    .find((node) => node.attributes("aria-label") === "查看来源：历史名称");
+  const button = hostAndDialogButtons(wrapper).find(
+    (node) => node.attributes("aria-label") === "查看来源：历史名称",
+  );
   expect(button).toBeDefined();
   await button!.trigger("click");
   expect(related).toEqual(["old"]);
@@ -146,9 +148,9 @@ it("keeps unfinished library block input protected when a different page is requ
   await flushPromises();
   const count = wrapper.get('input[aria-label="数量"]');
   await count.setValue("-");
-  const save = wrapper
-    .findAll("button")
-    .find((node) => node.text() === "保存")!;
+  const save = hostAndDialogButtons(wrapper).find(
+    (node) => node.text() === "保存",
+  )!;
   expect(save.attributes("disabled")).toBeDefined();
   const next = defineDetailsPage({
     title: "其它页面",
@@ -164,11 +166,13 @@ it("keeps unfinished library block input protected when a different page is requ
   });
   await wrapper.setProps({ page: next });
   expect(
-    wrapper.find('[role="dialog"][aria-label="未保存修改"]').exists(),
+    new DOMWrapper(document.body)
+      .find('[role="dialog"][aria-label="未保存修改"]')
+      .exists(),
   ).toBe(true);
-  const continueEditing = wrapper
-    .findAll("button")
-    .find((node) => node.text() === "继续编辑")!;
+  const continueEditing = hostAndDialogButtons(wrapper).find(
+    (node) => node.text() === "继续编辑",
+  )!;
   await continueEditing.trigger("click");
   await flushPromises();
   expect(wrapper.get("h1").text()).toBe("资料维护");
@@ -190,8 +194,7 @@ it("keeps the current page and original write lock after an unknown save", async
   );
   await flushPromises();
   await wrapper.get('input[aria-label="名称"]').setValue("修改名称");
-  await wrapper
-    .findAll("button")
+  await hostAndDialogButtons(wrapper)
     .find((node) => node.text() === "保存")!
     .trigger("click");
   await flushPromises();
@@ -204,7 +207,9 @@ it("keeps the current page and original write lock after an unknown save", async
   await wrapper.setProps({ page: next });
   await flushPromises();
   expect(wrapper.get("h1").text()).toBe("资料维护");
-  expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(false);
+  expect(
+    new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+  ).toBe(false);
   expect(wrapper.text()).toContain("未知");
   expect(writes).toBe(1);
   wrapper.unmount();
@@ -293,8 +298,7 @@ it("owns voucher editing and restores an original not-applied request inside the
   await flushPromises();
   await wrapper.get('input[aria-label="内容备注"]').setValue("办理原输入");
   const click = async (text: string) => {
-    await wrapper
-      .findAll("button")
+    await hostAndDialogButtons(wrapper)
       .find((node) => node.text() === text)!
       .trigger("click");
     await flushPromises();
@@ -338,9 +342,9 @@ it("owns account validation, unfinished inputs and local cancel without inventin
   await flushPromises();
   await wrapper.get('input[aria-label="账户名称"]').setValue("新名称");
   await wrapper.get('input[aria-label="验证数量"]').setValue("-");
-  const submit = wrapper
-    .findAll("button")
-    .find((node) => node.attributes("type") === "submit")!;
+  const submit = hostAndDialogButtons(wrapper).find(
+    (node) => node.attributes("type") === "submit",
+  )!;
   expect(submit.attributes("disabled")).toBeDefined();
   expect(submissions).toHaveLength(0);
   await wrapper.get('input[aria-label="验证数量"]').setValue("3");
@@ -359,6 +363,40 @@ it("owns account validation, unfinished inputs and local cancel without inventin
   await flushPromises();
   expect(wrapper.get("h1").text()).toBe("账户名称与头像");
   wrapper.unmount();
+});
+
+it("submits a required boolean false through the native account submit button", async () => {
+  const submissions: { enabled: boolean | null }[] = [];
+  const page = defineAccountPage<{ enabled: boolean | null }>({
+    kind: "profile",
+    title: "账户布尔值",
+    values: { enabled: null },
+    fields: [
+      { key: "enabled", label: "账户启用", type: "boolean", required: true },
+    ],
+    submit: (value) => submissions.push(value),
+  });
+  const wrapper = mountPage(page);
+  try {
+    await flushPromises();
+    const checkbox = wrapper.get<HTMLInputElement>(
+      'input[aria-label="账户启用"]',
+    );
+    const submit = wrapper.get<HTMLButtonElement>('button[type="submit"]');
+    expect(submit.element.disabled).toBe(true);
+    submit.element.click();
+    expect(submissions).toEqual([]);
+
+    await checkbox.setValue(true);
+    await checkbox.setValue(false);
+    expect(submit.element.disabled).toBe(false);
+    submit.element.click();
+    await flushPromises();
+    expect(submissions).toEqual([{ enabled: false }]);
+    expect(checkbox.attributes("aria-required")).toBe("true");
+  } finally {
+    wrapper.unmount();
+  }
 });
 
 it("guards a record switch within the same details definition and clears a saved account baseline by explicit instance", async () => {
@@ -387,17 +425,17 @@ it("guards a record switch within the same details definition and clears a saved
   }));
   const wrapper = mountPage(page);
   await flushPromises();
-  await wrapper
-    .findAll("button")
+  await hostAndDialogButtons(wrapper)
     .find((node) => node.text() === "编辑资料")!
     .trigger("click");
   await wrapper.get('input[aria-label="详情备注"]').setValue("未保存内容");
   selected.instance = "two";
   selected.note = "新记录";
   await flushPromises();
-  expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
-  await wrapper
-    .findAll("button")
+  expect(
+    new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+  ).toBe(true);
+  await hostAndDialogButtons(wrapper)
     .find((node) => node.text() === "继续编辑")!
     .trigger("click");
   await flushPromises();
@@ -463,8 +501,7 @@ it("isolates an admitted details record from in-place reactive source changes", 
   });
   const wrapper = mountPage(defineDetailsPage(source));
   const click = async (text: string) => {
-    await wrapper
-      .findAll("button")
+    await hostAndDialogButtons(wrapper)
       .find((node) => node.text() === text)!
       .trigger("click");
     await flushPromises();
@@ -477,7 +514,9 @@ it("isolates an admitted details record from in-place reactive source changes", 
     source.value.label = "替换记录";
     source.editor!.value.header.note = "替换内容";
     await flushPromises();
-    expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+    expect(
+      new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+    ).toBe(true);
     expect(wrapper.text()).toContain("原记录");
     expect(wrapper.text()).not.toContain("替换记录");
     await click("继续编辑");
@@ -581,8 +620,7 @@ it.each(["replace", "remove"] as const)(
     }));
     const wrapper = mountPage(page);
     const click = async (text: string) => {
-      await wrapper
-        .findAll("button")
+      await hostAndDialogButtons(wrapper)
         .find(
           (node) =>
             node.text() === text || node.attributes("aria-label") === text,
@@ -666,13 +704,11 @@ it("emits finite list selection and related operation intents without invoking a
   await checkbox[checkbox.length - 1].setValue(true);
   await flushPromises();
   expect(chosen.keys).toEqual(["one"]);
-  const withdraw = wrapper
-    .findAll("button")
-    .find(
-      (node) =>
-        node.attributes("aria-label")?.includes("反送审") ||
-        node.text() === "反送审",
-    )!;
+  const withdraw = hostAndDialogButtons(wrapper).find(
+    (node) =>
+      node.attributes("aria-label")?.includes("反送审") ||
+      node.text() === "反送审",
+  )!;
   expect(withdraw).toBeDefined();
   await withdraw.trigger("click");
   await flushPromises();
@@ -718,8 +754,7 @@ it("denies an ordinary switch from an unknown operation to another page but clea
   const wrapper = mountPage(page);
   await flushPromises();
   const click = async (text: string) => {
-    await wrapper
-      .findAll("button")
+    await hostAndDialogButtons(wrapper)
       .find((node) => node.text() === text)!
       .trigger("click");
     await flushPromises();
@@ -745,8 +780,7 @@ it("denies an ordinary switch from an unknown operation to another page but clea
   await flushPromises();
   expect(wrapper.text()).not.toContain(original!.request.requestId);
   expect(
-    wrapper
-      .findAll("button")
+    hostAndDialogButtons(wrapper)
       .find((node) => node.text() === "准备作废")!
       .attributes("disabled"),
   ).toBeUndefined();
@@ -809,8 +843,7 @@ it("guards an in-place operation identity change while preserving same-record pr
   }));
   const wrapper = mountPage(page);
   const click = async (text: string) => {
-    await wrapper
-      .findAll("button")
+    await hostAndDialogButtons(wrapper)
       .find((node) => node.text() === text)!
       .trigger("click");
     await flushPromises();
@@ -824,7 +857,9 @@ it("guards an in-place operation identity change while preserving same-record pr
     expect(wrapper.get('[aria-label="完整办理预览"]').text()).toContain("one");
     identity.voucher = "two";
     await flushPromises();
-    expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+    expect(
+      new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+    ).toBe(true);
     await click("继续编辑");
     expect(wrapper.get('[aria-label="完整办理预览"]').text()).toContain("one");
   } finally {
@@ -860,8 +895,7 @@ it("keeps controlled details echoes dirty and requests leave confirmation", asyn
   }));
   const wrapper = mountPage(page);
   await flushPromises();
-  await wrapper
-    .findAll("button")
+  await hostAndDialogButtons(wrapper)
     .find((node) => node.text() === "编辑资料")!
     .trigger("click");
   await wrapper.get('input[aria-label="详情备注"]').setValue("未保存备注");
@@ -876,7 +910,9 @@ it("keeps controlled details echoes dirty and requests leave confirmation", asyn
   });
   await wrapper.setProps({ page: next });
   await flushPromises();
-  expect(wrapper.find('[aria-label="未保存修改"]').exists()).toBe(true);
+  expect(
+    new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
+  ).toBe(true);
   wrapper.unmount();
 });
 it("accepts nested reactive operation values and preserves typed Date Map and Set data", async () => {
@@ -1069,8 +1105,7 @@ it.each(
     const wrapper = mountPage(page);
     await flushPromises();
     const click = async (text: string) => {
-      await wrapper
-        .findAll("button")
+      await hostAndDialogButtons(wrapper)
         .find(
           (node) =>
             node.text() === text || node.attributes("aria-label") === text,
@@ -1109,3 +1144,171 @@ it.each(
     wrapper.unmount();
   },
 );
+
+it("links account field validation to its input and submits exact controlled values", async () => {
+  const submissions: {
+    amount: string;
+    count: number;
+    enabled: boolean;
+    note: string | null;
+  }[] = [];
+  const page = defineAccountPage<(typeof submissions)[number]>({
+    kind: "profile",
+    title: "合成精确账户",
+    values: { amount: "1.2300", count: 0, enabled: false, note: null },
+    fields: [
+      { key: "amount", label: "精确账户金额", type: "decimal", required: true },
+      { key: "count", label: "精确账户数量", type: "integer" },
+      { key: "enabled", label: "精确账户启用", type: "boolean" },
+      { key: "note", label: "精确账户备注", type: "text" },
+    ],
+    submit: (value) => submissions.push(value),
+  });
+  const w = mountPage(page);
+  await flushPromises();
+  const amount = w.get('input[aria-label="精确账户金额"]');
+  await amount.setValue("-");
+  expect(amount.attributes("aria-invalid")).toBe("true");
+  expect(
+    w.get(`[id="${amount.attributes("aria-describedby")}"]`).text(),
+  ).toContain("应为完整十进制数");
+  await amount.setValue("9007199254740993.0100");
+  await w.get("form").trigger("submit");
+  expect(submissions).toEqual([
+    { amount: "9007199254740993.0100", count: 0, enabled: false, note: null },
+  ]);
+  w.unmount();
+});
+
+it("submits selected catalog values and date strings from the complete account page", async () => {
+  type Values = {
+    choice: string;
+    tags: string[];
+    date: string;
+    period: string[];
+  };
+  const submissions: Values[] = [];
+  const page = defineAccountPage({
+    kind: "profile",
+    title: "合成目录账户",
+    values: {
+      choice: "old",
+      tags: ["a"],
+      date: "2026-11-01",
+      period: ["2026-11-01", "2026-11-02"],
+    },
+    fields: [
+      {
+        key: "choice",
+        type: "enum",
+        label: "账户类别",
+        options: [
+          { value: "a", label: "甲类" },
+          { value: "b", label: "乙类" },
+        ],
+      },
+      {
+        key: "tags",
+        type: "multi-enum",
+        label: "账户标签",
+        options: [
+          { value: "a", label: "甲标签" },
+          { value: "b", label: "乙标签" },
+        ],
+      },
+      { key: "date", type: "date", label: "账户日期" },
+      { key: "period", type: "date-range", label: "账户期间" },
+    ],
+    submit: (value) => submissions.push(value),
+  });
+  const w = mountPage(page);
+  await flushPromises();
+  expect(w.get('input[aria-label="账户类别"]').element).toHaveProperty(
+    "value",
+    "old",
+  );
+  await w
+    .get('input[aria-label="账户类别"]')
+    .trigger("keydown", { key: "ArrowDown" });
+  await flushPromises();
+  const option = Array.from(document.querySelectorAll('[role="option"]')).find(
+    (node) => node.textContent?.trim() === "乙类",
+  );
+  expect(option).toBeDefined();
+  (option as HTMLElement).click();
+  await flushPromises();
+  await w.get('input[aria-label="账户日期"]').setValue("2026-11-03");
+  await w.get('input[aria-label="账户期间止"]').setValue("2026-11-04");
+  await w.get("form").trigger("submit");
+  expect(submissions).toEqual([
+    {
+      choice: "b",
+      tags: ["a"],
+      date: "2026-11-03",
+      period: ["2026-11-01", "2026-11-04"],
+    },
+  ]);
+  w.unmount();
+});
+
+it("presents every domain-row action as disabled while the original save is pending or unknown", async () => {
+  type Draft = { items: { name: string }[] };
+  let finish!: (value: { status: "unknown" }) => void;
+  const write = new Promise<{ status: "unknown" }>((resolve) => {
+    finish = resolve;
+  });
+  const definition = defineCrud<Draft, {}, { id: string }, string>({
+    resource: "synthetic-row-lock",
+    title: "行操作锁定",
+    fields: [],
+    filters: [],
+    initialFilters: () => ({}),
+    columns: [{ key: "id", label: "编号" }],
+    identity: (row) => row.id,
+    actions: () => ["edit"],
+    adapter: {
+      query: async () => ({ items: [{ id: "one" }], total: 1 }),
+      get: async () => ({
+        identity: "one",
+        values: { items: [{ name: "原条目" }] },
+      }),
+      empty: () => ({ items: [] }),
+      create: async () => ({ status: "success" }),
+      save: () => write,
+    },
+  });
+  const page = defineCrudPage({
+    definition,
+    permissions: { query: true, create: true, write: true },
+    initialRow: { id: "one" },
+    readOnly: false,
+    blocks: [
+      domainBlocks<Draft>().rows({
+        key: "items",
+        label: "锁定条目",
+        fields: [{ key: "name", label: "条目名称", type: "text" }],
+        empty: () => ({ name: "" }),
+        get: (rows) => rows,
+        set: (_rows, value) => [...value],
+      }),
+    ],
+  });
+  const wrapper = mountPage(page);
+  await flushPromises();
+  const action = (name: string) =>
+    hostAndDialogButtons(wrapper).find((node) => node.text() === name)!;
+  const names = ["编辑锁定条目 1", "删除锁定条目 1", "新增锁定条目"];
+  for (const name of names)
+    expect(action(name).attributes("disabled")).toBeUndefined();
+  await action("保存").trigger("click");
+  await flushPromises();
+  for (const name of names)
+    expect(action(name).attributes("disabled")).toBeDefined();
+  await action("新增锁定条目").trigger("click");
+  expect(wrapper.find('input[aria-label="条目名称"]').exists()).toBe(false);
+  finish({ status: "unknown" });
+  await flushPromises();
+  for (const name of names)
+    expect(action(name).attributes("disabled")).toBeDefined();
+  wrapper.unmount();
+});

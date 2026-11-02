@@ -18,7 +18,7 @@ export async function detailsSmoke(page) {
     exact: true,
   });
   await assertBelowToolbar(page, children);
-  await assertBelowToolbar(page, page.locator(".zerp-voucher-editor__overlay"));
+  await assertBelowToolbar(page, page.locator(".zerp-voucher-child-dialog"));
   assert.equal(
     await button("关闭原料").evaluate((el) => document.activeElement === el),
     true,
@@ -26,7 +26,7 @@ export async function detailsSmoke(page) {
   await page.keyboard.press("Tab");
   assert.equal(
     await children
-      .locator("summary")
+      .getByRole("button", { name: "原料 · 记录 1", exact: true })
       .evaluate((el) => document.activeElement === el),
     true,
   );
@@ -40,7 +40,7 @@ export async function detailsSmoke(page) {
     ),
     true,
   );
-  await page.getByText("历史记录 · history-one", { exact: true }).click();
+  await button("历史记录 · history-one").click();
   await page
     .getByText("历史金额 ?", { exact: true })
     .waitFor({ state: "visible" });
@@ -49,13 +49,29 @@ export async function detailsSmoke(page) {
     .getByText("宿主收到引用意图：adopted-one", { exact: true })
     .waitFor();
   await button("编辑资料").click();
+  await button("编辑原料 · 明细行 1").click();
+  await children
+    .getByRole("button", { name: "编辑原料1", exact: true })
+    .click();
+  await children
+    .getByRole("combobox", { name: "原料单位", exact: true })
+    .press("ArrowDown");
+  const unit = page.getByRole("option", { name: "公斤", exact: true });
+  await assertBelowToolbar(page, unit);
+  assert.equal(
+    await unit.evaluate((element) => !!element.closest(".zerp-shell-overlays")),
+    true,
+  );
+  await unit.click();
+  await children.getByRole("button", { name: "取消子项", exact: true }).click();
+  await children.getByRole("button", { name: "取消原料", exact: true }).click();
   await page.getByLabel("名称", { exact: true }).fill("修改后的合成资料");
   await page.getByRole("link", { name: "离开资料", exact: true }).click();
   assert.equal(await unloadBlocked(), true);
   const dialog = page.getByRole("dialog", { name: "未保存修改", exact: true });
   await dialog.waitFor();
   await assertBelowToolbar(page, dialog);
-  await assertBelowToolbar(page, page.locator(".zerp-edit-guard__overlay"));
+  await assertBelowToolbar(page, page.locator(".zerp-leave-dialog"));
   assert.equal(
     await button("继续编辑").evaluate((el) => document.activeElement === el),
     true,
@@ -87,7 +103,8 @@ export async function detailsSmoke(page) {
   );
   await page.getByRole("link", { name: "离开资料", exact: true }).click();
   await page
-    .getByText("写入结果未知，须核实原请求后再离开。", { exact: true })
+    .getByRole("status", { name: "警告提示", exact: true })
+    .filter({ hasText: "写入结果未知，须核实原请求后再离开。" })
     .waitFor();
   assert.equal(await dialog.count(), 0);
   assert.equal(await button("编辑资料").isDisabled(), true);

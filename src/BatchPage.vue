@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="M extends OperationModel, I, B">
 import { computed, ref, shallowRef, watch, onBeforeUnmount } from "vue";
 import OperationRuntime from "./OperationRuntime.vue";
+import { VBtn } from "vuetify/components";
 import Feedback from "./Feedback.vue";
 import { clone, message } from "./clone";
 import { equalValues } from "./editor-values";
@@ -219,13 +220,15 @@ onBeforeUnmount(() => {
 <template>
   <section aria-label="批量办理">
     <Feedback :message="error" kind="error" persistent
-      ><button
+      ><VBtn
+        variant="text"
+        color=""
         type="button"
         :disabled="busy || (!options.recoveryAllowed && !options.eligible)"
         @click="load"
       >
         重试恢复批次
-      </button></Feedback
+      </VBtn></Feedback
     >
     <p>每项分别预览、确认和提交。结果未确认时不能继续下一项。</p>
     <ul>
@@ -241,14 +244,14 @@ onBeforeUnmount(() => {
         ><template v-else-if="item.skipped"> · 已停止</template>
       </li>
     </ul>
-    <button
+    <VBtn
       v-if="!journal || journal.completed"
       type="button"
       :disabled="busy || !ready || !options.eligible || !options.entries.length"
       @click="start"
     >
       建立批次
-    </button>
+    </VBtn>
     <template v-else-if="entry && ready"
       ><h2>{{ entry.label }}</h2>
       <OperationRuntime
@@ -264,9 +267,11 @@ onBeforeUnmount(() => {
         :recovery-allowed="options.recoveryAllowed"
         @protection="runtime = $event"
         @settled="settled"
-      /><button type="button" :disabled="busy || !terminal" @click="next">
-        继续下一项</button
-      ><button
+      /><VBtn type="button" :disabled="busy || !terminal" @click="next">
+        继续下一项</VBtn
+      ><VBtn
+        variant="text"
+        color=""
         type="button"
         :disabled="
           busy || runtime.writeState !== 'idle' || runtime.localPending
@@ -274,7 +279,7 @@ onBeforeUnmount(() => {
         @click="stop"
       >
         停止剩余操作
-      </button></template
+      </VBtn></template
     >
   </section>
 </template>

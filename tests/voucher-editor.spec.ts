@@ -1,3 +1,5 @@
+import { hostAndDialogButtons } from "./host-and-dialog-buttons";
+import { DOMWrapper } from "@vue/test-utils";
 import { defineComponent, h, ref, type Component } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
@@ -41,8 +43,7 @@ function editor(mode: "read" | "edit" = "edit") {
   return { wrapper, value };
 }
 async function click(wrapper: ReturnType<typeof mount>, text: string) {
-  await wrapper
-    .findAll("button")
+  await hostAndDialogButtons(wrapper)
     .find((b) => b.text() === text)!
     .trigger("click");
   await flushPromises();
@@ -71,7 +72,7 @@ it("shows a voucher header and detail table and edits a row without changing dec
 it("shows the same details without editing actions in read mode", () => {
   const { wrapper } = editor("read");
   expect(wrapper.find("table").text()).toContain("合成商品");
-  expect(wrapper.findAll("button")).toHaveLength(0);
+  expect(hostAndDialogButtons(wrapper)).toHaveLength(0);
   expect(wrapper.findAll("input")).toHaveLength(0);
   expect(wrapper.get('[aria-label="单据表头"]').text()).toContain("合成供应商");
   wrapper.unmount();
@@ -138,15 +139,23 @@ it("edits only the selected row's formula children and discards cancelled change
   const { wrapper, value } = formulaEditor();
   await click(wrapper, "编辑配方 · 明细行 2");
   await click(wrapper, "新增配方");
-  await wrapper.get('input[aria-label="原料"]').setValue("合成原料");
-  await wrapper.get('input[aria-label="用量"]').setValue("0.0100");
+  await new DOMWrapper(document.body)
+    .get('input[aria-label="原料"]')
+    .setValue("合成原料");
+  await new DOMWrapper(document.body)
+    .get('input[aria-label="用量"]')
+    .setValue("0.0100");
   await click(wrapper, "确定子项");
   await click(wrapper, "取消配方");
   expect(value.value.rows[1].formula).toEqual([]);
   await click(wrapper, "编辑配方 · 明细行 2");
   await click(wrapper, "新增配方");
-  await wrapper.get('input[aria-label="原料"]').setValue("合成原料");
-  await wrapper.get('input[aria-label="用量"]').setValue("0.0100");
+  await new DOMWrapper(document.body)
+    .get('input[aria-label="原料"]')
+    .setValue("合成原料");
+  await new DOMWrapper(document.body)
+    .get('input[aria-label="用量"]')
+    .setValue("0.0100");
   await click(wrapper, "确定子项");
   await click(wrapper, "确定配方");
   expect(value.value.rows[0].formula).toEqual([]);
@@ -160,29 +169,35 @@ it("discards an open formula draft on scope change and allows read-only inspecti
   const { wrapper, value, scope } = formulaEditor();
   await click(wrapper, "编辑配方 · 明细行 2");
   await click(wrapper, "新增配方");
-  await wrapper.get('input[aria-label="原料"]').setValue("迟到原料");
+  await new DOMWrapper(document.body)
+    .get('input[aria-label="原料"]')
+    .setValue("迟到原料");
   scope.value = "other";
   await flushPromises();
   expect(
-    wrapper.find('[role="dialog"][aria-label="配方 · 明细行 2"]').exists(),
+    new DOMWrapper(document.body)
+      .find('[role="dialog"][aria-label="配方 · 明细行 2"]')
+      .exists(),
   ).toBe(false);
   expect(value.value.rows[1].formula).toEqual([]);
   wrapper.unmount();
   const read = formulaEditor("read");
   await click(read.wrapper, "查看配方 · 明细行 1");
   expect(
-    read.wrapper.find('[role="dialog"][aria-label="配方 · 明细行 1"]').exists(),
+    new DOMWrapper(document.body)
+      .find('[role="dialog"][aria-label="配方 · 明细行 1"]')
+      .exists(),
   ).toBe(true);
   expect(
-    read.wrapper.findAll("button").some((b) => b.text() === "确定配方"),
+    hostAndDialogButtons(read.wrapper).some((b) => b.text() === "确定配方"),
   ).toBe(false);
   read.wrapper.unmount();
 });
 it("moves focus into the formula dialog and restores it on close", async () => {
   const { wrapper } = formulaEditor();
-  const trigger = wrapper
-    .findAll("button")
-    .find((b) => b.text() === "编辑配方 · 明细行 1")!;
+  const trigger = hostAndDialogButtons(wrapper).find(
+    (b) => b.text() === "编辑配方 · 明细行 1",
+  )!;
   await trigger.trigger("click");
   await flushPromises();
   expect(document.activeElement?.textContent).toContain("取消配方");
@@ -195,8 +210,7 @@ it("keeps the formula draft pending while a child row is being edited", async ()
   await click(wrapper, "编辑配方 · 明细行 1");
   await click(wrapper, "新增配方");
   expect(
-    wrapper
-      .findAll("button")
+    hostAndDialogButtons(wrapper)
       .find((b) => b.text() === "确定配方")!
       .attributes("disabled"),
   ).toBeDefined();
@@ -211,7 +225,9 @@ it("drops a formula draft if the parent rows change while it is open", async () 
   value.value = { ...value.value, rows: [...value.value.rows].reverse() };
   await flushPromises();
   expect(
-    wrapper.find('[role="dialog"][aria-label="配方 · 明细行 1"]').exists(),
+    new DOMWrapper(document.body)
+      .find('[role="dialog"][aria-label="配方 · 明细行 1"]')
+      .exists(),
   ).toBe(false);
   expect(value.value.rows.map((row) => row.formula)).toEqual([[], []]);
   wrapper.unmount();

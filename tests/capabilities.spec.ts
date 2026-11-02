@@ -1,3 +1,4 @@
+import { DOMWrapper } from "@vue/test-utils";
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { ref } from "vue";
@@ -44,6 +45,7 @@ async function start(page: PageDefinition) {
     routes: [{ path: "/", component: { template: "<span />" } }],
   });
   const w = mount(AppPage, {
+    attachTo: document.body,
     props: {
       page,
       scope: "s",
@@ -369,6 +371,9 @@ it("rejects late draft calculations, holds submission through calculation failur
   });
   const w = await start(page);
   expect(requests.length).toBeGreaterThan(0);
+  expect(
+    w.get('[role="status"][aria-label="业务计算中"]').attributes("aria-busy"),
+  ).toBe("true");
   await w.get('input[aria-label="内容"]').setValue("新值");
   await flushPromises();
   requests.at(-1)!.resolve({ value: { value: "新计算值" } });
@@ -419,6 +424,12 @@ it("collects required prompt answers in a library-owned form before preparing th
   await w.get('input[type="checkbox"]').setValue(true);
   await flushPromises();
   await click(w, "准备执行处理");
+  expect(w.find('[role="dialog"][aria-label="完整办理预览"]').exists()).toBe(
+    false,
+  );
+  expect(w.get('[role="region"][aria-label="完整办理预览"]').text()).toContain(
+    "完整处理预览",
+  );
   await click(w, "确认执行处理");
   expect(op.execute).toHaveBeenCalledWith(
     expect.objectContaining({ input: { value: "已确认" } }),
@@ -1187,5 +1198,136 @@ it("keeps a permanent business message reserve when messages are added, dismisse
   await flushPromises();
   expect(w.get('[aria-label="业务消息"]').element).toBe(reserve);
   expect(region.findAll(".zerp-feedback")).toHaveLength(0);
+  w.unmount();
+});
+
+it("opens a real Material leave portal, cancels without writing and invalidates old scope choices", async () => {
+  const d = crud(writeStore<Attempt<{ name: string }, string>>().port);
+  const w = await start(
+    defineCrudPage({
+      definition: d,
+      permissions: { query: true, create: true, write: true, reconcile: true },
+    }),
+  );
+  try {
+    await click(w, "新增");
+    await w.get('input[aria-label="名称"]').setValue("未保存的新内容");
+    const trigger = button(w, "取消编辑");
+    (trigger.element as HTMLElement).focus();
+    const pending = w.vm.requestLeave();
+    await flushPromises();
+    const modal = new DOMWrapper(document.body).get(
+      '[role="dialog"][aria-label="未保存修改"]',
+    );
+    const controls = modal.findAll("button");
+    expect(controls.map((b) => b.text())).toEqual(["继续编辑", "放弃本地修改"]);
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await flushPromises();
+    expect(await pending).toBe(false);
+    expect(document.activeElement).toBe(trigger.element);
+    expect(
+      w.get<HTMLInputElement>('input[aria-label="名称"]').element.value,
+    ).toBe("未保存的新内容");
+    const next = w.vm.requestLeave();
+    await flushPromises();
+    const oldDiscard = new DOMWrapper(document.body)
+      .get('[role="dialog"]')
+      .findAll("button")[1];
+    await w.setProps({ scope: "new-scope" });
+    await oldDiscard.trigger("click");
+    expect(await next).toBe(false);
+    expect(d.adapter.create).not.toHaveBeenCalled();
+    expect(d.adapter.save).not.toHaveBeenCalled();
+  } finally {
+    w.unmount();
+  }
+});
+
+it("commits required business input answers on change without sending partial edits", async () => {
+  const seen: unknown[] = [];
+  const definition = defineReport<{}, { name: string }, string, string, string>(
+    {
+      kind: "parameter",
+      resource: "prompt-report",
+      title: "合成业务输入",
+      parameters: [],
+      initialParameters: () => ({}),
+      columns: [{ key: "name", label: "名称" }],
+      rowKey: (row) => row.name,
+      adapter: { query: async () => ({ items: [], total: 0 }) },
+    },
+  );
+  const w = await start(
+    defineReportPage({
+      definition,
+      permissions: { query: true, export: false },
+      interactions: {
+        instance: "one",
+        enabled: true,
+        items: [
+          { kind: "input", id: "reason", label: "业务说明", required: true },
+        ],
+        answers: {},
+        onAnswer: (id, value) => seen.push([id, value]),
+      },
+    }),
+  );
+  const input = w.get('input[aria-label="业务说明"]');
+  expect(input.attributes("required")).toBeDefined();
+  (input.element as HTMLInputElement).value = "  精确说明  ";
+  await input.trigger("input");
+  expect(seen).toEqual([]);
+  await input.trigger("change");
+  expect(seen).toEqual([["reason", "  精确说明  "]]);
+  w.unmount();
+});
+
+it("imports a file through AppPage and prepares the exact imported decimal string", async () => {
+  const op = operation();
+  const prepare = vi.spyOn(op.definition.adapter, "prepare");
+  const read = vi.fn(async () => ({ value: "9007199254740993.0100" }));
+  const w = await start(
+    defineTaskPage<{ value: string }, Model, string, number>({
+      title: "资源导入",
+      instance: "import",
+      owner,
+      identity: "one",
+      definition: op.definition,
+      values: { value: "原值" },
+      fields: [{ key: "value", label: "导入内容", type: "text" }],
+      actions: ["process"],
+      toIntent: (value, action, base) => ({ ...base, action, input: value }),
+      eligible: true,
+      recoveryAllowed: true,
+      importResource: { label: "读取资源包", accept: ".json", read },
+    }),
+  );
+  const file = new File(
+    ['{"value":"9007199254740993.0100"}'],
+    "synthetic.json",
+    { type: "application/json" },
+  );
+  const upload = w.get('input[type="file"]');
+  Object.defineProperty(upload.element, "files", {
+    configurable: true,
+    value: [file],
+  });
+  await upload.trigger("change");
+  await flushPromises();
+  expect(read).toHaveBeenCalledWith(
+    expect.objectContaining({ file, scope: "s" }),
+  );
+  expect(
+    (w.get('input[aria-label="导入内容"]').element as HTMLInputElement).value,
+  ).toBe("9007199254740993.0100");
+  await click(w, "准备执行处理");
+  expect(prepare).toHaveBeenCalledWith(
+    expect.objectContaining({
+      action: "process",
+      input: { value: "9007199254740993.0100" },
+    }),
+  );
   w.unmount();
 });

@@ -20,8 +20,9 @@ import {
   assertBelowToolbar,
 } from "./shell-interaction-smoke.mjs";
 import { voucherOperationSmoke } from "./voucher-operation-smoke.mjs";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { capabilitiesSmoke } from "./capabilities-smoke.mjs";
+import { materialShellSmoke } from "./material-shell-smoke.mjs";
 const capabilitiesMode = process.argv.includes("--capabilities");
 const detailsMode = process.argv.includes("--details");
 const shellMode = process.argv.includes("--shell");
@@ -31,6 +32,10 @@ const documentMode = process.argv.includes("--document");
 const reportMode = process.argv.includes("--report");
 const configuration = process.argv.includes("--configuration");
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const sourceBase = execFileSync("git", ["rev-parse", "HEAD"], {
+  cwd: root,
+  encoding: "utf8",
+}).trim();
 const commands = [];
 const run = (cmd, args, cwd = root) => {
   try {
@@ -310,6 +315,7 @@ try {
   assert.ok(address && typeof address !== "string");
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
+  context.setDefaultTimeout(30_000);
   const page = await context.newPage();
   const errors = [];
   const observe = (page) => {
@@ -380,12 +386,16 @@ try {
     );
   }
   assert.deepEqual(errors, []);
-  const sha = execFileSync("git", ["rev-parse", "HEAD"], {
-    cwd: root,
-    encoding: "utf8",
-  }).trim();
+  assert.equal(
+    execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: root,
+      encoding: "utf8",
+    }).trim(),
+    sourceBase,
+    "source HEAD must remain unchanged throughout package validation",
+  );
   const report = {
-    sourceBase: sha,
+    sourceBase,
     commands,
     sha256: createHash("sha256")
       .update(await readFile(tgz))
@@ -436,7 +446,7 @@ try {
                       ]
                     : [
                         "browser create/edit and 20 examples",
-                        "mobile card surface",
+                        "mobile semantic table headers, contained horizontal scrolling and reachable last cell",
                       ]),
     ],
     exitCode: 0,
@@ -453,7 +463,7 @@ try {
   console.log(
     JSON.stringify({
       slice: exampleName,
-      sourceBase: sha,
+      sourceBase,
       sha256: report.sha256,
       exitCode: report.exitCode,
     }),
@@ -636,12 +646,12 @@ async function directSmoke(page) {
     .getByRole("button", { name: "查看历史资料接缝", exact: true })
     .click();
   await contracts
-    .getByRole("dialog", { name: "查看资料", exact: true })
+    .getByRole("region", { name: "查看资料", exact: true })
     .getByText("（空字符串）")
     .waitFor();
   assert.equal(
     await contracts
-      .getByRole("dialog")
+      .getByRole("region", { name: "查看资料", exact: true })
       .getByRole("button", { name: "保存", exact: true })
       .count(),
     0,
@@ -649,11 +659,90 @@ async function directSmoke(page) {
   await contracts
     .getByRole("button", { name: "取消编辑", exact: true })
     .click();
-  await choose("resources");
-  await page.setViewportSize({ width: 390, height: 844 });
+  // Four row actions plus selection require real horizontal scrolling even
+  // after the mobile drawer has finished releasing its desktop layout space.
+  await choose("actions");
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect
+    .poll(() =>
+      rows
+        .locator(".v-main")
+        .evaluate((main) => getComputedStyle(main).paddingLeft),
+    )
+    .toBe("0px");
+  const mobileTable = rows.getByRole("table").first();
+  assert.ok(await mobileTable.getByRole("columnheader").count());
   assert.equal(
-    await crud.locator("thead").evaluate((el) => getComputedStyle(el).display),
-    "none",
+    await mobileTable
+      .locator("thead")
+      .evaluate((el) => getComputedStyle(el).display),
+    "table-header-group",
+  );
+  assert.ok(
+    await mobileTable.evaluate((table) => {
+      for (
+        let container = table.parentElement;
+        container;
+        container = container.parentElement
+      ) {
+        if (
+          container.scrollWidth > container.clientWidth &&
+          ["auto", "scroll"].includes(getComputedStyle(container).overflowX)
+        ) {
+          container.scrollLeft = container.scrollWidth;
+          return container.scrollLeft > 0;
+        }
+      }
+      return false;
+    }),
+    "wide mobile table scrolls inside its own container",
+  );
+  const lastCell = mobileTable.getByRole("cell").last();
+  await lastCell.scrollIntoViewIfNeeded();
+  await expect
+    .poll(
+      () =>
+        lastCell.evaluate((cell) => {
+          const box = cell.getBoundingClientRect();
+          return (
+            box.x >= 0 &&
+            box.right <= innerWidth &&
+            box.y >= 0 &&
+            box.bottom <= innerHeight &&
+            cell.contains(
+              document.elementFromPoint(
+                box.x + box.width / 2,
+                box.y + box.height / 2,
+              ),
+            )
+          );
+        }),
+      {
+        message:
+          "the last cell remains visible and reachable after horizontal scrolling",
+      },
+    )
+    .toBe(true);
+  await lastCell.click({ trial: true });
+  console.log(
+    "Mobile table reachability",
+    await lastCell.evaluate((cell) => ({
+      viewport: [innerWidth, innerHeight],
+      cell: cell.getBoundingClientRect().toJSON(),
+      wrapper: cell
+        .closest(".v-table__wrapper")
+        ?.getBoundingClientRect()
+        .toJSON(),
+      scrollLeft: cell.closest(".v-table__wrapper")?.scrollLeft,
+      scrollWidth: cell.closest(".v-table__wrapper")?.scrollWidth,
+      clientWidth: cell.closest(".v-table__wrapper")?.clientWidth,
+    })),
+  );
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    "table overflow does not create page-level horizontal scrolling",
   );
 }
 
@@ -662,7 +751,7 @@ async function configurationSmoke(page) {
   const scenario = (value) => page.getByLabel("写入情景").selectOption(value);
   const edit = async () => {
     await button("编辑").click();
-    await page.getByRole("dialog", { name: "编辑配置" }).waitFor();
+    await page.getByRole("region", { name: "编辑配置" }).waitFor();
   };
   const save = () => button("保存").click();
   await page
@@ -672,7 +761,10 @@ async function configurationSmoke(page) {
   await page
     .getByRole("textbox", { name: "名称", exact: true })
     .fill("离仓配置");
-  await page.getByLabel("映射目标").selectOption("目标乙");
+  await page
+    .getByRole("combobox", { name: "映射目标", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "目标乙", exact: true }).click();
   await save();
   await page.getByRole("cell", { name: "离仓配置", exact: true }).waitFor();
   await edit();
@@ -904,6 +996,13 @@ async function reportSmoke(page) {
   await button("下一页").click();
   await page.getByText("第 2 页", { exact: false }).waitFor();
   await page.setViewportSize({ width: 390, height: 600 });
+  await expect
+    .poll(() =>
+      page
+        .locator(".v-main")
+        .evaluate((main) => getComputedStyle(main).paddingLeft),
+    )
+    .toBe("0px");
   const scroll = page.locator(".zerp-report-scroll");
   // Check actual overflow and layout without screenshot/visual comparisons.
   const position = await scroll.evaluate((element) => {
@@ -964,7 +1063,8 @@ async function reportSmoke(page) {
   await page.getByLabel("重验资格").selectOption("expired");
   await button("返回报表").click();
   await page
-    .getByText("结果已失效或无权访问，请重新查询。", { exact: true })
+    .getByRole("status", { name: "状态提示", exact: true })
+    .filter({ hasText: "结果已失效或无权访问，请重新查询。" })
     .waitFor();
   assert.ok(await button("导出").isDisabled());
   await page.getByLabel("重验资格").selectOption("valid");
@@ -1013,7 +1113,10 @@ async function documentSmoke(page) {
   await button("编辑档案").click();
   await name().fill("新候选定价");
   await button("编辑合成客户定价 1").click();
-  await page.getByLabel("定价客户").selectOption("客户乙");
+  await page
+    .getByRole("combobox", { name: "定价客户", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "客户乙", exact: true }).click();
   await button("确定合成客户定价").click();
   await page.getByLabel("本地附件").setInputFiles({
     name: "synthetic.txt",
@@ -1081,7 +1184,10 @@ async function documentSmoke(page) {
   await page.getByText("0.0100", { exact: true }).waitFor();
   await button("编辑档案").click();
   await button("编辑合成产品配方 1").click();
-  await page.getByLabel("配方原料").selectOption("b");
+  await page
+    .getByRole("combobox", { name: "配方原料", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "合成原料乙", exact: true }).click();
   await page.getByLabel("配方用量").fill("1.2300");
   await button("确定合成产品配方").click();
   await scenario("conflict");
@@ -1115,7 +1221,7 @@ async function voucherSmoke(page) {
   await page.getByLabel("单据演示", { exact: true }).selectOption("editor");
   await page.getByRole("button", { name: "编辑资料", exact: true }).click();
   await standalone.getByRole("button", { name: "编辑配方 · 明细行 1" }).click();
-  await assertBelowToolbar(page, page.locator(".zerp-voucher-editor__overlay"));
+  await assertBelowToolbar(page, page.locator(".zerp-voucher-child-dialog"));
   await standalone.getByRole("button", { name: "新增配方" }).click();
   await standalone.getByLabel("原料").fill("合成原料甲");
   await standalone.getByLabel("用量").fill("0.0100");
@@ -1224,6 +1330,12 @@ async function voucherSmoke(page) {
   });
   const openingButton = (name) =>
     opening.getByRole("button", { name, exact: true });
+  const formulaDialog = page.getByRole("dialog", {
+    name: "配方 · 明细行 1",
+    exact: true,
+  });
+  const formulaButton = (name) =>
+    formulaDialog.getByRole("button", { name, exact: true });
   await openingButton("新增明细行").click();
   await page.getByLabel("行名称").fill("取消行");
   await openingButton("取消明细行").click();
@@ -1232,26 +1344,26 @@ async function voucherSmoke(page) {
   await page.getByLabel("行名称").fill("保留行");
   await openingButton("确定明细行").click();
   await openingButton("编辑配方 · 明细行 1").click();
-  await openingButton("新增配方").click();
-  await opening.getByLabel("子项金额").fill("2.5000");
-  await openingButton("确定子项").click();
-  await openingButton("取消配方").click();
+  await formulaButton("新增配方").click();
+  await formulaDialog.getByLabel("子项金额").fill("2.5000");
+  await formulaButton("确定子项").click();
+  await formulaButton("取消配方").click();
   assert.ok(
     (
       await opening.getByRole("table", { name: "单据明细" }).textContent()
     )?.includes("0 项"),
   );
   await openingButton("编辑配方 · 明细行 1").click();
-  await openingButton("新增配方").click();
-  await opening.getByLabel("子项金额").fill("2.5000");
-  await openingButton("确定子项").click();
-  await openingButton("确定配方").click();
+  await formulaButton("新增配方").click();
+  await formulaDialog.getByLabel("子项金额").fill("2.5000");
+  await formulaButton("确定子项").click();
+  await formulaButton("确定配方").click();
   await button("提交单据").click();
   await button("查看 SYN-2").click();
   await page.getByRole("cell", { name: "保留行", exact: true }).waitFor();
   await openingButton("查看配方 · 明细行 1").click();
-  assert.equal(await openingButton("确定配方").count(), 0);
-  await openingButton("关闭配方").click();
+  assert.equal(await formulaButton("确定配方").count(), 0);
+  await formulaButton("关闭配方").click();
   await page.getByLabel("单据示例").selectOption("system");
   await button("查看 SYN-system").click();
   assert.equal(await button("创建 Draft").count(), 0);
@@ -1298,7 +1410,10 @@ async function workflowSmoke(page) {
   await button("重试读取").click();
   await button("查看 流程一").click();
   assert.equal(await page.getByText("未授权目标", { exact: true }).count(), 0);
-  await page.getByLabel("根节点创建目标").selectOption("receipt");
+  await page
+    .getByRole("combobox", { name: "根节点创建目标", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "合成收据", exact: true }).click();
   await scenario("unknown");
   await button("创建下级").click();
   await page
@@ -1365,7 +1480,10 @@ async function workflowSmoke(page) {
   assert.ok(await button("创建下级").isDisabled());
   await page.getByLabel("会话作用域").selectOption("session-b");
   await button("查看 流程二").click();
-  await page.getByLabel("根节点创建目标").selectOption("receipt");
+  await page
+    .getByRole("combobox", { name: "根节点创建目标", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "合成收据", exact: true }).click();
   assert.ok(await button("创建下级").isEnabled());
   await page.getByLabel("会话作用域").selectOption("session-a");
   await button("查看 流程二").click();
@@ -1535,4 +1653,5 @@ async function shellSmoke(page) {
   await page
     .getByRole("heading", { name: "合成报表 · 分批", exact: true })
     .waitFor();
+  await materialShellSmoke(page);
 }

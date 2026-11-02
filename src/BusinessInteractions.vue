@@ -1,4 +1,14 @@
 <script setup lang="ts" generic="T">
+import {
+  VCheckbox,
+  VTextField,
+  VList,
+  VListItem,
+  VBtn,
+  VTable,
+  VCard,
+  VCardText,
+} from "vuetify/components";
 import { computed, onBeforeUnmount } from "vue";
 import Feedback from "./Feedback.vue";
 import type { Interaction, InteractionAnswers } from "./collaboration";
@@ -37,55 +47,72 @@ onBeforeUnmount(() => {
       :kind="item.level"
     />
   </div>
-  <section v-if="controls.length" aria-label="业务提示">
+  <section
+    v-if="controls.length"
+    aria-label="业务提示"
+    class="zerp-interactions"
+  >
     <template v-for="item in controls" :key="item.id">
-      <label v-if="item.kind === 'confirm'"
-        >{{ item.label
-        }}<input
-          type="checkbox"
-          :checked="answers[item.id] === true"
-          :disabled="disabled"
-          @change="
-            answer(item.id, ($event.target as HTMLInputElement).checked)
-          "
-      /></label>
-      <label v-else-if="item.kind === 'input'"
-        >{{ item.label
-        }}<input
-          type="text"
-          :value="answers[item.id] ?? ''"
-          :disabled="disabled"
-          @change="answer(item.id, ($event.target as HTMLInputElement).value)"
-      /></label>
-      <section
+      <VCheckbox
+        v-if="item.kind === 'confirm'"
+        :label="item.label"
+        :aria-label="item.label"
+        :model-value="answers[item.id] === true"
+        :disabled="disabled"
+        :required="item.required"
+        hide-details
+        @update:model-value="answer(item.id, $event === true)"
+      />
+      <VTextField
+        v-else-if="item.kind === 'input'"
+        :label="item.label"
+        :aria-label="item.label"
+        :model-value="String(answers[item.id] ?? '')"
+        :disabled="disabled"
+        :required="item.required"
+        @change="answer(item.id, ($event.target as HTMLInputElement).value)"
+      />
+      <VCard
         v-else-if="item.kind === 'menu' || item.kind === 'tree'"
         :aria-label="item.label"
+        role="region"
+        variant="outlined"
+        class="zerp-business-catalog"
       >
-        <ul>
-          <li v-for="entry in item.items" :key="entry.key">
-            <button
-              type="button"
-              :disabled="disabled || entry.disabled"
-              @click="intent(entry.target)"
-            >
-              {{ entry.label }}
-            </button>
-            <ul v-if="entry.children">
-              <li v-for="child in entry.children" :key="child.key">
-                <button
-                  type="button"
-                  :disabled="disabled || entry.disabled || child.disabled"
-                  @click="intent(child.target)"
-                >
-                  {{ child.label }}
-                </button>
-              </li>
-            </ul>
-          </li>
-        </ul>
-      </section>
+        <VCardText
+          ><h3 class="text-subtitle-1">{{ item.label }}</h3>
+          <VList :aria-label="item.label">
+            <VListItem v-for="entry in item.items" :key="entry.key">
+              <VBtn
+                type="button"
+                variant="text"
+                color=""
+                :disabled="disabled || entry.disabled"
+                @click="intent(entry.target)"
+                >{{ entry.label }}</VBtn
+              >
+              <VList
+                v-if="entry.children"
+                :aria-label="`${entry.label}子项`"
+                class="zerp-business-children"
+              >
+                <VListItem v-for="child in entry.children" :key="child.key">
+                  <VBtn
+                    type="button"
+                    variant="text"
+                    color=""
+                    :disabled="disabled || entry.disabled || child.disabled"
+                    @click="intent(child.target)"
+                    >{{ child.label }}</VBtn
+                  >
+                </VListItem>
+              </VList>
+            </VListItem>
+          </VList></VCardText
+        >
+      </VCard>
       <div v-else-if="item.kind === 'grid'" class="zerp-table-scroll">
-        <table>
+        <VTable>
           <caption>
             {{
               item.label
@@ -93,7 +120,7 @@ onBeforeUnmount(() => {
           </caption>
           <thead>
             <tr>
-              <th v-for="column in item.columns" :key="column.key">
+              <th v-for="column in item.columns" :key="column.key" scope="col">
                 {{ column.label }}
               </th>
             </tr>
@@ -105,16 +132,17 @@ onBeforeUnmount(() => {
               </td>
             </tr>
           </tbody>
-        </table>
+        </VTable>
       </div>
-      <button
+      <VBtn
         v-else-if="item.kind === 'related' || item.kind === 'download'"
         type="button"
+        variant="text"
+        color=""
         :disabled="disabled"
         @click="intent(item.target)"
+        >{{ item.label }}</VBtn
       >
-        {{ item.label }}
-      </button>
     </template>
   </section>
 </template>

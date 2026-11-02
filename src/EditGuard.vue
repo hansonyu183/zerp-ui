@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { injectDefaults } from "vuetify/lib/composables/defaults.js";
+import { VDefaultsProvider, VBtn, VCard, VDialog } from "vuetify/components";
 import Feedback from "./Feedback.vue";
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import type { EditGuardHandle, EditWriteState } from "./edit-guard";
+// VDialog starts a Vuetify defaults root; preserve this page's preset and bounded overlays.
+const pageDefaults = injectDefaults();
 const props = defineProps<{
   scope: string;
   instance: string | number;
@@ -17,10 +21,12 @@ type Confirmation = {
   trigger: HTMLElement | null;
 };
 const confirmation = shallowRef<Confirmation | null>(null);
-const continueButton = ref<HTMLButtonElement[]>([]);
+const continueButton = ref<InstanceType<typeof VBtn>[]>([]);
 let mounted = true;
 function settle(prompt: Confirmation, value: boolean, restoreFocus = true) {
   if (confirmation.value !== prompt) return;
+  const scope = props.scope,
+    instance = props.instance;
   confirmation.value = null;
   prompt.resolve(value);
   if (restoreFocus)
@@ -28,6 +34,8 @@ function settle(prompt: Confirmation, value: boolean, restoreFocus = true) {
       if (
         mounted &&
         props.active &&
+        props.scope === scope &&
+        props.instance === instance &&
         !confirmation.value &&
         prompt.trigger?.isConnected
       )
@@ -56,7 +64,7 @@ function requestLeave(): Promise<boolean> {
   };
   confirmation.value = prompt;
   nextTick(() => {
-    if (confirmation.value === prompt) continueButton.value[0]?.focus();
+    if (confirmation.value === prompt) continueButton.value[0]?.$el?.focus();
   });
   return promise;
 }
@@ -69,23 +77,6 @@ function decide(prompt: Confirmation, discard: boolean) {
     return;
   if (discard) emit("discard");
   settle(prompt, discard);
-}
-function keydown(event: KeyboardEvent, prompt: Confirmation) {
-  if (event.key === "Escape") {
-    event.preventDefault();
-    decide(prompt, false);
-  }
-  if (event.key !== "Tab") return;
-  const buttons = (
-    event.currentTarget as HTMLElement
-  ).querySelectorAll<HTMLButtonElement>("button");
-  if (event.shiftKey && document.activeElement === buttons[0]) {
-    event.preventDefault();
-    buttons[1].focus();
-  } else if (!event.shiftKey && document.activeElement === buttons[1]) {
-    event.preventDefault();
-    buttons[0].focus();
-  }
 }
 watch(
   () => [props.scope, props.instance, props.active, props.writeState],
@@ -125,29 +116,38 @@ defineExpose<EditGuardHandle>({ requestLeave });
                   : '写入结果未知，须核实原请求后再离开。'
       "
     />
-    <div
+    <VDialog
+      class="zerp-leave-dialog"
       v-for="prompt in confirmation ? [confirmation] : []"
       :key="scope + ':' + instance"
-      class="zerp-edit-guard__overlay"
+      :model-value="true"
+      max-width="560"
+      scrollable
+      aria-label="未保存修改"
+      @update:model-value="!$event && decide(prompt, false)"
+      @after-enter="confirmation === prompt && continueButton[0]?.$el?.focus()"
     >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="未保存修改"
-        @keydown="keydown($event, prompt)"
-      >
-        <p>存在未保存修改。放弃只销毁本地输入。</p>
-        <button
-          ref="continueButton"
-          type="button"
-          @click="decide(prompt, false)"
-        >
-          继续编辑
-        </button>
-        <button type="button" @click="decide(prompt, true)">
-          放弃本地修改
-        </button>
-      </section>
-    </div>
+      <VDefaultsProvider :defaults="pageDefaults"
+        ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
+          <h2 class="text-h6">未保存修改</h2>
+          <p>存在未保存修改。放弃只销毁本地输入。</p>
+          <VBtn
+            ref="continueButton"
+            color=""
+            variant="tonal"
+            type="button"
+            @click="decide(prompt, false)"
+            >继续编辑</VBtn
+          >
+          <VBtn
+            color="error"
+            variant="flat"
+            type="button"
+            @click="decide(prompt, true)"
+            >放弃本地修改</VBtn
+          >
+        </VCard>
+      </VDefaultsProvider></VDialog
+    >
   </section>
 </template>

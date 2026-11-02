@@ -1,6 +1,7 @@
 import type { RouteLocationRaw } from "vue-router";
 import type { ThemeDefinition } from "vuetify";
 import { md1, md2, md3 } from "vuetify/blueprints";
+import { getContrast } from "vuetify/lib/util/colorUtils.js";
 export type ThemeChoice = Readonly<{
   preset: "md1" | "md2" | "md3";
   mode: "light" | "dark";
@@ -40,10 +41,22 @@ export const defaultThemeChoice: ThemeChoice = Object.freeze({
 });
 const blueprints = { md1, md2, md3 };
 export function shellDefaults(choice: ThemeChoice) {
-  return blueprints[choice.preset].defaults;
+  const defaults = blueprints[choice.preset].defaults;
+  return {
+    ...defaults,
+    VBtn: { ...defaults?.VBtn, color: "", minHeight: 48, minWidth: 48 },
+    VListItem: { ...defaults?.VListItem, minHeight: 48 },
+    VCheckbox: { ...defaults?.VCheckbox, color: "on-surface" },
+    VCheckboxBtn: { color: "on-surface", minHeight: 48, minWidth: 48 },
+  };
 }
 export function shellThemeName(choice: ThemeChoice) {
   return `zerp-${choice.preset}-${choice.mode}`;
+}
+function foreground(color: Parameters<typeof getContrast>[0]) {
+  return getContrast(color, "#000000") >= getContrast(color, "#ffffff")
+    ? "#000000"
+    : "#ffffff";
 }
 /** Pass to the host's sole createVuetify({ theme: createShellThemes() }). */
 export function createShellThemes(colors: BrandColors = {}) {
@@ -51,12 +64,37 @@ export function createShellThemes(colors: BrandColors = {}) {
   for (const preset of ["md1", "md2", "md3"] as const) {
     for (const mode of ["light", "dark"] as const) {
       const official = (blueprints[preset].theme || undefined)?.themes?.[mode];
+      const primary =
+        colors.primary ??
+        (typeof official?.colors?.primary === "string"
+          ? official.colors.primary
+          : mode === "dark"
+            ? "#2196F3"
+            : "#1867C0");
+      const secondary =
+        colors.secondary ??
+        (typeof official?.colors?.secondary === "string"
+          ? official.colors.secondary
+          : mode === "dark"
+            ? "#54B6B2"
+            : "#48A9A6");
+      // Error text also appears on elevated cards, and destructive confirms use a filled button.
+      const error =
+        mode === "dark"
+          ? "#EF9A9A"
+          : typeof official?.colors?.error === "string"
+            ? official.colors.error
+            : "#B00020";
       themes[shellThemeName({ preset, mode })] = {
         ...official,
         dark: mode === "dark",
         colors: {
           ...official?.colors,
           muted: mode === "dark" ? "#aeb7c5" : "#667085",
+          "on-primary": foreground(primary),
+          "on-secondary": foreground(secondary),
+          error,
+          "on-error": foreground(error),
           ...(colors.primary ? { primary: colors.primary } : {}),
           ...(colors.secondary ? { secondary: colors.secondary } : {}),
         },

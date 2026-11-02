@@ -89,7 +89,9 @@ it("refreshes an authoritative created identity from the settled original reques
   });
   await flushPromises();
   await click(w, "准备创建");
-  expect(w.get('[role="dialog"]').text()).toContain("新单据");
+  expect(w.get('[role="region"][aria-label="完整办理预览"]').text()).toContain(
+    "新单据",
+  );
   await click(w, "确认创建");
   expect(w.text()).toContain("可显式准备新请求");
   const settlement = refresh.mock.calls[0]![0];
@@ -170,7 +172,9 @@ it("shows a complete authoritative preview and cancels locally without persisten
     w = f.start();
   await flushPromises();
   await click(w, "准备作废");
-  expect(w.get('[role="dialog"]').text()).toContain("全部明细与影响");
+  expect(w.get('[role="region"][aria-label="完整办理预览"]').text()).toContain(
+    "全部明细与影响",
+  );
   expect(w.text()).toContain("9007199254740993.0100");
   expect(w.text()).toContain("原输入");
   expect(w.text()).toContain("r7 / c3");
@@ -202,7 +206,9 @@ it("invalidates a content preview when its input changes but keeps an executed o
   await click(w, "准备保存修改");
   intent.input.rows[0]!.quantity = "2.0200";
   await flushPromises();
-  expect(w.find('[role="dialog"]').exists()).toBe(false);
+  expect(w.find('[role="region"][aria-label="完整办理预览"]').exists()).toBe(
+    false,
+  );
   expect(f.events.some((event) => event.startsWith("execute:"))).toBe(false);
   f.scenario("unknown");
   await click(w, "准备保存修改");
@@ -441,7 +447,9 @@ it.each(["replacement", "mutation"])(
     await flushPromises();
     await click(w, "准备作废");
     expect(w.text()).toContain("准备结果不匹配");
-    expect(w.find('[role="dialog"]').exists()).toBe(false);
+    expect(w.find('[role="region"][aria-label="完整办理预览"]').exists()).toBe(
+      false,
+    );
     expect(
       f.events.some(
         (event) => event.startsWith("save:") || event.startsWith("execute:"),
@@ -665,7 +673,9 @@ it.each(["prepare", "execute"] as const)(
     intent.identity.voucher = "two";
     gate.resolve();
     await flushPromises();
-    expect(w.find('[role="dialog"]').exists()).toBe(false);
+    expect(w.find('[role="region"][aria-label="完整办理预览"]').exists()).toBe(
+      false,
+    );
     expect(f.events.some((e) => e.startsWith("refresh:"))).toBe(false);
     w.unmount();
   },
@@ -726,7 +736,9 @@ it("exposes preparation only, reports local protection, and requires explicit fu
   gate.resolve();
   await work;
   await flushPromises();
-  expect(w.get('[role="dialog"]').text()).toContain("全部明细与影响");
+  expect(w.get('[role="region"][aria-label="完整办理预览"]').text()).toContain(
+    "全部明细与影响",
+  );
   expect(w.emitted("protection")?.at(-1)?.[0]).toEqual({
     dirty: true,
     localPending: false,
@@ -743,7 +755,9 @@ it("exposes preparation only, reports local protection, and requires explicit fu
   });
   await w.setProps({ eligible: false });
   await handle.prepare();
-  expect(w.find('[role="dialog"]').exists()).toBe(false);
+  expect(w.find('[role="region"][aria-label="完整办理预览"]').exists()).toBe(
+    false,
+  );
   w.unmount();
 });
 
@@ -833,7 +847,9 @@ it("discards externally started unsent preparation after input change", async ()
   gate.resolve();
   await work;
   await flushPromises();
-  expect(w.find('[role="dialog"]').exists()).toBe(false);
+  expect(w.find('[role="region"][aria-label="完整办理预览"]').exists()).toBe(
+    false,
+  );
   expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
     dirty: false,
     localPending: false,

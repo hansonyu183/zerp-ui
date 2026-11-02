@@ -64,7 +64,9 @@ it("shows grouped historical facts and emits only a typed local reference intent
   expect(facts).toEqual(
     expect.arrayContaining(["—", "（空字符串）", "0", "否"]),
   );
-  expect(wrapper.get("summary").text()).toBe("历史子项 · row-two");
+  expect(wrapper.get('button[aria-expanded="false"]').text()).toBe(
+    "历史子项 · row-two",
+  );
   expect(wrapper.text()).toContain("异常原值 1.x");
   expect(wrapper.findAll("input")).toHaveLength(0);
   await wrapper.get("button").trigger("click");
@@ -73,5 +75,62 @@ it("shows grouped historical facts and emits only a typed local reference intent
   await wrapper.setProps({ scope: "two", instance: "record-two" });
   await old.trigger("click");
   expect(intents).toHaveLength(1);
+  wrapper.unmount();
+});
+
+it("expands recursive historical facts with an accessible keyboard control through AppPage", async () => {
+  const { AppPage, defineDetailsPage } = await import("../src/index");
+  const { createRouter, createMemoryHistory } = await import("vue-router");
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/", component: { template: "<span />" } }],
+  });
+  const wrapper = mount(AppPage, {
+    attachTo: document.body,
+    props: {
+      scope: "synthetic",
+      brand: {
+        home: "/",
+        productName: "合成库",
+        enterpriseName: "合成公司",
+        mark: { kind: "text", text: "合" },
+      },
+      brandState: { kind: "ready" },
+      navigation: [],
+      navigationState: { kind: "ready" },
+      footer: "合成验证",
+      page: defineDetailsPage({
+        title: "历史事实",
+        instance: "one",
+        value: { rows: [{ id: "old", amount: "9007199254740993.0100" }] },
+        groups: [
+          {
+            key: "history",
+            label: "采用时记录",
+            fields: [
+              {
+                key: "rows",
+                label: "历史子项",
+                type: "records",
+                rowKey: (row) => row.id,
+                rowLabel: (row) => row.id,
+                fields: [{ key: "amount", label: "采用金额", type: "decimal" }],
+              },
+            ],
+          },
+        ],
+      }),
+    },
+    global: { plugins: [router] },
+  });
+  const expand = wrapper
+    .findAll("button")
+    .find((node) => node.text() === "历史子项 · old");
+  expect(expand).toBeDefined();
+  expect(expand!.attributes("aria-expanded")).toBe("false");
+  await expand!.trigger("click");
+  expect(expand!.attributes("aria-expanded")).toBe("true");
+  expect(wrapper.text()).toContain("9007199254740993.0100");
+  expect(wrapper.text()).not.toContain('"amount":');
   wrapper.unmount();
 });

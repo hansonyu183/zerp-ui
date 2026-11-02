@@ -1,3 +1,4 @@
+import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import { mount, flushPromises } from "@vue/test-utils";
 import { it, expect, vi } from "vitest";
 import type { Component } from "vue";
@@ -86,9 +87,9 @@ function definition() {
 }
 const permissions = { read: true, write: true, reconcile: true };
 const button = (w: ReturnType<typeof mount>, name: string) =>
-  w
-    .findAll("button")
-    .find((b) => b.text() === name || b.attributes("aria-label") === name)!;
+  hostAndDialogButtons(w).find(
+    (b) => b.text() === name || b.attributes("aria-label") === name,
+  )!;
 const click = async (w: ReturnType<typeof mount>, name: string) => {
   await button(w, name).trigger("click");
   await flushPromises();
@@ -369,7 +370,7 @@ it("clears the previous voucher when opening another detail fails", async () => 
   expect(w.text()).toContain("详情失败");
   expect(button(w, "编辑单据")).toBeUndefined();
   await click(w, "创建 Draft");
-  expect(w.find('[role="dialog"]').exists()).toBe(true);
+  expect(w.find('[role="region"]').exists()).toBe(true);
   w.unmount();
 });
 it("switches the voucher definition and list adapter together", async () => {

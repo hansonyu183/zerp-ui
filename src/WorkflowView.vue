@@ -2,7 +2,14 @@
 import type { EditProtection } from "./edit-guard";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
-import { VProgressLinear } from "vuetify/components";
+import {
+  VProgressLinear,
+  VBtn,
+  VTextField,
+  VSelect,
+  VCard,
+  VCardText,
+} from "vuetify/components";
 import type { Page } from "./contracts";
 import type {
   WorkflowAction,
@@ -306,10 +313,14 @@ onBeforeUnmount(() => {
 <template>
   <section class="zerp-ui" :aria-label="definition.title">
     <form v-if="permissions.read" @submit.prevent="read(1, true)">
-      <label
-        >流程关键字<input v-model="keyword" aria-label="流程关键字"
-      /></label>
-      <button :disabled="loading || lock.phase === 'pending'">查询</button>
+      <VTextField
+        label="流程关键字"
+        v-model="keyword"
+        aria-label="流程关键字"
+      />
+      <VBtn type="submit" :disabled="loading || lock.phase === 'pending'"
+        >查询</VBtn
+      >
     </form>
     <div class="zerp-progress-reserve">
       <VProgressLinear v-if="loading" indeterminate aria-label="加载中" />
@@ -323,7 +334,7 @@ onBeforeUnmount(() => {
         persistent
       >
         节点动作结果未知，普通刷新或关闭不能解锁。
-        <button
+        <VBtn
           v-if="
             definition.reconcile &&
             permissions.read &&
@@ -334,7 +345,7 @@ onBeforeUnmount(() => {
           @click="reconcile"
         >
           核实本次请求
-        </button>
+        </VBtn>
       </Feedback>
       <Feedback
         :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
@@ -344,13 +355,15 @@ onBeforeUnmount(() => {
         节点动作已成功，请重试读取；不会再次提交。
       </Feedback>
     </div>
-    <button
+    <VBtn
+      variant="text"
+      color=""
       v-if="permissions.read"
       :disabled="loading || lock.phase === 'pending'"
       @click="read()"
     >
       重试读取
-    </button>
+    </VBtn>
     <DataList
       :columns="[{ key: 'label', label: '流程实例' }]"
       :result="result"
@@ -360,62 +373,70 @@ onBeforeUnmount(() => {
       @page="read($event)"
     />
     <template v-if="permissions.read">
-      <button
+      <VBtn
+        variant="text"
+        color=""
         v-for="(row, index) in result.items"
         :key="index"
         :disabled="lock.phase === 'pending'"
         @click="select(row.identity)"
       >
         查看 {{ row.label }}
-      </button>
+      </VBtn>
     </template>
-    <button v-if="selected" :disabled="lock.phase === 'pending'" @click="close">
+    <VBtn
+      variant="text"
+      color=""
+      v-if="selected"
+      :disabled="lock.phase === 'pending'"
+      @click="close"
+    >
       关闭实例
-    </button>
+    </VBtn>
     <section v-if="instance" aria-label="流程节点">
       <h2>{{ instance.label }}</h2>
-      <label
-        >操作原因<input
-          v-model="reason"
-          aria-label="操作原因"
-          :disabled="blocked"
-      /></label>
-      <section
+      <VTextField
+        label="操作原因"
+        v-model="reason"
+        aria-label="操作原因"
+        :disabled="blocked"
+      />
+      <VCard
+        tag="section"
+        class="mb-4"
         v-for="(node, index) in instance.nodes"
         :key="index"
         :aria-label="node.label"
       >
-        <h3>{{ node.label }}</h3>
-        <p>{{ node.state }}</p>
-        <select
-          v-if="actions(node).includes('CREATE_CHILD')"
-          v-model="targets[index]"
-          :aria-label="`${node.label}创建目标`"
-          :disabled="blocked"
-        >
-          <option value="">选择目标</option>
-          <option
-            v-for="target in availableTargets(node)"
-            :key="target.key"
-            :value="target.key"
+        <VCardText>
+          <h3>{{ node.label }}</h3>
+          <p>{{ node.state }}</p>
+          <VSelect
+            v-if="actions(node).includes('CREATE_CHILD')"
+            v-model="targets[index]"
+            :label="`${node.label}创建目标`"
+            :aria-label="`${node.label}创建目标`"
+            :disabled="blocked"
+            :items="availableTargets(node)"
+            item-value="key"
+            item-title="label"
+            placeholder="选择目标"
+          />
+          <VBtn
+            v-for="action in actions(node)"
+            :key="action"
+            :disabled="
+              blocked ||
+              loading ||
+              (action === 'CREATE_CHILD' &&
+                !availableTargets(node).some((t) => t.key === targets[index]))
+            "
+            @click="act(node, action, index)"
           >
-            {{ target.label }}
-          </option>
-        </select>
-        <button
-          v-for="action in actions(node)"
-          :key="action"
-          :disabled="
-            blocked ||
-            loading ||
-            (action === 'CREATE_CHILD' &&
-              !availableTargets(node).some((t) => t.key === targets[index]))
-          "
-          @click="act(node, action, index)"
-        >
-          {{ captions[action] }}
-        </button>
-      </section>
+            {{ captions[action] }}
+          </VBtn>
+        </VCardText>
+      </VCard>
       <section v-if="permissions.audit" aria-label="运行审计">
         <h2>运行审计</h2>
         <DataList

@@ -52,6 +52,33 @@ export async function shellInteractionSmoke(page) {
       "narrow toolbar control must fit viewport",
     );
   }
+  for (const name of [
+    "切换导航",
+    "主题预设",
+    "切换明暗模式",
+    "账户：演示账户",
+  ]) {
+    const control = page.getByRole("button", { name, exact: true });
+    const box = await control.boundingBox();
+    assert.ok(
+      box && box.width >= 48 && box.height >= 48,
+      `${name} has a 48px touch target`,
+    );
+    assert.ok(
+      await control.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return [
+          [2, box.height / 2],
+          [box.width - 2, box.height / 2],
+          [box.width / 2, 2],
+          [box.width / 2, box.height - 2],
+        ].every(([x, y]) =>
+          element.contains(document.elementFromPoint(box.x + x, box.y + y)),
+        );
+      }),
+      `${name} touch target edges are hit-testable`,
+    );
+  }
   const bar = page.locator(".v-app-bar");
   const belowBar = (locator) =>
     assertBelowToolbar(page, locator, { withinViewport: false });

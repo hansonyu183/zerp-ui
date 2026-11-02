@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="R extends object">
+import { VBtn, VCard } from "vuetify/components";
 import { shallowRef, ref, watch, onBeforeUnmount } from "vue";
 import DynamicForm from "./DynamicForm.vue";
 import FactFields from "./FactFields.vue";
@@ -71,22 +72,42 @@ onBeforeUnmount(() => emit("pending", false));
     >
       <FactFields :value="row" :fields="formFacts(fields)" />
       <template v-if="mode === 'edit'"
-        ><button type="button" :disabled="!!editing" @click="begin(index)">
-          编辑{{ label }} {{ index + 1 }}</button
-        ><button type="button" :disabled="!!editing" @click="remove(index)">
+        ><VBtn
+          color=""
+          variant="tonal"
+          type="button"
+          :disabled="disabled || !!editing"
+          @click="begin(index)"
+        >
+          编辑{{ label }} {{ index + 1 }}</VBtn
+        ><VBtn
+          color=""
+          variant="tonal"
+          type="button"
+          :disabled="disabled || !!editing"
+          @click="remove(index)"
+        >
           删除{{ label }} {{ index + 1 }}
-        </button></template
+        </VBtn></template
       >
     </section>
-    <button
+    <VBtn
+      color=""
+      variant="tonal"
       v-if="mode === 'edit'"
       type="button"
-      :disabled="!!editing"
+      :disabled="disabled || !!editing"
       @click="begin(null)"
     >
       新增{{ label }}
-    </button>
-    <section v-if="editing" role="dialog" :aria-label="`编辑${label}`">
+    </VBtn>
+    <VCard
+      tag="section"
+      class="zerp-business-card pa-4"
+      v-if="editing"
+      role="region"
+      :aria-label="`编辑${label}`"
+    >
       <DynamicForm
         :fields="fields"
         :model-value="editing.value"
@@ -96,13 +117,22 @@ onBeforeUnmount(() => emit("pending", false));
         @update:model-value="editing = { ...editing!, value: $event }"
         @pending="pending = $event"
         @validation="valid = $event.valid"
-      /><button
+      /><VBtn
+        color="primary"
+        variant="flat"
         type="button"
         :disabled="pending || !valid || disabled"
         @click="finish"
       >
-        确定{{ label }}</button
-      ><button type="button" @click="cancel">取消{{ label }}</button>
-    </section>
+        确定{{ label }}</VBtn
+      ><VBtn
+        color=""
+        variant="tonal"
+        type="button"
+        :disabled="disabled"
+        @click="cancel"
+        >取消{{ label }}</VBtn
+      >
+    </VCard>
   </fieldset>
 </template>

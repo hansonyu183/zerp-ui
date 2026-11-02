@@ -1,11 +1,15 @@
+import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import type { Component } from "vue";
-import { mount, flushPromises } from "@vue/test-utils";
-import { it, expect } from "vitest";
+import { mount, flushPromises, DOMWrapper } from "@vue/test-utils";
+import { it, expect, afterEach } from "vitest";
 import CrudView from "../src/CrudView.vue";
 import { exampleDefinition, resourceCases } from "../examples/direct/matrix";
+const mounted: ReturnType<typeof mount>[] = [];
+afterEach(() => {
+  for (const wrapper of mounted.splice(0)) wrapper.unmount();
+});
 const click = async (w: ReturnType<typeof mount>, name: string) => {
-  await w
-    .findAll("button")
+  await hostAndDialogButtons(w)
     .find((b) => b.text() === name || b.attributes("aria-label") === name)!
     .trigger("click");
   await flushPromises();
@@ -15,12 +19,14 @@ it.each(resourceCases)(
   async (resource, title, kind) => {
     const d = exampleDefinition(resource),
       w = mount(CrudView as Component, {
+        attachTo: document.body,
         props: {
           definition: d,
           scope: "synthetic",
           permissions: { query: true, write: true, create: true },
         },
       });
+    mounted.push(w);
     await flushPromises();
     expect(w.text()).toContain(`合成${title}`);
     if (kind === "no-enable" || kind === "save-enable")
@@ -40,7 +46,16 @@ it.each(resourceCases)(
       );
     if (kind === "conditional") {
       expect(w.find("fieldset legend").text()).toBe("内部单位");
-      await w.get('select[aria-label="承运归属"]').setValue("external");
+      await w
+        .get('[role="combobox"][aria-label="承运归属"]')
+        .trigger("keydown", { key: "ArrowDown" });
+      await flushPromises();
+      const external = new DOMWrapper(document.body)
+        .findAll('[role="option"]')
+        .find((option) => option.text() === "外部");
+      expect(external).toBeDefined();
+      await external!.trigger("click");
+      await flushPromises();
       expect(w.findAll("legend").map((l) => l.text())).toContain("外部单位");
       expect(w.findAll("legend").map((l) => l.text())).not.toContain(
         "内部单位",
@@ -60,7 +75,6 @@ it.each(resourceCases)(
         w.findAll("button").map((b) => b.attributes("aria-label") ?? b.text()),
       ).toContain("启用");
     }
-    w.unmount();
   },
 );
 it.each(["aux/dictionary-item", "acc/subject"] as const)(
@@ -68,12 +82,14 @@ it.each(["aux/dictionary-item", "acc/subject"] as const)(
   async (resource) => {
     const d = exampleDefinition(resource),
       w = mount(CrudView as Component, {
+        attachTo: document.body,
         props: {
           definition: d,
           scope: "a",
           permissions: { query: true, write: true, create: true },
         },
       });
+    mounted.push(w);
     await flushPromises();
     await click(w, "更多条件");
     await click(w, "合成可选 B");
@@ -84,18 +100,19 @@ it.each(["aux/dictionary-item", "acc/subject"] as const)(
     await flushPromises();
     expect(w.findAll("tbody tr")).toHaveLength(1);
     expect(w.get("tbody").text()).toContain(" B");
-    w.unmount();
   },
 );
 it("keeps user assignment readonly when denied and editable when allowed by detail facts", async () => {
   const d = exampleDefinition("app/user"),
     w = mount(CrudView as Component, {
+      attachTo: document.body,
       props: {
         definition: d,
         scope: "a",
         permissions: { query: true, write: true, create: true },
       },
     });
+  mounted.push(w);
   await flushPromises();
   await click(w, "编辑");
   for (const label of ["可分配角色", "关联员工"])
@@ -119,19 +136,19 @@ it("keeps user assignment readonly when denied and editable when allowed by deta
         .find((f) => f.find("legend").text() === label)!
         .attributes("disabled"),
     ).toBeUndefined();
-  w.unmount();
 });
 it("omits writes on a synthetic role without action qualification", async () => {
   const d = exampleDefinition("app/role"),
     w = mount(CrudView as Component, {
+      attachTo: document.body,
       props: {
         definition: d,
         scope: "a",
         permissions: { query: true, write: true, create: true },
       },
     });
+  mounted.push(w);
   await flushPromises();
   expect(w.findAll("tbody tr")[0].findAll("button").length).toBeGreaterThan(0);
   expect(w.findAll("tbody tr")[1].findAll("button")).toHaveLength(0);
-  w.unmount();
 });
