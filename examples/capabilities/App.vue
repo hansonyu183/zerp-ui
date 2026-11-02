@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { createComplexDraft } from "./complex-draft";
 import { printDocument } from "./print-fixture";
 import { computed, provide, ref } from "vue";
 import { useRoute } from "vue-router";
@@ -24,6 +25,7 @@ shell.navigation = [
       ["batch", "批量办理"],
       ["printing", "打印输出"],
       ["recovery", "资料恢复"],
+      ["complex", "复杂资料协作"],
     ].map(([key, caption]) => ({
       key: key!,
       caption: caption!,
@@ -235,6 +237,7 @@ const durable = durableRecoveryFixture(
   String(route.query.run ?? "manual"),
   route.query.terminal === "true",
 );
+const complex = createComplexDraft().page;
 const page = computed(() =>
   route.path === "/durable-recovery"
     ? durable
@@ -244,7 +247,9 @@ const page = computed(() =>
         ? printing
         : route.path === "/recovery"
           ? recovering
-          : task,
+          : route.path === "/complex"
+            ? complex
+            : task,
 );
 </script>
 <template><ExamplePage :page="page" /></template>

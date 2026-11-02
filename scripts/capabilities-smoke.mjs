@@ -1,3 +1,4 @@
+import { complexDraftSmoke } from "./complex-draft-smoke.mjs";
 import assert from "node:assert/strict";
 import { durableRecoverySmoke } from "./durable-recovery-smoke.mjs";
 import { printOutputSmoke } from "./print-smoke.mjs";
@@ -199,4 +200,5 @@ export async function capabilitiesSmoke(page, printEvidence) {
   ).toBeEnabled();
   assert.equal(await frame.locator("script").count(), 0);
   await printOutputSmoke(page, printEvidence);
+  await complexDraftSmoke(page);
 }
