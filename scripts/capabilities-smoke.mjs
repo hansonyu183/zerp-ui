@@ -1,4 +1,5 @@
 import { batchRecoverySmoke } from "./batch-recovery-smoke.mjs";
+import { complexDraftSmoke } from "./complex-draft-smoke.mjs";
 import assert from "node:assert/strict";
 import { printOutputSmoke } from "./print-smoke.mjs";
 import { expect } from "@playwright/test";
@@ -199,4 +200,5 @@ export async function capabilitiesSmoke(page, printEvidence) {
   assert.equal(await frame.locator("script").count(), 0);
   await printOutputSmoke(page, printEvidence);
   await batchRecoverySmoke(page);
+  await complexDraftSmoke(page);
 }

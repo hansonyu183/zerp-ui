@@ -20,6 +20,7 @@ import {
   watch,
 } from "vue";
 import { clone } from "./clone";
+import { equalValues } from "./editor-values";
 import DynamicForm from "./DynamicForm.vue";
 import FactFields from "./FactFields.vue";
 import { formFacts, factText } from "./details";
@@ -141,7 +142,7 @@ function cancelChild(restoreFocus = true) {
 function finishChild() {
   const draft = childEditing.value;
   if (!draft || !writable.value || childPending.value) return;
-  if (props.modelValue.rows !== draft.sourceRows) {
+  if (!equalValues(props.modelValue.rows, draft.sourceRows)) {
     cancelChild();
     return;
   }
@@ -212,7 +213,7 @@ watch(() => [props.scope, props.instance, props.mode, props.formMode], reset);
 watch(
   () => props.modelValue.rows,
   (rows) => {
-    if (childEditing.value && rows !== childEditing.value.sourceRows)
+    if (childEditing.value && !equalValues(rows, childEditing.value.sourceRows))
       cancelChild();
     if (
       editing.value?.key &&
