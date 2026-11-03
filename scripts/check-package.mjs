@@ -676,8 +676,16 @@ async function directSmoke(page) {
     0,
   );
   await contracts
-    .getByRole("button", { name: "取消编辑", exact: true })
+    .getByRole("region", { name: "查看资料", exact: true })
+    .getByRole("button", { name: "删除", exact: true })
     .click();
+  assert.equal(
+    (await page.getByLabel("资料删除次数").textContent()).trim(),
+    "0",
+  );
+  await page.getByRole("button", { name: "确认删除", exact: true }).click();
+  await expect(page.getByLabel("资料删除次数")).toHaveText("1");
+
   // Four row actions plus selection require real horizontal scrolling even
   // after the mobile drawer has finished releasing its desktop layout space.
   await choose("actions");
@@ -1250,6 +1258,41 @@ async function voucherSmoke(page) {
     (
       await standalone.getByRole("table", { name: "单据明细" }).textContent()
     )?.includes("1 项"),
+  );
+  await page.getByLabel("单据演示", { exact: true }).selectOption("active-row");
+  await button("编辑资料").click();
+  await button("编辑明细行 1").click();
+  assert.ok(await page.getByLabel("行数量", { exact: true }).isDisabled());
+  await button("取消明细行").click();
+  await button("新增明细行").click();
+  assert.ok(await page.getByLabel("子项标识", { exact: true }).isDisabled());
+  await page
+    .getByLabel("行数量", { exact: true })
+    .fill("9007199254740993.1234");
+  assert.ok(
+    !(await page.getByLabel("逐行采用结果").textContent()).includes("detail-"),
+  );
+  await button("确定明细行").click();
+  assert.ok(
+    (await page.getByLabel("逐行采用结果").textContent()).includes(
+      "detail-1:detail:9007199254740993.1234",
+    ),
+  );
+  await button("编辑明细行 2").click();
+  await page
+    .getByRole("combobox", { name: "行角色", exact: true })
+    .press("ArrowDown");
+  await page.getByRole("option", { name: "主项", exact: true }).click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector('input[aria-label="行数量"]')?.disabled === true,
+  );
+  assert.equal(await page.getByLabel("子项标识", { exact: true }).count(), 0);
+  await button("确定明细行").click();
+  assert.ok(
+    (await page.getByLabel("逐行采用结果").textContent()).includes(
+      "detail-1:main:9007199254740993.1234",
+    ),
   );
   await page.getByLabel("单据演示", { exact: true }).selectOption("submission");
   await button("创建 Draft").click();

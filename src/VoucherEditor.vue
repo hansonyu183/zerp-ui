@@ -19,10 +19,11 @@ import {
   shallowRef,
   watch,
 } from "vue";
-import { clone } from "./clone";
+import { clone, message } from "./clone";
 import { equalValues } from "./editor-values";
 import DynamicForm from "./DynamicForm.vue";
 import FactFields from "./FactFields.vue";
+import Feedback from "./Feedback.vue";
 import { formFacts, factText } from "./details";
 import type { Fields } from "./contracts";
 import type {
@@ -30,6 +31,7 @@ import type {
   VoucherEditorColumn,
   VoucherEditorDefinition,
   VoucherEditorValue,
+  VoucherEditorChange,
 } from "./voucher-editor";
 
 // VDialog starts a Vuetify defaults root; preserve this page's preset and bounded overlays.
@@ -45,16 +47,61 @@ const props = defineProps<
   }
 >();
 const emit = defineEmits<{
-  "update:modelValue": [value: VoucherEditorValue<H, R>];
+  "update:modelValue": [
+    value: VoucherEditorValue<H, R>,
+    change: VoucherEditorChange,
+  ];
   pending: [value: boolean];
 }>();
 const formMode = computed(() => props.formMode ?? "edit");
 const writable = computed(() => props.mode === "edit" && !props.disabled);
+const canInsert = computed(
+  () => writable.value && props.rowOperations?.insert !== false,
+);
+const canUpdate = computed(
+  () => writable.value && props.rowOperations?.update !== false,
+);
+const canDelete = computed(
+  () => writable.value && props.rowOperations?.delete !== false,
+);
+function canEditRow(key: string | null) {
+  return key === null ? canInsert.value : canUpdate.value;
+}
 const visibleColumns = computed(() =>
   props.columns.filter((c) => c.visible !== false),
 );
-const editing = shallowRef<{ key: string | null; value: R } | null>(null);
+const editing = shallowRef<{
+  key: string | null;
+  value: R | null;
+  targetKey?: string;
+  candidate?: VoucherEditorValue<H, R>;
+} | null>(null);
+const activeRowFields = computed<Fields<R>>(() =>
+  typeof props.rowFields === "function"
+    ? editing.value?.value
+      ? props.rowFields(clone(editing.value.value))
+      : ([] as unknown as Fields<R>)
+    : props.rowFields,
+);
+const visibleValue = computed(
+  () => editing.value?.candidate ?? props.modelValue,
+);
+const rowFormVersion = ref(0);
+function candidateRow(
+  candidate: VoucherEditorValue<H, R>,
+  key: string,
+): R | null {
+  const rows = candidate.rows.filter((row) => props.rowKey(row) === key);
+  if (rows.length > 1) throw new Error("明细行标识重复，请重新编辑。");
+  return rows[0] ? clone(rows[0]) : null;
+}
+
 const deleting = ref<string | null>(null);
+const preparing = ref(false);
+const error = ref("");
+let preparation = 0;
+let disposed = false;
+
 const childEditing = shallowRef<{
   token: symbol;
   parentKey: string;
@@ -70,16 +117,21 @@ const childPending = ref(false);
 function pending() {
   emit(
     "pending",
-    headerPending.value ||
+    preparing.value ||
+      headerPending.value ||
       rowPending.value ||
       childPending.value ||
       !!editing.value ||
-      (writable.value && !!childEditing.value),
+      (canUpdate.value && !!childEditing.value),
   );
 }
 function setHeader(value: H) {
-  if (writable.value)
-    emit("update:modelValue", { ...props.modelValue, header: clone(value) });
+  if (writable.value && !preparing.value && !editing.value?.candidate)
+    emit(
+      "update:modelValue",
+      { ...props.modelValue, header: clone(value) },
+      { kind: "header" },
+    );
 }
 function display(row: R, column: VoucherEditorColumn<R, C>) {
   if (column.type === "children") {
@@ -94,7 +146,7 @@ function beginChild(
   column: VoucherEditorChildColumn<R, C>,
   event: MouseEvent,
 ) {
-  if (childEditing.value || editing.value) return;
+  if (preparing.value || childEditing.value || editing.value) return;
   childTrigger = event.currentTarget as HTMLButtonElement;
   childEditing.value = {
     token: Symbol(),
@@ -141,7 +193,7 @@ function cancelChild(restoreFocus = true) {
 }
 function finishChild() {
   const draft = childEditing.value;
-  if (!draft || !writable.value || childPending.value) return;
+  if (!draft || !canUpdate.value || childPending.value) return;
   if (!equalValues(props.modelValue.rows, draft.sourceRows)) {
     cancelChild();
     return;
@@ -154,49 +206,170 @@ function finishChild() {
   }
   rows[index] = { ...rows[index], [draft.column.key]: clone(draft.rows) } as R;
   cancelChild();
-  emit("update:modelValue", { ...props.modelValue, rows });
+  emit("update:modelValue", { ...props.modelValue, rows }, { kind: "row" });
 }
-function begin(row?: R) {
-  if (!writable.value) return;
+async function begin(row?: R) {
+  if (
+    !(row ? canUpdate.value : canInsert.value) ||
+    preparing.value ||
+    editing.value ||
+    childEditing.value
+  )
+    return;
   deleting.value = null;
-  editing.value = {
-    key: row ? props.rowKey(row) : null,
-    value: clone(row ?? props.emptyRow()),
-  };
+  error.value = "";
+  if (row) {
+    editing.value = {
+      key: props.rowKey(row),
+      value: clone(row),
+      ...(props.rowDraft
+        ? { targetKey: props.rowKey(row), candidate: clone(props.modelValue) }
+        : {}),
+    };
+    pending();
+    return;
+  }
+  const token = ++preparation;
+  preparing.value = true;
   pending();
+  try {
+    if (props.rowDraft) {
+      const result = await props.rowDraft.prepare({
+        candidate: clone(props.modelValue),
+      });
+      if (disposed || token !== preparation || !canInsert.value) return;
+      if (
+        props.modelValue.rows.some((row) => props.rowKey(row) === result.rowKey)
+      )
+        throw new Error("新明细行标识已存在，请重新编辑。");
+      const candidate = clone(result.candidate);
+      editing.value = {
+        key: null,
+        targetKey: result.rowKey,
+        value: candidateRow(candidate, result.rowKey),
+        candidate,
+      };
+    } else {
+      const value = await props.emptyRow();
+      if (disposed || token !== preparation || !canInsert.value) return;
+      editing.value = { key: null, value: clone(value) };
+    }
+  } catch (cause) {
+    if (!disposed && token === preparation) {
+      error.value = message(cause);
+    }
+  } finally {
+    if (!disposed && token === preparation) {
+      preparing.value = false;
+      pending();
+    }
+  }
+}
+async function changeRow(value: R) {
+  const draft = editing.value;
+  if (!draft || !draft.value || !canEditRow(draft.key) || preparing.value)
+    return;
+  if (!props.rowDraft && !props.transformRow) {
+    editing.value = { ...draft, value: clone(value) };
+    return;
+  }
+  const token = ++preparation;
+  preparing.value = true;
+  error.value = "";
+  pending();
+  try {
+    let candidate: VoucherEditorValue<H, R> | undefined;
+    let next: R | null;
+    if (props.rowDraft) {
+      const input = clone(draft.candidate!);
+      const rows = input.rows.map((row) =>
+        props.rowKey(row) === draft.targetKey ? clone(value) : row,
+      );
+      candidate = props.rowDraft.change
+        ? await props.rowDraft.change({
+            value: clone(value),
+            previous: clone(draft.value),
+            candidate: { ...input, rows },
+          })
+        : { ...input, rows };
+      candidate = clone(candidate);
+      next = candidateRow(candidate, draft.targetKey!);
+    } else {
+      next = await props.transformRow!({
+        value: clone(value),
+        previous: clone(draft.value),
+      });
+    }
+    if (
+      disposed ||
+      token !== preparation ||
+      !canEditRow(draft.key) ||
+      editing.value !== draft
+    )
+      return;
+    editing.value = {
+      ...draft,
+      value: clone(next),
+      ...(candidate ? { candidate } : {}),
+    };
+  } catch (cause) {
+    if (!disposed && token === preparation) {
+      error.value = message(cause);
+      rowFormVersion.value++;
+    }
+  } finally {
+    if (!disposed && token === preparation) {
+      preparing.value = false;
+      pending();
+    }
+  }
 }
 function finishRow() {
   const draft = editing.value;
-  if (!draft || !writable.value || rowPending.value) return;
+  if (!draft || !canEditRow(draft.key) || preparing.value || rowPending.value)
+    return;
+  if (draft.candidate) {
+    const candidate = clone(draft.candidate);
+    editing.value = null;
+    rowPending.value = false;
+    emit("update:modelValue", candidate, { kind: "row" });
+    pending();
+    return;
+  }
+  if (!draft.value) return;
+  const rowValue = draft.value;
   const rows = [...props.modelValue.rows];
   if (draft.key === null) {
-    if (rows.some((row) => props.rowKey(row) === props.rowKey(draft.value)))
+    if (rows.some((row) => props.rowKey(row) === props.rowKey(rowValue)))
       return;
-    rows.push(clone(draft.value));
+    rows.push(clone(rowValue));
   } else {
     const index = rows.findIndex((row) => props.rowKey(row) === draft.key);
     if (index < 0) return;
     if (
-      props.rowKey(draft.value) !== draft.key &&
-      rows.some((row) => props.rowKey(row) === props.rowKey(draft.value))
+      props.rowKey(rowValue) !== draft.key &&
+      rows.some((row) => props.rowKey(row) === props.rowKey(rowValue))
     )
       return;
-    rows[index] = clone(draft.value);
+    rows[index] = clone(rowValue);
   }
   editing.value = null;
   rowPending.value = false;
+  emit("update:modelValue", { ...props.modelValue, rows }, { kind: "row" });
   pending();
-  emit("update:modelValue", { ...props.modelValue, rows });
 }
 function removeRow() {
-  if (!writable.value || deleting.value === null) return;
+  if (!canDelete.value || preparing.value || deleting.value === null) return;
   const rows = props.modelValue.rows.filter(
     (row) => props.rowKey(row) !== deleting.value,
   );
   deleting.value = null;
-  emit("update:modelValue", { ...props.modelValue, rows });
+  emit("update:modelValue", { ...props.modelValue, rows }, { kind: "delete" });
 }
 function reset() {
+  preparation++;
+  preparing.value = false;
+  error.value = "";
   editing.value = null;
   deleting.value = null;
   cancelChild(false);
@@ -205,11 +378,48 @@ function reset() {
   emit("pending", false);
 }
 function cancelRow() {
+  preparation++;
+  preparing.value = false;
+  error.value = "";
   editing.value = null;
   rowPending.value = false;
   pending();
 }
-watch(() => [props.scope, props.instance, props.mode, props.formMode], reset);
+watch(
+  () => [
+    props.scope,
+    props.instance,
+    props.mode,
+    props.formMode,
+    props.disabled,
+  ],
+  reset,
+  {
+    flush: "sync",
+  },
+);
+watch(
+  () => props.modelValue,
+  () => {
+    if (preparing.value || editing.value?.candidate) reset();
+  },
+  { deep: true, flush: "sync" },
+);
+watch(
+  () => [canInsert.value, canUpdate.value, canDelete.value],
+  () => {
+    if (
+      (preparing.value && !editing.value && !canInsert.value) ||
+      (editing.value && !canEditRow(editing.value.key))
+    )
+      reset();
+    if (!canDelete.value) deleting.value = null;
+    if (props.mode === "edit" && !canUpdate.value && childEditing.value)
+      cancelChild(false);
+  },
+  { flush: "sync" },
+);
+
 watch(
   () => props.modelValue.rows,
   (rows) => {
@@ -227,17 +437,21 @@ watch(
       deleting.value = null;
   },
 );
-onBeforeUnmount(() => emit("pending", false));
+onBeforeUnmount(() => {
+  disposed = true;
+  preparation++;
+  emit("pending", false);
+});
 </script>
 
 <template>
   <section class="zerp-voucher-editor" aria-label="单据编辑展示">
     <div class="zerp-voucher-editor__header" aria-label="单据表头">
       <FactFields
-        v-if="mode === 'read'"
+        v-if="mode === 'read' || editing?.candidate"
         :key="`${scope}:${instance}`"
         :fields="formFacts(headerFields)"
-        :value="modelValue.header"
+        :value="visibleValue.header"
       />
       <DynamicForm
         v-else
@@ -245,13 +459,17 @@ onBeforeUnmount(() => emit("pending", false));
         :model-value="modelValue.header"
         :scope="scope"
         :mode="formMode"
-        :disabled="!writable"
+        :disabled="!writable || preparing"
         @update:model-value="setHeader"
         @pending="
           headerPending = $event;
           pending();
         "
       />
+    </div>
+    <div class="zerp-feedback-region">
+      <Feedback :message="error" kind="error" />
+      <Feedback :message="preparing ? '正在更新明细…' : undefined" persistent />
     </div>
     <div class="zerp-voucher-editor__table">
       <VTable aria-label="单据明细">
@@ -264,7 +482,7 @@ onBeforeUnmount(() => emit("pending", false));
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(row, index) in modelValue.rows" :key="rowKey(row)">
+          <tr v-for="(row, index) in visibleValue.rows" :key="rowKey(row)">
             <td
               v-for="column in visibleColumns"
               :key="column.key"
@@ -276,13 +494,14 @@ onBeforeUnmount(() => emit("pending", false));
                   variant="tonal"
                   type="button"
                   :disabled="
+                    preparing ||
                     !!editing ||
                     !!childEditing ||
                     (mode === 'edit' && !!disabled)
                   "
                   @click="beginChild(row, column, $event)"
                 >
-                  {{ writable ? "编辑" : "查看" }}{{ column.label }} · 明细行
+                  {{ canUpdate ? "编辑" : "查看" }}{{ column.label }} · 明细行
                   {{ index + 1 }}
                 </VBtn>
                 <span>{{ display(row, column) }}</span>
@@ -294,7 +513,8 @@ onBeforeUnmount(() => emit("pending", false));
                 color=""
                 variant="tonal"
                 type="button"
-                :disabled="!!editing || !!childEditing"
+                :disabled="preparing || !!editing || !!childEditing"
+                v-if="canUpdate"
                 @click="begin(row)"
               >
                 编辑明细行 {{ index + 1 }}
@@ -303,7 +523,8 @@ onBeforeUnmount(() => emit("pending", false));
                 color=""
                 variant="tonal"
                 type="button"
-                :disabled="!!editing || !!childEditing"
+                :disabled="preparing || !!editing || !!childEditing"
+                v-if="canDelete"
                 @click="deleting = rowKey(row)"
               >
                 删除明细行 {{ index + 1 }}
@@ -330,13 +551,13 @@ onBeforeUnmount(() => emit("pending", false));
           </tr>
         </tbody>
       </VTable>
-      <p v-if="modelValue.rows.length === 0">暂无明细行</p>
+      <p v-if="visibleValue.rows.length === 0">暂无明细行</p>
       <VBtn
         color=""
         variant="tonal"
-        v-if="writable"
+        v-if="canInsert"
         type="button"
-        :disabled="!!editing || !!childEditing"
+        :disabled="preparing || !!editing || !!childEditing"
         @click="begin()"
       >
         新增明细行
@@ -349,13 +570,16 @@ onBeforeUnmount(() => emit("pending", false));
       role="region"
       aria-label="编辑明细行"
     >
+      <p v-if="!editing.value">该明细行已移除。</p>
       <DynamicForm
-        :fields="rowFields"
+        v-else
+        :key="rowFormVersion"
+        :fields="activeRowFields"
         :model-value="editing.value"
         :scope="scope"
         :mode="formMode"
-        :disabled="!writable"
-        @update:model-value="editing = { ...editing!, value: $event }"
+        :disabled="!writable || preparing"
+        @update:model-value="changeRow"
         @pending="
           rowPending = $event;
           pending();
@@ -365,7 +589,7 @@ onBeforeUnmount(() => emit("pending", false));
         color="primary"
         variant="flat"
         type="button"
-        :disabled="!writable || rowPending"
+        :disabled="!writable || preparing || rowPending"
         @click="finishRow"
       >
         确定明细行
@@ -391,7 +615,7 @@ onBeforeUnmount(() => emit("pending", false));
       ><VDefaultsProvider :defaults="pageDefaults"
         ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
           <FactFields
-            v-if="mode === 'read'"
+            v-if="!canUpdate"
             :fields="formFacts(childFields)"
             :value="{ items: child.rows }"
           />
@@ -401,7 +625,7 @@ onBeforeUnmount(() => emit("pending", false));
             :model-value="{ items: child.rows }"
             :scope="scope"
             :mode="formMode"
-            :disabled="!writable"
+            :disabled="!writable || preparing"
             @update:model-value="
               childEditing?.token === child.token &&
               (childEditing = { ...child, rows: $event.items })
@@ -416,7 +640,7 @@ onBeforeUnmount(() => emit("pending", false));
           <VBtn
             color="primary"
             variant="flat"
-            v-if="writable"
+            v-if="canUpdate"
             type="button"
             :disabled="childPending"
             @click="childEditing?.token === child.token && finishChild()"
@@ -430,7 +654,7 @@ onBeforeUnmount(() => emit("pending", false));
             type="button"
             @click="childEditing?.token === child.token && cancelChild()"
           >
-            {{ writable ? "取消" : "关闭" }}{{ child.column.label }}
+            {{ canUpdate ? "取消" : "关闭" }}{{ child.column.label }}
           </VBtn>
         </VCard></VDefaultsProvider
       ></VDialog

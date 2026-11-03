@@ -11,6 +11,7 @@ import { sample, scriptSample, type Scenario, type Entry } from "./adapters";
 
 import Operations from "./Operations.vue";
 import StandaloneEditor from "./StandaloneEditor.vue";
+import ActiveRowFields from "./ActiveRowFields.vue";
 const kind = ref<"ordinary" | "opening" | "system">("ordinary"),
   scenario = ref<Scenario>("success");
 const observedInput = shallowRef<Entry>();
@@ -102,6 +103,7 @@ const scope = ref("synthetic-session-a");
 <template>
   <ExamplePage v-if="mode === 'submission'" :page="page" :scope="scope" />
   <StandaloneEditor v-else-if="mode === 'editor'" />
+  <ActiveRowFields v-else-if="mode === 'active-row'" />
   <Operations v-else />
   <aside class="example-controls" aria-label="合成单据控制">
     <label
@@ -133,6 +135,7 @@ const scope = ref("synthetic-session-a");
       >单据演示<select v-model="mode" aria-label="单据演示">
         <option value="submission">完整单据</option>
         <option value="editor">详情编辑</option>
+        <option value="active-row">逐行字段与候选草稿</option>
         <option value="operation">独立单据办理示例</option>
       </select></label
     >

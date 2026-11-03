@@ -330,3 +330,45 @@ it("notifies only adopted filter snapshots and preserves them after query failur
   );
   w.unmount();
 });
+
+it("retains an active draft when only reconciliation permission changes", async () => {
+  const d = definition(),
+    w = await start(d);
+  await click(w, "编辑");
+  await w.get('input[aria-label="名称"]').setValue("未提交名称");
+  const queries = vi.mocked(d.adapter.query).mock.calls.length;
+  await w.setProps({ permissions: { ...permissions, reconcile: false } });
+  await flushPromises();
+  expect(w.get('input[aria-label="名称"]').element).toHaveProperty(
+    "value",
+    "未提交名称",
+  );
+  expect(d.adapter.query).toHaveBeenCalledTimes(queries);
+  w.unmount();
+});
+it("confirms an authorized deletion from a readonly record without enabling saves", async () => {
+  const d = definition();
+  d.actions = () => ["view", "delete"] as never;
+  d.adapter.get = async () => ({
+    values: { name: "只读记录" },
+    identity: "one",
+    writable: false,
+  });
+  const w = await start(d);
+  await click(w, "查看");
+  const detail = w.get('[aria-label="查看资料"]');
+  expect(detail.findAll("button").some((b) => b.text() === "保存")).toBe(false);
+  await detail
+    .findAll("button")
+    .find((b) => b.text() === "删除")!
+    .trigger("click");
+  await flushPromises();
+  expect(d.adapter.delete).not.toHaveBeenCalled();
+  await click(w, "确认删除");
+  expect(d.adapter.delete).toHaveBeenCalledOnce();
+  expect(d.adapter.delete).toHaveBeenCalledWith(
+    expect.objectContaining({ operation: "delete", identity: "one" }),
+  );
+  expect(d.adapter.save).not.toHaveBeenCalled();
+  w.unmount();
+});

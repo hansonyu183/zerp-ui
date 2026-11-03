@@ -53,3 +53,95 @@ const badField: VoucherEditorDefinition<Header, Row, Child> = {
   ],
 };
 void badField;
+
+const asynchronous = {
+  ...valid,
+  emptyRow: async () => ({ id: "async", name: "默认", formula: [] }),
+} satisfies VoucherEditorDefinition<Header, Row, Child>;
+void asynchronous;
+const invalidAsync: VoucherEditorDefinition<Header, Row, Child> = {
+  ...valid,
+  // @ts-expect-error async defaults must return the same complete row
+  emptyRow: async () => ({ id: "missing-fields" }),
+};
+void invalidAsync;
+const transformed: VoucherEditorDefinition<Header, Row, Child> = {
+  ...asynchronous,
+  transformRow: async ({ value, previous }: { value: Row; previous: Row }) => ({
+    ...value,
+    name: previous.name,
+  }),
+  rowOperations: { insert: true, update: false, delete: false },
+};
+void transformed;
+const invalidTransform: VoucherEditorDefinition<Header, Row, Child> = {
+  ...valid,
+  // @ts-expect-error transformed rows retain the full row contract
+  transformRow: async () => ({ id: "incomplete" }),
+};
+void invalidTransform;
+const fullDraft: VoucherEditorDefinition<Header, Row, Child> = {
+  headerFields: valid.headerFields,
+  rowFields: valid.rowFields,
+  columns: valid.columns,
+  rowKey: valid.rowKey,
+  rowDraft: {
+    prepare: async ({ candidate }) => ({
+      rowKey: "prepared",
+      candidate: {
+        ...candidate,
+        rows: [
+          ...candidate.rows,
+          { id: "prepared", name: "新行", formula: [] },
+        ],
+      },
+    }),
+    change: async ({ value, previous, candidate }) => ({
+      ...candidate,
+      rows: candidate.rows.map((row) => (row.id === previous.id ? value : row)),
+    }),
+  },
+};
+void fullDraft;
+// @ts-expect-error full candidates and simple row-only preparation are separate contracts
+const mixedDraft: VoucherEditorDefinition<Header, Row, Child> = {
+  ...fullDraft,
+  emptyRow: valid.emptyRow,
+};
+void mixedDraft;
+// @ts-expect-error full candidates cannot silently ignore a row-only transformation
+const mixedTransform: VoucherEditorDefinition<Header, Row, Child> = {
+  ...fullDraft,
+  transformRow: ({ value }: { value: Row }) => value,
+};
+void mixedTransform;
+const invalidCandidate: VoucherEditorDefinition<Header, Row, Child> = {
+  ...fullDraft,
+  rowDraft: {
+    // @ts-expect-error a full preparation must return the matching full header and row types
+    prepare: async () => ({
+      rowKey: "bad",
+      candidate: { header: { other: true }, rows: [] },
+    }),
+  },
+};
+void invalidCandidate;
+
+const activeFields: VoucherEditorDefinition<Header, Row, Child> = {
+  ...valid,
+  rowFields: (row) => [
+    {
+      key: "name",
+      label: row.name,
+      type: "text",
+      readonly: row.id === "locked",
+    },
+  ],
+};
+void activeFields;
+const invalidActiveFields: VoucherEditorDefinition<Header, Row, Child> = {
+  ...valid,
+  // @ts-expect-error factory fields must still name fields of the matching row
+  rowFields: (row) => [{ key: "absent", label: row.name, type: "text" }],
+};
+void invalidActiveFields;

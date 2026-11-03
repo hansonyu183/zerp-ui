@@ -380,7 +380,7 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
     localPending.value ||
     !props.permissions.query ||
     !props.permissions.write ||
-    editor.value?.readOnly
+    ((operation === "save" || operation === "create") && editor.value?.readOnly)
   )
     return;
   if (operation === "create" && !props.permissions.create) return;
@@ -625,12 +625,12 @@ const captions = {
   delete: "删除",
 } as const;
 watch(
-  () => [
-    props.scope,
-    props.definition,
-    props.permissions.query,
-    props.permissions.write,
-    props.permissions.create,
+  [
+    () => props.scope,
+    () => props.definition,
+    () => props.permissions.query,
+    () => props.permissions.write,
+    () => props.permissions.create,
   ],
   () => {
     version++;
@@ -921,6 +921,26 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       >
         编辑
       </VBtn>
+      <VBtn
+        v-if="
+          editor.row &&
+          permissions.write &&
+          definition.adapter.delete &&
+          definition.actions(editor.row).includes('delete')
+        "
+        color="error"
+        variant="tonal"
+        type="button"
+        :disabled="blocked"
+        @click="
+          confirming = {
+            row: editor.row,
+            action: 'delete',
+            trigger: $event.currentTarget as HTMLButtonElement,
+          }
+        "
+        >删除</VBtn
+      >
       <VBtn
         color=""
         variant="tonal"
