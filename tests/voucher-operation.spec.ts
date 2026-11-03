@@ -258,7 +258,11 @@ it("recovers the exact original input after remount, isolates another operator a
   w.unmount();
   w = f.start();
   await flushPromises();
-  expect(w.text()).toContain(original.requestId);
+  expect(w.text()).not.toContain(original.requestId);
+  expect(
+    (await f.definition.persistence.load(f.intent.owner))?.request,
+  ).toEqual(original);
+  expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
   await w.setProps({
     intent: { ...f.intent, owner: { ...f.intent.owner, operator: "b" } },
   });
@@ -625,7 +629,11 @@ it.each(["no-evidence", "verification-failure"] as const)(
     f.scenario(scenario);
     await click(w, "核实原请求");
     expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
-    expect(w.text()).toContain(original.requestId);
+    expect(w.text()).not.toContain(original.requestId);
+    expect(
+      (await f.definition.persistence.load(f.intent.owner))?.request,
+    ).toEqual(original);
+    expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
     expect(f.events.filter((e) => e.startsWith("execute:"))).toHaveLength(1);
     w.unmount();
   },
@@ -873,7 +881,11 @@ it("clears sensitive visible request details when both operation and recovery ac
   expect(w.text()).not.toContain(original.requestId);
   expect(w.text()).toContain("无办理或核实权限");
   await w.setProps({ recoveryAllowed: true });
-  expect(w.text()).toContain(original.requestId);
+  expect(w.text()).not.toContain(original.requestId);
+  expect(
+    (await f.definition.persistence.load(f.intent.owner))?.request,
+  ).toEqual(original);
+  expect(button(w, "准备作废").attributes("disabled")).toBeDefined();
   expect(f.definition.adapter.execute).toHaveBeenCalledTimes(1);
   w.unmount();
 });
