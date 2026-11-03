@@ -10,7 +10,7 @@
 
 公司 DTO、业务规则、API 路径、请求、凭证、Session、Router、导航过滤和页面选择由消费者持有。库不会创建公司 API 客户端、Session store 或路由注册平台。原 ZERP/oit-go 保持只读，真实应用接入由发布后的独立工单负责。
 
-当前源码的待发行变更见 [CHANGELOG](CHANGELOG.md#unreleased)：手机端列表改为卡片、导航分组默认收起，配置定义移除 `createLabel`，新增文案统一由库负责。以下固定版本安装仍指已发布工件。
+0.13.0 的完整变更见 [CHANGELOG](CHANGELOG.md#0130)：手机端列表改为卡片、导航分组默认收起，配置定义移除 `createLabel`，新增文案统一由库负责。
 
 ## 固定版本安装
 
@@ -26,11 +26,11 @@
 
 0.12.0 整合异步行草稿、整单候选原子采用、逐行权限与动态字段，并补回只读资料详情的获权删除；完整页面与 Material 所有权保持。
 
-从 [ui-v0.12.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.12.0) 下载 `zerp-ui-0.12.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.13.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.13.0) 下载 `zerp-ui-0.13.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.12.0.tgz
+pnpm add ./zerp-ui-0.13.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
