@@ -336,7 +336,7 @@ it("retains an active draft when only reconciliation permission changes", async 
     w = await start(d);
   await click(w, "编辑");
   await w.get('input[aria-label="名称"]').setValue("未提交名称");
-  const queries = d.adapter.query.mock.calls.length;
+  const queries = vi.mocked(d.adapter.query).mock.calls.length;
   await w.setProps({ permissions: { ...permissions, reconcile: false } });
   await flushPromises();
   expect(w.get('input[aria-label="名称"]').element).toHaveProperty(
