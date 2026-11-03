@@ -693,7 +693,7 @@ async function directSmoke(page) {
     await expect(card).toBeVisible();
     await expect(rows.getByRole("table")).toHaveCount(0);
     await expect(card.getByText("名称", { exact: true })).toBeVisible();
-    await expect(card.getByText("合成客户", { exact: true })).toBeVisible();
+    await expect(card.locator('[data-label="名称"]')).toContainText("合成客户");
     const selected = card.getByRole("checkbox", {
       name: "选择 row-actions",
       exact: true,
@@ -1210,13 +1210,15 @@ async function voucherSmoke(page) {
     });
     await expect(card).toBeVisible();
     await expect(standalone.getByRole("table")).toHaveCount(0);
-    await expect(card.getByText("0.0100", { exact: true })).toBeVisible();
+    await expect(card.locator('[data-label="数量"]')).toContainText("0.0100");
     await card.getByRole("button", { name: "编辑", exact: true }).click();
     await standalone.getByLabel("品名", { exact: true }).fill("手机未确认输入");
     await standalone
       .getByRole("button", { name: "取消明细行", exact: true })
       .click();
-    await expect(card.getByText("合成商品甲", { exact: true })).toBeVisible();
+    await expect(card.locator('[data-label="品名"]')).toContainText(
+      "合成商品甲",
+    );
     await card.getByRole("button", { name: "删除", exact: true }).click();
     await card.getByRole("button", { name: "取消删除", exact: true }).click();
     await expect(card).toBeVisible();

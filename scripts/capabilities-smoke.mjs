@@ -38,7 +38,7 @@ export async function taskMaterialSmoke(page) {
     const grid = page.getByLabel("计算结果", { exact: true });
     await expect(grid.locator("article.zerp-record-card")).toHaveCount(1);
     await expect(grid.getByText("内容", { exact: true })).toBeVisible();
-    await expect(grid.getByText("合成业务", { exact: true })).toBeVisible();
+    await expect(grid.locator('[data-label="内容"]')).toContainText("合成业务");
     await expect(grid.getByRole("table")).toHaveCount(0);
   }
   await page.setViewportSize({ width: 1280, height: 1400 });
