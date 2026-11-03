@@ -435,3 +435,37 @@
 .zerp-collaboration-progress {
   block-size: 4px;
 }
+
+/* Phone records retain the same data and actions, presented as Material cards. */
+.zerp-record-cards {
+  display: grid;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+.zerp-record-card,
+.zerp-list--cards .zerp-report-group-summary {
+  padding: 0.75rem;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.zerp-record-card [data-label],
+.zerp-list--cards .zerp-report-group-summary [data-label],
+.zerp-list--cards section[aria-label] [data-label] {
+  padding-block: 0.35rem;
+  min-inline-size: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.zerp-record-card__label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.zerp-record-card .v-btn:not(.v-btn--icon) {
+  max-inline-size: 100%;
+  white-space: normal;
+}
+.zerp-list--cards section[aria-label] {
+  margin-block-start: 0.75rem;
+  padding: 0.75rem;
+}

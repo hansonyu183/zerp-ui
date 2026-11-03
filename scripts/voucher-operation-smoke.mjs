@@ -1,4 +1,32 @@
 import assert from "node:assert/strict";
+// Read the synthetic consumer's own durable store, without exposing library internals in business UI.
+async function savedOriginal(page) {
+  return page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const open = indexedDB.open("zerp-ui-synthetic-operations", 1);
+      open.onsuccess = () => resolve(open.result);
+      open.onerror = () => reject(open.error);
+    });
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction("requests", "readonly");
+        const read = tx
+          .objectStore("requests")
+          .get(
+            JSON.stringify([
+              "synthetic-session",
+              "synthetic-a",
+              "synthetic-voucher",
+            ]),
+          );
+        tx.oncomplete = () => resolve(read.result.request);
+        tx.onerror = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
+}
 export async function voucherOperationSmoke(page) {
   const region = page.getByRole("region", {
     name: "单据办理消费者",
@@ -49,33 +77,26 @@ export async function voucherOperationSmoke(page) {
       .writeState,
     "unknown",
   );
-  const requestText = await page
-    .locator('section[aria-label="单据办理"] > p')
-    .filter({ hasText: "原请求：" })
-    .textContent();
-  const requestId = requestText.match(/原请求：([^ ]+)/)[1];
+  const originalRequest = await savedOriginal(page);
   await button("普通读取").click();
   assert.ok(await button("准备作废").isDisabled());
   await button("卸载演示").click();
   await button("恢复演示").click();
-  await region
-    .locator('section[aria-label="单据办理"] > p')
-    .filter({ hasText: `原请求：${requestId}` })
-    .waitFor();
+  await button("核对原办理回执").waitFor();
+  assert.ok(await button("准备作废").isDisabled());
+  assert.deepEqual(await savedOriginal(page), originalRequest);
   await page.reload();
   await page.getByLabel("单据演示", { exact: true }).selectOption("operation");
-  await region
-    .locator('section[aria-label="单据办理"] > p')
-    .filter({ hasText: `原请求：${requestId}` })
-    .waitFor();
+  await button("核对原办理回执").waitFor();
+  assert.ok(await button("准备作废").isDisabled());
+  assert.deepEqual(await savedOriginal(page), originalRequest);
   await region.getByLabel("操作者").selectOption("synthetic-b");
   await status("可以准备办理");
   assert.ok(await button("准备作废").isEnabled());
   await region.getByLabel("操作者").selectOption("synthetic-a");
-  await region
-    .locator('section[aria-label="单据办理"] > p')
-    .filter({ hasText: `原请求：${requestId}` })
-    .waitFor();
+  await button("核对原办理回执").waitFor();
+  assert.ok(await button("准备作废").isDisabled());
+  assert.deepEqual(await savedOriginal(page), originalRequest);
   await region.getByLabel("合成情景").selectOption("wrong-proof");
   await button("核对原办理回执").click();
   await status("证据不匹配");
@@ -254,20 +275,11 @@ export async function voucherOperationSmoke(page) {
   await button("准备创建").click();
   await button("确认本次办理").click();
   await status("结果未知");
-  const originalCreate = await region
-    .locator('section[aria-label="单据办理"] > p')
-    .filter({ hasText: "原请求：" })
-    .textContent();
+  const originalCreate = await savedOriginal(page);
   await page.reload();
   await page.getByLabel("单据演示", { exact: true }).selectOption("operation");
   await status("已恢复原请求");
-  assert.equal(
-    await region
-      .locator('section[aria-label="单据办理"] > p')
-      .filter({ hasText: "原请求：" })
-      .textContent(),
-    originalCreate,
-  );
+  assert.deepEqual(await savedOriginal(page), originalCreate);
   await button("核对原办理回执").click();
   await status("可显式准备新请求");
   const result = region.getByLabel("合成 Adapter 结果", { exact: true });

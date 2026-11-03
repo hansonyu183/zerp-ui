@@ -298,7 +298,7 @@ it("adopts the authoritative created identity and reread baseline before continu
     props: { definition: d, scope: "a", permissions, retainEditor: true },
   });
   await flushPromises();
-  await click(w, "新增配置");
+  await click(w, "新增");
   await w.get('input[aria-label="名称"]').setValue("草稿");
   await click(w, "保存");
   expect(get).toHaveBeenCalledWith({

@@ -2,11 +2,15 @@
 
 `@zerp/ui` 是独立发布的 Vue/Vuetify 完整页面库。正式规格与交付记录在本仓库 GitHub Issues；当前页面边界见 [#40](https://github.com/hansonyu183/zerp-ui/issues/40)，继承 #7/#22/#32 未冲突的生命周期和原请求保证。
 
+页面设计、实现与审查遵循[个人 UI 要求](docs/ui-preferences.md)，其中汇总固定顶栏、稳定反馈、Material 主题、语义图标及业务文案要求，并注明跨项目来源和职责边界。
+
 ## 公开入口
 
 只有 `AuthPage` 与 `AppPage` 两个公开 Vue 组件。消费者提供强类型页面定义、字段、分组、顺序、数据与 Adapter；库决定完整页面、领域区块、顶栏、弹层、反馈和响应式布局。不接收主内容插槽、消费者组件、模板、render 或 CSS 布局配置，不提供内部组件子路径、别名或兼容包装器。
 
 公司 DTO、业务规则、API 路径、请求、凭证、Session、Router、导航过滤和页面选择由消费者持有。库不会创建公司 API 客户端、Session store 或路由注册平台。原 ZERP/oit-go 保持只读，真实应用接入由发布后的独立工单负责。
+
+当前源码的待发行变更见 [CHANGELOG](CHANGELOG.md#unreleased)：手机端列表改为卡片、导航分组默认收起，配置定义移除 `createLabel`，新增文案统一由库负责。以下固定版本安装仍指已发布工件。
 
 ## 固定版本安装
 

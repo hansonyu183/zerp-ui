@@ -228,7 +228,7 @@ async function query(next = page.value, submit = false) {
         const identity = target.context.identity;
         if (identity === undefined)
           throw new Error(
-            "保存已确认，但协议未返回新记录身份；无法继续编辑。请由 Adapter 提供权威身份。",
+            "保存成功，但暂时无法打开已保存的记录。请重试读取，勿重复保存。",
           );
         const detail = await props.definition.adapter.get({
           scope: props.scope,
@@ -670,7 +670,7 @@ onBeforeUnmount(() => {
       :disabled="blocked || !!editor || detailLoading"
       @click="enter()"
     >
-      {{ definition.createLabel ?? "新增配置" }}
+      新增
     </VBtn>
     <DataList
       :columns="definition.columns"

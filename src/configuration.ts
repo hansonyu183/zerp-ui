@@ -40,7 +40,6 @@ export type ConfigurationDefinition<
 > = {
   resource: string;
   title: string;
-  createLabel?: string;
   saveLabel?: string;
   savedMessage?: string;
   fields: Fields<D>;

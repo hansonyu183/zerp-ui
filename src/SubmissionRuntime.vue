@@ -714,7 +714,7 @@ onBeforeUnmount(() => {
       :disabled="disabled || loading"
       @click="resumeDraft"
     >
-      恢复 Draft
+      恢复草稿
     </VBtn>
     <section v-if="vouchers && permissions.read" aria-label="单据列表">
       <VBtn
@@ -724,7 +724,7 @@ onBeforeUnmount(() => {
         :disabled="disabled || loading || editor"
         @click="prepare('create')"
       >
-        创建 Draft
+        新增
       </VBtn>
       <DataList
         :columns="[
@@ -735,18 +735,10 @@ onBeforeUnmount(() => {
         :page="voucherPage"
         :page-size="20"
         :loading="loading || editor"
+        :actions="() => ['view'] as const"
+        @action="(_, row) => openVoucher(row.identity)"
         @page="pageVouchers"
       />
-      <VBtn
-        color=""
-        variant="tonal"
-        v-for="(row, index) in rows.items"
-        :key="index"
-        :disabled="loading || editor"
-        @click="openVoucher(row.identity)"
-      >
-        查看 {{ row.number }}
-      </VBtn>
     </section>
     <nav
       v-if="permissions.read"
@@ -817,7 +809,7 @@ onBeforeUnmount(() => {
           :disabled="disabled || loading"
           @click="prepare('clone')"
         >
-          克隆 Draft
+          克隆
         </VBtn>
         <DynamicForm
           v-if="!editor"

@@ -763,7 +763,12 @@ it("denies an ordinary switch from an unknown operation to another page but clea
   await click("确认作废");
   const original = await definition.persistence.load(originalOwner);
   expect(original).not.toBeNull();
-  expect(wrapper.text()).toContain(original!.request.requestId);
+  expect(wrapper.text()).not.toContain(original!.request.requestId);
+  expect(
+    hostAndDialogButtons(wrapper)
+      .find((node) => node.text() === "准备作废")!
+      .attributes("disabled"),
+  ).toBeDefined();
   const details = defineDetailsPage({
     title: "其它资料",
     instance: "other",
@@ -773,7 +778,12 @@ it("denies an ordinary switch from an unknown operation to another page but clea
   await wrapper.setProps({ page: details });
   await flushPromises();
   expect(wrapper.get("h1").text()).toBe("原办理页面");
-  expect(wrapper.text()).toContain(original!.request.requestId);
+  expect(wrapper.text()).not.toContain(original!.request.requestId);
+  expect(
+    hostAndDialogButtons(wrapper)
+      .find((node) => node.text() === "准备作废")!
+      .attributes("disabled"),
+  ).toBeDefined();
   await wrapper.setProps({ page });
   await flushPromises();
   actor.operator = "operator-b";
@@ -1297,14 +1307,14 @@ it("presents every domain-row action as disabled while the original save is pend
   await flushPromises();
   const action = (name: string) =>
     hostAndDialogButtons(wrapper).find((node) => node.text() === name)!;
-  const names = ["编辑锁定条目 1", "删除锁定条目 1", "新增锁定条目"];
+  const names = ["编辑锁定条目 1", "删除锁定条目 1", "新增"];
   for (const name of names)
     expect(action(name).attributes("disabled")).toBeUndefined();
   await action("保存").trigger("click");
   await flushPromises();
   for (const name of names)
     expect(action(name).attributes("disabled")).toBeDefined();
-  await action("新增锁定条目").trigger("click");
+  await action("新增").trigger("click");
   expect(wrapper.find('input[aria-label="条目名称"]').exists()).toBe(false);
   finish({ status: "unknown" });
   await flushPromises();

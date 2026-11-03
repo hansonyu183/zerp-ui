@@ -33,6 +33,15 @@ export async function taskMaterialSmoke(page) {
     await expect(upload).toHaveValue("");
   }
   await value.fill("合成业务");
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const grid = page.getByLabel("计算结果", { exact: true });
+    await expect(grid.locator("article.zerp-record-card")).toHaveCount(1);
+    await expect(grid.getByText("内容", { exact: true })).toBeVisible();
+    await expect(grid.getByText("合成业务", { exact: true })).toBeVisible();
+    await expect(grid.getByRole("table")).toHaveCount(0);
+  }
+  await page.setViewportSize({ width: 1280, height: 1400 });
 }
 export async function capabilitiesSmoke(page, printEvidence) {
   await durableRecoverySmoke(page);

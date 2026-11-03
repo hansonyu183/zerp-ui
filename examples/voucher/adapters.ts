@@ -186,7 +186,7 @@ export function sample(
               revision: "r0",
               submission: null,
             },
-            number: "克隆 Draft",
+            number: "克隆",
             state: "open",
             eligible: { edit: true, approve: true, clone: true },
             attachments: [],

@@ -42,9 +42,24 @@ function editor(mode: "read" | "edit" = "edit") {
   );
   return { wrapper, value };
 }
+async function clickRow(
+  wrapper: ReturnType<typeof mount>,
+  action: string,
+  row: number,
+) {
+  await wrapper
+    .findAll('[data-label="操作"]')
+    [row - 1]!.get(`[aria-label="${action}"]`)
+    .trigger("click");
+  await flushPromises();
+}
 async function click(wrapper: ReturnType<typeof mount>, text: string) {
   await hostAndDialogButtons(wrapper)
-    .find((b) => b.text() === text)!
+    .find(
+      (b) =>
+        (b.text() === text || b.attributes("aria-label") === text) &&
+        b.attributes("disabled") === undefined,
+    )!
     .trigger("click");
   await flushPromises();
 }
@@ -57,11 +72,11 @@ it("shows a voucher header and detail table and edits a row without changing dec
   expect(wrapper.find("table").text()).toContain("9007199254740993.0100");
   await wrapper.get('input[aria-label="供应商"]').setValue("合成供应商乙");
   expect(value.value.header.supplier).toBe("合成供应商乙");
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   await wrapper.get('input[aria-label="品名"]').setValue("修改品名");
   await click(wrapper, "取消明细行");
   expect(value.value.rows[0].name).toBe("合成商品");
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   await wrapper.get('input[aria-label="品名"]').setValue("修改品名");
   await click(wrapper, "确定明细行");
   expect(value.value.rows).toEqual([
@@ -79,13 +94,13 @@ it("shows the same details without editing actions in read mode", () => {
 });
 it("adds and confirms deletion of a detail row", async () => {
   const { wrapper, value } = editor();
-  await click(wrapper, "新增明细行");
+  await click(wrapper, "新增");
   await wrapper.get('input[aria-label="品名"]').setValue("第二商品");
   await click(wrapper, "确定明细行");
   expect(value.value.rows).toHaveLength(2);
-  await click(wrapper, "删除明细行 1");
+  await clickRow(wrapper, "删除", 1);
   expect(value.value.rows).toHaveLength(2);
-  await click(wrapper, "确认删除明细行 1");
+  await click(wrapper, "确认删除");
   expect(value.value.rows.map((row) => row.id)).toEqual(["two"]);
   wrapper.unmount();
 });
@@ -138,7 +153,7 @@ function formulaEditor(mode: "read" | "edit" = "edit") {
 it("edits only the selected row's formula children and discards cancelled changes", async () => {
   const { wrapper, value } = formulaEditor();
   await click(wrapper, "编辑配方 · 明细行 2");
-  await click(wrapper, "新增配方");
+  await click(wrapper, "新增");
   await new DOMWrapper(document.body)
     .get('input[aria-label="原料"]')
     .setValue("合成原料");
@@ -149,7 +164,7 @@ it("edits only the selected row's formula children and discards cancelled change
   await click(wrapper, "取消配方");
   expect(value.value.rows[1].formula).toEqual([]);
   await click(wrapper, "编辑配方 · 明细行 2");
-  await click(wrapper, "新增配方");
+  await click(wrapper, "新增");
   await new DOMWrapper(document.body)
     .get('input[aria-label="原料"]')
     .setValue("合成原料");
@@ -168,7 +183,7 @@ it("edits only the selected row's formula children and discards cancelled change
 it("discards an open formula draft on scope change and allows read-only inspection", async () => {
   const { wrapper, value, scope } = formulaEditor();
   await click(wrapper, "编辑配方 · 明细行 2");
-  await click(wrapper, "新增配方");
+  await click(wrapper, "新增");
   await new DOMWrapper(document.body)
     .get('input[aria-label="原料"]')
     .setValue("迟到原料");
@@ -208,7 +223,7 @@ it("moves focus into the formula dialog and restores it on close", async () => {
 it("keeps the formula draft pending while a child row is being edited", async () => {
   const { wrapper, value } = formulaEditor();
   await click(wrapper, "编辑配方 · 明细行 1");
-  await click(wrapper, "新增配方");
+  await click(wrapper, "新增");
   expect(
     hostAndDialogButtons(wrapper)
       .find((b) => b.text() === "确定配方")!
@@ -234,7 +249,7 @@ it("drops a formula draft if the parent rows change while it is open", async () 
 });
 it("reports unfinished local row input until it is confirmed or discarded", async () => {
   const { wrapper, value } = editor();
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   const component = wrapper.findComponent({ name: "VoucherEditor" });
   expect(component.emitted("pending")?.at(-1)).toEqual([true]);
   await wrapper.get('input[aria-label="品名"]').setValue("未确认的输入");
@@ -267,18 +282,18 @@ it("awaits a new row before opening and locks concurrent row actions", async () 
       resolve = done;
     });
   });
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   expect(calls).toBe(0);
   await click(wrapper, "取消明细行");
-  await click(wrapper, "新增明细行");
+  await click(wrapper, "新增");
   expect(wrapper.find('[aria-label="编辑明细行"]').exists()).toBe(false);
   expect(wrapper.get('[role="status"]').text()).toContain("正在更新明细…");
   expect(wrapper.emitted("pending")?.at(-1)).toEqual([true]);
-  for (const name of ["新增明细行", "编辑明细行 1", "删除明细行 1"]) {
+  for (const name of ["新增", "编辑", "删除"]) {
     expect(
       wrapper
         .findAll("button")
-        .find((b) => b.text() === name)!
+        .find((b) => b.text() === name || b.attributes("aria-label") === name)!
         .attributes("disabled"),
     ).toBeDefined();
   }
@@ -305,12 +320,12 @@ it("shows a failed row preparation without inserting and permits retry", async (
     if (!attempts++) throw new Error("请选择仓库后重试。");
     return { id: "retry", name: "默认", quantity: "0" };
   });
-  await click(wrapper, "新增明细行");
+  await click(wrapper, "新增");
   expect(wrapper.get('[role="alert"]').text()).toContain("请选择仓库后重试。");
   expect(wrapper.find('[aria-label="编辑明细行"]').exists()).toBe(false);
   expect(wrapper.emitted("pending")?.at(-1)).toEqual([false]);
   expect(wrapper.emitted("update:modelValue")).toBeUndefined();
-  await click(wrapper, "新增明细行");
+  await click(wrapper, "新增");
   expect(wrapper.find('[role="alert"]').exists()).toBe(false);
   expect(wrapper.get('input[aria-label="品名"]').element).toHaveProperty(
     "value",
@@ -328,7 +343,7 @@ it.each(["scope", "instance", "mode", "disabled", "model", "unmount"])(
           resolve = done;
         }),
     );
-    await click(wrapper, "新增明细行");
+    await click(wrapper, "新增");
     if (change === "scope") await wrapper.setProps({ scope: "second" });
     if (change === "instance") await wrapper.setProps({ instance: 2 });
     if (change === "mode") await wrapper.setProps({ mode: "read" });
@@ -364,7 +379,7 @@ it("awaits a row transformation before adoption and retains previous input on fa
       });
     },
   });
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   await wrapper.get('input[aria-label="品名"]').setValue("修改");
   expect(
     wrapper
@@ -405,28 +420,32 @@ it("honors separate row operations and cancels a late default when insertion is 
     rowOperations: { insert: true, update: false, delete: false },
   });
   expect(
-    wrapper.findAll("button").some((b) => b.text() === "编辑明细行 1"),
+    wrapper
+      .findAll("button")
+      .some((b) => b.attributes("aria-label") === "编辑"),
   ).toBe(false);
   expect(
-    wrapper.findAll("button").some((b) => b.text() === "删除明细行 1"),
+    wrapper
+      .findAll("button")
+      .some((b) => b.attributes("aria-label") === "删除"),
   ).toBe(false);
-  await click(wrapper, "新增明细行");
+  await click(wrapper, "新增");
   await wrapper.setProps({
     rowOperations: { insert: false, update: true, delete: true },
   });
   resolve({ id: "late", name: "已撤销", quantity: "0" });
   await flushPromises();
   expect(wrapper.find('[aria-label="编辑明细行"]').exists()).toBe(false);
-  expect(wrapper.findAll("button").some((b) => b.text() === "新增明细行")).toBe(
+  expect(wrapper.findAll("button").some((b) => b.text() === "新增")).toBe(
     false,
   );
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   await wrapper.setProps({
     rowOperations: { insert: false, update: false, delete: true },
   });
   expect(wrapper.find('[aria-label="编辑明细行"]').exists()).toBe(false);
-  await click(wrapper, "删除明细行 1");
-  await click(wrapper, "确认删除明细行 1");
+  await clickRow(wrapper, "删除", 1);
+  await click(wrapper, "确认删除");
   expect(
     (
       wrapper.emitted("update:modelValue")!.at(-1)![0] as VoucherEditorValue<
@@ -448,7 +467,7 @@ it.each(["scope", "disabled", "permission", "model", "cancel", "unmount"])(
           resolve = done;
         }),
     });
-    await click(wrapper, "编辑明细行 1");
+    await clickRow(wrapper, "编辑", 1);
     await wrapper.get('input[aria-label="品名"]').setValue("待核价格");
     if (change === "scope") await wrapper.setProps({ scope: "next" });
     if (change === "disabled") await wrapper.setProps({ disabled: true });
@@ -503,7 +522,7 @@ it("keeps a full prepared candidate local, cancels it all, then adopts header an
       onPending: (pending: boolean) => events.push(`pending:${pending}`),
     },
   });
-  await click(wrapper, "新增明细行");
+  await click(wrapper, "新增");
   expect(wrapper.get('[aria-label="单据表头"]').text()).toContain("候选供应商");
   expect(wrapper.find('input[aria-label="供应商"]').exists()).toBe(false);
   expect(wrapper.get("table").text()).toContain("他行改值");
@@ -518,7 +537,7 @@ it("keeps a full prepared candidate local, cancels it all, then adopts header an
     "合成供应商",
   );
   expect(wrapper.get("table").text()).toContain("合成商品");
-  await click(wrapper, "新增明细行");
+  await click(wrapper, "新增");
   const actionStart = events.length;
   await click(wrapper, "确定明细行");
   expect(wrapper.emitted("update:modelValue")).toHaveLength(1);
@@ -551,7 +570,7 @@ it("restores the visible integer input when a transformation fails", async () =>
       },
     },
   });
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   await wrapper.get('input[aria-label="件数"]').setValue("7");
   await flushPromises();
   expect(wrapper.get('[role="alert"]').text()).toContain("件数不可用。");
@@ -615,7 +634,7 @@ it("applies a whole calculation candidate and rolls back a rejected visible chan
       ),
     };
   });
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   await wrapper.get('input[aria-label="品名"]').setValue("第一修改");
   await flushPromises();
   expect(wrapper.get('[aria-label="单据表头"]').text()).toContain("计算供应商");
@@ -647,7 +666,7 @@ it("keeps a removed target as a full candidate until explicit adoption or cancel
     header: { ...candidate.header, supplier: "删除后表头" },
     rows: candidate.rows.filter((row) => row.id !== value.id),
   }));
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   await wrapper.get('input[aria-label="品名"]').setValue("移除当前行");
   await flushPromises();
   expect(wrapper.get('[aria-label="编辑明细行"]').text()).toContain(
@@ -657,7 +676,7 @@ it("keeps a removed target as a full candidate until explicit adoption or cancel
   expect(wrapper.emitted("update:modelValue")).toBeUndefined();
   await click(wrapper, "取消明细行");
   expect(wrapper.get("table").text()).toContain("合成商品");
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   await wrapper.get('input[aria-label="品名"]').setValue("移除当前行");
   await flushPromises();
   await click(wrapper, "确定明细行");
@@ -678,7 +697,7 @@ it.each(["scope", "instance", "model", "permission", "disabled", "unmount"])(
           resolve = done;
         }),
     );
-    await click(wrapper, "编辑明细行 1");
+    await clickRow(wrapper, "编辑", 1);
     await wrapper.get('input[aria-label="品名"]').setValue("等待计算");
     if (change === "scope") await wrapper.setProps({ scope: "next" });
     if (change === "instance") await wrapper.setProps({ instance: 2 });
@@ -719,7 +738,7 @@ it("permits init to remove the just-prepared target without losing other candida
       }),
     },
   });
-  await click(wrapper, "新增明细行");
+  await click(wrapper, "新增");
   expect(wrapper.get('[aria-label="编辑明细行"]').text()).toContain(
     "该明细行已移除。",
   );
@@ -741,7 +760,7 @@ it("labels direct header edits independently of row adoption", async () => {
 });
 it("drops a full local candidate when the external model changes before confirmation", async () => {
   const wrapper = fullEditor();
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   await wrapper.setProps({
     modelValue: {
       ...initial,
@@ -797,7 +816,7 @@ it("resolves new and existing row fields from an isolated active row", async () 
         }),
     }),
   );
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   expect(
     wrapper.get('input[aria-label="行数量"]').attributes("disabled"),
   ).toBeDefined();
@@ -807,7 +826,7 @@ it("resolves new and existing row fields from an isolated active row", async () 
   );
   await click(wrapper, "取消明细行");
   expect(model.value.rows[0].name).toBe("合成商品");
-  await click(wrapper, "新增明细行");
+  await click(wrapper, "新增");
   expect(
     wrapper.get('input[aria-label="行数量"]').attributes("disabled"),
   ).toBeUndefined();
@@ -865,7 +884,7 @@ it("re-resolves role visibility and readonly after an asynchronous full-row chan
       },
     },
   });
-  await click(wrapper, "编辑明细行 1");
+  await clickRow(wrapper, "编辑", 1);
   expect(wrapper.find('input[aria-label="子项标识"]').exists()).toBe(true);
   await wrapper.get('input[aria-label="行角色"]').setValue("main");
   expect(

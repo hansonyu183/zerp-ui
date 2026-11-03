@@ -330,10 +330,10 @@ it("never guesses a new configuration identity from the refreshed list", async (
     },
   });
   await flushPromises();
-  await click(w, "新增配置");
+  await click(w, "新增");
   await w.get('input[aria-label="名称"]').setValue("new");
   await click(w, "保存");
-  expect(w.text()).toContain("协议未返回新记录身份");
+  expect(w.text()).toContain("暂时无法打开已保存的记录");
   expect(get).not.toHaveBeenCalled();
   expect(w.emitted("protection")?.at(-1)?.[0]).toMatchObject({
     writeState: "refresh",
@@ -418,7 +418,7 @@ it("restores retained new configuration only from exact reconciliation identity 
   };
   let w = mount(ConfigurationView as Component, { props });
   await flushPromises();
-  await click(w, "新增配置");
+  await click(w, "新增");
   await w.get('input[aria-label="名称"]').setValue("发送草稿");
   await click(w, "保存");
   w.unmount();

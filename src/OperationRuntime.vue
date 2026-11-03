@@ -177,10 +177,6 @@ onBeforeUnmount(() => {
         persistent
       />
     </div>
-    <p v-if="state.journal">
-      原请求：{{ state.journal.request.requestId }} ·
-      {{ operationLabels[state.journal.request.action] }}
-    </p>
     <VBtn
       color=""
       variant="tonal"
@@ -208,11 +204,7 @@ onBeforeUnmount(() => {
       aria-label="完整办理预览"
     >
       <h2>{{ state.prepared.preview.title }}</h2>
-      <p>
-        动作：{{ operationLabels[state.prepared.action] }} · 原请求：{{
-          state.prepared.requestId
-        }}
-      </p>
+      <p>动作：{{ operationLabels[state.prepared.action] }}</p>
       <section
         v-for="section in state.prepared.preview.sections"
         :key="section.key"

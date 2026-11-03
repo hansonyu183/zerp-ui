@@ -46,7 +46,9 @@ async function start(options: Parameters<typeof createComplexDraft>[0] = {}) {
 }
 function button(w: VueWrapper, label: string) {
   const found = hostAndDialogButtons(w).find(
-    (b) => b.text() === label || b.attributes("aria-label") === label,
+    (b) =>
+      (b.text() === label || b.attributes("aria-label") === label) &&
+      (label !== "新增" || b.attributes("disabled") === undefined),
   );
   expect(found, label).toBeDefined();
   return found!;
@@ -93,7 +95,7 @@ it("saves only confirmed complex blocks with exact values, children and adopted 
   // Discard the entire local child panel, including any confirmed children.
   await click(w, "取消配料");
   await click(w, "编辑配料 · 明细行 2");
-  await click(w, "新增配料");
+  await click(w, "新增");
   const second = new DOMWrapper(document.body).get(
     '[role="dialog"][aria-label="配料 · 明细行 2"]',
   );
@@ -153,7 +155,7 @@ it("protects unfinished unit and child input, and cancels it without a final wri
   await click(w, "取消单位");
   expect(button(w, "保存").attributes("disabled")).toBeUndefined();
   await click(w, "编辑配料 · 明细行 1");
-  await click(w, "新增配料");
+  await click(w, "新增");
   expect(button(w, "确定配料").attributes("disabled")).toBeDefined();
   expect(button(w, "保存").attributes("disabled")).toBeDefined();
   await click(w, "取消子项");
@@ -360,7 +362,7 @@ it("retains an unfinished child draft when a calculation adopts equal committed 
     },
   });
   await click(w, "编辑配料 · 明细行 1");
-  await click(w, "新增配料");
+  await click(w, "新增");
   let dialog = new DOMWrapper(document.body).get(
     '[role="dialog"][aria-label="配料 · 明细行 1"]',
   );

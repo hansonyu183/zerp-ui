@@ -35,7 +35,7 @@ export async function complexDraftSmoke(page) {
     name: "配料 · 明细行 2",
     exact: true,
   });
-  await child.getByRole("button", { name: "新增配料", exact: true }).click();
+  await child.getByRole("button", { name: "新增", exact: true }).click();
   await expect(
     child.getByRole("button", { name: "确定配料", exact: true }),
   ).toBeDisabled();
