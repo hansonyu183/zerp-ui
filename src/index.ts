@@ -60,6 +60,8 @@ export type {
 
 export type {
   VoucherEditorValue,
+  VoucherEditorChange,
+  VoucherEditorRowDraft,
   VoucherEditorDefinition,
   VoucherEditorColumn,
   VoucherEditorChildColumn,

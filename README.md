@@ -208,3 +208,9 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 - 现有单据动作、输入、回执和持久化端口的语义保持；存储转换必须保留原 binding、终态及完成事实，不以版本升级清空原请求。
 - 新处理/打印/批量通过相应页面定义接入；只公开 AuthPage/AppPage，旧独立 View、消费者组件区块及私有子路径仍不可用。
 - 原 ZERP/oit-go 未升级或部署。本库合成验收不代表这些应用已可直接替换依赖，也不代表真实 API/E2E。
+
+### 未发行：单据明细草稿整合（#67）
+
+`VoucherEditorDefinition` 通过完整页面的 editor 或 voucher 领域区块使用：`rowFields` 可为字段数组或接收隔离当前行的同步函数；`rowOperations` 限定新增、编辑、删除。简单行使用可异步的 `emptyRow` 与 `transformRow`；整单计算使用互斥的 `rowDraft.prepare/change`，返回表头和全部明细的候选。候选在明确确认前只作局部展示，取消丢弃全部候选；异步等待阻止确认，错误保留先前值，资源/身份/权限变化使迟到响应失效。最终写入和未知结果锁仍归页面运行时。
+
+合成完整页面示例见 `examples/voucher/ActiveRowFields.vue`。这些源码能力尚未发行，不改变上方固定版本的安装事实。

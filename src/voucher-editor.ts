@@ -1,3 +1,4 @@
+import { clone } from "./clone";
 import type { Column, Fields } from "./contracts";
 
 export type VoucherEditorValue<H extends object, R extends object> = {
@@ -21,17 +22,40 @@ export type VoucherEditorChildColumn<R extends object, C extends object> = {
 export type VoucherEditorColumn<R extends object, C extends object = object> =
   Column<R> | VoucherEditorChildColumn<R, C>;
 
+export type VoucherEditorChange = { kind: "header" | "row" | "delete" };
+
+export type VoucherEditorRowDraft<H extends object, R extends object> = {
+  prepare: (input: {
+    candidate: VoucherEditorValue<H, R>;
+  }) =>
+    | { rowKey: string; candidate: VoucherEditorValue<H, R> }
+    | Promise<{ rowKey: string; candidate: VoucherEditorValue<H, R> }>;
+  change?: (input: {
+    value: R;
+    previous: R;
+    candidate: VoucherEditorValue<H, R>;
+  }) => VoucherEditorValue<H, R> | Promise<VoucherEditorValue<H, R>>;
+};
+
 export type VoucherEditorDefinition<
   H extends object,
   R extends object,
   C extends object = object,
 > = {
   headerFields: Fields<H>;
-  rowFields: Fields<R>;
+  rowFields: Fields<R> | ((row: R) => Fields<R>);
   columns: readonly VoucherEditorColumn<R, C>[];
   rowKey: (row: R) => string;
-  emptyRow: () => R;
-};
+  rowOperations?: { insert: boolean; update: boolean; delete: boolean };
+  transformRow?: (change: { value: R; previous: R }) => R | Promise<R>;
+} & (
+  | { emptyRow: () => R | Promise<R>; rowDraft?: never }
+  | {
+      rowDraft: VoucherEditorRowDraft<H, R>;
+      emptyRow?: never;
+      transformRow?: undefined;
+    }
+);
 
 import { validate } from "./validation";
 /** Internal validation includes committed nested rows as well as unfinished editor state. */
@@ -47,7 +71,13 @@ export function validateVoucherContent<
   const header = validate(definition.headerFields, value.header, mode);
   if (header) return header;
   for (const row of value.rows) {
-    const invalid = validate(definition.rowFields, row, mode);
+    const invalid = validate(
+      typeof definition.rowFields === "function"
+        ? definition.rowFields(clone(row))
+        : definition.rowFields,
+      row,
+      mode,
+    );
     if (invalid) return invalid;
     for (const column of definition.columns) {
       if (column.type !== "children") continue;

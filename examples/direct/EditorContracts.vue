@@ -17,6 +17,7 @@ const row: Row = { id: "editable", name: "公开资料" };
 const host = shallowRef<AppPageHandle>();
 const target = shallowRef<Row>();
 const readOnly = ref(false);
+const deleted = ref(0);
 const protection = shallowRef<EditProtection>({
   dirty: false,
   localPending: false,
@@ -33,7 +34,7 @@ const definition = defineCrud<Draft, { keyword: string }, Row, string>({
   initialFilters: () => ({ keyword: "" }),
   columns: [{ key: "name", label: "资料名称" }],
   identity: (r) => r.id,
-  actions: () => ["view", "edit"],
+  actions: () => ["view", "edit", "delete"],
   viewLabel: (r) => `查看 ${r.name}`,
   adapter: {
     empty: () => ({ name: "", settings: { code: null, enabled: false } }),
@@ -47,6 +48,10 @@ const definition = defineCrud<Draft, { keyword: string }, Row, string>({
       writable: identity !== "history",
     }),
     create: async () => ({ status: "success" }),
+    delete: async () => {
+      deleted.value++;
+      return { status: "success" };
+    },
     save: async (a) => {
       saved = structuredClone(a.input!);
       return { status: "success" };
@@ -84,6 +89,7 @@ async function open(history = false) {
     <aside class="example-controls">
       <button @click="open()">打开资料接缝</button
       ><button @click="open(true)">查看历史资料接缝</button>
+      <output aria-label="资料删除次数">{{ deleted }}</output>
       <output aria-label="资料保护事实">{{
         JSON.stringify(protection)
       }}</output>
