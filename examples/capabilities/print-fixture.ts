@@ -108,3 +108,64 @@ export const printDocument: PrintDocument = {
     },
   ],
 };
+
+// A tall three-page fixture exposes Chromium print fragmentation of rotated text.
+export function rotationDocument(rotation: 0 | 90 | 180 | 270): PrintDocument {
+  return {
+    id: `rotation-${rotation}`,
+    title: "旋转分页输出",
+    width: 120,
+    height: 160,
+    rotation,
+    watermark: {
+      text: "水印",
+      x: 50,
+      y: 65,
+      width: 40,
+      height: 15,
+      rotation: 0,
+      opacity: 0.2,
+      font: "cjk-sans",
+    },
+    pages: [1, 2, 3].map((number) => ({
+      key: String(number),
+      items: [
+        {
+          key: "lines",
+          kind: "text",
+          text: "中文第一行\n中文第二行",
+          x: 10,
+          y: 10,
+          width: 90,
+          height: 20,
+          font: "cjk-sans",
+          size: 10,
+          lineHeight: 1.4,
+          border: true,
+          lineWidth: 0.2,
+        },
+        {
+          key: "footer",
+          kind: "text",
+          text: `页脚 PAGE ${number}`,
+          x: 10,
+          y: 145,
+          width: 90,
+          height: 10,
+          font: "cjk-sans",
+          size: 10,
+        },
+        {
+          key: "qr",
+          kind: "image",
+          src: qr,
+          alt: "合成二维码",
+          x: 10,
+          y: 80,
+          width: 40,
+          height: 40,
+        },
+      ],
+    })),
+  };
+}

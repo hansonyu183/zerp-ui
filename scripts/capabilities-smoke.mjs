@@ -2,7 +2,7 @@ import { batchRecoverySmoke } from "./batch-recovery-smoke.mjs";
 import { complexDraftSmoke } from "./complex-draft-smoke.mjs";
 import assert from "node:assert/strict";
 import { durableRecoverySmoke } from "./durable-recovery-smoke.mjs";
-import { printOutputSmoke } from "./print-smoke.mjs";
+import { printOutputSmoke, rotatedPdfSmoke } from "./print-smoke.mjs";
 import { expect } from "@playwright/test";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
 export async function taskMaterialSmoke(page) {
@@ -201,6 +201,7 @@ export async function capabilitiesSmoke(page, printEvidence) {
   ).toBeEnabled();
   assert.equal(await frame.locator("script").count(), 0);
   await printOutputSmoke(page, printEvidence);
+  await rotatedPdfSmoke(page, printEvidence);
   await batchRecoverySmoke(page);
   await complexDraftSmoke(page);
 }

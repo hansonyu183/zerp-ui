@@ -160,3 +160,70 @@ export async function printOutputSmoke(page, evidence) {
     await output.close();
   }
 }
+
+/** Exercise all finite rotations through the public installed consumer. */
+export async function rotatedPdfSmoke(page, evidence) {
+  const { checkRotatedPdf } = await import("./pdf-geometry.mjs");
+  const base = new URL(page.url()).origin;
+  for (const rotation of [90, 270, 0, 180]) {
+    await page.goto(`${base}/printing?rotation=${rotation}`);
+    const frame = page.frameLocator('iframe[title="打印预览"]');
+    await expect(
+      frame.getByText("中文第一行\n中文第二行", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "打开打印窗口", exact: true }),
+    ).toBeDisabled();
+    const output = await page.context().newPage();
+    try {
+      await output.setContent(
+        await page.locator('iframe[title="打印预览"]').getAttribute("srcdoc"),
+      );
+      await output.evaluate(async () => {
+        const fonts = await document.fonts.load(
+          "10pt zerp-print-cjk-sans",
+          "中文",
+        );
+        if (!fonts.length) throw Error("Install controlled Chinese print font");
+        await Promise.all(
+          Array.from(document.images, (image) => image.decode()),
+        );
+      });
+      const pdf = await output.pdf({
+        preferCSSPageSize: true,
+        printBackground: true,
+      });
+      await writeFile(
+        resolve(evidence.directory, `rotation-${rotation}.pdf`),
+        pdf,
+      );
+      const { reports, bitmaps } = await checkRotatedPdf(pdf, rotation);
+      for (let index = 0; index < bitmaps.length; index++) {
+        await writeFile(
+          resolve(
+            evidence.directory,
+            `rotation-${rotation}-page-${index + 1}.png`,
+          ),
+          bitmaps[index],
+        );
+      }
+      await writeFile(
+        resolve(evidence.directory, `rotation-${rotation}.json`),
+        JSON.stringify(
+          {
+            ...evidence,
+            rotation,
+            reports,
+            pdfSha256: createHash("sha256").update(pdf).digest("hex"),
+            boundary:
+              "Synthetic public AppPage actual Chromium PDF coordinates and raster; no production API or physical printer",
+          },
+          null,
+          2,
+        ),
+      );
+    } finally {
+      await output.close();
+    }
+  }
+}

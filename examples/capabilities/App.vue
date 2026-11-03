@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { migrationPage } from "./migration-consumer";
 import { createComplexDraft } from "./complex-draft";
-import { printDocument } from "./print-fixture";
+import {
+  printDocument as defaultPrintDocument,
+  rotationDocument,
+} from "./print-fixture";
 import { computed, provide, ref } from "vue";
 import { useRoute } from "vue-router";
 import {
@@ -158,7 +161,17 @@ const batch = defineBatchPage({
   eligible: true,
   recoveryAllowed: true,
 });
-const printOwner = { ...owner, resource: "printing-demo" },
+// Finite query choices make each physical rotation independently runnable.
+const printDocument = computed(() => {
+  const angle = route.query.rotation;
+  return angle === "0" || angle === "90" || angle === "180" || angle === "270"
+    ? rotationDocument(Number(angle) as 0 | 90 | 180 | 270)
+    : defaultPrintDocument;
+});
+const printOwner = {
+    ...owner,
+    resource: `printing-demo-${printDocument.value.id}`,
+  },
   printState = ref<"preview" | "opened" | "printed" | "not-printed">("preview");
 
 const printDefinition = operation(printOwner, (request) => {
@@ -169,11 +182,11 @@ const printDefinition = operation(printOwner, (request) => {
 const printing = defineTaskPage<{ value: string }, Model, string, number>(
   () => ({
     title: "打印输出",
-    instance: printDocument.id,
+    instance: printDocument.value.id,
     owner: printOwner,
-    identity: printDocument.id,
+    identity: printDocument.value.id,
     definition: printDefinition,
-    values: { value: printDocument.id },
+    values: { value: printDocument.value.id },
     fields: [],
     actions:
       printState.value === "preview"
@@ -182,7 +195,7 @@ const printing = defineTaskPage<{ value: string }, Model, string, number>(
     toIntent: (value, action, base) => ({ ...base, action, input: value }),
     eligible: true,
     recoveryAllowed: true,
-    printing: { document: printDocument, state: printState.value },
+    printing: { document: printDocument.value, state: printState.value },
     onSettled: (settlement) => {
       if (settlement.receipt.status === "applied") {
         if (settlement.request.action === "print") printState.value = "opened";

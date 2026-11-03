@@ -168,5 +168,15 @@ export function printMarkup(document: PrintDocument): string {
     swapped = rotation === 90 || rotation === 270;
   const width = swapped ? document.height : document.width,
     height = swapped ? document.width : document.height;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; font-src 'self'; style-src 'unsafe-inline';"><title>${escape(document.title)}</title><style>@font-face{font-family:zerp-print-cjk-sans;src:local("NotoSansCJKsc-Regular"),local("Noto Sans CJK SC"),local("PingFangSC-Regular"),local("MicrosoftYaHei"),local("Microsoft YaHei")}@page{size:${width}mm ${height}mm;margin:0}body{margin:0;background:#ddd}.page{position:relative;width:${width}mm;height:${height}mm;background:white;break-after:page;overflow:hidden}.sheet{position:absolute;left:50%;top:50%;width:${document.width}mm;height:${document.height}mm;transform:translate(-50%,-50%) rotate(${rotation}deg);transform-origin:center;overflow:hidden}.page:last-child{break-after:auto}@media screen{.page{margin:8px auto}}@media print{body{background:white}}</style></head><body>${html}</body></html>`;
+  // Fixed pages/sheets also isolate print fragmentation; overflow alone clips rotated footers.
+  // Explicit sheet-to-output transforms avoid percentage offsets during pagination.
+  const transform =
+    rotation === 90
+      ? `translate(${document.height}mm,0) rotate(90deg)`
+      : rotation === 180
+        ? `translate(${document.width}mm,${document.height}mm) rotate(180deg)`
+        : rotation === 270
+          ? `translate(0,${document.width}mm) rotate(270deg)`
+          : "none";
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; font-src 'self'; style-src 'unsafe-inline';"><title>${escape(document.title)}</title><style>@font-face{font-family:zerp-print-cjk-sans;src:local("NotoSansCJKsc-Regular"),local("Noto Sans CJK SC"),local("PingFangSC-Regular"),local("MicrosoftYaHei"),local("Microsoft YaHei")}@page{size:${width}mm ${height}mm;margin:0}body{margin:0;background:#ddd}.page{position:relative;width:${width}mm;height:${height}mm;background:white;break-after:page;overflow:hidden;contain:strict}.sheet{position:absolute;left:0;top:0;width:${document.width}mm;height:${document.height}mm;transform:${transform};transform-origin:0 0;overflow:hidden;contain:strict}.page:last-child{break-after:auto}@media screen{.page{margin:8px auto}}@media print{body{background:white}}</style></head><body>${html}</body></html>`;
 }
