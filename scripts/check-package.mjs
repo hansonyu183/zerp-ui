@@ -981,14 +981,19 @@ async function reportSmoke(page) {
     element.scrollTop = 40;
     return { left: element.scrollLeft, top: element.scrollTop };
   });
-  assert.ok(position.left > 0);
-  assert.ok(position.top > 0);
   assert.equal(
-    await page
-      .getByRole("columnheader", { name: "精确金额 · 本次定义", exact: true })
-      .evaluate((element) => getComputedStyle(element).display),
-    "table-cell",
+    position.left,
+    0,
+    "phone report cards need no horizontal scrolling",
   );
+  assert.ok(position.top > 0);
+  await expect(scroll.getByRole("table")).toHaveCount(0);
+  await expect(
+    scroll
+      .getByRole("article")
+      .first()
+      .locator('[data-label="精确金额 · 本次定义"]'),
+  ).toBeVisible();
   await button("离开并保存报表").click();
   await button("返回报表").click();
   await page.getByText("第 2 页", { exact: false }).waitFor();
@@ -1053,6 +1058,7 @@ async function reportSmoke(page) {
     .waitFor();
   await page.getByLabel("固定读取情景").selectOption("success");
   await page.getByLabel("固定关键字").fill("");
+  await page.setViewportSize({ width: 1280, height: 720 });
   await button("查询").click();
   await page
     .getByRole("rowheader", { name: "合成分组", exact: true })
@@ -1322,7 +1328,13 @@ async function voucherSmoke(page) {
     .getByRole("status")
     .filter({ hasText: "业务写入结果未知" })
     .waitFor();
-  assert.equal(await ordinary.getByRole("button", { name: "新增" }).count(), 0);
+  assert.equal(
+    await ordinary
+      .locator(".zerp-voucher-editor__table")
+      .getByRole("button", { name: "新增", exact: true })
+      .count(),
+    0,
+  );
   await button("关闭编辑").click();
   await button("核实本次请求").click();
   await page
