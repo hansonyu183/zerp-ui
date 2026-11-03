@@ -1668,19 +1668,24 @@ async function shellSmoke(page) {
     );
   }
   const originalURL = page.url();
-  await page
-    .getByRole("link", { name: "报表", exact: true })
-    .dispatchEvent("click", { metaKey: true, button: 0 });
-  assert.equal(page.url(), originalURL);
-  const newTab = page.context().waitForEvent("page");
-  await page
-    .getByRole("link", { name: "报表", exact: true })
-    .click({ button: "middle" });
-  const popup = await newTab;
-  await popup.waitForURL("**/report");
-  await popup.waitForLoadState();
-  assert.ok(popup.url().endsWith("/report"));
-  await popup.close();
+  const reportLink = page.getByRole("link", { name: "报表", exact: true });
+  for (const options of [
+    { modifiers: ["ControlOrMeta"] },
+    { button: "middle" },
+  ]) {
+    const [popup] = await Promise.all([
+      page.context().waitForEvent("page"),
+      reportLink.click(options),
+    ]);
+    try {
+      await popup.waitForURL("**/report");
+      await popup.waitForLoadState();
+      assert.equal(page.url(), originalURL);
+      assert.ok(popup.url().endsWith("/report"));
+    } finally {
+      await popup.close();
+    }
+  }
   await page
     .getByRole("button", { name: "账户：演示账户", exact: true })
     .click();
