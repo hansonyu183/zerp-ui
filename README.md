@@ -28,11 +28,13 @@
 
 0.12.0 整合异步行草稿、整单候选原子采用、逐行权限与动态字段，并补回只读资料详情的获权删除；完整页面与 Material 所有权保持。
 
-从 [ui-v0.13.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.13.0) 下载 `zerp-ui-0.13.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+0.14.0 修复认证页双端布局，并将手机卡片选择与图标短文字操作统一到首行。认证页直接挂载；手机可见操作随宽度收敛，其余进入“更多”，选择、权限与原动作协议保持。
+
+从 [ui-v0.14.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.14.0) 下载 `zerp-ui-0.14.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.13.0.tgz
+pnpm add ./zerp-ui-0.14.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -128,6 +130,8 @@ operation 页面内部组合编辑与办理。`editor.toIntent(value, base)` 只
 Vuetify 布局登记的实际顶栏高度用于内容避让；菜单、抽屉遮罩、离页确认和单据子项弹层均位于顶栏下方。页面滚动不带走顶栏。品牌/导航加载失败、键盘菜单、正常链接修饰键和新标签、临时导航 Escape 与焦点归还均由库统一处理。
 
 消息和字段校验采用固定预留区域，出现、更新和关闭不增加或移除文档流占位；长消息在预留区内滚动。关闭反馈只改变呈现。未知、封存及刷新失败的持续状态和核实/重读入口独立保留，不依赖自动消失的通知。
+
+`AuthPage` 同样独立持有完整视口与卡片布局。消费者直接挂载认证页，不在外层添加限宽容器、顶部边距或另一层卡片；短屏采用自然滚动，消息和品牌状态保持固定占位。手机端只保留一层卡片内边距，避免逐层挤压字段宽度。
 
 主题仅开放 MD1/MD2/MD3 与明暗模式，以及有限品牌颜色。`createShellThemes` / `defaultThemeChoice` 继续公开；偏好持久化归消费者。
 

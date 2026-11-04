@@ -127,6 +127,11 @@ const allSelected = computed(
     eligible.value.length > 0 &&
     eligible.value.every((row) => props.selectedKeys?.includes(identity(row))),
 );
+const selectedCount = computed(
+  () =>
+    eligible.value.filter((row) => props.selectedKeys?.includes(identity(row)))
+      .length,
+);
 function selectRows(rows: readonly R[], selected: boolean) {
   if (props.disabled || props.loading || presentationError.value) return;
   const keys = new Set(props.selectedKeys ?? []);
@@ -206,17 +211,20 @@ function display(row: Partial<R>, column: Column<R>) {
     <Feedback :message="presentationError" kind="error" />
     <template v-if="!presentationError">
       <p v-if="summary">{{ summary.caption }}</p>
-      <VCheckboxBtn
-        v-if="xs && selectedKeys !== undefined"
-        aria-label="全选当前页"
-        :model-value="allSelected"
-        :indeterminate="
-          !allSelected &&
-          eligible.some((row) => selectedKeys?.includes(identity(row)))
-        "
-        :disabled="disabled || loading || !eligible.length"
-        @update:model-value="selectRows(eligible, !!$event)"
-      />
+      <div v-if="xs && selectedKeys !== undefined" class="zerp-card-selection">
+        <VCheckboxBtn
+          aria-label="全选当前页"
+          label="全选当前页"
+          :model-value="allSelected"
+          :indeterminate="
+            !allSelected &&
+            eligible.some((row) => selectedKeys?.includes(identity(row)))
+          "
+          :disabled="disabled || loading || !eligible.length"
+          @update:model-value="selectRows(eligible, !!$event)"
+        />
+        <span role="status">已选 {{ selectedCount }} 项</span>
+      </div>
       <component :is="xs ? 'div' : VTable" :hover="!xs">
         <thead v-if="!xs">
           <tr>
@@ -269,13 +277,39 @@ function display(row: Partial<R>, column: Column<R>) {
               :is="xs ? VCard : 'tr'"
               :tag="xs ? 'article' : undefined"
               :variant="xs ? 'outlined' : undefined"
-              :class="{ 'zerp-record-card': xs }"
+              :class="{
+                'zerp-record-card': xs,
+                'zerp-record-card--selected':
+                  xs && selectedKeys?.includes(identity(row)),
+              }"
               :aria-label="xs ? `记录 ${index + 1}` : undefined"
               :style="presentationStyle(row)"
             >
+              <div
+                v-if="
+                  xs &&
+                  (selectedKeys !== undefined || rowActions[index]!.length)
+                "
+                class="zerp-record-card__toolbar"
+              >
+                <VCheckboxBtn
+                  v-if="selectedKeys !== undefined"
+                  :aria-label="`选择 ${identity(row)}`"
+                  :model-value="selectedKeys.includes(identity(row))"
+                  :disabled="disabled || loading || selectable?.(row) === false"
+                  @update:model-value="selectRows([row], !!$event)"
+                />
+                <RowActions
+                  v-if="rowActions[index]!.length"
+                  :actions="rowActions[index]!"
+                  :disabled="disabled || loading"
+                  :view-href="viewHref?.(row)"
+                  @action="dispatch($event, row)"
+                />
+              </div>
               <component
                 :is="xs ? 'div' : 'td'"
-                v-if="selectedKeys !== undefined"
+                v-if="!xs && selectedKeys !== undefined"
                 data-label="选择"
               >
                 <VCheckboxBtn
@@ -326,7 +360,7 @@ function display(row: Partial<R>, column: Column<R>) {
               </component>
               <component
                 :is="xs ? 'div' : 'td'"
-                v-if="hasActions"
+                v-if="!xs && hasActions"
                 data-label="操作"
               >
                 <RowActions

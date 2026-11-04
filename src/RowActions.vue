@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
-import { VBtn, VList, VListItem, VMenu, VTooltip } from "vuetify/components";
+import { computed, ref, watch } from "vue";
+import { useDisplay } from "vuetify";
+import {
+  VBtn,
+  VIcon,
+  VList,
+  VListItem,
+  VMenu,
+  VTooltip,
+} from "vuetify/components";
 import type { ListAction } from "./contracts";
 const props = defineProps<{
   actions: readonly ListAction[];
@@ -9,6 +17,10 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ action: [action: ListAction] }>();
 const menu = ref(false);
+const { xs, width } = useDisplay();
+const primaryCount = computed(() =>
+  xs.value ? (width.value < 360 && props.actions.length > 2 ? 1 : 2) : 3,
+);
 const captions: Record<ListAction, string> = {
   view: "查看",
   send: "送审",
@@ -40,7 +52,7 @@ const icons: Record<ListAction, string> = {
   delete: "mdi-delete-outline",
 };
 watch(
-  () => [props.actions, props.disabled, props.viewHref],
+  () => [props.actions, props.disabled, props.viewHref, primaryCount.value],
   () => {
     menu.value = false;
   },
@@ -61,17 +73,22 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
 }
 </script>
 <template>
-  <div v-if="actions.length" class="zerp-row-actions">
+  <div
+    v-if="actions.length"
+    class="zerp-row-actions"
+    :class="{ 'zerp-row-actions--mobile': xs }"
+  >
     <VTooltip
-      v-for="action in actions.slice(0, 3)"
+      v-for="action in actions.slice(0, primaryCount)"
       :key="action"
       :text="captions[action]"
+      :disabled="xs"
     >
       <template #activator="{ props: tooltip }">
         <VBtn
           v-bind="tooltip"
           :aria-label="captions[action]"
-          :icon="icons[action]"
+          :icon="!xs"
           :href="action === 'view' && !disabled ? viewHref : undefined"
           :disabled="disabled"
           variant="text"
@@ -80,11 +97,14 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
           :min-width="48"
           :min-height="48"
           @click="choose($event, action)"
-        />
+          ><VIcon :icon="icons[action]" aria-hidden="true" /><span v-if="xs">{{
+            captions[action]
+          }}</span></VBtn
+        >
       </template>
     </VTooltip>
     <VMenu
-      v-if="actions.length > 3"
+      v-if="actions.length > primaryCount"
       v-model="menu"
       :disabled="disabled"
       content-class="zerp-row-menu"
@@ -93,19 +113,23 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
         <VBtn
           v-bind="activator"
           aria-label="更多操作"
-          title="更多操作"
-          icon="mdi-dots-horizontal"
+          :title="xs ? undefined : '更多操作'"
+          :icon="!xs"
           :disabled="disabled"
           variant="text"
           color="on-surface"
           size="default"
           :min-width="48"
           :min-height="48"
-        />
+          ><VIcon icon="mdi-dots-horizontal" aria-hidden="true" /><span
+            v-if="xs"
+            >更多</span
+          ></VBtn
+        >
       </template>
       <VList role="menu" aria-label="更多操作">
         <VListItem
-          v-for="action in actions.slice(3)"
+          v-for="action in actions.slice(primaryCount)"
           :key="action"
           role="menuitem"
           :title="captions[action]"
@@ -124,5 +148,15 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
   display: flex;
   align-items: center;
   white-space: nowrap;
+}
+.zerp-row-actions--mobile :deep(.v-btn) {
+  padding-inline: 4px;
+  font-size: 0.875rem;
+}
+.zerp-row-actions--mobile :deep(.v-btn__content) {
+  gap: 4px;
+}
+.zerp-row-actions--mobile :deep(.v-icon) {
+  font-size: 18px;
 }
 </style>
