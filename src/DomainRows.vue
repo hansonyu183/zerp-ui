@@ -99,7 +99,7 @@ onBeforeUnmount(() => emit("pending", false));
       :disabled="disabled || !!editing"
       @click="begin(null)"
     >
-      新增{{ label }}
+      新增
     </VBtn>
     <VCard
       tag="section"

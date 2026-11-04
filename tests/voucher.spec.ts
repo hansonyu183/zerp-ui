@@ -113,10 +113,15 @@ const start = async (
   await flushPromises();
   return w;
 };
+async function viewRow(w: ReturnType<typeof mount>, label: string) {
+  const row = w.findAll("tbody tr").find((row) => row.text().includes(label))!;
+  await row.get('[aria-label="查看"]').trigger("click");
+  await flushPromises();
+}
 it("creates and clones detached drafts, preserves voucher/revision/submission and refreshes without replay", async () => {
   const d = definition(),
     w = await start(d);
-  await click(w, "创建 Draft");
+  await click(w, "新增");
   await w.get('input[aria-label="名称"]').setValue("创建值");
   await click(w, "提交单据");
   expect(d.adapter.submit).toHaveBeenCalledWith(
@@ -125,9 +130,9 @@ it("creates and clones detached drafts, preserves voucher/revision/submission an
       input: { name: "创建值", amount: "0.0100" },
     }),
   );
-  await click(w, "查看 DOC-001");
+  await viewRow(w, "DOC-001");
   expect(w.text()).toContain("合成人员");
-  await click(w, "克隆 Draft");
+  await click(w, "克隆");
   await click(w, "提交单据");
   expect(d.adapter.submit).toHaveBeenLastCalledWith(
     expect.objectContaining({
@@ -135,7 +140,7 @@ it("creates and clones detached drafts, preserves voucher/revision/submission an
       input: { name: "原单据", amount: "9007199254740993.0100" },
     }),
   );
-  await click(w, "查看 DOC-001");
+  await viewRow(w, "DOC-001");
   await click(w, "审批通过");
   expect(d.adapter.approve).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -189,13 +194,13 @@ it("keeps script saves and voucher submissions independently identified and bloc
     input: { source: "return 1" },
   });
   await click(w, "关闭编辑");
-  expect(button(w, "创建 Draft").attributes("disabled")).toBeDefined();
+  expect(button(w, "新增").attributes("disabled")).toBeDefined();
   await click(w, "重试读取");
   expect(d.adapter.submit).not.toHaveBeenCalled();
   w.unmount();
   const v = mount(VoucherView as Component, { props });
   await flushPromises();
-  expect(button(v, "创建 Draft").attributes("disabled")).toBeDefined();
+  expect(button(v, "新增").attributes("disabled")).toBeDefined();
   v.unmount();
 });
 it("requires original business evidence; reading, closing and successful-refresh failures cannot replay", async () => {
@@ -215,14 +220,14 @@ it("requires original business evidence; reading, closing and successful-refresh
   );
   const d = { ...base, reconcile: verify };
   const w = await start(d);
-  await click(w, "查看 DOC-001");
+  await viewRow(w, "DOC-001");
   await click(w, "编辑单据");
   await click(w, "提交单据");
   const original = vi.mocked(d.adapter.submit).mock.calls[0][0];
   await click(w, "关闭编辑");
   await click(w, "重试读取");
   await click(w, "核实本次请求");
-  expect(button(w, "创建 Draft").attributes("disabled")).toBeDefined();
+  expect(button(w, "新增").attributes("disabled")).toBeDefined();
   expect(verify).toHaveBeenCalledWith(original);
   verify.mockResolvedValueOnce({ status: "unknown" });
   await click(w, "核实本次请求");
@@ -239,7 +244,7 @@ it("requires original business evidence; reading, closing and successful-refresh
   vi.mocked(d.adapter.list).mockRejectedValueOnce(new Error("刷新失败"));
   await click(w, "提交单据");
   expect(w.text()).toContain("刷新失败");
-  expect(button(w, "创建 Draft").attributes("disabled")).toBeDefined();
+  expect(button(w, "新增").attributes("disabled")).toBeDefined();
   await click(w, "重试读取");
   expect(d.adapter.submit).toHaveBeenCalledTimes(2);
   w.unmount();
@@ -255,10 +260,10 @@ it("does not offer create/clone/write actions for system documents and keeps exa
     audit: [],
   });
   const w = await start(d);
-  expect(button(w, "创建 Draft")).toBeUndefined();
-  await click(w, "查看 DOC-001");
+  expect(button(w, "新增")).toBeUndefined();
+  await viewRow(w, "DOC-001");
   expect(button(w, "编辑单据")).toBeUndefined();
-  expect(button(w, "克隆 Draft")).toBeUndefined();
+  expect(button(w, "克隆")).toBeUndefined();
   await click(w, "历史 DOC-001 · 合成人员");
   vi.mocked(d.adapter.get).mockResolvedValue({
     current: { ...snapshot(), eligible: {} },
@@ -289,8 +294,8 @@ it("resumes a staged clone with its original source identity even after navigati
     message: "明确失败",
   });
   const w = await start(d);
-  await click(w, "查看 DOC-001");
-  await click(w, "克隆 Draft");
+  await viewRow(w, "DOC-001");
+  await click(w, "克隆");
   const input = w.get('input[type="file"]');
   Object.defineProperty(input.element, "files", {
     value: [new File(["x"], "x.txt")],
@@ -298,8 +303,8 @@ it("resumes a staged clone with its original source identity even after navigati
   await input.trigger("change");
   await click(w, "提交单据");
   await click(w, "关闭编辑");
-  await click(w, "查看 DOC-001");
-  await click(w, "恢复 Draft");
+  await viewRow(w, "DOC-001");
+  await click(w, "恢复草稿");
   expect(w.text()).toContain("克隆草稿");
   await click(w, "提交单据");
   expect(d.adapter.submit).toHaveBeenLastCalledWith(
@@ -329,7 +334,7 @@ it("invalidates late list/detail reads and records late stages only in their ori
   const late = deferred<Awaited<ReturnType<typeof d.adapter.get>>>();
   vi.mocked(d.adapter.get).mockReturnValueOnce(late.promise);
   const w = await start(d);
-  await click(w, "查看 DOC-001");
+  await viewRow(w, "DOC-001");
   await w.setProps({ scope: "b" });
   await flushPromises();
   late.resolve({
@@ -339,7 +344,7 @@ it("invalidates late list/detail reads and records late stages only in their ori
   });
   await flushPromises();
   expect(w.text()).not.toContain("过时详情");
-  await click(w, "创建 Draft");
+  await click(w, "新增");
   const input = w.get('input[type="file"]');
   Object.defineProperty(input.element, "files", {
     value: [new File(["x"], "late.txt")],
@@ -353,7 +358,7 @@ it("invalidates late list/detail reads and records late stages only in their ori
   expect(d.adapter.submit).not.toHaveBeenCalled();
   await w.setProps({ scope: "b" });
   await flushPromises();
-  await click(w, "恢复 Draft");
+  await click(w, "恢复草稿");
   await click(w, "提交单据");
   expect(d.adapter.attachments.stage).toHaveBeenCalledTimes(1);
   expect(d.adapter.submit).toHaveBeenCalledWith(
@@ -364,12 +369,12 @@ it("invalidates late list/detail reads and records late stages only in their ori
 it("clears the previous voucher when opening another detail fails", async () => {
   const d = definition(),
     w = await start(d);
-  await click(w, "查看 DOC-001");
+  await viewRow(w, "DOC-001");
   vi.mocked(d.adapter.get).mockRejectedValueOnce(new Error("详情失败"));
-  await click(w, "查看 DOC-001");
+  await viewRow(w, "DOC-001");
   expect(w.text()).toContain("详情失败");
   expect(button(w, "编辑单据")).toBeUndefined();
-  await click(w, "创建 Draft");
+  await click(w, "新增");
   expect(w.find('[role="region"]').exists()).toBe(true);
   w.unmount();
 });
@@ -391,8 +396,8 @@ it("switches the voucher definition and list adapter together", async () => {
   const w = await start(d);
   await w.setProps({ definition: other });
   await flushPromises();
-  expect(w.text()).toContain("查看 OTHER-001");
-  expect(w.text()).not.toContain("查看 DOC-001");
+  expect(w.text()).toContain("OTHER-001");
+  expect(w.text()).not.toContain("DOC-001");
   w.unmount();
 });
 it("uses create-only fields for new and cloned drafts and edit-only fields for existing documents", async () => {
@@ -408,19 +413,19 @@ it("uses create-only fields for new and cloned drafts and edit-only fields for e
     { key: "amount", label: "编辑金额", type: "decimal", mode: "edit" },
   ];
   const w = await start(d);
-  await click(w, "创建 Draft");
+  await click(w, "新增");
   expect(w.find('input[aria-label="创建名称"]').exists()).toBe(true);
   expect(w.find('input[aria-label="编辑金额"]').exists()).toBe(false);
   await w.get('input[aria-label="创建名称"]').setValue("");
   await click(w, "提交单据");
   expect(d.adapter.submit).not.toHaveBeenCalled();
   await click(w, "关闭编辑");
-  await click(w, "查看 DOC-001");
+  await viewRow(w, "DOC-001");
   await click(w, "编辑单据");
   expect(w.find('input[aria-label="编辑金额"]').exists()).toBe(true);
   expect(w.find('input[aria-label="创建名称"]').exists()).toBe(false);
   await click(w, "关闭编辑");
-  await click(w, "克隆 Draft");
+  await click(w, "克隆");
   expect(w.find('input[aria-label="创建名称"]').exists()).toBe(true);
   w.unmount();
 });

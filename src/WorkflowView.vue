@@ -88,6 +88,7 @@ watch(
 let generation = 0,
   request = 0,
   active = true;
+const listing = ref(false);
 const current = (g: number) => active && g === generation;
 function availableTargets(node: WorkflowNode<N, R, T, D>) {
   return node.targets.filter((t) => props.permissions.targets.includes(t.key));
@@ -112,18 +113,23 @@ async function read(next = page.value, submit = false) {
     target = lock.value,
     attempt = target.attempt;
   loading.value = true;
+  listing.value = true;
   error.value = "";
   // A failed read must not leave actionable stale node facts.
   instance.value = null;
   audit.value = [];
   try {
     const [rows, detail, events] = await Promise.all([
-      definition.adapter.list({
-        scope,
-        keyword: applied.value,
-        page: next,
-        pageSize: 20,
-      }),
+      definition.adapter
+        .list({
+          scope,
+          keyword: applied.value,
+          page: next,
+          pageSize: 20,
+        })
+        .finally(() => {
+          if (current(g) && q === request) listing.value = false;
+        }),
       selection
         ? definition.adapter.get({ scope, identity: clone(selection.identity) })
         : null,
@@ -167,7 +173,7 @@ function close() {
   selected.value = null;
   instance.value = null;
   audit.value = [];
-  loading.value = false;
+  loading.value = listing.value = false;
 }
 async function act(
   node: WorkflowNode<N, R, T, D>,
@@ -299,7 +305,7 @@ watch(
         "";
     targets.value = {};
     page.value = 1;
-    loading.value = verifying.value = false;
+    loading.value = listing.value = verifying.value = false;
     void read(1);
   },
   { immediate: true, flush: "sync" },
@@ -369,21 +375,13 @@ onBeforeUnmount(() => {
       :result="result"
       :page="page"
       :page-size="20"
-      :loading="loading"
+      :loading="listing"
+      :disabled="lock.phase === 'pending'"
+      :actions="() => (permissions.read ? (['view'] as const) : [])"
+      @action="(_, row) => select(row.identity)"
       @page="read($event)"
     />
-    <template v-if="permissions.read">
-      <VBtn
-        variant="text"
-        color=""
-        v-for="(row, index) in result.items"
-        :key="index"
-        :disabled="lock.phase === 'pending'"
-        @click="select(row.identity)"
-      >
-        查看 {{ row.label }}
-      </VBtn>
-    </template>
+
     <VBtn
       variant="text"
       color=""

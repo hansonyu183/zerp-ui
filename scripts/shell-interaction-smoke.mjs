@@ -33,6 +33,7 @@ export async function assertBelowToolbar(
 /** Public shell behavior, shared by installed tgz and local synthetic example. */
 export async function shellInteractionSmoke(page) {
   const toggle = page.getByRole("button", { name: "切换导航", exact: true });
+  await expect(toggle).not.toHaveAttribute("title");
   const navigation = page.getByRole("navigation", {
     name: "主导航",
     exact: true,
@@ -107,6 +108,19 @@ export async function shellInteractionSmoke(page) {
   await expect(preset).toBeVisible();
   await belowBar(preset);
   await hitToolbar();
+  const firstPreset = page.getByRole("menuitemradio", {
+    name: "Material Design 1",
+    exact: true,
+  });
+  await firstPreset.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(preset).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(
+    page.getByRole("menuitemradio", { name: "Material Design 3", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(firstPreset).toBeFocused();
   await preset.click();
   await expect(preset).toBeHidden();
   await page.getByRole("button", { name: "主题预设", exact: true }).click();
@@ -128,6 +142,10 @@ export async function shellInteractionSmoke(page) {
   );
   await hitToolbar();
   await page.getByRole("menuitem", { name: "名称与头像", exact: true }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.getByRole("menuitem", { name: "更改密码", exact: true }),
+  ).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(
     page.getByRole("menuitem", { name: "名称与头像", exact: true }),
@@ -147,6 +165,9 @@ export async function shellInteractionSmoke(page) {
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(toggle).toBeFocused();
   await page.keyboard.press("Enter");
+  const group = navigation.locator("details").first();
+  await expect(group).not.toHaveAttribute("open");
+  await group.locator("summary").click();
   const link = page.getByRole("link", { name: "报表", exact: true });
   const originalURL = page.url();
   const [opened] = await Promise.all([

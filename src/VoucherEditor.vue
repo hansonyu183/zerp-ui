@@ -3,6 +3,8 @@
   lang="ts"
   generic="H extends object, R extends object, C extends object = object"
 >
+import { useDisplay } from "vuetify";
+import RowActions from "./RowActions.vue";
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import {
   VDefaultsProvider,
@@ -36,6 +38,7 @@ import type {
 
 // VDialog starts a Vuetify defaults root; preserve this page's preset and bounded overlays.
 const pageDefaults = injectDefaults();
+const { xs } = useDisplay();
 const props = defineProps<
   VoucherEditorDefinition<H, R, C> & {
     modelValue: VoucherEditorValue<H, R>;
@@ -472,8 +475,12 @@ onBeforeUnmount(() => {
       <Feedback :message="preparing ? '正在更新明细…' : undefined" persistent />
     </div>
     <div class="zerp-voucher-editor__table">
-      <VTable aria-label="单据明细">
-        <thead>
+      <component
+        :is="xs ? 'div' : VTable"
+        aria-label="单据明细"
+        :class="{ 'zerp-record-cards': xs }"
+      >
+        <thead v-if="!xs">
           <tr>
             <th v-for="column in visibleColumns" :key="column.key" scope="col">
               {{ column.label }}
@@ -481,13 +488,28 @@ onBeforeUnmount(() => {
             <th v-if="writable" scope="col">操作</th>
           </tr>
         </thead>
-        <tbody>
-          <tr v-for="(row, index) in visibleValue.rows" :key="rowKey(row)">
-            <td
+        <component
+          :is="xs ? 'div' : 'tbody'"
+          :class="{ 'zerp-record-cards': xs }"
+        >
+          <component
+            :is="xs ? VCard : 'tr'"
+            :tag="xs ? 'article' : undefined"
+            :variant="xs ? 'outlined' : undefined"
+            :class="{ 'zerp-record-card': xs }"
+            v-for="(row, index) in visibleValue.rows"
+            :key="rowKey(row)"
+            :aria-label="xs ? `明细行 ${index + 1}` : undefined"
+          >
+            <component
+              :is="xs ? 'div' : 'td'"
               v-for="column in visibleColumns"
               :key="column.key"
               :data-label="column.label"
             >
+              <span v-if="xs" class="zerp-record-card__label">{{
+                column.label
+              }}</span>
               <template v-if="column.type === 'children'">
                 <VBtn
                   color=""
@@ -507,28 +529,22 @@ onBeforeUnmount(() => {
                 <span>{{ display(row, column) }}</span>
               </template>
               <template v-else>{{ display(row, column) }}</template>
-            </td>
-            <td v-if="writable" data-label="操作">
-              <VBtn
-                color=""
-                variant="tonal"
-                type="button"
+            </component>
+            <component
+              :is="xs ? 'div' : 'td'"
+              v-if="writable"
+              data-label="操作"
+            >
+              <RowActions
+                :actions="[
+                  ...(canUpdate ? ['edit' as const] : []),
+                  ...(canDelete ? ['delete' as const] : []),
+                ]"
                 :disabled="preparing || !!editing || !!childEditing"
-                v-if="canUpdate"
-                @click="begin(row)"
-              >
-                编辑明细行 {{ index + 1 }}
-              </VBtn>
-              <VBtn
-                color=""
-                variant="tonal"
-                type="button"
-                :disabled="preparing || !!editing || !!childEditing"
-                v-if="canDelete"
-                @click="deleting = rowKey(row)"
-              >
-                删除明细行 {{ index + 1 }}
-              </VBtn>
+                @action="
+                  $event === 'edit' ? begin(row) : (deleting = rowKey(row))
+                "
+              />
               <span v-if="deleting === rowKey(row)">
                 确认删除该行？
                 <VBtn
@@ -537,7 +553,7 @@ onBeforeUnmount(() => {
                   type="button"
                   @click="removeRow"
                 >
-                  确认删除明细行 {{ index + 1 }}
+                  确认删除
                 </VBtn>
                 <VBtn
                   color=""
@@ -547,10 +563,10 @@ onBeforeUnmount(() => {
                   >取消删除</VBtn
                 >
               </span>
-            </td>
-          </tr>
-        </tbody>
-      </VTable>
+            </component>
+          </component>
+        </component>
+      </component>
       <p v-if="visibleValue.rows.length === 0">暂无明细行</p>
       <VBtn
         color=""
@@ -560,7 +576,7 @@ onBeforeUnmount(() => {
         :disabled="preparing || !!editing || !!childEditing"
         @click="begin()"
       >
-        新增明细行
+        新增
       </VBtn>
     </div>
     <VCard

@@ -9,8 +9,9 @@
   "
 >
 import Feedback from "./Feedback.vue";
-import { VBtn, VCheckboxBtn, VTable } from "vuetify/components";
+import { VBtn, VCard, VCheckboxBtn, VTable } from "vuetify/components";
 import { computed } from "vue";
+import { useDisplay } from "vuetify";
 import RowActions from "./RowActions.vue";
 import {
   validateReportColumns,
@@ -41,6 +42,7 @@ const props = defineProps<{
   presentation?: ReportPresentation<R, K>;
   cell?: (row: R, key: Extract<keyof R, string>) => ReportCell<T> | undefined;
 }>();
+const { xs } = useDisplay();
 const presentationError = computed(() => {
   try {
     validateReportColumns(props.columns);
@@ -198,14 +200,25 @@ function display(row: Partial<R>, column: Column<R>) {
 <template>
   <div
     class="zerp-list"
-    :class="{ 'zerp-list--wide': wide }"
+    :class="{ 'zerp-list--wide': wide && !xs, 'zerp-list--cards': xs }"
     :aria-busy="loading"
   >
     <Feedback :message="presentationError" kind="error" />
     <template v-if="!presentationError">
       <p v-if="summary">{{ summary.caption }}</p>
-      <VTable hover>
-        <thead>
+      <VCheckboxBtn
+        v-if="xs && selectedKeys !== undefined"
+        aria-label="全选当前页"
+        :model-value="allSelected"
+        :indeterminate="
+          !allSelected &&
+          eligible.some((row) => selectedKeys?.includes(identity(row)))
+        "
+        :disabled="disabled || loading || !eligible.length"
+        @update:model-value="selectRows(eligible, !!$event)"
+      />
+      <component :is="xs ? 'div' : VTable" :hover="!xs">
+        <thead v-if="!xs">
           <tr>
             <th v-if="selectedKeys !== undefined" scope="col">
               <VCheckboxBtn
@@ -233,32 +246,55 @@ function display(row: Partial<R>, column: Column<R>) {
             <th v-if="hasActions" scope="col">操作</th>
           </tr>
         </thead>
-        <tbody>
+        <component
+          :is="xs ? 'div' : 'tbody'"
+          :class="{ 'zerp-record-cards': xs }"
+        >
           <template v-for="(row, index) in result.items" :key="renderKey(row)">
-            <tr
+            <component
+              :is="xs ? 'div' : 'tr'"
               v-for="group in groups(row, true)"
               :key="'group-start:' + group.id"
               class="zerp-report-group"
             >
-              <th :colspan="colspan" scope="rowgroup">
+              <component
+                :is="xs ? 'h2' : 'th'"
+                :colspan="xs ? undefined : colspan"
+                :scope="xs ? undefined : 'rowgroup'"
+              >
                 {{ group.label }}{{ group.continuedBefore ? "（续）" : "" }}
-              </th>
-            </tr>
-            <tr :style="presentationStyle(row)">
-              <td v-if="selectedKeys !== undefined" data-label="选择">
+              </component>
+            </component>
+            <component
+              :is="xs ? VCard : 'tr'"
+              :tag="xs ? 'article' : undefined"
+              :variant="xs ? 'outlined' : undefined"
+              :class="{ 'zerp-record-card': xs }"
+              :aria-label="xs ? `记录 ${index + 1}` : undefined"
+              :style="presentationStyle(row)"
+            >
+              <component
+                :is="xs ? 'div' : 'td'"
+                v-if="selectedKeys !== undefined"
+                data-label="选择"
+              >
                 <VCheckboxBtn
                   :aria-label="`选择 ${identity(row)}`"
                   :model-value="selectedKeys.includes(identity(row))"
                   :disabled="disabled || loading || selectable?.(row) === false"
                   @update:model-value="selectRows([row], !!$event)"
                 />
-              </td>
-              <td
+              </component>
+              <component
+                :is="xs ? 'div' : 'td'"
                 v-for="column in visibleColumns"
                 :key="column.key"
                 :data-label="column.label"
                 :style="presentationStyle(row, column.key)"
               >
+                <span v-if="xs" class="zerp-record-card__label">{{
+                  column.label
+                }}</span>
                 <template
                   v-for="intent in [cell?.(row, column.key)]"
                   :key="column.key"
@@ -287,27 +323,41 @@ function display(row: Partial<R>, column: Column<R>) {
                   </VBtn>
                   <template v-else>{{ display(row, column) }}</template>
                 </template>
-              </td>
-              <td v-if="hasActions" data-label="操作">
+              </component>
+              <component
+                :is="xs ? 'div' : 'td'"
+                v-if="hasActions"
+                data-label="操作"
+              >
                 <RowActions
                   :actions="rowActions[index]!"
                   :disabled="disabled || loading"
                   :view-href="viewHref?.(row)"
                   @action="dispatch($event, row)"
                 />
-              </td>
-            </tr>
-            <tr
+              </component>
+            </component>
+            <component
+              :is="xs ? VCard : 'tr'"
+              :tag="xs ? 'section' : undefined"
+              :variant="xs ? 'tonal' : undefined"
               v-for="group in groups(row, false)"
               :key="'group-end:' + group.id"
               class="zerp-report-group-summary"
             >
-              <td v-if="selectedKeys !== undefined"></td>
-              <td
+              <component
+                :is="xs ? 'div' : 'td'"
+                v-if="!xs && selectedKeys !== undefined"
+              />
+              <component
+                :is="xs ? 'div' : 'td'"
                 v-for="(column, index) in visibleColumns"
                 :key="column.key"
                 :data-label="column.label"
               >
+                <span v-if="xs" class="zerp-record-card__label">{{
+                  column.label
+                }}</span>
                 <span v-if="index === 0"
                   >{{ group.summary.caption
                   }}{{ group.continuedAfter ? "（续）" : "" }}</span
@@ -316,25 +366,38 @@ function display(row: Partial<R>, column: Column<R>) {
                     ? display(group.summary.values, column)
                     : ""
                 }}
-              </td>
-              <td v-if="hasActions"></td>
-            </tr>
+              </component>
+              <component :is="xs ? 'div' : 'td'" v-if="!xs && hasActions" />
+            </component>
           </template>
-        </tbody>
-        <tfoot v-if="summary">
-          <tr>
-            <td v-if="selectedKeys !== undefined"></td>
-            <td
+        </component>
+        <component
+          :is="xs ? VCard : 'tfoot'"
+          :tag="xs ? 'section' : undefined"
+          :variant="xs ? 'tonal' : undefined"
+          v-if="summary"
+          :aria-label="summary.caption"
+        >
+          <component :is="xs ? 'div' : 'tr'">
+            <component
+              :is="xs ? 'div' : 'td'"
+              v-if="!xs && selectedKeys !== undefined"
+            />
+            <component
+              :is="xs ? 'div' : 'td'"
               v-for="column in visibleColumns"
               :key="column.key"
               :data-label="column.label"
             >
+              <span v-if="xs" class="zerp-record-card__label">{{
+                column.label
+              }}</span>
               {{ display(summary.values, column) }}
-            </td>
-            <td v-if="hasActions"></td>
-          </tr>
-        </tfoot>
-      </VTable>
+            </component>
+            <component :is="xs ? 'div' : 'td'" v-if="!xs && hasActions" />
+          </component>
+        </component>
+      </component>
       <p v-if="!loading && !result.items.length">暂无数据</p>
       <nav aria-label="分页">
         <VBtn
@@ -345,7 +408,8 @@ function display(row: Partial<R>, column: Column<R>) {
           上一页</VBtn
         ><span
           >第 {{ page }} 页<span v-if="result.total !== undefined">
-            · 共 {{ result.total }} 条</span
+            / {{ Math.max(1, Math.ceil(result.total / pageSize)) }} 页 · 共
+            {{ result.total }} 条</span
           ></span
         ><VBtn
           type="button"

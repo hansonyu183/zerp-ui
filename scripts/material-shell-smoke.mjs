@@ -292,6 +292,11 @@ async function materialFieldsAndModalSmoke(page, preset, mode) {
 async function brightBrandSmoke(page) {
   console.log("Material bright brand matrix");
   await page.goto(new URL("/?material-brand=light", page.url()).href);
+  await page
+    .locator('nav[aria-label="主导航"] details')
+    .first()
+    .locator("summary")
+    .click();
   await page.getByRole("link", { name: "直接维护", exact: true }).click();
   await page.getByLabel("资料演示", { exact: true }).selectOption("contracts");
   await page.getByRole("button", { name: "打开资料接缝", exact: true }).click();

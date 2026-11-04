@@ -13,7 +13,11 @@ import ReferencePicker from "../src/ReferencePicker.vue";
 const click = async (w: ReturnType<typeof mount>, text: string) => {
   await w
     .findAll("button")
-    .find((b) => b.text() === text)!
+    .find(
+      (b) =>
+        b.text() === text &&
+        (text !== "新增" || b.attributes("disabled") === undefined),
+    )!
     .trigger("click");
   await flushPromises();
 };
@@ -86,15 +90,15 @@ it("cancels a parent draft including confirmed recursive children", async () => 
     ],
     { rows: [] },
   );
-  await click(w, "新增行");
+  await click(w, "新增");
   await w.get('input[aria-label="名称"]').setValue("父");
-  await click(w, "新增子行");
+  await click(w, "新增");
   await w.get('input[aria-label="子名称"]').setValue("子");
   await click(w, "确定子项");
   expect(value.value.rows).toEqual([]);
   await click(w, "取消子项");
   expect(value.value.rows).toEqual([]);
-  await click(w, "新增行");
+  await click(w, "新增");
   await w.get('input[aria-label="名称"]').setValue("确认");
   await click(w, "确定子项");
   expect(value.value.rows).toEqual([{ name: "确认", children: [] }]);
@@ -466,7 +470,7 @@ it("blocks invalid child drafts and preserves readonly historical values without
     "value",
     "legacy-date",
   );
-  await click(w, "新增行");
+  await click(w, "新增");
   const confirm = () =>
     w.findAll("button").find((button) => button.text() === "确定子项")!;
   expect(confirm().attributes("disabled")).toBeDefined();

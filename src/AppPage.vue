@@ -17,6 +17,8 @@ import {
   VMenu,
   VBtn,
   VAvatar,
+  VList,
+  VListItem,
 } from "vuetify/components";
 import Feedback from "./Feedback.vue";
 import {
@@ -164,7 +166,6 @@ function navigated(event: MouseEvent) {
               :aria-controls="navigationId"
               :aria-expanded="drawer ?? !mobile"
               aria-label="切换导航"
-              title="切换导航"
               icon
               size="default"
               @click="drawer = !(drawer ?? !mobile)"
@@ -227,17 +228,22 @@ function navigated(event: MouseEvent) {
                     ></VBtn
                   ></template
                 >
-                <div class="zerp-shell-menu" role="menu" aria-label="主题预设">
-                  <VBtn
+                <VList
+                  class="zerp-shell-menu"
+                  role="menu"
+                  aria-label="主题预设"
+                >
+                  <VListItem
                     v-for="(choice, index) in presets"
                     :key="choice"
                     role="menuitemradio"
                     :aria-checked="theme.preset === choice"
                     :aria-label="`Material Design ${index + 1}`"
                     @click="preset(choice)"
-                    >Material Design {{ index + 1 }}</VBtn
-                  >
-                </div>
+                    :title="`Material Design ${index + 1}`"
+                    :active="theme.preset === choice"
+                  />
+                </VList>
               </VMenu>
               <VBtn
                 aria-label="切换明暗模式"
@@ -281,15 +287,19 @@ function navigated(event: MouseEvent) {
                     }}</span></VBtn
                   ></template
                 >
-                <div class="zerp-shell-account" role="menu">
-                  <VBtn
+                <VList
+                  class="zerp-shell-account"
+                  role="menu"
+                  aria-label="账户菜单"
+                >
+                  <VListItem
                     v-for="action in accountActions"
                     :key="action"
                     role="menuitem"
                     @click="active && emit('account-action', action)"
-                    >{{ labels[action] }}</VBtn
-                  >
-                </div>
+                    :title="labels[action]"
+                  />
+                </VList>
               </VMenu>
             </div>
           </div>
@@ -321,7 +331,7 @@ function navigated(event: MouseEvent) {
                 :is="group.ungrouped ? 'div' : 'details'"
                 v-for="group in navigation"
                 :key="group.key"
-                :open="group.ungrouped ? undefined : true"
+                :open="group.ungrouped ? undefined : false"
               >
                 <summary v-if="!group.ungrouped">{{ group.caption }}</summary>
                 <RouterLink

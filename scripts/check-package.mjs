@@ -465,7 +465,7 @@ try {
                       ]
                     : [
                         "browser create/edit and 20 examples",
-                        "mobile semantic table headers, contained horizontal scrolling and reachable last cell",
+                        "phone record cards retain field labels, exact selection and row operations; desktop tables restored",
                       ]),
     ],
     exitCode: 0,
@@ -686,91 +686,37 @@ async function directSmoke(page) {
   await page.getByRole("button", { name: "确认删除", exact: true }).click();
   await expect(page.getByLabel("资料删除次数")).toHaveText("1");
 
-  // Four row actions plus selection require real horizontal scrolling even
-  // after the mobile drawer has finished releasing its desktop layout space.
   await choose("actions");
-  await page.setViewportSize({ width: 320, height: 844 });
-  await expect
-    .poll(() =>
-      rows
-        .locator(".v-main")
-        .evaluate((main) => getComputedStyle(main).paddingLeft),
-    )
-    .toBe("0px");
-  const mobileTable = rows.getByRole("table").first();
-  assert.ok(await mobileTable.getByRole("columnheader").count());
-  assert.equal(
-    await mobileTable
-      .locator("thead")
-      .evaluate((el) => getComputedStyle(el).display),
-    "table-header-group",
-  );
-  assert.ok(
-    await mobileTable.evaluate((table) => {
-      for (
-        let container = table.parentElement;
-        container;
-        container = container.parentElement
-      ) {
-        if (
-          container.scrollWidth > container.clientWidth &&
-          ["auto", "scroll"].includes(getComputedStyle(container).overflowX)
-        ) {
-          container.scrollLeft = container.scrollWidth;
-          return container.scrollLeft > 0;
-        }
-      }
-      return false;
-    }),
-    "wide mobile table scrolls inside its own container",
-  );
-  const lastCell = mobileTable.getByRole("cell").last();
-  await lastCell.scrollIntoViewIfNeeded();
-  await expect
-    .poll(
-      () =>
-        lastCell.evaluate((cell) => {
-          const box = cell.getBoundingClientRect();
-          return (
-            box.x >= 0 &&
-            box.right <= innerWidth &&
-            box.y >= 0 &&
-            box.bottom <= innerHeight &&
-            cell.contains(
-              document.elementFromPoint(
-                box.x + box.width / 2,
-                box.y + box.height / 2,
-              ),
-            )
-          );
-        }),
-      {
-        message:
-          "the last cell remains visible and reachable after horizontal scrolling",
-      },
-    )
-    .toBe(true);
-  await lastCell.click({ trial: true });
-  console.log(
-    "Mobile table reachability",
-    await lastCell.evaluate((cell) => ({
-      viewport: [innerWidth, innerHeight],
-      cell: cell.getBoundingClientRect().toJSON(),
-      wrapper: cell
-        .closest(".v-table__wrapper")
-        ?.getBoundingClientRect()
-        .toJSON(),
-      scrollLeft: cell.closest(".v-table__wrapper")?.scrollLeft,
-      scrollWidth: cell.closest(".v-table__wrapper")?.scrollWidth,
-      clientWidth: cell.closest(".v-table__wrapper")?.clientWidth,
-    })),
-  );
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-    "table overflow does not create page-level horizontal scrolling",
-  );
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    const card = rows.getByRole("article", { name: "记录 1", exact: true });
+    await expect(card).toBeVisible();
+    await expect(rows.getByRole("table")).toHaveCount(0);
+    await expect(card.getByText("名称", { exact: true })).toBeVisible();
+    await expect(card.locator('[data-label="名称"]')).toContainText("合成客户");
+    const selected = card.getByRole("checkbox", {
+      name: "选择 row-actions",
+      exact: true,
+    });
+    await selected.check();
+    await expect(rows.getByLabel("已选记录")).toHaveText("row-actions");
+    await selected.uncheck();
+    const more = card.getByRole("button", { name: "更多操作", exact: true });
+    await more.click();
+    await page.getByRole("menuitem", { name: "完成", exact: true }).click();
+    await expect(
+      rows.getByRole("status").filter({ hasText: "complete:row-actions" }),
+    ).toBeVisible();
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      "phone cards fit the viewport",
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await expect(rows.getByRole("table")).toBeVisible();
+  await expect(rows.getByRole("article")).toHaveCount(0);
 }
 
 async function configurationSmoke(page) {
@@ -884,9 +830,7 @@ async function configurationSmoke(page) {
   await contracts
     .getByRole("button", { name: "关闭编辑", exact: true })
     .click();
-  await contracts
-    .getByRole("button", { name: "新增配置", exact: true })
-    .click();
+  await contracts.getByRole("button", { name: "新增", exact: true }).click();
   await contracts.getByLabel("接缝配置名", { exact: true }).fill("权威新配置");
   await contracts.getByRole("button", { name: "保存", exact: true }).click();
   await contracts
@@ -1037,14 +981,19 @@ async function reportSmoke(page) {
     element.scrollTop = 40;
     return { left: element.scrollLeft, top: element.scrollTop };
   });
-  assert.ok(position.left > 0);
-  assert.ok(position.top > 0);
   assert.equal(
-    await page
-      .getByRole("columnheader", { name: "精确金额 · 本次定义", exact: true })
-      .evaluate((element) => getComputedStyle(element).display),
-    "table-cell",
+    position.left,
+    0,
+    "phone report cards need no horizontal scrolling",
   );
+  assert.ok(position.top > 0);
+  await expect(scroll.getByRole("table")).toHaveCount(0);
+  await expect(
+    scroll
+      .getByRole("article")
+      .first()
+      .locator('[data-label="精确金额 · 本次定义"]'),
+  ).toBeVisible();
   await button("离开并保存报表").click();
   await button("返回报表").click();
   await page.getByText("第 2 页", { exact: false }).waitFor();
@@ -1109,6 +1058,7 @@ async function reportSmoke(page) {
     .waitFor();
   await page.getByLabel("固定读取情景").selectOption("success");
   await page.getByLabel("固定关键字").fill("");
+  await page.setViewportSize({ width: 1280, height: 720 });
   await button("查询").click();
   await page
     .getByRole("rowheader", { name: "合成分组", exact: true })
@@ -1229,6 +1179,17 @@ async function documentSmoke(page) {
 }
 
 async function voucherSmoke(page) {
+  const rowAction = (name, row) =>
+    page
+      .locator('[aria-label="单据明细"] [data-label="操作"]')
+      .nth(row - 1)
+      .getByRole("button", { name, exact: true });
+  const viewRow = (label) =>
+    page
+      .locator(".zerp-list")
+      .locator("tr, article.zerp-record-card")
+      .filter({ has: page.getByText(label, { exact: true }) })
+      .getByRole("button", { name: "查看", exact: true });
   const button = (name) => page.getByRole("button", { name, exact: true });
   const standalone = page.getByRole("region", {
     name: "独立单据编辑展示示例",
@@ -1247,9 +1208,39 @@ async function voucherSmoke(page) {
   });
   await page.getByLabel("单据演示", { exact: true }).selectOption("editor");
   await page.getByRole("button", { name: "编辑资料", exact: true }).click();
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    const card = standalone.getByRole("article", {
+      name: "明细行 1",
+      exact: true,
+    });
+    await expect(card).toBeVisible();
+    await expect(standalone.getByRole("table")).toHaveCount(0);
+    await expect(card.locator('[data-label="数量"]')).toContainText("0.0100");
+    await card.getByRole("button", { name: "编辑", exact: true }).click();
+    await standalone.getByLabel("品名", { exact: true }).fill("手机未确认输入");
+    await standalone
+      .getByRole("button", { name: "取消明细行", exact: true })
+      .click();
+    await expect(card.locator('[data-label="品名"]')).toContainText(
+      "合成商品甲",
+    );
+    await card.getByRole("button", { name: "删除", exact: true }).click();
+    await card.getByRole("button", { name: "取消删除", exact: true }).click();
+    await expect(card).toBeVisible();
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+  }
+  await page.setViewportSize({ width: 1280, height: 844 });
   await standalone.getByRole("button", { name: "编辑配方 · 明细行 1" }).click();
   await assertBelowToolbar(page, page.locator(".zerp-voucher-child-dialog"));
-  await standalone.getByRole("button", { name: "新增配方" }).click();
+  await page
+    .getByRole("dialog", { name: "配方 · 明细行 1", exact: true })
+    .getByRole("button", { name: "新增", exact: true })
+    .click();
   await standalone.getByLabel("原料").fill("合成原料甲");
   await standalone.getByLabel("用量").fill("0.0100");
   await standalone.getByRole("button", { name: "确定子项" }).click();
@@ -1261,10 +1252,10 @@ async function voucherSmoke(page) {
   );
   await page.getByLabel("单据演示", { exact: true }).selectOption("active-row");
   await button("编辑资料").click();
-  await button("编辑明细行 1").click();
+  await rowAction("编辑", 1).click();
   assert.ok(await page.getByLabel("行数量", { exact: true }).isDisabled());
   await button("取消明细行").click();
-  await button("新增明细行").click();
+  await button("新增").click();
   assert.ok(await page.getByLabel("子项标识", { exact: true }).isDisabled());
   await page
     .getByLabel("行数量", { exact: true })
@@ -1278,7 +1269,7 @@ async function voucherSmoke(page) {
       "detail-1:detail:9007199254740993.1234",
     ),
   );
-  await button("编辑明细行 2").click();
+  await rowAction("编辑", 2).click();
   await page
     .getByRole("combobox", { name: "行角色", exact: true })
     .press("ArrowDown");
@@ -1295,7 +1286,10 @@ async function voucherSmoke(page) {
     ),
   );
   await page.getByLabel("单据演示", { exact: true }).selectOption("submission");
-  await button("创建 Draft").click();
+  await page
+    .getByRole("region", { name: "单据列表", exact: true })
+    .getByRole("button", { name: "新增", exact: true })
+    .click();
   await value().fill("合成新单据");
   await expectValue(page.getByLabel("精确金额"), "9007199254740993.0100");
   await page.getByLabel("精确来源搜索", { exact: true }).fill("合成来源");
@@ -1315,7 +1309,12 @@ async function voucherSmoke(page) {
     .waitFor();
   await button("关闭编辑").click();
   await button("重试读取").first().click();
-  assert.ok(await button("创建 Draft").isDisabled());
+  assert.ok(
+    await page
+      .getByRole("region", { name: "单据列表", exact: true })
+      .getByRole("button", { name: "新增", exact: true })
+      .isDisabled(),
+  );
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "尚未业务提交" }).waitFor();
   await scenario("unknown-applied");
@@ -1330,7 +1329,10 @@ async function voucherSmoke(page) {
     .filter({ hasText: "业务写入结果未知" })
     .waitFor();
   assert.equal(
-    await ordinary.getByRole("button", { name: "新增明细行" }).count(),
+    await ordinary
+      .locator(".zerp-voucher-editor__table")
+      .getByRole("button", { name: "新增", exact: true })
+      .count(),
     0,
   );
   await button("关闭编辑").click();
@@ -1339,7 +1341,7 @@ async function voucherSmoke(page) {
     .getByRole("status")
     .filter({ hasText: "已核实业务写入成功" })
     .waitFor();
-  await button("查看 SYN-2").click();
+  await viewRow("SYN-2").click();
   await expectValue(value(), "合成新单据");
   const download = page.waitForEvent("download");
   await button("读取附件 doc.txt").click();
@@ -1347,10 +1349,10 @@ async function voucherSmoke(page) {
   await scenario("success");
   await button("审批通过").click();
   await button("审批通过").waitFor({ state: "detached" });
-  await button("克隆 Draft").click();
+  await button("克隆").click();
   await value().fill("克隆值");
   await button("提交单据").click();
-  await button("查看 SYN-3").click();
+  await viewRow("SYN-3").click();
   await expectValue(value(), "克隆值");
   await button("历史 SYN-ordinary · 合成经办人").click();
   await expectValue(value(), "合成录入");
@@ -1377,7 +1379,12 @@ async function voucherSmoke(page) {
       .getByRole("button", { name: "关闭编辑", exact: true })
       .isDisabled(),
   );
-  assert.ok(await button("创建 Draft").isDisabled());
+  assert.ok(
+    await page
+      .getByRole("region", { name: "单据列表", exact: true })
+      .getByRole("button", { name: "新增", exact: true })
+      .isDisabled(),
+  );
   await button("核实本次请求").click();
   await page
     .getByRole("status")
@@ -1385,7 +1392,10 @@ async function voucherSmoke(page) {
     .waitFor();
   await scenario("success");
   await page.getByLabel("单据示例").selectOption("opening");
-  await button("创建 Draft").click();
+  await page
+    .getByRole("region", { name: "单据列表", exact: true })
+    .getByRole("button", { name: "新增", exact: true })
+    .click();
   const opening = page.getByRole("region", {
     name: "合成单据 · opening",
     exact: true,
@@ -1398,15 +1408,21 @@ async function voucherSmoke(page) {
   });
   const formulaButton = (name) =>
     formulaDialog.getByRole("button", { name, exact: true });
-  await openingButton("新增明细行").click();
+  await opening
+    .locator(".zerp-voucher-editor__table")
+    .getByRole("button", { name: "新增", exact: true })
+    .click();
   await page.getByLabel("行名称").fill("取消行");
   await openingButton("取消明细行").click();
   assert.equal(await page.getByText("取消行", { exact: true }).count(), 0);
-  await openingButton("新增明细行").click();
+  await opening
+    .locator(".zerp-voucher-editor__table")
+    .getByRole("button", { name: "新增", exact: true })
+    .click();
   await page.getByLabel("行名称").fill("保留行");
   await openingButton("确定明细行").click();
   await openingButton("编辑配方 · 明细行 1").click();
-  await formulaButton("新增配方").click();
+  await formulaButton("新增").click();
   await formulaDialog.getByLabel("子项金额").fill("2.5000");
   await formulaButton("确定子项").click();
   await formulaButton("取消配方").click();
@@ -1416,23 +1432,29 @@ async function voucherSmoke(page) {
     )?.includes("0 项"),
   );
   await openingButton("编辑配方 · 明细行 1").click();
-  await formulaButton("新增配方").click();
+  await formulaButton("新增").click();
   await formulaDialog.getByLabel("子项金额").fill("2.5000");
   await formulaButton("确定子项").click();
   await formulaButton("确定配方").click();
   await button("提交单据").click();
-  await button("查看 SYN-2").click();
+  await viewRow("SYN-2").click();
   await page.getByRole("cell", { name: "保留行", exact: true }).waitFor();
   await openingButton("查看配方 · 明细行 1").click();
   assert.equal(await formulaButton("确定配方").count(), 0);
   await formulaButton("关闭配方").click();
   await page.getByLabel("单据示例").selectOption("system");
-  await button("查看 SYN-system").click();
-  assert.equal(await button("创建 Draft").count(), 0);
+  await viewRow("SYN-system").click();
+  assert.equal(
+    await page
+      .getByRole("region", { name: "单据列表", exact: true })
+      .getByRole("button", { name: "新增", exact: true })
+      .count(),
+    0,
+  );
   assert.equal(await button("编辑单据").count(), 0);
-  assert.equal(await button("克隆 Draft").count(), 0);
+  assert.equal(await button("克隆").count(), 0);
   await page.getByLabel("单据示例").selectOption("opening");
-  await button("查看 SYN-opening").click();
+  await viewRow("SYN-opening").click();
   await button("编辑单据").click();
   await scenario("unknown-not-applied");
   await button("提交单据").click();
@@ -1449,7 +1471,12 @@ async function voucherSmoke(page) {
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
   await button("关闭编辑").click();
-  assert.ok(await button("创建 Draft").isDisabled());
+  assert.ok(
+    await page
+      .getByRole("region", { name: "单据列表", exact: true })
+      .getByRole("button", { name: "新增", exact: true })
+      .isDisabled(),
+  );
   await page
     .getByLabel("单据会话", { exact: true })
     .selectOption("synthetic-session-b");
@@ -1457,6 +1484,12 @@ async function voucherSmoke(page) {
 }
 
 async function workflowSmoke(page) {
+  const viewRow = (label) =>
+    page
+      .locator(".zerp-list")
+      .locator("tr, article.zerp-record-card")
+      .filter({ has: page.getByText(label, { exact: true }) })
+      .getByRole("button", { name: "查看", exact: true });
   const button = (name) => page.getByRole("button", { name, exact: true });
   const scenario = (value) => page.getByLabel("写入情景").selectOption(value);
   await page
@@ -1470,7 +1503,7 @@ async function workflowSmoke(page) {
   await page.getByText("暂无数据", { exact: true }).waitFor();
   await page.getByLabel("读取情景").selectOption("success");
   await button("重试读取").click();
-  await button("查看 流程一").click();
+  await viewRow("流程一").click();
   assert.equal(await page.getByText("未授权目标", { exact: true }).count(), 0);
   await page
     .getByRole("combobox", { name: "根节点创建目标", exact: true })
@@ -1484,14 +1517,14 @@ async function workflowSmoke(page) {
     .waitFor();
   await button("关闭实例").click();
   await button("重试读取").click();
-  await button("查看 流程二").click();
+  await viewRow("流程二").click();
   assert.ok(await button("创建下级").isDisabled());
   await button("核实本次请求").click();
   await page
     .getByRole("status")
     .filter({ hasText: "已核实节点动作成功" })
     .waitFor();
-  await button("查看 流程一").click();
+  await viewRow("流程一").click();
   await page.getByRole("heading", { name: "下级节点", exact: true }).waitFor();
   await scenario("success");
   await page
@@ -1501,7 +1534,7 @@ async function workflowSmoke(page) {
   await page
     .getByText("消费者路由目标：流程一-child", { exact: true })
     .waitFor();
-  await button("查看 流程一-child").click();
+  await viewRow("流程一-child").click();
   await button("编辑单据").click();
   await page
     .getByRole("textbox", { name: "名称", exact: true })
@@ -1511,13 +1544,13 @@ async function workflowSmoke(page) {
     "9007199254740993.0100",
   );
   await button("提交单据").click();
-  await button("查看 流程一-child").click();
+  await viewRow("流程一-child").click();
   assert.equal(
     await page.getByRole("textbox", { name: "名称", exact: true }).inputValue(),
     "流程目标单据修改",
   );
   await page.getByRole("link", { name: "返回流程", exact: true }).click();
-  await button("查看 流程一").click();
+  await viewRow("流程一").click();
   await scenario("not-applied");
   await button("批准下级").click();
   await button("核实本次请求").click();
@@ -1538,17 +1571,17 @@ async function workflowSmoke(page) {
   await button("核实本次请求").click();
   await page.getByRole("status").filter({ hasText: "证据不足" }).waitFor();
   await button("关闭实例").click();
-  await button("查看 流程二").click();
+  await viewRow("流程二").click();
   assert.ok(await button("创建下级").isDisabled());
   await page.getByLabel("会话作用域").selectOption("session-b");
-  await button("查看 流程二").click();
+  await viewRow("流程二").click();
   await page
     .getByRole("combobox", { name: "根节点创建目标", exact: true })
     .press("ArrowDown");
   await page.getByRole("option", { name: "合成收据", exact: true }).click();
   assert.ok(await button("创建下级").isEnabled());
   await page.getByLabel("会话作用域").selectOption("session-a");
-  await button("查看 流程二").click();
+  await viewRow("流程二").click();
   assert.ok(await button("创建下级").isDisabled());
 }
 
@@ -1581,6 +1614,11 @@ async function shellSmoke(page) {
   await page.getByRole("button", { name: "重试品牌", exact: true }).click();
   await page.getByRole("button", { name: "模拟导航失败", exact: true }).click();
   await page.getByRole("button", { name: "重试导航", exact: true }).click();
+  await page
+    .locator('nav[aria-label="主导航"] details')
+    .first()
+    .locator("summary")
+    .click();
   for (const name of ["直接维护", "配置", "报表", "资料档案", "单据", "流程"]) {
     const link = page.getByRole("link", { name, exact: true });
     assert.ok(await link.getAttribute("href"));
@@ -1599,6 +1637,11 @@ async function shellSmoke(page) {
     assert.equal(await page.locator("h1").count(), 1);
     assert.equal(await link.getAttribute("aria-current"), "page");
   }
+  await page
+    .locator('nav[aria-label="主导航"] details')
+    .nth(1)
+    .locator("summary")
+    .click();
   for (const name of ["资料一", "资料二"]) {
     await page.getByRole("link", { name, exact: true }).click();
     await page
@@ -1625,19 +1668,24 @@ async function shellSmoke(page) {
     );
   }
   const originalURL = page.url();
-  await page
-    .getByRole("link", { name: "报表", exact: true })
-    .dispatchEvent("click", { metaKey: true, button: 0 });
-  assert.equal(page.url(), originalURL);
-  const newTab = page.context().waitForEvent("page");
-  await page
-    .getByRole("link", { name: "报表", exact: true })
-    .click({ button: "middle" });
-  const popup = await newTab;
-  await popup.waitForURL("**/report");
-  await popup.waitForLoadState();
-  assert.ok(popup.url().endsWith("/report"));
-  await popup.close();
+  const reportLink = page.getByRole("link", { name: "报表", exact: true });
+  for (const options of [
+    { modifiers: ["ControlOrMeta"] },
+    { button: "middle" },
+  ]) {
+    const [popup] = await Promise.all([
+      page.context().waitForEvent("page"),
+      reportLink.click(options),
+    ]);
+    try {
+      await popup.waitForURL("**/report");
+      await popup.waitForLoadState();
+      assert.equal(page.url(), originalURL);
+      assert.ok(popup.url().endsWith("/report"));
+    } finally {
+      await popup.close();
+    }
+  }
   await page
     .getByRole("button", { name: "账户：演示账户", exact: true })
     .click();
@@ -1711,6 +1759,11 @@ async function shellSmoke(page) {
   );
   await page.getByRole("button", { name: "重试品牌", exact: true }).click();
   await page.getByRole("button", { name: "切换导航", exact: true }).click();
+  await page
+    .locator('nav[aria-label="主导航"] details')
+    .first()
+    .locator("summary")
+    .click();
   await page.getByRole("link", { name: "报表", exact: true }).click();
   await page
     .getByRole("heading", { name: "合成报表 · 分批", exact: true })

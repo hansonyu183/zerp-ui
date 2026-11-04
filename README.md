@@ -2,11 +2,17 @@
 
 `@zerp/ui` 是独立发布的 Vue/Vuetify 完整页面库。正式规格与交付记录在本仓库 GitHub Issues；当前页面边界见 [#40](https://github.com/hansonyu183/zerp-ui/issues/40)，继承 #7/#22/#32 未冲突的生命周期和原请求保证。
 
+页面设计、实现与审查遵循[个人 UI 要求](docs/ui-preferences.md)，其中汇总固定顶栏、稳定反馈、Material 主题、语义图标及业务文案要求，并注明跨项目来源和职责边界。
+
+[在线合成示例](https://zerp-ui-demo.pages.dev)提供六类业务页面、主题和手机交互；部署及验证流程见[示例站说明](docs/demo-site.md)。
+
 ## 公开入口
 
 只有 `AuthPage` 与 `AppPage` 两个公开 Vue 组件。消费者提供强类型页面定义、字段、分组、顺序、数据与 Adapter；库决定完整页面、领域区块、顶栏、弹层、反馈和响应式布局。不接收主内容插槽、消费者组件、模板、render 或 CSS 布局配置，不提供内部组件子路径、别名或兼容包装器。
 
 公司 DTO、业务规则、API 路径、请求、凭证、Session、Router、导航过滤和页面选择由消费者持有。库不会创建公司 API 客户端、Session store 或路由注册平台。原 ZERP/oit-go 保持只读，真实应用接入由发布后的独立工单负责。
+
+0.13.0 的完整变更见 [CHANGELOG](CHANGELOG.md#0130)：手机端列表改为卡片、导航分组默认收起，配置定义移除 `createLabel`，新增文案统一由库负责。
 
 ## 固定版本安装
 
@@ -22,11 +28,11 @@
 
 0.12.0 整合异步行草稿、整单候选原子采用、逐行权限与动态字段，并补回只读资料详情的获权删除；完整页面与 Material 所有权保持。
 
-从 [ui-v0.12.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.12.0) 下载 `zerp-ui-0.12.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.13.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.13.0) 下载 `zerp-ui-0.13.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.12.0.tgz
+pnpm add ./zerp-ui-0.13.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。

@@ -10,8 +10,10 @@ import {
   VCardText,
 } from "vuetify/components";
 import { computed, onBeforeUnmount } from "vue";
+import { useDisplay } from "vuetify";
 import Feedback from "./Feedback.vue";
 import type { Interaction, InteractionAnswers } from "./collaboration";
+const { xs } = useDisplay();
 const props = defineProps<{
   items: readonly Interaction<T>[];
   answers: InteractionAnswers;
@@ -112,27 +114,43 @@ onBeforeUnmount(() => {
         >
       </VCard>
       <div v-else-if="item.kind === 'grid'" class="zerp-table-scroll">
-        <VTable>
-          <caption>
-            {{
-              item.label
-            }}
-          </caption>
-          <thead>
+        <component :is="xs ? 'div' : VTable" :aria-label="item.label">
+          <component :is="xs ? 'h3' : 'caption'">
+            {{ item.label }}
+          </component>
+          <thead v-if="!xs">
             <tr>
               <th v-for="column in item.columns" :key="column.key" scope="col">
                 {{ column.label }}
               </th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="row in item.rows" :key="row.key">
-              <td v-for="column in item.columns" :key="column.key">
+          <component
+            :is="xs ? 'div' : 'tbody'"
+            :class="{ 'zerp-record-cards': xs }"
+          >
+            <component
+              :is="xs ? VCard : 'tr'"
+              :tag="xs ? 'article' : undefined"
+              :variant="xs ? 'outlined' : undefined"
+              :class="{ 'zerp-record-card': xs }"
+              v-for="row in item.rows"
+              :key="row.key"
+            >
+              <component
+                :is="xs ? 'div' : 'td'"
+                v-for="column in item.columns"
+                :key="column.key"
+                :data-label="column.label"
+              >
+                <span v-if="xs" class="zerp-record-card__label">{{
+                  column.label
+                }}</span>
                 {{ row.values[column.key] ?? "—" }}
-              </td>
-            </tr>
-          </tbody>
-        </VTable>
+              </component>
+            </component>
+          </component>
+        </component>
       </div>
       <VBtn
         v-else-if="item.kind === 'related' || item.kind === 'download'"

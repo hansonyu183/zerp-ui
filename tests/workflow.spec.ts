@@ -84,10 +84,15 @@ const start = async (
   await flushPromises();
   return w;
 };
+async function viewRow(w: ReturnType<typeof mount>, label: string) {
+  const row = w.findAll("tbody tr").find((row) => row.text().includes(label))!;
+  await row.get('[aria-label="查看"]').trigger("click");
+  await flushPromises();
+}
 it("shows backend/permission action and target intersections, sends exact node revision and refreshes", async () => {
   const d = definition(),
     w = await start(d);
-  await click(w, "查看 流程一");
+  await viewRow(w, "流程一");
   expect(w.text()).toContain("历史审批");
   expect(w.text()).not.toContain("取消下级");
   expect(w.text()).not.toContain("目标乙");
@@ -117,14 +122,14 @@ it("keeps unknown requests across refresh, close and remount; only exact evidenc
   }));
   const defined = defineWorkflow({ ...d, reconcile: verify });
   let w = await start(defined);
-  await click(w, "查看 流程一");
+  await viewRow(w, "流程一");
   await click(w, "批准下级");
   const original = vi.mocked(d.adapter.act).mock.calls[0]![0];
   await click(w, "重试读取");
   await click(w, "关闭实例");
   w.unmount();
   w = await start(defined);
-  await click(w, "查看 流程二");
+  await viewRow(w, "流程二");
   expect(button(w, "批准下级").attributes("disabled")).toBeDefined();
   await click(w, "核实本次请求");
   expect(verify).toHaveBeenCalledWith(original);
@@ -157,10 +162,10 @@ it("invalidates late verification when selecting another instance", async () => 
       ),
   });
   const w = await start(defined);
-  await click(w, "查看 流程一");
+  await viewRow(w, "流程一");
   await click(w, "批准下级");
   await click(w, "核实本次请求");
-  await click(w, "查看 流程二");
+  await viewRow(w, "流程二");
   resolve({
     status: "applied",
     attemptId: vi.mocked(d.adapter.act).mock.calls[0]![0].id,
@@ -173,7 +178,7 @@ it("invalidates late verification when selecting another instance", async () => 
 it("refresh failure retries reads without replay; failures retain actionable facts", async () => {
   const d = definition(),
     w = await start(d);
-  await click(w, "查看 流程一");
+  await viewRow(w, "流程一");
   vi.mocked(d.adapter.act).mockResolvedValueOnce({
     status: "failure",
     message: "修订冲突",
@@ -192,7 +197,7 @@ it("refresh failure retries reads without replay; failures retain actionable fac
 it("sends a typed target and emits voucher navigation only after an applied open action", async () => {
   const d = definition(),
     w = await start(d);
-  await click(w, "查看 流程一");
+  await viewRow(w, "流程一");
   await w
     .get('input[aria-label="合成节点创建目标"]')
     .trigger("keydown", { key: "ArrowDown" });
@@ -216,7 +221,7 @@ it("sends a typed target and emits voucher navigation only after an applied open
   w.unmount();
   const d2 = definition(),
     w2 = await start(d2);
-  await click(w2, "查看 流程一");
+  await viewRow(w2, "流程一");
   await click(w2, "打开单据");
   expect(w2.emitted("open-voucher")).toEqual([[{ id: "doc1" }]]);
   w2.unmount();
@@ -232,8 +237,8 @@ it("isolates out-of-order instance/scope reads and preserves pending writes in t
         finish = r;
       }),
   );
-  await click(w, "查看 流程一");
-  await click(w, "查看 流程二");
+  await viewRow(w, "流程一");
+  await viewRow(w, "流程二");
   finish({ identity: "old", label: "迟到实例", nodes: [] });
   await flushPromises();
   expect(w.text()).not.toContain("迟到实例");
@@ -249,11 +254,11 @@ it("isolates out-of-order instance/scope reads and preserves pending writes in t
   await flushPromises();
   complete({ status: "unknown" });
   await flushPromises();
-  await click(w, "查看 流程二");
+  await viewRow(w, "流程二");
   expect(button(w, "批准下级").attributes("disabled")).toBeUndefined();
   await w.setProps({ scope: "a" });
   await flushPromises();
-  await click(w, "查看 流程一");
+  await viewRow(w, "流程一");
   expect(button(w, "批准下级").attributes("disabled")).toBeDefined();
   w.unmount();
 });
@@ -266,7 +271,7 @@ it("handles empty/error/retry without leaving stale actionable details", async (
   await click(w, "重试读取");
   expect(w.text()).toContain("暂无数据");
   await click(w, "重试读取");
-  await click(w, "查看 流程一");
+  await viewRow(w, "流程一");
   vi.mocked(d.adapter.audit).mockRejectedValueOnce(new Error("审计失败"));
   await click(w, "重试读取");
   expect(w.text()).toContain("审计失败");
@@ -282,7 +287,7 @@ it("accepts confirmed not-applied but never unlocks without audit/reconcile perm
     evidence: "precise authoritative absence",
   }));
   const w = await start(defineWorkflow({ ...d, reconcile: verify }));
-  await click(w, "查看 流程一");
+  await viewRow(w, "流程一");
   await click(w, "批准下级");
   await w.setProps({ permissions: { ...permissions, audit: false } });
   await flushPromises();
@@ -291,7 +296,7 @@ it("accepts confirmed not-applied but never unlocks without audit/reconcile perm
   await w.setProps({ permissions });
   await flushPromises();
   await click(w, "核实本次请求");
-  await click(w, "查看 流程一");
+  await viewRow(w, "流程一");
   expect(button(w, "批准下级").attributes("disabled")).toBeUndefined();
   w.unmount();
 });

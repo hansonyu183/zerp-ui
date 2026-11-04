@@ -200,3 +200,83 @@ it("keeps an open action menu attached to its original row when an ordinary list
     w.unmount();
   }
 });
+
+it("switches phone records to cards without losing selection, exact cells, groups or authoritative totals", async () => {
+  const width = window.innerWidth;
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 390,
+  });
+  window.dispatchEvent(new Event("resize"));
+  const record = {
+    id: "one",
+    name: "合成客户",
+    amount: "9007199254740993.0100",
+  };
+  const wrapper = mount(DataList as Component, {
+    props: {
+      ...props,
+      columns: [
+        { key: "name", label: "名称" },
+        { key: "amount", label: "金额", type: "decimal" },
+      ],
+      result: { items: [record], total: 41 },
+      page: 2,
+      selectedKeys: [],
+      actions: () => ["view"],
+      summary: { caption: "权威合计", values: { amount: "123456789.9900" } },
+      presentation: {
+        rows: [],
+        groups: [
+          {
+            id: "customer",
+            label: "客户组",
+            level: 0,
+            firstKey: "one",
+            lastKey: "one",
+            continuedBefore: true,
+            continuedAfter: true,
+            summary: { caption: "组小计", values: { amount: "1234.5000" } },
+          },
+        ],
+      },
+    },
+  });
+  try {
+    await flushPromises();
+    const card = wrapper.get('article[aria-label="记录 1"]');
+    expect(wrapper.find("table").exists()).toBe(false);
+    expect(card.text()).toContain("金额9007199254740993.0100");
+    expect(wrapper.text()).toContain("客户组（续）");
+    expect(wrapper.text()).toContain("组小计（续）");
+    expect(wrapper.text()).toContain("1234.5000");
+    expect(wrapper.get('[aria-label="权威合计"]').text()).toContain(
+      "123456789.9900",
+    );
+    await card.get('input[type="checkbox"]').setValue(true);
+    expect(wrapper.emitted("update:selectedKeys")?.[0]).toEqual([["one"]]);
+    await card.get('[aria-label="查看"]').trigger("click");
+    expect(wrapper.emitted("action")?.[0]).toEqual(["view", record]);
+    expect(wrapper.get('[aria-label="分页"]').text()).toContain(
+      "第 2 页 / 3 页",
+    );
+    await wrapper.setProps({ result: { items: [record], hasMore: true } });
+    expect(wrapper.get('[aria-label="分页"]').text()).not.toContain("共");
+    expect(wrapper.get('[aria-label="分页"]').text()).not.toContain("/");
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1280,
+    });
+    window.dispatchEvent(new Event("resize"));
+    await flushPromises();
+    expect(wrapper.find("table").exists()).toBe(true);
+    expect(wrapper.find("article").exists()).toBe(false);
+  } finally {
+    wrapper.unmount();
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: width,
+    });
+    window.dispatchEvent(new Event("resize"));
+  }
+});

@@ -269,7 +269,7 @@ onBeforeUnmount(() => emit("pending", false));
           variant="tonal"
           :disabled="disabled || field.readonly || !!editing"
           @click="begin(field, -1)"
-          >新增{{ field.label }}</VBtn
+          >新增</VBtn
         >
       </fieldset>
       <fieldset
