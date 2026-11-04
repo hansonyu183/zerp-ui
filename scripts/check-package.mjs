@@ -15,6 +15,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { detailsSmoke } from "./details-smoke.mjs";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
+import { authLayoutSmoke } from "./auth-layout-smoke.mjs";
 import {
   shellInteractionSmoke,
   assertBelowToolbar,
@@ -1723,6 +1724,7 @@ async function shellSmoke(page) {
   await page.reload();
   await page.getByRole("heading", { name: "星河演示", exact: true }).waitFor();
   assert.equal(await page.locator(".zerp-shell").count(), 0);
+  await authLayoutSmoke(page);
   await page.getByRole("button", { name: "注册账号", exact: true }).click();
   await page.getByLabel("账号", { exact: true }).fill("synthetic-user");
   await page.getByLabel("密码", { exact: true }).fill("synthetic-password");

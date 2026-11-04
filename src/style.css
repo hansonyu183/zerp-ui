@@ -59,13 +59,14 @@
 }
 .zerp-auth-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 1.5rem;
+  padding: 1rem;
 }
 .zerp-auth-card {
   width: min(100%, 440px);
-  padding: 2rem;
+  padding: 1.5rem;
   border-radius: 12px;
   background: rgb(var(--v-theme-surface));
   color: rgb(var(--v-theme-on-surface));
@@ -73,7 +74,7 @@
 }
 .zerp-auth-brand {
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 .zerp-auth-brand img {
   max-width: 52px;
@@ -89,8 +90,19 @@
   color: rgb(var(--v-theme-on-primary));
   font-size: 1.5rem;
 }
-.zerp-auth-card form {
-  gap: 1rem;
+.zerp-auth-card h1 {
+  margin-block-end: 0.25rem;
+}
+.zerp-auth-card h2 {
+  margin: 0;
+}
+.zerp-auth-card .zerp-feedback-region {
+  block-size: 3.5rem;
+}
+@media (max-width: 599px) {
+  .zerp-auth-card {
+    padding: 1rem;
+  }
 }
 .zerp-auth-card nav {
   display: flex;
@@ -243,8 +255,16 @@
   overflow: visible;
 }
 .zerp-auth-brand-state {
-  block-size: 3.5rem;
+  block-size: 3rem;
   overflow: auto;
+}
+.zerp-auth-brand-state p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0;
 }
 .zerp-progress-reserve {
   block-size: 4px;
@@ -266,6 +286,8 @@
   font-size: 2rem;
   line-height: 1.25;
   font-weight: 400;
+}
+.zerp-ui h1 {
   margin-block-end: 1rem;
 }
 .zerp-ui h2 {
