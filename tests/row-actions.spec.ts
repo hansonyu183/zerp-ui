@@ -272,6 +272,16 @@ it("switches phone records to cards without losing selection, exact cells, group
     expect(wrapper.get('[aria-label="分页"]').text()).not.toContain("/");
     Object.defineProperty(window, "innerWidth", {
       configurable: true,
+      value: 320,
+    });
+    window.dispatchEvent(new Event("resize"));
+    await wrapper.setProps({ actions: () => ["edit", "delete"] });
+    await flushPromises();
+    expect(card.get('[aria-label="编辑"]').text()).toContain("编辑");
+    expect(card.get('[aria-label="删除"]').text()).toContain("删除");
+    expect(card.find('[aria-label="更多操作"]').exists()).toBe(false);
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
       value: 1280,
     });
     window.dispatchEvent(new Event("resize"));

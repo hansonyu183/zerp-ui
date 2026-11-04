@@ -19,7 +19,7 @@ const emit = defineEmits<{ action: [action: ListAction] }>();
 const menu = ref(false);
 const { xs, width } = useDisplay();
 const primaryCount = computed(() =>
-  xs.value ? (width.value < 360 ? 1 : 2) : 3,
+  xs.value ? (width.value < 360 && props.actions.length > 2 ? 1 : 2) : 3,
 );
 const captions: Record<ListAction, string> = {
   view: "查看",
