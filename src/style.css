@@ -520,6 +520,11 @@
 .zerp-record-card--selected {
   border-color: rgb(var(--v-theme-primary));
 }
+@media (max-width: 599px) {
+  .zerp-shell .v-main {
+    transition: none;
+  }
+}
 .zerp-record-card .v-btn:not(.v-btn--icon) {
   max-inline-size: 100%;
   white-space: normal;
