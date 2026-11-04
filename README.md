@@ -28,11 +28,13 @@
 
 0.12.0 整合异步行草稿、整单候选原子采用、逐行权限与动态字段，并补回只读资料详情的获权删除；完整页面与 Material 所有权保持。
 
-从 [ui-v0.13.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.13.0) 下载 `zerp-ui-0.13.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+0.14.0 修复认证页双端布局，并将手机卡片选择与图标短文字操作统一到首行。认证页直接挂载；手机可见操作随宽度收敛，其余进入“更多”，选择、权限与原动作协议保持。
+
+从 [ui-v0.14.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.14.0) 下载 `zerp-ui-0.14.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.13.0.tgz
+pnpm add ./zerp-ui-0.14.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
