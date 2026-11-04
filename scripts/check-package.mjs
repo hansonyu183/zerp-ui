@@ -16,6 +16,7 @@ import assert from "node:assert/strict";
 import { detailsSmoke } from "./details-smoke.mjs";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
 import { authLayoutSmoke } from "./auth-layout-smoke.mjs";
+import { cardToolbarSmoke } from "./card-toolbar-smoke.mjs";
 import {
   shellInteractionSmoke,
   assertBelowToolbar,
@@ -695,12 +696,16 @@ async function directSmoke(page) {
     await expect(rows.getByRole("table")).toHaveCount(0);
     await expect(card.getByText("名称", { exact: true })).toBeVisible();
     await expect(card.locator('[data-label="名称"]')).toContainText("合成客户");
+    await cardToolbarSmoke(page, card, width);
     const selected = card.getByRole("checkbox", {
       name: "选择 row-actions",
       exact: true,
     });
     await selected.check();
     await expect(rows.getByLabel("已选记录")).toHaveText("row-actions");
+    await expect(rows.locator(".zerp-card-selection [role=status]")).toHaveText(
+      "已选 1 项",
+    );
     await selected.uncheck();
     const more = card.getByRole("button", { name: "更多操作", exact: true });
     await more.click();

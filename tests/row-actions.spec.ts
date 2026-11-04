@@ -245,6 +245,10 @@ it("switches phone records to cards without losing selection, exact cells, group
   try {
     await flushPromises();
     const card = wrapper.get('article[aria-label="记录 1"]');
+    const toolbar = card.get(".zerp-record-card__toolbar");
+    expect(toolbar.get('[aria-label="查看"]').text()).toContain("查看");
+    expect(toolbar.find('input[type="checkbox"]').exists()).toBe(true);
+    expect(wrapper.get(".zerp-card-selection").text()).toContain("全选当前页");
     expect(wrapper.find("table").exists()).toBe(false);
     expect(card.text()).toContain("金额9007199254740993.0100");
     expect(wrapper.text()).toContain("客户组（续）");
@@ -255,6 +259,9 @@ it("switches phone records to cards without losing selection, exact cells, group
     );
     await card.get('input[type="checkbox"]').setValue(true);
     expect(wrapper.emitted("update:selectedKeys")?.[0]).toEqual([["one"]]);
+    await wrapper.setProps({ selectedKeys: ["one"] });
+    expect(wrapper.get(".zerp-card-selection").text()).toContain("已选 1 项");
+    expect(card.classes()).toContain("zerp-record-card--selected");
     await card.get('[aria-label="查看"]').trigger("click");
     expect(wrapper.emitted("action")?.[0]).toEqual(["view", record]);
     expect(wrapper.get('[aria-label="分页"]').text()).toContain(
