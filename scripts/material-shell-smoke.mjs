@@ -479,14 +479,22 @@ export async function materialShellSmoke(page) {
           "切换明暗模式",
           "账户：演示账户",
           "查看",
-          "编辑",
-          "删除",
+          ...(width >= 360 ? ["编辑"] : []),
           "更多操作",
         ]) {
           const control = page.getByRole("button", { name, exact: true });
           await control.scrollIntoViewIfNeeded();
           await touchTarget(control);
         }
+        await page
+          .getByRole("button", { name: "更多操作", exact: true })
+          .click();
+        for (const name of [...(width < 360 ? ["编辑"] : []), "删除"]) {
+          const item = page.getByRole("menuitem", { name, exact: true });
+          await item.scrollIntoViewIfNeeded();
+          await touchTarget(item);
+        }
+        await page.keyboard.press("Escape");
         await selected.scrollIntoViewIfNeeded();
         await touchTarget(selected);
         assert.ok(
