@@ -17,7 +17,7 @@ export async function authLayoutSmoke(page) {
       [390, 844],
       [360, 640],
       [320, 568],
-      [844, 390],
+      [844, 320],
     ]) {
       await page.setViewportSize({ width, height });
       const card = await page.locator("main.zerp-auth-card").boundingBox();
@@ -51,7 +51,13 @@ export async function authLayoutSmoke(page) {
         card.y >= 0,
         `${width}px: short-screen card starts within the document`,
       );
-      if (card.height + 32 <= height) {
+      const padding = await page
+        .locator(".zerp-auth-page")
+        .evaluate((element) => {
+          const style = getComputedStyle(element);
+          return parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+        });
+      if (card.height + padding <= height) {
         assert.equal(
           dimensions.height,
           height,

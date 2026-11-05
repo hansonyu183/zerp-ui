@@ -131,7 +131,7 @@ defineExpose<EditGuardHandle>({ requestLeave });
     >
       <VDefaultsProvider :defaults="pageDefaults"
         ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
-          <h2 class="text-h6">未保存修改</h2>
+          <h2>未保存修改</h2>
           <p>有未保存的修改，是否放弃？</p>
           <VBtn
             ref="continueButton"

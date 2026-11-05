@@ -117,7 +117,7 @@ function submit() {
               brand.mark.text
             }}</span>
             <img v-else :src="brand.mark.src" :alt="brand.mark.alt" />
-            <h1 class="text-h5">{{ brand.productName }}</h1>
+            <h1>{{ brand.productName }}</h1>
             <div class="zerp-auth-brand-state">
               <p v-if="brandState.kind === 'ready'">
                 {{ brand.enterpriseName }}
@@ -131,7 +131,7 @@ function submit() {
               </p>
             </div>
           </header>
-          <h2 class="text-h6">{{ title }}</h2>
+          <h2>{{ title }}</h2>
           <FeedbackRegion>
             <Feedback :message="error" kind="error" />
             <Feedback :message="notice" />

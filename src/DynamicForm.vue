@@ -291,7 +291,7 @@ onBeforeUnmount(() => emit("pending", false));
             "
             class="zerp-field-group"
           >
-            <legend class="text-subtitle-1">{{ field.label }}</legend>
+            <legend>{{ field.label }}</legend>
             <ol>
               <li v-for="(row, index) in rows(field.key)" :key="index">
                 <FactFields :value="row" :fields="formFacts(field.fields)" />
@@ -332,7 +332,7 @@ onBeforeUnmount(() => emit("pending", false));
             "
             class="zerp-field-group"
           >
-            <legend class="text-subtitle-1">{{ field.label }}</legend>
+            <legend>{{ field.label }}</legend>
             <div class="zerp-date-range">
               <VTextField
                 v-for="(suffix, index) in ['起', '止']"

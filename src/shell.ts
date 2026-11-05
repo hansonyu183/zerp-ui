@@ -44,10 +44,34 @@ export function shellDefaults(choice: ThemeChoice) {
   const defaults = blueprints[choice.preset].defaults;
   return {
     ...defaults,
-    VBtn: { ...defaults?.VBtn, color: "", minHeight: 48, minWidth: 48 },
-    VListItem: { ...defaults?.VListItem, minHeight: 48 },
-    VCheckbox: { ...defaults?.VCheckbox, color: "on-surface" },
-    VCheckboxBtn: { color: "on-surface", minHeight: 48, minWidth: 48 },
+    VBtn: {
+      ...defaults?.VBtn,
+      color: "",
+      density: "compact",
+      minHeight: "var(--zerp-control-size)",
+      minWidth: "var(--zerp-control-size)",
+    },
+    VList: { ...defaults?.VList, density: "compact" },
+    VListItem: {
+      ...defaults?.VListItem,
+      density: "compact",
+      minHeight: "var(--zerp-control-size)",
+    },
+    VTextField: { ...defaults?.VTextField, density: "compact" },
+    VSelect: { ...defaults?.VSelect, density: "compact" },
+    VTextarea: { ...defaults?.VTextarea, density: "compact" },
+    VFileInput: { ...defaults?.VFileInput, density: "compact" },
+    VCheckbox: {
+      ...defaults?.VCheckbox,
+      color: "on-surface",
+      density: "compact",
+    },
+    VCheckboxBtn: {
+      color: "on-surface",
+      density: "compact",
+      minHeight: "var(--zerp-control-size)",
+      minWidth: "var(--zerp-control-size)",
+    },
   };
 }
 export function shellThemeName(choice: ThemeChoice) {
@@ -81,7 +105,7 @@ export function createShellThemes(colors: BrandColors = {}) {
       // Error text also appears on elevated cards, and destructive confirms use a filled button.
       const error =
         mode === "dark"
-          ? "#EF9A9A"
+          ? "#F5A6A6"
           : typeof official?.colors?.error === "string"
             ? official.colors.error
             : "#B00020";

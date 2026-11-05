@@ -44,8 +44,6 @@ const label = computed(() =>
       <VBtn
         variant="text"
         color=""
-        :min-width="48"
-        :min-height="48"
         v-if="!persistent"
         type="button"
         class="zerp-feedback__close"

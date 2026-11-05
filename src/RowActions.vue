@@ -150,8 +150,6 @@ function activate(
           variant="text"
           color="on-surface"
           size="default"
-          :min-width="48"
-          :min-height="48"
           @click="activate($event, item)"
           ><VIcon :icon="item.icon" aria-hidden="true" /><span v-if="xs">{{
             item.label
@@ -175,8 +173,6 @@ function activate(
           variant="text"
           color="on-surface"
           size="default"
-          :min-width="48"
-          :min-height="48"
           ><VIcon icon="mdi-dots-horizontal" aria-hidden="true" /><span
             v-if="xs"
             >更多</span
@@ -208,7 +204,7 @@ function activate(
 }
 .zerp-row-actions--mobile :deep(.v-btn) {
   padding-inline: 4px;
-  font-size: 0.875rem;
+  font-size: inherit;
 }
 .zerp-row-actions--mobile :deep(.v-btn__content) {
   gap: 4px;

@@ -35,8 +35,8 @@ function rows(value: unknown): object[] {
 <template>
   <dl class="zerp-facts">
     <div v-for="field in fields" :key="field.key">
-      <dt class="text-subtitle-2">{{ field.label }}</dt>
-      <dd class="text-body-1">
+      <dt>{{ field.label }}</dt>
+      <dd>
         <template v-if="field.type === 'records'">
           <span v-if="!Array.isArray(get(value, field.key))">{{
             factText(get(value, field.key), field)

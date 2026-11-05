@@ -162,7 +162,7 @@ function navigated(event: MouseEvent) {
         @keydown="escapeNavigation"
       >
         <FeedbackHost>
-          <VAppBar name="app-bar" :order="0" :height="xs ? 56 : 64">
+          <VAppBar name="app-bar" :order="0" :height="xs ? 56 : 48">
             <div class="zerp-shell-toolbar">
               <VBtn
                 ref="navigationToggle"
@@ -179,7 +179,7 @@ function navigated(event: MouseEvent) {
                 class="zerp-shell-brand"
                 :aria-label="`${brand.productName}：首页`"
               >
-                <VAvatar color="primary" :size="xs ? 28 : 36">
+                <VAvatar color="primary" :size="28">
                   <span v-if="brand.mark.kind === 'text'">{{
                     brand.mark.text
                   }}</span>
@@ -278,7 +278,7 @@ function navigated(event: MouseEvent) {
                       :title="account.label"
                       class="zerp-shell-account-button"
                       size="default"
-                      ><VAvatar color="primary" :size="xs ? 28 : 34"
+                      ><VAvatar color="primary" :size="28"
                         ><img
                           v-if="account.avatar"
                           :src="account.avatar.src"
@@ -309,6 +309,7 @@ function navigated(event: MouseEvent) {
             </div>
           </VAppBar>
           <VNavigationDrawer
+            :width="224"
             v-model="drawer"
             :order="1"
             :retain-focus="mobile"
