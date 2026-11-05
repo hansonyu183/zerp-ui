@@ -1,3 +1,8 @@
+import { config as testConfig } from "@vue/test-utils";
+import { createVuetify } from "vuetify";
+testConfig.global.plugins = [
+  createVuetify({ defaults: { VDialog: { attach: true } } }),
+];
 import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import { DOMWrapper } from "@vue/test-utils";
 import { defineComponent, h, ref, shallowRef, type Component } from "vue";
@@ -170,15 +175,11 @@ for (const kind of ["crud", "configuration"] as const) {
     await flushPromises();
     await click(w, "编辑");
     await click(w, closeLabel);
-    expect(
-      new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
-    ).toBe(false);
+    expect(w.find('[aria-label="未保存修改"]').exists()).toBe(false);
     await click(w, "编辑");
     await w.get('input[aria-label="名称"]').setValue("修改");
     await click(w, closeLabel);
-    expect(
-      new DOMWrapper(document.body).find('[aria-label="未保存修改"]').exists(),
-    ).toBe(true);
+    expect(w.find('[aria-label="未保存修改"]').exists()).toBe(true);
     await click(w, "继续编辑");
     expect(w.get('input[aria-label="名称"]').element).toHaveProperty(
       "value",

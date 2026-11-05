@@ -1234,7 +1234,7 @@ it("opens a real Material leave portal, cancels without writing and invalidates 
     const next = w.vm.requestLeave();
     await flushPromises();
     const oldDiscard = new DOMWrapper(document.body)
-      .get('[role="dialog"]')
+      .get('[role="dialog"][aria-label="未保存修改"]')
       .findAll("button")[1];
     await w.setProps({ scope: "new-scope" });
     await oldDiscard.trigger("click");
@@ -1512,6 +1512,56 @@ it.each([
     expect(w.find("iframe").exists()).toBe(false);
     expect(button(w, "打开打印窗口").attributes("disabled")).toBeDefined();
     expect(w.text()).toContain("打印内容无效");
+    w.unmount();
+  },
+);
+
+it.each(["applied", "unknown"])(
+  "clears an applied matching task draft after %s and authoritative refresh",
+  async (outcome) => {
+    const op = operation();
+    if (outcome === "applied")
+      op.definition.adapter.execute = (request) =>
+        op.definition.adapter.reconcile(request);
+    const settled = vi.fn();
+    const w = await start(
+      defineTaskPage<{ value: string }, Model, string, number>({
+        title: "保存设置",
+        collaboration: { change: async ({ value }) => ({ value }) },
+        onSettled: settled,
+        instance: "one",
+        owner,
+        identity: "one",
+        definition: op.definition,
+        values: { value: "初始" },
+        fields: [{ key: "value", label: "内容", type: "text" }],
+        actions: ["process"],
+        toIntent: (value, action, base) => ({ ...base, action, input: value }),
+        eligible: true,
+        recoveryAllowed: true,
+      }),
+    );
+    await w.get('input[aria-label="内容"]').setValue("已修改");
+    await click(w, "准备执行处理");
+    await click(w, "确认执行处理");
+    if (outcome === "unknown") {
+      expect(await w.vm.requestLeave()).toBe(false);
+      await click(w, "核实原请求");
+    }
+    expect(settled).toHaveBeenCalledTimes(1);
+    expect(op.refresh).toHaveBeenCalledTimes(1);
+    expect(await w.vm.requestLeave()).toBe(true);
+    await w.get('input[aria-label="内容"]').setValue("再次修改");
+    const leaving = w.vm.requestLeave();
+    await flushPromises();
+    const dialog = new DOMWrapper(document.body).get(
+      '[role="dialog"][aria-label="未保存修改"]',
+    );
+    await dialog
+      .findAll("button")
+      .find((button) => button.text() === "继续编辑")!
+      .trigger("click");
+    expect(await leaving).toBe(false);
     w.unmount();
   },
 );

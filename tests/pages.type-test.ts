@@ -152,3 +152,14 @@ defineOperationPage({
   eligible: true,
   recoveryAllowed: true,
 });
+
+// Related reports admit finite content factories, not nested reports or arbitrary pages.
+declare const relatedReport: import("../src/index").ReportPageDefinition<
+  {},
+  {},
+  string,
+  string
+>;
+declare const nestedReport: import("../src/index").PageDefinition<"report">;
+// @ts-expect-error A report cannot recursively become another report's modal.
+relatedReport.related = { page: nestedReport, onClose() {} };

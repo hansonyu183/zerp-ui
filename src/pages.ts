@@ -1,4 +1,5 @@
 import type { DraftCollaboration, ReportInteractions } from "./collaboration";
+import RelatedPageDialog from "./RelatedPageDialog.vue";
 import ReportInteractionPanel from "./ReportInteractionPanel.vue";
 import { equalValues } from "./editor-values";
 import { h, toValue, type MaybeRefOrGetter, type VNodeChild } from "vue";
@@ -40,8 +41,8 @@ export type PageContext = {
   protection: (value: EditProtection) => boolean;
   requestLeave: () => Promise<boolean>;
 };
-export interface PageDefinition {
-  readonly kind: PageKind;
+export interface PageDefinition<K extends PageKind = PageKind> {
+  readonly kind: K;
   readonly title: string;
   readonly [snapshotPage]: () => PageSnapshot;
 }
@@ -55,12 +56,12 @@ export type PageSnapshot = PageAdmission & {
   title: string;
   render: (context: PageContext) => VNodeChild;
 };
-function page<T extends { title: string }>(
-  kind: PageKind,
+function page<T extends { title: string }, K extends PageKind>(
+  kind: K,
   source: PageSource<T>,
   render: (value: T, context: PageContext) => VNodeChild,
   admission: (value: T) => PageAdmission = () => ({}),
-): PageDefinition {
+): PageDefinition<K> {
   return Object.freeze({
     kind,
     get title() {
@@ -105,7 +106,7 @@ export function defineDetailsPage<
   H extends object = object,
   R extends object = object,
   C extends object = object,
->(source: PageSource<DetailsPage<T, I, H, R, C>>): PageDefinition {
+>(source: PageSource<DetailsPage<T, I, H, R, C>>): PageDefinition<"details"> {
   return page(
     "details",
     () => {
@@ -289,6 +290,8 @@ export type ReportPageDefinition<
   onAdopted?: (value: { parameters: P; resultId: I | null } | null) => void;
   onDrill?: (value: ReportDrill<I, K, T>) => void;
   interactions?: ReportInteractions<T>;
+  /** Related details or processing; the library owns modal presentation and leave protection. */
+  related?: { page: PageDefinition<"details" | "task">; onClose: () => void };
 };
 export function defineReportPage<
   P extends object,
@@ -315,6 +318,9 @@ export function defineReportPage<
           equalValues(next.interactions.items, items)
         );
       };
+      const related = value.related;
+      if (related && !["details", "task"].includes(related.page.kind))
+        throw new Error("Report related content must be details or task");
       return h("section", [
         h(ReportView<P, R, I, K, T>, {
           definition: value.definition,
@@ -328,6 +334,29 @@ export function defineReportPage<
           onAdopted: value.onAdopted,
           onDrill: value.onDrill,
         }),
+        related && value.permissions.query && context.active
+          ? h(RelatedPageDialog, {
+              key: "related",
+              page: related.page,
+              scope: context.scope,
+              active: context.active,
+              discardVersion: context.discardVersion,
+              onProtection: context.protection,
+              onClose: () => {
+                if (toValue(source).related?.page !== related.page) return;
+                if (
+                  !context.protection({
+                    dirty: false,
+                    localPending: false,
+                    invalid: false,
+                    writeState: "idle",
+                  })
+                )
+                  return;
+                related.onClose();
+              },
+            })
+          : null,
         panel
           ? h(ReportInteractionPanel<T>, {
               key: JSON.stringify([context.scope, panel.instance]),
@@ -344,7 +373,10 @@ export function defineReportPage<
           : null,
       ]);
     },
-    (value) => ({ definition: value.definition }),
+    (value) => ({
+      definition: value.definition,
+      security: value.permissions.query,
+    }),
   );
 }
 export type DocumentPage<
@@ -643,7 +675,7 @@ export function defineTaskPage<
   M extends OperationModel,
   I,
   B,
->(source: PageSource<TaskPage<D, M, I, B>>): PageDefinition {
+>(source: PageSource<TaskPage<D, M, I, B>>): PageDefinition<"task"> {
   return page(
     "task",
     () => {

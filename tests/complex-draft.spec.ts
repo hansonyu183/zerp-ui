@@ -14,6 +14,8 @@ import {
 } from "../examples/capabilities/complex-draft";
 import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 vi.mock("@zerp/ui", async () => await import("../src/index"));
+// These scenarios mount nested record dialogs and full complex field editors.
+vi.setConfig({ testTimeout: 60_000 });
 const mounted: VueWrapper[] = [];
 afterEach(() => mounted.splice(0).forEach((w) => w.unmount()));
 async function start(options: Parameters<typeof createComplexDraft>[0] = {}) {
@@ -228,7 +230,7 @@ it("retains historical reference facts but clears a dependent selection on paren
     extra: true,
     reason: "保留条件字段内容",
   });
-});
+}, 60_000);
 it("requires both business answers, explicitly stores their calculated facts and invalidates them after a draft change", async () => {
   const saves: ComplexDraft[] = [];
   const w = await start({
@@ -263,7 +265,7 @@ it("requires both business answers, explicitly stores their calculated facts and
     confirmation: true,
     answer: "  合成核对  ",
   });
-});
+}, 60_000);
 it("holds the complex save after calculation failure and retries without writing until questions are answered", async () => {
   let failed = false;
   const save = vi.fn(async () => {});

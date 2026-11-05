@@ -232,3 +232,9 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 `ReportParameters<P>` 的参数可声明 `enabledBy: { key, label, readonly? }`，key 指向 P 中的布尔属性；空模型的动态报表在运行时核对。不要同时把该启用属性声明成独立参数，也不能指向参数自身。示例：`{ key: "minimum", type: "decimal", label: "金额", enabledBy: { key: "useMinimum", label: "使用金额" } }`。
 
 值为 false 时禁用输入并跳过该参数值校验，不删除已输入值；查询仍传递完整参数 DTO，由消费者解释筛选语义。必选条件设置 `readonly: true` 并提供初始 true。布局、折行和提示呈现由库决定。
+
+### 关联详情与办理（0.16.0）
+
+`defineReportPage` 可声明 `related: { page, onClose }`，其中 page 由 `defineDetailsPage` 或 `defineTaskPage` 创建。库在报表上方显示模态，保持筛选、分页和结果挂载；消费者仅在 `onClose` 回调清除关联页。关闭与离页沿用关联页的未保存、局部未完成及写入未知保护，不能借关闭解除锁定。权限/身份失效清理失效内容。该入口不接受任意组件或布局配置，也不允许递归报表。
+
+资料与配置的查看、编辑使用相同模态；移动端记录卡片按字段内容流式换行。Router 仍归消费者；从报表查看关联资料时应提供详情事实，而不是导航到另一个资料列表。

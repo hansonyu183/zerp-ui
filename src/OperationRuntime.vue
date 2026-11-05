@@ -109,7 +109,9 @@ watch(
   () => props.eligible,
   (allowed) => {
     if (!allowed) {
-      if (!state.value.journal) generation++;
+      // Local recalculation may disable preparation as completion unlocks the
+      // form. It must not invalidate an already-settled request notification.
+      if (!state.value.journal && !state.value.settlement) generation++;
       session.value.cancelPreview();
     }
   },

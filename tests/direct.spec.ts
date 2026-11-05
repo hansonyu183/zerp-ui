@@ -1,3 +1,9 @@
+import { config } from "@vue/test-utils";
+import { createVuetify } from "vuetify";
+// Inline portal target for isolated runtime units; browser consumers exercise real overlays.
+config.global.plugins = [
+  createVuetify({ defaults: { VDialog: { attach: true } } }),
+];
 import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";

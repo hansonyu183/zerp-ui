@@ -119,7 +119,7 @@ function editablePage(
     ],
   });
 }
-function mountPage(page: ReturnType<typeof defineDetailsPage>) {
+function mountPage(page: import("../src/index").PageDefinition) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: "/", component: { template: "<span />" } }],

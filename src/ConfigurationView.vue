@@ -3,7 +3,8 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
-import { VBtn, VCard } from "vuetify/components";
+import { VBtn } from "vuetify/components";
+import RecordDialog from "./RecordDialog.vue";
 import DomainBlockHost from "./DomainBlockHost.vue";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
@@ -262,7 +263,15 @@ async function query(next = page.value, submit = false) {
     if (current(g) && q === queryId) loading.value = false;
   }
 }
+const feedbackTarget = shallowRef<HTMLElement | null>(null);
+const editorTrigger = shallowRef<HTMLElement | null>(null);
 async function begin(row?: R) {
+  if (
+    typeof document !== "undefined" &&
+    document.activeElement instanceof HTMLElement &&
+    !document.activeElement.closest('[role="dialog"]')
+  )
+    editorTrigger.value = document.activeElement;
   if (
     blocked.value ||
     editor.value ||
@@ -611,58 +620,62 @@ onBeforeUnmount(() => {
         aria-label="加载中"
       />
     </div>
-    <div class="zerp-feedback-region">
-      <Feedback
-        :message="lock.phase === 'blocked' ? '请先恢复原请求' : undefined"
-        kind="warning"
-        persistent
-        ><VBtn
-          color=""
-          variant="tonal"
-          type="button"
-          :disabled="verifying"
-          @click="restoreWrite"
-        >
-          重试恢复原请求
-        </VBtn></Feedback
-      >
-      <Feedback :message="error" kind="error" />
-      <Feedback :message="notice" />
-      <Feedback
-        :message="lock.phase === 'unknown' ? '请求结果未知' : undefined"
-        kind="warning"
-        persistent
-      >
-        保存结果未知。普通读取或关闭编辑不能解除锁定。
+    <div class="zerp-record-feedback-origin zerp-record-feedback-origin--retry">
+      <Teleport :to="feedbackTarget ?? 'body'" :disabled="!feedbackTarget">
+        <div class="zerp-feedback-region">
+          <Feedback
+            :message="lock.phase === 'blocked' ? '请先恢复原请求' : undefined"
+            kind="warning"
+            persistent
+            ><VBtn
+              color=""
+              variant="tonal"
+              type="button"
+              :disabled="verifying"
+              @click="restoreWrite"
+            >
+              重试恢复原请求
+            </VBtn></Feedback
+          >
+          <Feedback :message="error" kind="error" />
+          <Feedback :message="notice" />
+          <Feedback
+            :message="lock.phase === 'unknown' ? '请求结果未知' : undefined"
+            kind="warning"
+            persistent
+          >
+            保存结果未知。普通读取或关闭编辑不能解除锁定。
+            <VBtn
+              color=""
+              variant="tonal"
+              v-if="definition.reconcile && permissions.reconcile"
+              type="button"
+              :disabled="verifying"
+              @click="reconcile"
+            >
+              核实本次请求
+            </VBtn>
+          </Feedback>
+          <Feedback
+            :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
+            kind="warning"
+            persistent
+          >
+            保存已成功，请重试读取；不会再次提交。
+          </Feedback>
+        </div>
         <VBtn
           color=""
           variant="tonal"
-          v-if="definition.reconcile && permissions.reconcile"
+          v-if="permissions.read"
           type="button"
-          :disabled="verifying"
-          @click="reconcile"
+          :disabled="loading"
+          @click="query()"
         >
-          核实本次请求
+          重试读取
         </VBtn>
-      </Feedback>
-      <Feedback
-        :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
-        kind="warning"
-        persistent
-      >
-        保存已成功，请重试读取；不会再次提交。
-      </Feedback>
+      </Teleport>
     </div>
-    <VBtn
-      color=""
-      variant="tonal"
-      v-if="permissions.read"
-      type="button"
-      :disabled="loading"
-      @click="query()"
-    >
-      重试读取
-    </VBtn>
     <VBtn
       color=""
       variant="tonal"
@@ -686,13 +699,14 @@ onBeforeUnmount(() => {
       @page="query($event)"
       @action="(_action, row) => enter(row)"
     />
-    <VCard
-      tag="section"
-      class="zerp-business-card pa-4"
+    <RecordDialog
+      @feedback="feedbackTarget = $event"
+      :return-focus="editorTrigger"
       v-if="editor"
       :key="editId"
-      role="region"
-      aria-label="编辑配置"
+      :title="editor.writable ? '编辑配置' : '查看配置'"
+      :blocked="blocked"
+      @close="close"
     >
       <FactFields
         v-if="!editor.writable"
@@ -742,6 +756,6 @@ onBeforeUnmount(() => {
       >
         {{ definition.saveLabel ?? "保存" }}
       </VBtn>
-    </VCard>
+    </RecordDialog>
   </section>
 </template>
