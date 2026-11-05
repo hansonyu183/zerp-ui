@@ -45,7 +45,7 @@
   position: relative;
   min-inline-size: 0;
   flex: 1;
-  padding-inline-end: 2rem;
+  padding-inline-end: 3rem;
 }
 .zerp-field-error.v-btn {
   position: absolute;
