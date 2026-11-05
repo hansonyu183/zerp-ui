@@ -9,7 +9,9 @@ export async function complexDraftSmoke(page) {
   await expect(
     page.getByRole("textbox", { name: "合计结果", exact: true }),
   ).toHaveValue("1.2300");
-  await expect(page.getByText("历史仓库", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("仓库", { exact: true })).toHaveValue(
+    "历史仓库",
+  );
   await expect(page.getByText("目录新仓库名", { exact: true })).toHaveCount(0);
   await expect(save).toBeDisabled();
   await page.getByRole("button", { name: "编辑单位 1", exact: true }).click();

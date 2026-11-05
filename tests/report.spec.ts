@@ -1488,3 +1488,51 @@ it("checks authority time before result operations even when the expiry timer ha
     vi.useRealTimers();
   }
 });
+
+it("groups enablement with its parameter, preserves disabled values and validates before query", async () => {
+  const query = vi.fn(async () => ({ items: [], total: 0 }));
+  const d = defineReport<{ use: boolean; amount: string }, { name: string }>({
+    kind: "parameter",
+    resource: "enabled",
+    title: "条件",
+    columns: [],
+    rowKey: (r) => r.name,
+    parameters: [
+      {
+        key: "amount",
+        label: "金额",
+        type: "decimal",
+        required: true,
+        enabledBy: { key: "use", label: "使用金额" },
+      },
+    ],
+    initialParameters: () => ({ use: false, amount: "invalid" }),
+    adapter: { query },
+  });
+  const w = mount(ReportView as Component, {
+    props: {
+      definition: d,
+      scope: "a",
+      permissions: { query: true, export: false },
+    },
+  });
+  const amount = w.get('input[aria-label="金额"]');
+  expect(amount.attributes("disabled")).toBeDefined();
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(query).toHaveBeenLastCalledWith(
+    expect.objectContaining({ parameters: { use: false, amount: "invalid" } }),
+  );
+  await w.get('input[aria-label="使用金额"]').setValue(true);
+  expect(amount.element).toHaveProperty("value", "invalid");
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(query).toHaveBeenCalledTimes(1);
+  await amount.setValue("0.0100");
+  await w.get("form").trigger("submit");
+  await flushPromises();
+  expect(query).toHaveBeenLastCalledWith(
+    expect.objectContaining({ parameters: { use: true, amount: "0.0100" } }),
+  );
+  w.unmount();
+});

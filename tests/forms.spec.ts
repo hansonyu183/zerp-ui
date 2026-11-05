@@ -1,6 +1,6 @@
 import type { Component } from "vue";
 import { ref, defineComponent, h } from "vue";
-import { mount, flushPromises } from "@vue/test-utils";
+import { mount, flushPromises, DOMWrapper } from "@vue/test-utils";
 import { it, expect, vi } from "vitest";
 import {
   validateFields,
@@ -10,7 +10,10 @@ import {
 } from "../src/index";
 import DynamicForm from "../src/DynamicForm.vue";
 import ReferencePicker from "../src/ReferencePicker.vue";
-const click = async (w: ReturnType<typeof mount>, text: string) => {
+const click = async (
+  w: ReturnType<typeof mount> | DOMWrapper<Element>,
+  text: string,
+) => {
   await w
     .findAll("button")
     .find(
@@ -126,6 +129,7 @@ it("keeps historical snapshots when resolve returns changed labels and retains u
     selectable: false,
   };
   const w = mount(ReferencePicker, {
+    attachTo: document.body,
     props: {
       adapter,
       modelValue: [selected],
@@ -135,10 +139,12 @@ it("keeps historical snapshots when resolve returns changed labels and retains u
     },
   });
   await flushPromises();
-  expect(w.text()).toContain("历史采用名");
-  expect(w.text()).not.toContain("当前新名");
+  await w.get('input[aria-label="引用"]').trigger("click");
+  await flushPromises();
+  expect(document.body.textContent).toContain("历史采用名");
+  expect(document.body.textContent).not.toContain("当前新名");
   expect(w.emitted("update:modelValue")).toBeUndefined();
-  await click(w, "新候选");
+  await click(new DOMWrapper(document.body), "新候选");
   expect(w.emitted("update:modelValue")?.[0]?.[0]).toEqual([
     selected,
     { id: "new", label: "新候选" },
@@ -153,6 +159,7 @@ it("surfaces resolve failure and keeps selected values instead of replacing them
     },
   };
   const w = mount(ReferencePicker, {
+    attachTo: document.body,
     props: {
       adapter,
       modelValue: { id: "old", label: "已选" },
@@ -161,8 +168,10 @@ it("surfaces resolve failure and keeps selected values instead of replacing them
     },
   });
   await flushPromises();
-  expect(w.text()).toContain("读取已选失败");
-  expect(w.text()).toContain("已选");
+  await w.get('input[aria-label="引用"]').trigger("click");
+  await flushPromises();
+  expect(document.body.textContent).toContain("读取已选失败");
+  expect(document.body.textContent).toContain("已选");
   expect(w.emitted("update:modelValue")).toBeUndefined();
   w.unmount();
 });
@@ -183,15 +192,18 @@ it("ignores reference search and resolve responses from the previous scope", asy
       .mockResolvedValue([]),
   };
   const w = mount(ReferencePicker, {
+    attachTo: document.body,
     props: { adapter, modelValue: null, scope: "a", label: "引用" },
   });
   await w.setProps({ scope: "b" });
   await flushPromises();
+  await w.get('input[aria-label="引用"]').trigger("click");
+  await flushPromises();
   finish([{ id: "old", label: "旧已选" }]);
   searchFinish({ items: [{ id: "old", label: "旧候选" }], total: 1 });
   await flushPromises();
-  expect(w.text()).toContain("新作用域候选");
-  expect(w.text()).not.toContain("旧候选");
+  expect(document.body.textContent).toContain("新作用域候选");
+  expect(document.body.textContent).not.toContain("旧候选");
   w.unmount();
 });
 it("supports single select, server paging and prevents choosing unavailable candidates", async () => {
@@ -206,17 +218,20 @@ it("supports single select, server paging and prevents choosing unavailable cand
     resolve: async () => [],
   };
   const w = mount(ReferencePicker, {
+    attachTo: document.body,
     props: { adapter, modelValue: null, scope: "a", label: "引用" },
   });
   await flushPromises();
+  await w.get('input[aria-label="引用"]').trigger("click");
+  await flushPromises();
   expect(
-    w
+    new DOMWrapper(document.body)
       .findAll("button")
       .find((b) => b.text() === "禁止选择")!
       .attributes("disabled"),
   ).toBeDefined();
-  await click(w, "下一页引用");
-  await click(w, "候选2");
+  await click(new DOMWrapper(document.body), "下一页引用");
+  await click(new DOMWrapper(document.body), "候选2");
   expect(w.emitted("update:modelValue")?.[0]?.[0]).toEqual({
     id: "2",
     label: "候选2",
@@ -269,14 +284,19 @@ it("removes old scope candidates even when the new search fails", async () => {
     resolve: async () => [],
   };
   const w = mount(ReferencePicker, {
+    attachTo: document.body,
     props: { adapter, scope: "a", label: "引用", modelValue: null },
   });
   await flushPromises();
-  expect(w.text()).toContain("旧范围候选");
+  await w.get('input[aria-label="引用"]').trigger("click");
+  await flushPromises();
+  expect(document.body.textContent).toContain("旧范围候选");
   await w.setProps({ scope: "b" });
   await flushPromises();
-  expect(w.text()).toContain("新范围失败");
-  expect(w.text()).not.toContain("旧范围候选");
+  await w.get('input[aria-label="引用"]').trigger("click");
+  await flushPromises();
+  expect(document.body.textContent).toContain("新范围失败");
+  expect(document.body.textContent).not.toContain("旧范围候选");
   w.unmount();
 });
 it("adopts controlled integers without remounting and retains incomplete local input until adoption", async () => {

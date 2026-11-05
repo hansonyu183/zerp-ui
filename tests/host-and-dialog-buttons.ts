@@ -6,7 +6,9 @@ export function hostAndDialogButtons(host: VueWrapper) {
     .findAll("button")
     .concat(
       Array.from(
-        document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+        document.querySelectorAll<HTMLButtonElement>(
+          '[role="dialog"] button, [role="menu"] button',
+        ),
         (element) => new DOMWrapper(element),
       ),
     );

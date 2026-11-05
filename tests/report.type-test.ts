@@ -231,3 +231,27 @@ const dynamic: FixedReportAdapter<Parameters, Row, ResultId, RowId> = {
   }),
 };
 void [wrongAppearance, wrongPresentation, finiteActions, nativeAction, dynamic];
+
+const enabledParameters: ReportParameters<Parameters> = [
+  {
+    key: "minimum",
+    label: "金额",
+    type: "decimal",
+    enabledBy: { key: "active", label: "使用金额" },
+  },
+  {
+    key: "minimum",
+    label: "金额",
+    type: "decimal",
+    // @ts-expect-error Enablement must refer to a boolean value.
+    enabledBy: { key: "minimum", label: "使用金额" },
+  },
+  {
+    key: "minimum",
+    label: "金额",
+    type: "decimal",
+    // @ts-expect-error Enablement keys must exist in the consumer model.
+    enabledBy: { key: "missing", label: "使用金额" },
+  },
+];
+void enabledParameters;

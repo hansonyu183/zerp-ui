@@ -1,3 +1,4 @@
+import { fieldEnabled, type FormField } from "./form-field";
 import type { AnyField, Fields } from "./contracts";
 export type FieldValidationIssue<T extends object> = Readonly<{
   key: Extract<keyof T, string>;
@@ -29,7 +30,19 @@ export function validate(
   mode: "create" | "edit",
 ): string | undefined {
   const record = values as Record<string, unknown>;
-  for (const field of fields) {
+  for (const field of fields as readonly FormField[]) {
+    if (field.enabledBy) {
+      const key = field.enabledBy.key;
+      if (
+        !key ||
+        !field.enabledBy.label ||
+        key === field.key ||
+        fields.some((f) => f.key === key) ||
+        typeof record[key] !== "boolean"
+      )
+        return `${field.label}的启用条件无效。`;
+      if (!fieldEnabled(field, values)) continue;
+    }
     if (
       field.readonly ||
       (field.mode && field.mode !== mode) ||
