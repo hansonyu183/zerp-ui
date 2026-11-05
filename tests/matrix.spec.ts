@@ -45,7 +45,7 @@ it.each(resourceCases)(
         "123456789012345678.123456789012345678",
       );
     if (kind === "conditional") {
-      expect(w.find("fieldset legend").text()).toBe("内部单位");
+      expect(w.find('input[aria-label="内部单位"]').exists()).toBe(true);
       await w
         .get('[role="combobox"][aria-label="承运归属"]')
         .trigger("keydown", { key: "ArrowDown" });
@@ -56,10 +56,8 @@ it.each(resourceCases)(
       expect(external).toBeDefined();
       await external!.trigger("click");
       await flushPromises();
-      expect(w.findAll("legend").map((l) => l.text())).toContain("外部单位");
-      expect(w.findAll("legend").map((l) => l.text())).not.toContain(
-        "内部单位",
-      );
+      expect(w.find('input[aria-label="外部单位"]').exists()).toBe(true);
+      expect(w.find('input[aria-label="内部单位"]').exists()).toBe(false);
     }
     if (kind === "assignment")
       expect(
@@ -92,6 +90,8 @@ it.each(["aux/dictionary-item", "acc/subject"] as const)(
     mounted.push(w);
     await flushPromises();
     await click(w, "更多条件");
+    await w.get(".zerp-reference input").trigger("click");
+    await flushPromises();
     await click(w, "合成可选 B");
     expect(w.findAll("tbody tr").some((r) => r.text().includes(" B"))).toBe(
       resource === "aux/dictionary-item",
@@ -117,10 +117,7 @@ it("keeps user assignment readonly when denied and editable when allowed by deta
   await click(w, "编辑");
   for (const label of ["可分配角色", "关联员工"])
     expect(
-      w
-        .findAll("fieldset")
-        .find((f) => f.find("legend").text() === label)!
-        .attributes("disabled"),
+      w.get(`input[aria-label="${label}"]`).attributes("disabled"),
     ).toBeDefined();
   await click(w, "取消编辑");
   await w
@@ -131,10 +128,7 @@ it("keeps user assignment readonly when denied and editable when allowed by deta
   await flushPromises();
   for (const label of ["可分配角色", "关联员工"])
     expect(
-      w
-        .findAll("fieldset")
-        .find((f) => f.find("legend").text() === label)!
-        .attributes("disabled"),
+      w.get(`input[aria-label="${label}"]`).attributes("disabled"),
     ).toBeUndefined();
 });
 it("omits writes on a synthetic role without action qualification", async () => {
