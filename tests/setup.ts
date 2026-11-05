@@ -1,14 +1,15 @@
 import { config } from "@vue/test-utils";
 import { createVuetify } from "vuetify";
 import { vi } from "vitest";
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
+Object.defineProperty(globalThis, "ResizeObserver", {
+  configurable: true,
+  writable: true,
+  value: class {
     observe() {}
     unobserve() {}
     disconnect() {}
   },
-);
+});
 window.matchMedia = vi.fn().mockImplementation(() => ({
   matches: false,
   addEventListener() {},

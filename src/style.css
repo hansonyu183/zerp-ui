@@ -261,24 +261,9 @@
   }
 }
 
-.zerp-list--wide {
-  overflow: auto;
-}
-.zerp-list--wide table {
-  width: max-content;
-  min-width: 100%;
-}
 .zerp-report-scroll {
   overflow: auto;
   max-height: 70vh;
-}
-
-.zerp-report-scroll > .zerp-list--wide {
-  overflow: visible;
-}
-/* ReportView snapshots both axes on its outer result region. */
-.zerp-report-scroll > .zerp-list--wide > .v-table > .v-table__wrapper {
-  overflow: visible;
 }
 
 .zerp-facts > div {
@@ -394,16 +379,31 @@
   outline-offset: 2px;
 }
 .zerp-list {
+  inline-size: 100%;
   max-inline-size: 100%;
+  min-inline-size: 0;
 }
 .zerp-list .v-table__wrapper {
   overscroll-behavior-inline: contain;
 }
 .zerp-list table {
-  min-inline-size: 100%;
+  inline-size: 100%;
+  table-layout: fixed;
 }
-.zerp-list--wide table {
-  inline-size: max-content;
+.zerp-list :is(th, td) {
+  white-space: normal;
+}
+.zerp-list-number {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+.zerp-list :is(td, th) .v-btn {
+  max-inline-size: 100%;
+  white-space: normal;
+}
+.zerp-list .v-btn__content {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 .zerp-list nav {
   flex-wrap: wrap;
@@ -646,4 +646,23 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-block: 0.75rem;
+}
+
+/* Wide records retain every field in the same grid position across records. */
+.zerp-list--reflow
+  :is(.zerp-record-card, .zerp-report-group-summary, section[aria-label]) {
+  display: grid;
+  grid-template-columns: repeat(var(--zerp-list-columns), minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+}
+.zerp-list--reflow .zerp-record-card__toolbar {
+  grid-column: 1 / -1;
+  margin-block-end: 0;
+}
+.zerp-list--reflow .zerp-record-card__label {
+  display: block;
+  text-align: start;
+}
+.zerp-list--reflow section[aria-label] > div {
+  display: contents;
 }
