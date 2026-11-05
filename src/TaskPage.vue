@@ -170,6 +170,15 @@ async function download(
 }
 function settled(value: OperationSettlement<M, I, B>) {
   settlement.value = clone(value);
+  const current = intent.value;
+  if (
+    value.receipt.status === "applied" &&
+    current.action === value.request.action &&
+    equalValues(current.owner, value.request.owner) &&
+    equalValues(current.identity, value.request.identity) &&
+    equalValues(current.input, value.request.input)
+  )
+    baseline.value = clone(draft.value);
   props.options.onSettled?.(clone(value));
 }
 function adopt() {
