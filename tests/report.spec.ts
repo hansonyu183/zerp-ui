@@ -53,7 +53,8 @@ it("submits parameters explicitly and pages using the submitted snapshot without
   await flushPromises();
   expect(w.text()).toContain("9007199254740993.0100");
   expect(w.text()).not.toContain("共 ");
-  expect(w.get("th").attributes("style")).toContain("width: 12rem");
+  expect(w.get("th").attributes("style")).toContain("max-width: 12rem");
+  expect(w.get("th").attributes("style")).not.toContain("min-width:");
   await w.get('input[aria-label="关键字"]').setValue("未提交");
   await click(w, "下一页");
   expect(d.adapter.query).toHaveBeenLastCalledWith({

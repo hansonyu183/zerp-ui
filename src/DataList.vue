@@ -85,7 +85,7 @@ const groups = (row: R, start: boolean) =>
     .sort((a, b) => (start ? a.level - b.level : b.level - a.level)) ?? [];
 const colspan = computed(
   () =>
-    visibleColumns.value.length +
+    dataColumns.value.length +
     (props.selectedKeys !== undefined ? 1 : 0) +
     (hasActions.value ? 1 : 0),
 );
@@ -101,9 +101,49 @@ const visibleColumns = computed(() =>
 const rowActions = computed(() =>
   props.result.items.map((row) => props.actions?.(row) ?? []),
 );
-const hasActions = computed(() =>
-  rowActions.value.some((actions) => actions.length),
+const actionColumns = computed(() =>
+  visibleColumns.value.filter((column) => column.role === "action"),
 );
+const dataColumns = computed(() =>
+  visibleColumns.value.filter((column) => column.role !== "action"),
+);
+const hasActions = computed(
+  () =>
+    rowActions.value.some((actions) => actions.length) ||
+    actionColumns.value.length > 0,
+);
+const displayColumns = computed(() => {
+  const data = dataColumns.value.map((column) => ({
+    kind: "data" as const,
+    key: `field:${column.key}`,
+    column,
+  }));
+  if (xs.value) return data;
+  const first =
+    props.selectedKeys !== undefined
+      ? [{ kind: "selection" as const, key: "selection" }]
+      : data.splice(0, 1);
+  return [
+    ...first,
+    ...(hasActions.value ? [{ kind: "actions" as const, key: "actions" }] : []),
+    ...data,
+  ];
+});
+function cellActions(row: R) {
+  return actionColumns.value.flatMap((column) => {
+    const intent = props.cell?.(row, column.key);
+    return intent
+      ? [
+          {
+            key: column.key,
+            label: intent.label,
+            disabled: intent.disabled,
+            href: intent.kind === "record" ? intent.href : undefined,
+          },
+        ]
+      : [];
+  });
+}
 // Without a consumer key, retain object identity rather than rebinding an open menu by array index.
 // Selection and report presentation still require the consumer's exact rowKey.
 const objectKeys = new WeakMap<R, symbol>();
@@ -160,7 +200,7 @@ function dispatch(action: ListAction, row: R) {
     emit("action", action as A, row);
 }
 function activateCell(
-  event: MouseEvent,
+  event: MouseEvent | KeyboardEvent,
   row: R,
   key: Extract<keyof R, string>,
 ) {
@@ -183,7 +223,7 @@ function activateCell(
       !event.metaKey &&
       !event.shiftKey &&
       !event.altKey &&
-      event.button === 0)
+      (!(event instanceof MouseEvent) || event.button === 0))
   )
     emit("cell", intent, row);
 }
@@ -228,11 +268,27 @@ function display(row: Partial<R>, column: Column<R>) {
         />
         <span role="status">已选 {{ selectedCount }} 项</span>
       </div>
-      <component :is="xs ? 'div' : VTable" :hover="!xs">
+      <component
+        :is="xs ? 'div' : VTable"
+        :hover="!xs"
+        density="compact"
+        class="zerp-compact-table"
+      >
         <thead v-if="!xs">
           <tr>
-            <th v-if="selectedKeys !== undefined" scope="col">
+            <th
+              v-for="entry in displayColumns"
+              :key="entry.key"
+              scope="col"
+              :class="{ 'zerp-list__actions': entry.kind === 'actions' }"
+              :style="
+                entry.kind === 'data'
+                  ? { maxWidth: entry.column.width }
+                  : undefined
+              "
+            >
               <VCheckboxBtn
+                v-if="entry.kind === 'selection'"
                 aria-label="全选当前页"
                 :model-value="allSelected"
                 :indeterminate="
@@ -242,19 +298,9 @@ function display(row: Partial<R>, column: Column<R>) {
                 :disabled="disabled || loading || !eligible.length"
                 @update:model-value="selectRows(eligible, !!$event)"
               />
+              <template v-else-if="entry.kind === 'actions'">操作</template>
+              <template v-else>{{ entry.column.label }}</template>
             </th>
-            <th
-              v-for="column in visibleColumns"
-              :key="column.key"
-              scope="col"
-              :style="{
-                width: column.width,
-                minWidth: wide ? column.width : undefined,
-              }"
-            >
-              {{ column.label }}
-            </th>
-            <th v-if="hasActions" scope="col">操作</th>
           </tr>
         </thead>
         <component
@@ -289,10 +335,7 @@ function display(row: Partial<R>, column: Column<R>) {
               :style="presentationStyle(row)"
             >
               <div
-                v-if="
-                  xs &&
-                  (selectedKeys !== undefined || rowActions[index]!.length)
-                "
+                v-if="xs && (selectedKeys !== undefined || hasActions)"
                 class="zerp-record-card__toolbar"
               >
                 <VCheckboxBtn
@@ -303,75 +346,95 @@ function display(row: Partial<R>, column: Column<R>) {
                   @update:model-value="selectRows([row], !!$event)"
                 />
                 <RowActions
-                  v-if="rowActions[index]!.length"
+                  v-if="hasActions"
                   :actions="rowActions[index]!"
-                  :disabled="disabled || loading"
+                  :entries="cellActions(row)"
+                  :busy="loading"
+                  :disabled="disabled"
                   :view-href="viewHref?.(row)"
                   @action="dispatch($event, row)"
+                  @cell="
+                    (event, key) =>
+                      activateCell(event, row, key as Extract<keyof R, string>)
+                  "
                 />
               </div>
               <component
                 :is="xs ? 'div' : 'td'"
-                v-if="!xs && selectedKeys !== undefined"
-                data-label="选择"
+                v-for="entry in displayColumns"
+                :key="entry.key"
+                :data-label="
+                  entry.kind === 'data'
+                    ? entry.column.label
+                    : entry.kind === 'actions'
+                      ? '操作'
+                      : '选择'
+                "
+                :class="{ 'zerp-list__actions': entry.kind === 'actions' }"
+                :style="
+                  entry.kind === 'data'
+                    ? {
+                        ...presentationStyle(row, entry.column.key),
+                        maxWidth: entry.column.width,
+                      }
+                    : undefined
+                "
               >
                 <VCheckboxBtn
+                  v-if="entry.kind === 'selection'"
                   :aria-label="`选择 ${identity(row)}`"
-                  :model-value="selectedKeys.includes(identity(row))"
+                  :model-value="selectedKeys?.includes(identity(row))"
                   :disabled="disabled || loading || selectable?.(row) === false"
                   @update:model-value="selectRows([row], !!$event)"
                 />
-              </component>
-              <component
-                :is="xs ? 'div' : 'td'"
-                v-for="column in visibleColumns"
-                :key="column.key"
-                :data-label="column.label"
-                :style="presentationStyle(row, column.key)"
-              >
-                <span v-if="xs" class="zerp-record-card__label">{{
-                  column.label
-                }}</span>
-                <template
-                  v-for="intent in [cell?.(row, column.key)]"
-                  :key="column.key"
-                >
-                  <a
-                    v-if="
-                      intent?.kind === 'record' && !disabled && !intent.disabled
-                    "
-                    :style="presentationStyle(row, column.key)"
-                    :href="intent.href"
-                    :aria-label="intent.label"
-                    @click="activateCell($event, row, column.key)"
-                    >{{ display(row, column) }}</a
-                  >
-                  <VBtn
-                    v-else-if="intent"
-                    variant="text"
-                    color="on-surface"
-                    type="button"
-                    :aria-label="intent.label"
-                    :style="presentationStyle(row, column.key)"
-                    :disabled="disabled || intent.disabled"
-                    @click="activateCell($event, row, column.key)"
-                  >
-                    {{ display(row, column) }}
-                  </VBtn>
-                  <template v-else>{{ display(row, column) }}</template>
-                </template>
-              </component>
-              <component
-                :is="xs ? 'div' : 'td'"
-                v-if="!xs && hasActions"
-                data-label="操作"
-              >
                 <RowActions
+                  v-else-if="entry.kind === 'actions'"
                   :actions="rowActions[index]!"
-                  :disabled="disabled || loading"
+                  :entries="cellActions(row)"
+                  :disabled="disabled"
+                  :busy="loading"
                   :view-href="viewHref?.(row)"
                   @action="dispatch($event, row)"
+                  @cell="
+                    (event, key) =>
+                      activateCell(event, row, key as Extract<keyof R, string>)
+                  "
                 />
+                <template v-else>
+                  <span v-if="xs" class="zerp-record-card__label">{{
+                    entry.column.label
+                  }}</span>
+                  <template
+                    v-for="intent in [cell?.(row, entry.column.key)]"
+                    :key="entry.column.key"
+                  >
+                    <a
+                      v-if="
+                        intent?.kind === 'record' &&
+                        !disabled &&
+                        !intent.disabled
+                      "
+                      :style="presentationStyle(row, entry.column.key)"
+                      :href="intent.href"
+                      :aria-label="intent.label"
+                      @click="activateCell($event, row, entry.column.key)"
+                      >{{ display(row, entry.column) }}</a
+                    >
+                    <VBtn
+                      v-else-if="intent"
+                      variant="text"
+                      color="on-surface"
+                      type="button"
+                      :aria-label="intent.label"
+                      :style="presentationStyle(row, entry.column.key)"
+                      :disabled="disabled || intent.disabled"
+                      @click="activateCell($event, row, entry.column.key)"
+                    >
+                      {{ display(row, entry.column) }}
+                    </VBtn>
+                    <template v-else>{{ display(row, entry.column) }}</template>
+                  </template>
+                </template>
               </component>
             </component>
             <component
@@ -384,27 +447,26 @@ function display(row: Partial<R>, column: Column<R>) {
             >
               <component
                 :is="xs ? 'div' : 'td'"
-                v-if="!xs && selectedKeys !== undefined"
-              />
-              <component
-                :is="xs ? 'div' : 'td'"
-                v-for="(column, index) in visibleColumns"
-                :key="column.key"
-                :data-label="column.label"
+                v-for="entry in displayColumns"
+                :key="entry.key"
+                :data-label="
+                  entry.kind === 'data' ? entry.column.label : undefined
+                "
               >
-                <span v-if="xs" class="zerp-record-card__label">{{
-                  column.label
-                }}</span>
-                <span v-if="index === 0"
-                  >{{ group.summary.caption
-                  }}{{ group.continuedAfter ? "（续）" : "" }}</span
-                >{{
-                  Object.hasOwn(group.summary.values, column.key)
-                    ? display(group.summary.values, column)
-                    : ""
-                }}
+                <template v-if="entry.kind === 'data'">
+                  <span v-if="xs" class="zerp-record-card__label">{{
+                    entry.column.label
+                  }}</span>
+                  <span v-if="entry.column === dataColumns[0]"
+                    >{{ group.summary.caption
+                    }}{{ group.continuedAfter ? "（续）" : "" }}</span
+                  >{{
+                    Object.hasOwn(group.summary.values, entry.column.key)
+                      ? display(group.summary.values, entry.column)
+                      : ""
+                  }}
+                </template>
               </component>
-              <component :is="xs ? 'div' : 'td'" v-if="!xs && hasActions" />
             </component>
           </template>
         </component>
@@ -418,20 +480,19 @@ function display(row: Partial<R>, column: Column<R>) {
           <component :is="xs ? 'div' : 'tr'">
             <component
               :is="xs ? 'div' : 'td'"
-              v-if="!xs && selectedKeys !== undefined"
-            />
-            <component
-              :is="xs ? 'div' : 'td'"
-              v-for="column in visibleColumns"
-              :key="column.key"
-              :data-label="column.label"
+              v-for="entry in displayColumns"
+              :key="entry.key"
+              :data-label="
+                entry.kind === 'data' ? entry.column.label : undefined
+              "
             >
-              <span v-if="xs" class="zerp-record-card__label">{{
-                column.label
-              }}</span>
-              {{ display(summary.values, column) }}
+              <template v-if="entry.kind === 'data'"
+                ><span v-if="xs" class="zerp-record-card__label">{{
+                  entry.column.label
+                }}</span
+                >{{ display(summary.values, entry.column) }}</template
+              >
             </component>
-            <component :is="xs ? 'div' : 'td'" v-if="!xs && hasActions" />
           </component>
         </component>
       </component>

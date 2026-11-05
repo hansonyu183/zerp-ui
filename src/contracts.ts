@@ -90,6 +90,7 @@ export type Column<R> = {
   options?: readonly { value: string; label: string }[];
   visible?: boolean;
   width?: string;
+  role?: "action";
 };
 export type CrudAction = "view" | "edit" | "enable" | "disable" | "delete";
 export type ListAction =

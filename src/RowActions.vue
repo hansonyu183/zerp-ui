@@ -13,13 +13,29 @@ import type { ListAction } from "./contracts";
 const props = defineProps<{
   actions: readonly ListAction[];
   disabled?: boolean;
+  busy?: boolean;
+  entries?: readonly {
+    key: string;
+    label: string;
+    href?: string;
+    disabled?: boolean;
+  }[];
   viewHref?: string;
 }>();
-const emit = defineEmits<{ action: [action: ListAction] }>();
+const emit = defineEmits<{
+  action: [action: ListAction];
+  cell: [event: MouseEvent | KeyboardEvent, key: string];
+}>();
 const menu = ref(false);
 const { xs, width } = useDisplay();
 const primaryCount = computed(() =>
-  xs.value ? (width.value < 360 && props.actions.length > 2 ? 1 : 2) : 3,
+  xs.value
+    ? width.value < 360 && props.actions.length > 2
+      ? 1
+      : 2
+    : props.entries?.length
+      ? 1
+      : 3,
 );
 const captions: Record<ListAction, string> = {
   view: "查看",
@@ -52,13 +68,20 @@ const icons: Record<ListAction, string> = {
   delete: "mdi-delete-outline",
 };
 watch(
-  () => [props.actions, props.disabled, props.viewHref, primaryCount.value],
+  () => [
+    props.actions,
+    props.entries,
+    props.disabled,
+    props.busy,
+    props.viewHref,
+    primaryCount.value,
+  ],
   () => {
     menu.value = false;
   },
 );
 function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
-  if (props.disabled || !props.actions.includes(action)) return;
+  if (props.disabled || props.busy || !props.actions.includes(action)) return;
   if (
     action === "view" &&
     props.viewHref &&
@@ -71,40 +94,73 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
     return;
   emit("action", action);
 }
+const items = computed(() => [
+  ...props.actions.map((action) => ({
+    key: `action:${action}`,
+    label: captions[action],
+    icon: icons[action],
+    href: action === "view" ? props.viewHref : undefined,
+    disabled: props.disabled || props.busy,
+    action,
+    cellKey: undefined,
+  })),
+  ...(props.entries ?? []).map((entry) => ({
+    ...entry,
+    key: `cell:${entry.key}`,
+    cellKey: entry.key,
+    icon: "mdi-open-in-new",
+    disabled: props.disabled || entry.disabled,
+    action: undefined,
+  })),
+]);
+function activate(
+  event: MouseEvent | KeyboardEvent,
+  item: (typeof items.value)[number],
+) {
+  if (item.disabled) return;
+  if (item.action) choose(event, item.action);
+  else if (
+    item.cellKey !== undefined &&
+    props.entries?.some(
+      (entry) => entry.key === item.cellKey && !entry.disabled,
+    )
+  )
+    emit("cell", event, item.cellKey);
+}
 </script>
 <template>
   <div
-    v-if="actions.length"
+    v-if="items.length"
     class="zerp-row-actions"
     :class="{ 'zerp-row-actions--mobile': xs }"
   >
     <VTooltip
-      v-for="action in actions.slice(0, primaryCount)"
-      :key="action"
-      :text="captions[action]"
+      v-for="item in items.slice(0, primaryCount)"
+      :key="item.key"
+      :text="item.label"
       :disabled="xs"
     >
       <template #activator="{ props: tooltip }">
         <VBtn
           v-bind="tooltip"
-          :aria-label="captions[action]"
+          :aria-label="item.label"
           :icon="!xs"
-          :href="action === 'view' && !disabled ? viewHref : undefined"
-          :disabled="disabled"
+          :href="!item.disabled ? item.href : undefined"
+          :disabled="item.disabled"
           variant="text"
           color="on-surface"
           size="default"
           :min-width="48"
           :min-height="48"
-          @click="choose($event, action)"
-          ><VIcon :icon="icons[action]" aria-hidden="true" /><span v-if="xs">{{
-            captions[action]
+          @click="activate($event, item)"
+          ><VIcon :icon="item.icon" aria-hidden="true" /><span v-if="xs">{{
+            item.label
           }}</span></VBtn
         >
       </template>
     </VTooltip>
     <VMenu
-      v-if="actions.length > primaryCount"
+      v-if="items.length > primaryCount"
       v-model="menu"
       :disabled="disabled"
       content-class="zerp-row-menu"
@@ -129,14 +185,15 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
       </template>
       <VList role="menu" aria-label="更多操作">
         <VListItem
-          v-for="action in actions.slice(primaryCount)"
-          :key="action"
+          v-for="item in items.slice(primaryCount)"
+          :key="item.key"
           role="menuitem"
-          :title="captions[action]"
-          :prepend-icon="icons[action]"
-          :href="action === 'view' && !disabled ? viewHref : undefined"
-          :disabled="disabled"
-          @click="choose($event, action)"
+          :title="item.label"
+          :prepend-icon="item.icon"
+          :href="!item.disabled ? item.href : undefined"
+          :disabled="item.disabled"
+          :aria-disabled="item.disabled || undefined"
+          @click="activate($event, item)"
         />
       </VList>
     </VMenu>
