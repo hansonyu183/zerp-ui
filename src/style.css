@@ -170,9 +170,6 @@
 .zerp-auth-card h2 {
   margin: 0;
 }
-.zerp-auth-card .zerp-feedback-region {
-  block-size: 3.5rem;
-}
 @media (max-width: 599px) {
   .zerp-auth-card {
     padding: 1rem;
@@ -307,26 +304,37 @@
   margin-inline-end: 0.5rem;
 }
 
-/* Every feedback channel keeps the same footprint, including while empty or
-   dismissed. Long messages scroll inside the reserve rather than moving inputs. */
-.zerp-feedback {
-  block-size: 3.5rem;
-  min-inline-size: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-.zerp-feedback--error .zerp-feedback--warning .zerp-feedback__close {
-  margin-inline-start: auto;
-}
+/* Feedback is layered; it never reserves space in the form or result list. */
 .zerp-feedback-region {
-  block-size: 6rem;
-  min-inline-size: 0;
+  display: contents;
+}
+.zerp-feedback-stack {
+  position: fixed;
+  inset: auto 1rem 1rem auto;
+  z-index: 1;
+  inline-size: min(30rem, calc(100% - 2rem));
+  max-block-size: min(
+    40dvh,
+    calc(100dvh - var(--zerp-app-bar-height, 0px) - 2rem)
+  );
   overflow: auto;
   overscroll-behavior: contain;
+  pointer-events: none;
 }
-.zerp-feedback-region > .zerp-feedback {
-  block-size: auto;
-  overflow: visible;
+.zerp-feedback-stack:empty {
+  display: none;
+}
+.zerp-feedback-stack .zerp-feedback {
+  pointer-events: auto;
+  margin-block-start: 0.5rem;
+}
+.zerp-record-dialog .zerp-feedback-stack,
+.zerp-reference-panel .zerp-feedback-stack {
+  position: absolute;
+  max-block-size: min(40dvh, calc(100% - 2rem));
+}
+.zerp-feedback {
+  min-inline-size: 0;
 }
 .zerp-auth-brand-state {
   block-size: 3rem;
@@ -638,11 +646,4 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-block: 0.75rem;
-}
-
-.zerp-record-feedback-origin {
-  min-block-size: 6rem;
-}
-.zerp-record-feedback-origin--retry {
-  min-block-size: 9rem;
 }

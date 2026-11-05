@@ -271,7 +271,7 @@ it("keeps explicit filters and latest query results isolated from older reads", 
   await w.get('input[aria-label="关键字"]').setValue("显式条件");
   expect(d.adapter.query).toHaveBeenCalledTimes(1);
   await w.get("form").trigger("submit");
-  await click(w, "重试读取"); // disabled UI keeps one active read
+  await button(w, "查询").trigger("click"); // disabled UI keeps one active read
   old.resolve({ items: [{ name: "筛选后", revision: "r3" }], total: 1 });
   await flushPromises();
   expect(d.adapter.query).toHaveBeenLastCalledWith(

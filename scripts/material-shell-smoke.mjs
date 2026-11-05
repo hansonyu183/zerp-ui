@@ -550,12 +550,14 @@ export async function materialShellSmoke(page) {
       });
       assert.ok((await contrast(message)) >= 4.5, "feedback contrast >= 4.5:1");
       await expect(message).toContainText("长提示末尾");
-      const messageReserve = message.locator("..");
+      const messageReserve = message.locator(
+        "xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' zerp-feedback-stack ')][1]",
+      );
       assert.ok(
         await messageReserve.evaluate(
           (element) => element.scrollHeight > element.clientHeight,
         ),
-        "long feedback scrolls within its fixed reserve",
+        "long feedback scrolls within its overlay stack",
       );
       await assertStableFeedback(page, [theme, action], async () => {
         await message

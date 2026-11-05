@@ -2,6 +2,7 @@ import { recordDialogSmoke, relatedDialogSmoke } from "./card-modal-smoke.mjs";
 import { execFileSync } from "node:child_process";
 import {
   mkdir,
+  realpath,
   mkdtemp,
   cp,
   readFile,
@@ -53,7 +54,9 @@ const run = (cmd, args, cwd = root) => {
   console.log(`✓ ${cmd} ${args.join(" ")}`);
 };
 await mkdir(join(root, ".scratch"), { recursive: true });
-const dir = await mkdtemp(join(root, ".scratch/package-check-"));
+const dir = await realpath(
+  await mkdtemp(join(root, ".scratch/package-check-")),
+);
 const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 const artifactIndex = process.argv.indexOf("--tgz");
 assert.ok(
@@ -831,22 +834,20 @@ async function configurationSmoke(page) {
   assert.ok(await button("编辑").isDisabled());
   const contracts = page.getByRole("region", { name: "配置接缝示例" });
   await page.getByRole("button", { name: "展示配置接缝", exact: true }).click();
-  await contracts.getByLabel("接缝配置名", { exact: true }).waitFor();
+  await page.getByLabel("接缝配置名", { exact: true }).waitFor();
   assert.equal(
-    await contracts.getByLabel("接缝配置名", { exact: true }).inputValue(),
+    await page.getByLabel("接缝配置名", { exact: true }).inputValue(),
     "初始配置",
   );
-  await contracts
-    .getByRole("button", { name: "关闭编辑", exact: true })
-    .click();
+  await page.getByRole("button", { name: "关闭编辑", exact: true }).click();
   await contracts.getByRole("button", { name: "新增", exact: true }).click();
-  await contracts.getByLabel("接缝配置名", { exact: true }).fill("权威新配置");
-  await contracts.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByLabel("接缝配置名", { exact: true }).fill("权威新配置");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
   await contracts
     .getByRole("cell", { name: "权威新配置", exact: true })
     .waitFor();
   assert.equal(
-    await contracts.getByLabel("接缝配置名", { exact: true }).inputValue(),
+    await page.getByLabel("接缝配置名", { exact: true }).inputValue(),
     "权威新配置",
   );
   assert.equal(
@@ -858,21 +859,15 @@ async function configurationSmoke(page) {
       .identity.id,
     "authoritative-config",
   );
-  await contracts.getByLabel("接缝配置名", { exact: true }).fill("未保存配置");
-  await contracts
-    .getByRole("button", { name: "关闭编辑", exact: true })
-    .click();
-  await contracts
-    .getByRole("button", { name: "放弃本地修改", exact: true })
-    .click();
+  await page.getByLabel("接缝配置名", { exact: true }).fill("未保存配置");
+  await page.getByRole("button", { name: "关闭编辑", exact: true }).click();
+  await page.getByRole("button", { name: "放弃本地修改", exact: true }).click();
   await contracts.getByRole("button", { name: "编辑", exact: true }).click();
   assert.equal(
-    await contracts.getByLabel("接缝配置名", { exact: true }).inputValue(),
+    await page.getByLabel("接缝配置名", { exact: true }).inputValue(),
     "权威新配置",
   );
-  await contracts
-    .getByRole("button", { name: "关闭编辑", exact: true })
-    .click();
+  await page.getByRole("button", { name: "关闭编辑", exact: true }).click();
 }
 
 async function reportSmoke(page) {
@@ -897,6 +892,12 @@ async function reportSmoke(page) {
       .count(),
     0,
   );
+  assert.equal(await page.getByText("查询条件：", { exact: false }).count(), 0);
+  await button("查询信息").click();
+  const queryInfo = page.getByRole("region", { name: "查询信息", exact: true });
+  await expect(queryInfo).toContainText("2026-10-02");
+  await button("关闭查询信息").click();
+  await expect(queryInfo).toBeHidden();
   assert.equal(await page.getByText("共 3 条", { exact: false }).count(), 0);
   await page
     .getByRole("textbox", { name: "关键字", exact: true })

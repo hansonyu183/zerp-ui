@@ -30,11 +30,11 @@
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.15.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.15.0) 下载 `zerp-ui-0.15.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.16.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.16.1) 下载 `zerp-ui-0.16.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.15.0.tgz
+pnpm add ./zerp-ui-0.16.1.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -238,3 +238,7 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 `defineReportPage` 可声明 `related: { page, onClose }`，其中 page 由 `defineDetailsPage` 或 `defineTaskPage` 创建。库在报表上方显示模态，保持筛选、分页和结果挂载；消费者仅在 `onClose` 回调清除关联页。关闭与离页沿用关联页的未保存、局部未完成及写入未知保护，不能借关闭解除锁定。权限/身份失效清理失效内容。该入口不接受任意组件或布局配置，也不允许递归报表。
 
 资料与配置的查看、编辑使用相同模态；移动端记录卡片按字段内容流式换行。Router 仍归消费者；从报表查看关联资料时应提供详情事实，而不是导航到另一个资料列表。
+
+## 消息与查询信息
+
+页面消息以浮层呈现，不预留空白提示区；编辑与引用弹窗内的消息留在弹窗中。长消息可滚动，核实和重试入口持续可达，关闭提示不改变写入状态。报表通过“查询信息”查看已采用条件和必要上下文。

@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="M extends OperationModel, I, B">
 import { VBtn, VCard } from "vuetify/components";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import { computed, watch, onBeforeUnmount } from "vue";
 import { operationSession } from "./operation-session";
 import { clone } from "./clone";
@@ -155,7 +156,7 @@ onBeforeUnmount(() => {
     class="zerp-ui"
     aria-label="单据办理"
   >
-    <div class="zerp-feedback-region">
+    <FeedbackRegion>
       <Feedback :message="state.notice" />
       <Feedback
         :message="
@@ -178,7 +179,7 @@ onBeforeUnmount(() => {
         :message="state.busy ? '正在处理办理请求…' : undefined"
         persistent
       />
-    </div>
+    </FeedbackRegion>
     <VBtn
       color=""
       variant="tonal"
@@ -268,5 +269,7 @@ onBeforeUnmount(() => {
       }}
     </VBtn>
   </section>
-  <Feedback v-else message="无办理或核实权限。" persistent />
+  <FeedbackRegion v-else
+    ><Feedback message="无办理或核实权限。" persistent
+  /></FeedbackRegion>
 </template>

@@ -9,8 +9,9 @@
     T = never
   "
 >
-import { VBtn } from "vuetify/components";
+import { VBtn, VDialog, VCard, VCardText } from "vuetify/components";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import {
   computed,
   shallowRef,
@@ -45,6 +46,7 @@ import { clone } from "./clone";
 import { validate } from "./validation";
 type Definition = ReportDefinition<P, R, I, K, T>;
 type Snapshot = ReportSnapshot<P, R, I, K, T>;
+const queryInfo = ref(false);
 const props = withDefaults(
   defineProps<{
     definition: Definition;
@@ -683,6 +685,17 @@ onBeforeUnmount(() => {
   deactivate();
   clearTimeout(expiryTimer);
 });
+watch(
+  [
+    () => props.scope,
+    () => props.active,
+    () => props.definition.resource,
+    applied,
+  ],
+  () => {
+    queryInfo.value = false;
+  },
+);
 </script>
 <template>
   <section class="zerp-ui" :aria-label="definition.title">
@@ -721,28 +734,66 @@ onBeforeUnmount(() => {
         >
           导出
         </VBtn>
+        <VBtn
+          v-if="canQuery && result && usable"
+          type="button"
+          variant="text"
+          @click="queryInfo = true"
+          >查询信息</VBtn
+        >
+        <VDialog
+          v-model="queryInfo"
+          aria-label="查询信息"
+          v-if="queryInfo && canQuery && result && usable"
+          max-width="480"
+        >
+          <VCard role="region" aria-label="查询信息"
+            ><VCardText>
+              <p>
+                查询条件：{{
+                  applied && displayDefinition.describeParameters
+                    ? displayDefinition.describeParameters(clone(applied))
+                    : applied
+                }}
+              </p>
+              <p v-if="fixed">{{ fixed.context }}</p> </VCardText
+            ><VBtn @click="queryInfo = false">关闭查询信息</VBtn></VCard
+          >
+        </VDialog>
       </div>
     </form>
-    <p v-if="!canQuery && canExport && definition.kind === 'parameter'">
-      你可以填写参数并导出此报表。
-    </p>
     <p v-if="!canQuery && !canExport">没有可用的报表操作。</p>
-    <div class="zerp-feedback-region">
-      <Feedback :message="loading ? '正在查询…' : undefined" persistent>
-        <VBtn color="" variant="tonal" type="button" @click="stop"
+    <FeedbackRegion>
+      <Feedback
+        :message="
+          loading
+            ? '正在查询…'
+            : job?.adapter.cancel
+              ? '查询已停止等待，服务端可能仍在执行。'
+              : undefined
+        "
+        persistent
+      >
+        <VBtn
+          color=""
+          variant="tonal"
+          v-if="loading"
+          type="button"
+          @click="stop"
           >停止等待</VBtn
         >
+        <VBtn
+          color=""
+          variant="tonal"
+          v-if="job?.adapter.cancel"
+          type="button"
+          :disabled="cancelling"
+          @click="cancel"
+        >
+          取消服务端查询
+        </VBtn>
       </Feedback>
-      <VBtn
-        color=""
-        variant="tonal"
-        v-if="job?.adapter.cancel"
-        type="button"
-        :disabled="cancelling"
-        @click="cancel"
-      >
-        取消服务端查询
-      </VBtn>
+
       <Feedback
         :message="pageLoading ? '正在读取结果页…' : undefined"
         persistent
@@ -790,7 +841,7 @@ onBeforeUnmount(() => {
       />
       <Feedback :message="exportError" kind="error" />
       <Feedback :message="notice" />
-    </div>
+    </FeedbackRegion>
     <div
       v-if="canQuery && result && usable"
       ref="scroll"
@@ -799,14 +850,6 @@ onBeforeUnmount(() => {
       role="region"
       :aria-label="definition.title + '结果'"
     >
-      <p>
-        已采用条件：{{
-          applied && displayDefinition.describeParameters
-            ? displayDefinition.describeParameters(clone(applied))
-            : applied
-        }}
-      </p>
-      <p v-if="fixed">{{ fixed.context }}</p>
       <DataList
         :columns="displayDefinition.columns"
         :result="result"

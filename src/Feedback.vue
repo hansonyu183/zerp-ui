@@ -26,9 +26,8 @@ const label = computed(() =>
 );
 </script>
 <template>
-  <div class="zerp-feedback" :class="`zerp-feedback--${kind}`">
+  <div v-if="visible" class="zerp-feedback" :class="`zerp-feedback--${kind}`">
     <VAlert
-      v-if="visible"
       :type="kind === 'status' ? 'info' : kind"
       color="surface"
       border="start"
@@ -40,9 +39,7 @@ const label = computed(() =>
       :role="kind === 'error' ? 'alert' : 'status'"
       :aria-label="label"
     >
-      <span
-        ><strong>{{ label }}：</strong>{{ message }}</span
-      >
+      <span>{{ message }}</span>
       <slot />
       <VBtn
         variant="text"

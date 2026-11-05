@@ -26,6 +26,7 @@ import { equalValues } from "./editor-values";
 import DynamicForm from "./DynamicForm.vue";
 import FactFields from "./FactFields.vue";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import { formFacts, factText } from "./details";
 import type { Fields } from "./contracts";
 import type {
@@ -470,10 +471,10 @@ onBeforeUnmount(() => {
         "
       />
     </div>
-    <div class="zerp-feedback-region">
+    <FeedbackRegion>
       <Feedback :message="error" kind="error" />
       <Feedback :message="preparing ? '正在更新明细…' : undefined" persistent />
-    </div>
+    </FeedbackRegion>
     <div class="zerp-voucher-editor__table">
       <component
         :is="xs ? 'div' : VTable"

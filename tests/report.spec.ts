@@ -364,7 +364,18 @@ it("keeps a fixed result and authoritative totals tied to applied inputs across 
   await w.get("form").trigger("submit");
   await flushPromises();
   expect(w.text()).toContain("2.0000");
-  expect(w.text()).toContain("原条件");
+  expect(w.text()).not.toContain("原条件");
+  vi.stubGlobal(
+    "visualViewport",
+    Object.assign(new EventTarget(), {
+      width: 1024,
+      height: 768,
+      offsetLeft: 0,
+      offsetTop: 0,
+    }),
+  );
+  await click(w, "查询信息");
+  expect(document.body.textContent).toContain("原条件");
   expect(w.text()).toContain("999.0000");
   expect(w.text()).toContain("仍显示上次成功结果");
   w.unmount();

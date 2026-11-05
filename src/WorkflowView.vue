@@ -2,6 +2,7 @@
 import type { EditProtection } from "./edit-guard";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import {
   VProgressLinear,
   VBtn,
@@ -331,7 +332,7 @@ onBeforeUnmount(() => {
     <div class="zerp-progress-reserve">
       <VProgressLinear v-if="loading" indeterminate aria-label="加载中" />
     </div>
-    <div class="zerp-feedback-region">
+    <FeedbackRegion>
       <Feedback :message="error" kind="error" />
       <Feedback :message="notice" />
       <Feedback
@@ -360,7 +361,7 @@ onBeforeUnmount(() => {
       >
         节点动作已成功，请重试读取；不会再次提交。
       </Feedback>
-    </div>
+    </FeedbackRegion>
     <VBtn
       variant="text"
       color=""

@@ -12,6 +12,7 @@ import {
 import { computed, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import type { Interaction, InteractionAnswers } from "./collaboration";
 const { xs } = useDisplay();
 const props = defineProps<{
@@ -41,14 +42,14 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="zerp-feedback-region" aria-label="业务消息">
+  <FeedbackRegion aria-label="业务消息">
     <Feedback
       v-for="item in messages"
       :key="item.id"
       :message="item.message"
       :kind="item.level"
     />
-  </div>
+  </FeedbackRegion>
   <section
     v-if="controls.length"
     aria-label="业务提示"

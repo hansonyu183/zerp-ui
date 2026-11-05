@@ -2,6 +2,7 @@
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import { VDefaultsProvider, VBtn, VCard, VDialog } from "vuetify/components";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import type { EditGuardHandle, EditWriteState } from "./edit-guard";
 // VDialog starts a Vuetify defaults root; preserve this page's preset and bounded overlays.
@@ -99,23 +100,24 @@ defineExpose<EditGuardHandle>({ requestLeave });
 <template>
   <section v-if="active" aria-label="编辑保护">
     <slot />
-    <Feedback
-      kind="warning"
-      persistent
-      :message="
-        writeState === 'idle'
-          ? undefined
-          : writeState === 'pending'
-            ? '写入进行中，暂不能离开。'
-            : writeState === 'refresh'
-              ? '写入结果已确认，等待读取最新数据。'
-              : writeState === 'seal'
-                ? '已确认未应用，须封存原请求后再离开。'
-                : writeState === 'blocked'
-                  ? '原请求恢复尚未确认，暂不能离开。'
-                  : '写入结果未知，须核实原请求后再离开。'
-      "
-    />
+    <FeedbackRegion
+      ><Feedback
+        kind="warning"
+        persistent
+        :message="
+          writeState === 'idle'
+            ? undefined
+            : writeState === 'pending'
+              ? '写入进行中，暂不能离开。'
+              : writeState === 'refresh'
+                ? '写入结果已确认，等待读取最新数据。'
+                : writeState === 'seal'
+                  ? '已确认未应用，须封存原请求后再离开。'
+                  : writeState === 'blocked'
+                    ? '原请求恢复尚未确认，暂不能离开。'
+                    : '写入结果未知，须核实原请求后再离开。'
+        "
+    /></FeedbackRegion>
     <VDialog
       class="zerp-leave-dialog"
       v-for="prompt in confirmation ? [confirmation] : []"
@@ -130,7 +132,7 @@ defineExpose<EditGuardHandle>({ requestLeave });
       <VDefaultsProvider :defaults="pageDefaults"
         ><VCard class="pa-4" max-height="100%" style="overflow-y: auto">
           <h2 class="text-h6">未保存修改</h2>
-          <p>存在未保存修改。放弃只销毁本地输入。</p>
+          <p>有未保存的修改，是否放弃？</p>
           <VBtn
             ref="continueButton"
             color=""

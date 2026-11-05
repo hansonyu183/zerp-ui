@@ -9,6 +9,7 @@
   "
 >
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import { VBtn, VCard, VCheckboxBtn, VTable } from "vuetify/components";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
@@ -208,7 +209,9 @@ function display(row: Partial<R>, column: Column<R>) {
     :class="{ 'zerp-list--wide': wide && !xs, 'zerp-list--cards': xs }"
     :aria-busy="loading"
   >
-    <Feedback :message="presentationError" kind="error" />
+    <FeedbackRegion
+      ><Feedback :message="presentationError" kind="error"
+    /></FeedbackRegion>
     <template v-if="!presentationError">
       <p v-if="summary">{{ summary.caption }}</p>
       <div v-if="xs && selectedKeys !== undefined" class="zerp-card-selection">

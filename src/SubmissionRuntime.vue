@@ -10,6 +10,7 @@ import DomainBlockHost from "./DomainBlockHost.vue";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import { VProgressLinear } from "vuetify/components";
 import type { AnyField } from "./contracts";
 
@@ -663,7 +664,7 @@ onBeforeUnmount(() => {
     <div class="zerp-progress-reserve">
       <VProgressLinear v-if="loading" indeterminate aria-label="加载中" />
     </div>
-    <div class="zerp-feedback-region">
+    <FeedbackRegion>
       <Feedback :message="error" kind="error" />
       <Feedback :message="notice" />
       <Feedback
@@ -691,7 +692,7 @@ onBeforeUnmount(() => {
       >
         业务写入已成功，请重试读取；不会再次提交。
       </Feedback>
-    </div>
+    </FeedbackRegion>
     <VBtn
       color=""
       variant="tonal"
