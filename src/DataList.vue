@@ -11,9 +11,8 @@
 import Feedback from "./Feedback.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
 import { VBtn, VCard, VCheckboxBtn, VTable } from "vuetify/components";
-import { computed, onBeforeUnmount, shallowRef } from "vue";
+import { computed } from "vue";
 import { useDisplay } from "vuetify";
-import { useResizeObserver } from "vuetify/lib/composables/resizeObserver.js";
 import RowActions from "./RowActions.vue";
 import {
   validateReportColumns,
@@ -38,24 +37,13 @@ const props = defineProps<{
   actions?: (row: R) => readonly A[];
   viewHref?: (row: R) => string | undefined;
   disabled?: boolean;
+  wide?: boolean;
   rowKey?: (row: R) => K;
   summary?: ReportSummary<R>;
   presentation?: ReportPresentation<R, K>;
   cell?: (row: R, key: Extract<keyof R, string>) => ReportCell<T> | undefined;
 }>();
 const { xs } = useDisplay();
-const contentWidth = shallowRef(0);
-let resizeFrame = 0;
-const { resizeRef } = useResizeObserver((entries) => {
-  const width = entries[0]?.contentRect.width;
-  if (width === undefined) return;
-  cancelAnimationFrame(resizeFrame);
-  // Reflow changes the observed height. Apply width changes after observer delivery.
-  resizeFrame = requestAnimationFrame(() => {
-    contentWidth.value = width;
-  });
-});
-onBeforeUnmount(() => cancelAnimationFrame(resizeFrame));
 const presentationError = computed(() => {
   try {
     validateReportColumns(props.columns);
@@ -110,66 +98,11 @@ const emit = defineEmits<{
 const visibleColumns = computed(() =>
   props.columns.filter((c) => c.visible !== false),
 );
-// Widths are relative hints. They must never force the list beyond its container.
-const numeric = (column: Column<R>) =>
-  column.type === "decimal" || column.type === "integer";
-const columnWeights = computed(() =>
-  visibleColumns.value.map((column) => {
-    const hint = column.width?.match(/^(\d+(?:\.\d+)?)(px|rem|em|%)$/);
-    const declared = hint
-      ? Number(hint[1]) * (hint[2] === "px" ? 1 : hint[2] === "%" ? 8 : 16)
-      : 0;
-    const content = numeric(column)
-      ? Math.max(
-          ...props.result.items.map((row) => display(row, column).length),
-          1,
-        ) *
-          9 +
-        32
-      : 0;
-    return Math.max(
-      column.type === "boolean" ? 72 : column.type === "date" ? 128 : 112,
-      Math.min(224, declared),
-      Math.min(256, content),
-    );
-  }),
-);
-const totalWeight = computed(
-  () =>
-    columnWeights.value.reduce((sum, value) => sum + value, 0) +
-    (props.selectedKeys !== undefined ? 80 : 0) +
-    actionWeight.value,
-);
-const reflow = computed(
-  () =>
-    !xs.value &&
-    contentWidth.value > 0 &&
-    totalWeight.value > contentWidth.value,
-);
-const cards = computed(() => xs.value || reflow.value);
-const columnStyle = (index: number) => ({
-  width: `${(columnWeights.value[index]! / totalWeight.value) * 100}%`,
-});
-const gridColumns = computed(() =>
-  Math.max(1, Math.floor((contentWidth.value - 24 + 16) / 192)),
-);
 const rowActions = computed(() =>
   props.result.items.map((row) => props.actions?.(row) ?? []),
 );
 const hasActions = computed(() =>
   rowActions.value.some((actions) => actions.length),
-);
-const actionWeight = computed(() =>
-  hasActions.value
-    ? Math.max(
-        ...rowActions.value.map(
-          (actions) =>
-            Math.min(actions.length, 3) + (actions.length > 3 ? 1 : 0),
-        ),
-      ) *
-        48 +
-      32
-    : 0,
 );
 // Without a consumer key, retain object identity rather than rebinding an open menu by array index.
 // Selection and report presentation still require the consumer's exact rowKey.
@@ -272,10 +205,8 @@ function display(row: Partial<R>, column: Column<R>) {
 </script>
 <template>
   <div
-    ref="resizeRef"
     class="zerp-list"
-    :class="{ 'zerp-list--cards': cards, 'zerp-list--reflow': reflow }"
-    :style="{ '--zerp-list-columns': gridColumns }"
+    :class="{ 'zerp-list--wide': wide && !xs, 'zerp-list--cards': xs }"
     :aria-busy="loading"
   >
     <FeedbackRegion
@@ -283,10 +214,7 @@ function display(row: Partial<R>, column: Column<R>) {
     /></FeedbackRegion>
     <template v-if="!presentationError">
       <p v-if="summary">{{ summary.caption }}</p>
-      <div
-        v-if="cards && selectedKeys !== undefined"
-        class="zerp-card-selection"
-      >
+      <div v-if="xs && selectedKeys !== undefined" class="zerp-card-selection">
         <VCheckboxBtn
           aria-label="全选当前页"
           label="全选当前页"
@@ -300,14 +228,10 @@ function display(row: Partial<R>, column: Column<R>) {
         />
         <span role="status">已选 {{ selectedCount }} 项</span>
       </div>
-      <component :is="cards ? 'div' : VTable" :hover="!cards">
-        <thead v-if="!cards">
+      <component :is="xs ? 'div' : VTable" :hover="!xs">
+        <thead v-if="!xs">
           <tr>
-            <th
-              v-if="selectedKeys !== undefined"
-              scope="col"
-              :style="{ width: `${(80 / totalWeight) * 100}%` }"
-            >
+            <th v-if="selectedKeys !== undefined" scope="col">
               <VCheckboxBtn
                 aria-label="全选当前页"
                 :model-value="allSelected"
@@ -320,57 +244,53 @@ function display(row: Partial<R>, column: Column<R>) {
               />
             </th>
             <th
-              v-for="(column, columnIndex) in visibleColumns"
+              v-for="column in visibleColumns"
               :key="column.key"
               scope="col"
-              :style="columnStyle(columnIndex)"
-              :class="{ 'zerp-list-number': numeric(column) }"
+              :style="{
+                width: column.width,
+                minWidth: wide ? column.width : undefined,
+              }"
             >
               {{ column.label }}
             </th>
-            <th
-              v-if="hasActions"
-              scope="col"
-              :style="{ width: `${(actionWeight / totalWeight) * 100}%` }"
-            >
-              操作
-            </th>
+            <th v-if="hasActions" scope="col">操作</th>
           </tr>
         </thead>
         <component
-          :is="cards ? 'div' : 'tbody'"
-          :class="{ 'zerp-record-cards': cards }"
+          :is="xs ? 'div' : 'tbody'"
+          :class="{ 'zerp-record-cards': xs }"
         >
           <template v-for="(row, index) in result.items" :key="renderKey(row)">
             <component
-              :is="cards ? 'div' : 'tr'"
+              :is="xs ? 'div' : 'tr'"
               v-for="group in groups(row, true)"
               :key="'group-start:' + group.id"
               class="zerp-report-group"
             >
               <component
-                :is="cards ? 'h2' : 'th'"
-                :colspan="cards ? undefined : colspan"
-                :scope="cards ? undefined : 'rowgroup'"
+                :is="xs ? 'h2' : 'th'"
+                :colspan="xs ? undefined : colspan"
+                :scope="xs ? undefined : 'rowgroup'"
               >
                 {{ group.label }}{{ group.continuedBefore ? "（续）" : "" }}
               </component>
             </component>
             <component
-              :is="cards ? VCard : 'tr'"
-              :tag="cards ? 'article' : undefined"
-              :variant="cards ? 'outlined' : undefined"
+              :is="xs ? VCard : 'tr'"
+              :tag="xs ? 'article' : undefined"
+              :variant="xs ? 'outlined' : undefined"
               :class="{
-                'zerp-record-card': cards,
+                'zerp-record-card': xs,
                 'zerp-record-card--selected':
-                  cards && selectedKeys?.includes(identity(row)),
+                  xs && selectedKeys?.includes(identity(row)),
               }"
-              :aria-label="cards ? `记录 ${index + 1}` : undefined"
+              :aria-label="xs ? `记录 ${index + 1}` : undefined"
               :style="presentationStyle(row)"
             >
               <div
                 v-if="
-                  cards &&
+                  xs &&
                   (selectedKeys !== undefined || rowActions[index]!.length)
                 "
                 class="zerp-record-card__toolbar"
@@ -391,8 +311,8 @@ function display(row: Partial<R>, column: Column<R>) {
                 />
               </div>
               <component
-                :is="cards ? 'div' : 'td'"
-                v-if="!cards && selectedKeys !== undefined"
+                :is="xs ? 'div' : 'td'"
+                v-if="!xs && selectedKeys !== undefined"
                 data-label="选择"
               >
                 <VCheckboxBtn
@@ -403,14 +323,13 @@ function display(row: Partial<R>, column: Column<R>) {
                 />
               </component>
               <component
-                :is="cards ? 'div' : 'td'"
+                :is="xs ? 'div' : 'td'"
                 v-for="column in visibleColumns"
                 :key="column.key"
                 :data-label="column.label"
-                :class="{ 'zerp-list-number': numeric(column) }"
                 :style="presentationStyle(row, column.key)"
               >
-                <span v-if="cards" class="zerp-record-card__label">{{
+                <span v-if="xs" class="zerp-record-card__label">{{
                   column.label
                 }}</span>
                 <template
@@ -443,8 +362,8 @@ function display(row: Partial<R>, column: Column<R>) {
                 </template>
               </component>
               <component
-                :is="cards ? 'div' : 'td'"
-                v-if="!cards && hasActions"
+                :is="xs ? 'div' : 'td'"
+                v-if="!xs && hasActions"
                 data-label="操作"
               >
                 <RowActions
@@ -456,25 +375,24 @@ function display(row: Partial<R>, column: Column<R>) {
               </component>
             </component>
             <component
-              :is="cards ? VCard : 'tr'"
-              :tag="cards ? 'section' : undefined"
-              :variant="cards ? 'tonal' : undefined"
+              :is="xs ? VCard : 'tr'"
+              :tag="xs ? 'section' : undefined"
+              :variant="xs ? 'tonal' : undefined"
               v-for="group in groups(row, false)"
               :key="'group-end:' + group.id"
               class="zerp-report-group-summary"
             >
               <component
-                :is="cards ? 'div' : 'td'"
-                v-if="!cards && selectedKeys !== undefined"
+                :is="xs ? 'div' : 'td'"
+                v-if="!xs && selectedKeys !== undefined"
               />
               <component
-                :is="cards ? 'div' : 'td'"
+                :is="xs ? 'div' : 'td'"
                 v-for="(column, index) in visibleColumns"
                 :key="column.key"
                 :data-label="column.label"
-                :class="{ 'zerp-list-number': numeric(column) }"
               >
-                <span v-if="cards" class="zerp-record-card__label">{{
+                <span v-if="xs" class="zerp-record-card__label">{{
                   column.label
                 }}</span>
                 <span v-if="index === 0"
@@ -486,38 +404,34 @@ function display(row: Partial<R>, column: Column<R>) {
                     : ""
                 }}
               </component>
-              <component
-                :is="cards ? 'div' : 'td'"
-                v-if="!cards && hasActions"
-              />
+              <component :is="xs ? 'div' : 'td'" v-if="!xs && hasActions" />
             </component>
           </template>
         </component>
         <component
-          :is="cards ? VCard : 'tfoot'"
-          :tag="cards ? 'section' : undefined"
-          :variant="cards ? 'tonal' : undefined"
+          :is="xs ? VCard : 'tfoot'"
+          :tag="xs ? 'section' : undefined"
+          :variant="xs ? 'tonal' : undefined"
           v-if="summary"
           :aria-label="summary.caption"
         >
-          <component :is="cards ? 'div' : 'tr'">
+          <component :is="xs ? 'div' : 'tr'">
             <component
-              :is="cards ? 'div' : 'td'"
-              v-if="!cards && selectedKeys !== undefined"
+              :is="xs ? 'div' : 'td'"
+              v-if="!xs && selectedKeys !== undefined"
             />
             <component
-              :is="cards ? 'div' : 'td'"
+              :is="xs ? 'div' : 'td'"
               v-for="column in visibleColumns"
               :key="column.key"
               :data-label="column.label"
-              :class="{ 'zerp-list-number': numeric(column) }"
             >
-              <span v-if="cards" class="zerp-record-card__label">{{
+              <span v-if="xs" class="zerp-record-card__label">{{
                 column.label
               }}</span>
               {{ display(summary.values, column) }}
             </component>
-            <component :is="cards ? 'div' : 'td'" v-if="!cards && hasActions" />
+            <component :is="xs ? 'div' : 'td'" v-if="!xs && hasActions" />
           </component>
         </component>
       </component>

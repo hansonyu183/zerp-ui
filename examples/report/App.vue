@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef } from "vue";
-import WideReport from "./WideReport.vue";
 import FixedReport from "./FixedReport.vue";
 import {
   defineReportPage,
@@ -9,7 +8,7 @@ import {
 } from "@zerp/ui";
 import ExamplePage from "../shared/ExamplePage.vue";
 import { reportExample, type Scenario } from "./adapters";
-const kind = ref<"batch" | "ledger" | "fixed" | "wide">("batch");
+const kind = ref<"batch" | "ledger" | "fixed">("batch");
 const scenario = ref<Scenario>("success");
 const eligibility = ref("both");
 const definitions = {
@@ -60,8 +59,7 @@ const page = defineReportPage(() => ({
 }));
 </script>
 <template>
-  <WideReport v-if="kind === 'wide'" />
-  <FixedReport v-else-if="kind === 'fixed'" />
+  <FixedReport v-if="kind === 'fixed'" />
   <ExamplePage v-else :page="page" scope="synthetic-session-1" />
   <aside class="example-controls" aria-label="合成报表控制">
     <button @click="showRelated">关联资料详情</button>
@@ -73,7 +71,6 @@ const page = defineReportPage(() => ({
       >报表示例<select v-model="kind" aria-label="报表示例">
         <option value="batch">hasMore 分批 DTO</option>
         <option value="ledger">total 台账 DTO</option>
-        <option value="wide">多列报表排版试用</option>
         <option value="fixed">固定结果、取消与返回恢复</option>
       </select></label
     >

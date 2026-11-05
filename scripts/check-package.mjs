@@ -1,4 +1,3 @@
-import { adaptiveListSmoke } from "./adaptive-list-smoke.mjs";
 import { recordDialogSmoke, relatedDialogSmoke } from "./card-modal-smoke.mjs";
 import { execFileSync } from "node:child_process";
 import {
@@ -875,7 +874,6 @@ async function reportSmoke(page) {
   await page
     .getByRole("heading", { name: "合成报表 · 分批", exact: true })
     .waitFor();
-  await adaptiveListSmoke(page);
   await compactReportSmoke(page);
   await relatedDialogSmoke(page);
   await page.clock.install();

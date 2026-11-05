@@ -858,6 +858,7 @@ watch(
         :page-size="pageSize"
         :loading="displayDefinition.kind === 'fixed' ? pageLoading : loading"
         :disabled="!usable"
+        :wide="true"
         :summary="fixed?.summary"
         :presentation="result.presentation"
         :cell="resultCell"
