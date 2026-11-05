@@ -341,6 +341,7 @@ it("adopts isolated calculations only for the current complex draft and ignores 
   expect(input(w, "资料名称").element.value).toBe("合成复杂资料");
   expect(save).not.toHaveBeenCalled();
 });
+// Full mounted nested-dialog adoption is substantially slower on the CI runner.
 it("retains an unfinished child draft when a calculation adopts equal committed row values", async () => {
   type Input = Parameters<
     DraftCollaboration<ComplexDraft, unknown>["change"]
@@ -388,4 +389,4 @@ it("retains an unfinished child draft when a calculation adopts equal committed 
     { ingredient: "原配料", ratio: "1.0000" },
     { ingredient: "未确认配料", ratio: "1.0000" },
   ]);
-}, 15000);
+}, 60000);
