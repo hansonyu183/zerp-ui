@@ -68,7 +68,7 @@ export async function compactReportSmoke(page) {
       errorBox = await errorButton.boundingBox();
     assert.ok(
       inputBox.x + inputBox.width <= errorBox.x + 1,
-      "48px error target must not overlap input text",
+      "error target must not overlap input text",
     );
     const note = page.getByRole("note", {
       name: "金额下限错误详情",

@@ -258,7 +258,7 @@ watchEffect(
         @click="
           brandState = {
             kind: 'error',
-            caption: '品牌读取失败。'.repeat(50) + '长提示末尾',
+            caption: '品牌读取失败。'.repeat(100) + '长提示末尾',
           }
         "
       >

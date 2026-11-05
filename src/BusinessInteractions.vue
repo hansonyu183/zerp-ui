@@ -83,7 +83,7 @@ onBeforeUnmount(() => {
         class="zerp-business-catalog"
       >
         <VCardText
-          ><h3 class="text-subtitle-1">{{ item.label }}</h3>
+          ><h3>{{ item.label }}</h3>
           <VList :aria-label="item.label">
             <VListItem v-for="entry in item.items" :key="entry.key">
               <VBtn

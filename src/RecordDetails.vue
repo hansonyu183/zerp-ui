@@ -32,9 +32,7 @@ function fields(group: DetailGroup<T, I>) {
       variant="outlined"
       class="zerp-detail-group"
     >
-      <VCardTitle tag="h3" class="text-h6 text-wrap">{{
-        group.label
-      }}</VCardTitle>
+      <VCardTitle tag="h3" class="text-wrap">{{ group.label }}</VCardTitle>
       <VCardText>
         <FactFields
           :value="value"

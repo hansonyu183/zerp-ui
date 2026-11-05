@@ -4,21 +4,22 @@ import { assertStableFeedback } from "./feedback-smoke.mjs";
 import { assertBelowToolbar } from "./shell-interaction-smoke.mjs";
 
 async function touchTarget(control) {
+  const minimum = control.page().viewportSize().width < 600 ? 48 : 32;
   await expect
     .poll(
       async () => {
         const box = await control.boundingBox();
-        return !!box && box.width >= 48 && box.height >= 48;
+        return !!box && box.width >= minimum && box.height >= minimum;
       },
       {
-        message: `48px target settles after enter/reflow: ${await control.textContent()}`,
+        message: `${minimum}px target settles after enter/reflow: ${await control.textContent()}`,
       },
     )
     .toBe(true);
   const box = await control.boundingBox();
   assert.ok(
-    box && box.width >= 48 && box.height >= 48,
-    `48px effective target ${await control.textContent()}: ${JSON.stringify(box)}`,
+    box && box.width >= minimum && box.height >= minimum,
+    `${minimum}px effective target ${await control.textContent()}: ${JSON.stringify(box)}`,
   );
   const probe = () =>
     control.evaluate((element) => {
@@ -130,6 +131,12 @@ async function fieldState(input, preset, caption) {
   );
   const label = field.locator(".v-field-label--floating").first();
   await expect(label).toBeVisible();
+  await expect
+    .poll(() => label.evaluate((e) => getComputedStyle(e).fontSize))
+    .toBe("12px");
+  await expect
+    .poll(() => input.evaluate((e) => getComputedStyle(e).fontSize))
+    .toBe(input.page().viewportSize().width < 600 ? "16px" : "12px");
   await readable(label, `${caption} label`);
   const indicator =
     preset === 3
@@ -511,6 +518,20 @@ export async function materialShellSmoke(page) {
         );
       }
       await page.setViewportSize({ width: 1280, height: 720 });
+      const toolbar = page.locator(".zerp-shell .v-app-bar");
+      await expect
+        .poll(async () => (await toolbar.boundingBox()).height)
+        .toBe(48);
+      const compactAction = page.getByRole("button", {
+        name: "查看",
+        exact: true,
+      });
+      await expect
+        .poll(async () => (await compactAction.boundingBox()).height)
+        .toBeLessThanOrEqual(36);
+      await expect
+        .poll(() => compactAction.evaluate((e) => getComputedStyle(e).fontSize))
+        .toBe("12px");
       const cell = page.getByRole("cell", { name: "合成客户", exact: true });
       await expect
         .poll(() => contrast(cell), {
