@@ -163,6 +163,7 @@ onBeforeUnmount(() => {
       :is="xs ? VDialog : VMenu"
       v-model="open"
       :disabled="disabled"
+      :aria-label="xs ? `选择${label}` : undefined"
       :close-on-content-click="false"
       location="bottom start"
       :max-width="xs ? 'calc(100vw - 1rem)' : 480"
@@ -182,12 +183,17 @@ onBeforeUnmount(() => {
           density="compact"
           append-inner-icon="mdi-menu-down"
           role="combobox"
+          aria-haspopup="dialog"
           :aria-expanded="open"
           @keydown.enter.stop.prevent="open = true"
           @keydown.space.stop.prevent="open = true"
         />
       </template>
-      <VCard class="zerp-reference-panel" :aria-label="`选择${label}`">
+      <VCard
+        class="zerp-reference-panel"
+        :role="xs ? undefined : 'dialog'"
+        :aria-label="`选择${label}`"
+      >
         <VCardTitle>选择{{ label }}</VCardTitle>
         <VCardText>
           <VList aria-label="已选引用" density="compact">
