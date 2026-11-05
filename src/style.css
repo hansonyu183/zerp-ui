@@ -264,10 +264,7 @@
 .zerp-list--wide {
   overflow: auto;
 }
-.zerp-list--wide table {
-  width: max-content;
-  min-width: 100%;
-}
+
 .zerp-report-scroll {
   overflow: auto;
   max-height: 70vh;
@@ -402,9 +399,7 @@
 .zerp-list table {
   min-inline-size: 100%;
 }
-.zerp-list--wide table {
-  inline-size: max-content;
-}
+
 .zerp-list nav {
   flex-wrap: wrap;
   padding-block: 0.5rem;
@@ -646,4 +641,44 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-block: 0.75rem;
+}
+
+/* Desktop tables fit their container; field width hints are upper bounds. */
+@media (min-width: 600px) {
+  .zerp-compact-table {
+    font-size: 12px;
+    --v-table-row-height: 32px;
+    --v-table-header-height: 36px;
+  }
+  .zerp-compact-table > .v-table__wrapper > table {
+    width: 100%;
+    min-width: 100%;
+    table-layout: auto;
+  }
+  .zerp-compact-table
+    > .v-table__wrapper
+    > table
+    > :is(thead, tbody, tfoot)
+    > tr
+    > :is(th, td) {
+    padding: 4px 6px;
+    font-size: inherit;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+  }
+  .zerp-compact-table .v-btn {
+    font-size: inherit;
+  }
+  .zerp-compact-table .zerp-list__actions {
+    width: 1%;
+    white-space: nowrap;
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+    background: rgb(var(--v-theme-surface));
+  }
+  .zerp-compact-table thead .zerp-list__actions {
+    z-index: 2;
+  }
 }

@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
+import { compactTableSmoke } from "./compact-table-smoke.mjs";
 import { compactReportSmoke } from "./compact-layout-smoke.mjs";
 import { detailsSmoke } from "./details-smoke.mjs";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
@@ -874,6 +875,7 @@ async function reportSmoke(page) {
   await page
     .getByRole("heading", { name: "合成报表 · 分批", exact: true })
     .waitFor();
+  await compactTableSmoke(page);
   await compactReportSmoke(page);
   await relatedDialogSmoke(page);
   await page.clock.install();

@@ -115,7 +115,12 @@ onBeforeUnmount(() => {
         >
       </VCard>
       <div v-else-if="item.kind === 'grid'" class="zerp-table-scroll">
-        <component :is="xs ? 'div' : VTable" :aria-label="item.label">
+        <component
+          :is="xs ? 'div' : VTable"
+          :aria-label="item.label"
+          density="compact"
+          class="zerp-compact-table"
+        >
           <component :is="xs ? 'h3' : 'caption'">
             {{ item.label }}
           </component>

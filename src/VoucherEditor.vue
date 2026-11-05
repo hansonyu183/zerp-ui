@@ -446,6 +446,18 @@ onBeforeUnmount(() => {
   preparation++;
   emit("pending", false);
 });
+const tableColumns = computed(() => {
+  const data = visibleColumns.value.map((column) => ({
+    kind: "data" as const,
+    column,
+    key: `field:${column.key}`,
+  }));
+  if (!writable.value) return data;
+  const action = { kind: "actions" as const, key: "actions" };
+  return xs.value
+    ? [...data, action]
+    : [...data.slice(0, 1), action, ...data.slice(1)];
+});
 </script>
 
 <template>
@@ -479,14 +491,20 @@ onBeforeUnmount(() => {
       <component
         :is="xs ? 'div' : VTable"
         aria-label="单据明细"
+        class="zerp-compact-table"
+        density="compact"
         :class="{ 'zerp-record-cards': xs }"
       >
         <thead v-if="!xs">
           <tr>
-            <th v-for="column in visibleColumns" :key="column.key" scope="col">
-              {{ column.label }}
+            <th
+              v-for="entry in tableColumns"
+              :key="entry.key"
+              scope="col"
+              :class="{ 'zerp-list__actions': entry.kind === 'actions' }"
+            >
+              {{ entry.kind === "actions" ? "操作" : entry.column.label }}
             </th>
-            <th v-if="writable" scope="col">操作</th>
           </tr>
         </thead>
         <component
@@ -504,66 +522,68 @@ onBeforeUnmount(() => {
           >
             <component
               :is="xs ? 'div' : 'td'"
-              v-for="column in visibleColumns"
-              :key="column.key"
-              :data-label="column.label"
+              v-for="entry in tableColumns"
+              :key="entry.key"
+              :data-label="
+                entry.kind === 'actions' ? '操作' : entry.column.label
+              "
+              :class="{ 'zerp-list__actions': !xs && entry.kind === 'actions' }"
             >
-              <span v-if="xs" class="zerp-record-card__label">{{
-                column.label
-              }}</span>
-              <template v-if="column.type === 'children'">
-                <VBtn
-                  color=""
-                  variant="tonal"
-                  type="button"
-                  :disabled="
-                    preparing ||
-                    !!editing ||
-                    !!childEditing ||
-                    (mode === 'edit' && !!disabled)
-                  "
-                  @click="beginChild(row, column, $event)"
-                >
-                  {{ canUpdate ? "编辑" : "查看" }}{{ column.label }} · 明细行
-                  {{ index + 1 }}
-                </VBtn>
-                <span>{{ display(row, column) }}</span>
+              <template v-if="entry.kind === 'data'">
+                <span v-if="xs" class="zerp-record-card__label">{{
+                  entry.column.label
+                }}</span>
+                <template v-if="entry.column.type === 'children'">
+                  <VBtn
+                    color=""
+                    variant="tonal"
+                    type="button"
+                    :disabled="
+                      preparing ||
+                      !!editing ||
+                      !!childEditing ||
+                      (mode === 'edit' && !!disabled)
+                    "
+                    @click="beginChild(row, entry.column, $event)"
+                  >
+                    {{ canUpdate ? "编辑" : "查看" }}{{ entry.column.label }} ·
+                    明细行
+                    {{ index + 1 }}
+                  </VBtn>
+                  <span>{{ display(row, entry.column) }}</span>
+                </template>
+                <template v-else>{{ display(row, entry.column) }}</template>
               </template>
-              <template v-else>{{ display(row, column) }}</template>
-            </component>
-            <component
-              :is="xs ? 'div' : 'td'"
-              v-if="writable"
-              data-label="操作"
-            >
-              <RowActions
-                :actions="[
-                  ...(canUpdate ? ['edit' as const] : []),
-                  ...(canDelete ? ['delete' as const] : []),
-                ]"
-                :disabled="preparing || !!editing || !!childEditing"
-                @action="
-                  $event === 'edit' ? begin(row) : (deleting = rowKey(row))
-                "
-              />
-              <span v-if="deleting === rowKey(row)">
-                确认删除该行？
-                <VBtn
-                  color="error"
-                  variant="flat"
-                  type="button"
-                  @click="removeRow"
-                >
-                  确认删除
-                </VBtn>
-                <VBtn
-                  color=""
-                  variant="tonal"
-                  type="button"
-                  @click="deleting = null"
-                  >取消删除</VBtn
-                >
-              </span>
+              <template v-else>
+                <RowActions
+                  :actions="[
+                    ...(canUpdate ? ['edit' as const] : []),
+                    ...(canDelete ? ['delete' as const] : []),
+                  ]"
+                  :disabled="preparing || !!editing || !!childEditing"
+                  @action="
+                    $event === 'edit' ? begin(row) : (deleting = rowKey(row))
+                  "
+                />
+                <span v-if="deleting === rowKey(row)">
+                  确认删除该行？
+                  <VBtn
+                    color="error"
+                    variant="flat"
+                    type="button"
+                    @click="removeRow"
+                  >
+                    确认删除
+                  </VBtn>
+                  <VBtn
+                    color=""
+                    variant="tonal"
+                    type="button"
+                    @click="deleting = null"
+                    >取消删除</VBtn
+                  >
+                </span>
+              </template>
             </component>
           </component>
         </component>

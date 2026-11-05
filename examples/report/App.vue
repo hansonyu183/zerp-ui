@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, shallowRef } from "vue";
 import FixedReport from "./FixedReport.vue";
+import CompactTable from "./CompactTable.vue";
 import {
   defineReportPage,
   defineDetailsPage,
@@ -8,7 +9,7 @@ import {
 } from "@zerp/ui";
 import ExamplePage from "../shared/ExamplePage.vue";
 import { reportExample, type Scenario } from "./adapters";
-const kind = ref<"batch" | "ledger" | "fixed">("batch");
+const kind = ref<"batch" | "ledger" | "fixed" | "compact">("batch");
 const scenario = ref<Scenario>("success");
 const eligibility = ref("both");
 const definitions = {
@@ -59,7 +60,8 @@ const page = defineReportPage(() => ({
 }));
 </script>
 <template>
-  <FixedReport v-if="kind === 'fixed'" />
+  <CompactTable v-if="kind === 'compact'" />
+  <FixedReport v-else-if="kind === 'fixed'" />
   <ExamplePage v-else :page="page" scope="synthetic-session-1" />
   <aside class="example-controls" aria-label="合成报表控制">
     <button @click="showRelated">关联资料详情</button>
@@ -71,6 +73,7 @@ const page = defineReportPage(() => ({
       >报表示例<select v-model="kind" aria-label="报表示例">
         <option value="batch">hasMore 分批 DTO</option>
         <option value="ledger">total 台账 DTO</option>
+        <option value="compact">紧凑表格</option>
         <option value="fixed">固定结果、取消与返回恢复</option>
       </select></label
     >

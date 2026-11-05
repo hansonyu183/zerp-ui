@@ -46,6 +46,7 @@ export type ReportColumn<R> = {
     label: string;
     visible?: boolean;
     width?: string;
+    role?: "action";
   } & ColumnKind<R[K]>;
 }[Extract<keyof R, string>];
 export type ReportQuery<P> = {
@@ -283,7 +284,7 @@ export function validateReportColumns<R>(columns: readonly Column<R>[]) {
   for (const column of columns) {
     object(
       column,
-      ["key", "label", "type", "options", "visible", "width"],
+      ["key", "label", "type", "options", "visible", "width", "role"],
       "报表列定义包含不支持的属性。",
     );
     if (
@@ -297,7 +298,8 @@ export function validateReportColumns<R>(columns: readonly Column<R>[]) {
           column.type,
         )) ||
       (column.visible !== undefined && typeof column.visible !== "boolean") ||
-      (column.width !== undefined && typeof column.width !== "string")
+      (column.width !== undefined && typeof column.width !== "string") ||
+      (column.role !== undefined && column.role !== "action")
     )
       throw new Error("报表列定义不正确或重复。");
     seen.add(column.key);
