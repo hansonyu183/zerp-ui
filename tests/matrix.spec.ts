@@ -1,3 +1,8 @@
+import { config } from "@vue/test-utils";
+import { createVuetify } from "vuetify";
+config.global.plugins = [
+  createVuetify({ defaults: { VDialog: { attach: true } } }),
+];
 import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import type { Component } from "vue";
 import { mount, flushPromises, DOMWrapper } from "@vue/test-utils";

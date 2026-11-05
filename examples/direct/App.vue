@@ -18,14 +18,18 @@ const page = defineCrudPage(() => ({
 }));
 const selectedRows = ref<(string | number)[]>([]),
   lastAction = ref("");
-const row = { id: "row-actions", name: "合成客户" };
+const row = { id: "row-actions", name: "合成客户", count: "12", state: "启用" };
 const listDefinition = defineCrud({
   resource: "synthetic-actions",
   title: "行操作示例",
   fields: [{ key: "name", label: "名称", type: "text" }],
   filters: [],
   initialFilters: () => ({}),
-  columns: [{ key: "name", label: "名称" }],
+  columns: [
+    { key: "name", label: "名称" },
+    { key: "count", label: "数量" },
+    { key: "state", label: "状态" },
+  ],
   identity: (value: typeof row) => value.id,
   actions: () => ["view", "edit", "delete"],
   adapter: {

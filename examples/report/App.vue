@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import FixedReport from "./FixedReport.vue";
-import { defineReportPage } from "@zerp/ui";
+import {
+  defineReportPage,
+  defineDetailsPage,
+  type PageDefinition,
+} from "@zerp/ui";
 import ExamplePage from "../shared/ExamplePage.vue";
 import { reportExample, type Scenario } from "./adapters";
 const kind = ref<"batch" | "ledger" | "fixed">("batch");
@@ -15,16 +19,50 @@ const permissions = computed(() => ({
   query: eligibility.value === "both" || eligibility.value === "query",
   export: eligibility.value === "both" || eligibility.value === "export",
 }));
+const relatedPage = shallowRef<PageDefinition<"details" | "task">>();
+function showRelated() {
+  relatedPage.value = defineDetailsPage({
+    title: "合成资料详情",
+    instance: "synthetic-detail",
+    value: { name: "合成客户" },
+    editor: {
+      definition: {
+        headerFields: [{ key: "name", label: "详情名称", type: "text" }],
+        rowFields: [],
+        columns: [],
+        rowKey: () => "row",
+        emptyRow: () => ({}),
+      },
+      value: { header: { name: "合成客户" }, rows: [] },
+    },
+    groups: [
+      {
+        key: "facts",
+        label: "基本资料",
+        fields: [{ key: "name", label: "名称", type: "text" }],
+      },
+    ],
+  });
+}
 const page = defineReportPage(() => ({
   definition: definitions[kind.value === "ledger" ? "ledger" : "batch"],
   permissions: permissions.value,
   pageSize: 2,
+  related: relatedPage.value
+    ? {
+        page: relatedPage.value,
+        onClose: () => {
+          relatedPage.value = undefined;
+        },
+      }
+    : undefined,
 }));
 </script>
 <template>
   <FixedReport v-if="kind === 'fixed'" />
   <ExamplePage v-else :page="page" scope="synthetic-session-1" />
   <aside class="example-controls" aria-label="合成报表控制">
+    <button @click="showRelated">关联资料详情</button>
     <p>
       独立合成消费者：不连接真实 ZERP
       API。日期范围和金额下限仅演示原值传递，合成数据不按这两项筛选。

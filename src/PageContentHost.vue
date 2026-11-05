@@ -10,8 +10,14 @@ import {
 import type { EditGuardHandle, EditProtection } from "./edit-guard";
 import { equalValues } from "./editor-values";
 const props = withDefaults(
-  defineProps<{ page: PageDefinition; scope: string; active?: boolean }>(),
-  { active: true },
+  defineProps<{
+    page: PageDefinition;
+    scope: string;
+    active?: boolean;
+    discard?: number;
+    heading?: boolean;
+  }>(),
+  { active: true, heading: true },
 );
 const emit = defineEmits<{ protection: [value: EditProtection] }>();
 const clear: EditProtection = {
@@ -26,6 +32,10 @@ const admittedPage = shallowRef(props.page),
   admitted = shallowRef<PageSnapshot>(props.page[snapshotPage]());
 const generation = ref(0),
   discardVersion = ref(0);
+watch(
+  () => props.discard,
+  () => discardVersion.value++,
+);
 let switchRequest = 0;
 function reset() {
   switchRequest++;
@@ -100,7 +110,7 @@ async function requestLeave(): Promise<boolean> {
 defineExpose<AppPageHandle>({ requestLeave });
 </script>
 <template>
-  <h1>{{ admitted.title }}</h1>
+  <h1 v-if="heading">{{ admitted.title }}</h1>
   <EditGuard
     ref="guard"
     :scope="scope"

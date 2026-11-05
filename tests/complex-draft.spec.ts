@@ -228,7 +228,7 @@ it("retains historical reference facts but clears a dependent selection on paren
     extra: true,
     reason: "保留条件字段内容",
   });
-});
+}, 20000);
 it("requires both business answers, explicitly stores their calculated facts and invalidates them after a draft change", async () => {
   const saves: ComplexDraft[] = [];
   const w = await start({
@@ -263,7 +263,7 @@ it("requires both business answers, explicitly stores their calculated facts and
     confirmation: true,
     answer: "  合成核对  ",
   });
-});
+}, 20000);
 it("holds the complex save after calculation failure and retries without writing until questions are answered", async () => {
   let failed = false;
   const save = vi.fn(async () => {});

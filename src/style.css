@@ -543,9 +543,30 @@
   overflow-wrap: anywhere;
 }
 .zerp-record-card__label {
-  display: block;
+  display: inline;
   font-size: 0.875rem;
   font-weight: 500;
+  margin-inline-end: 0.35rem;
+}
+.zerp-record-card__label::after {
+  content: "：";
+}
+.zerp-record-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  column-gap: 1rem;
+}
+.zerp-record-card > [data-label] {
+  max-inline-size: 100%;
+}
+.zerp-record-card__toolbar {
+  flex: 0 0 100%;
+}
+.zerp-record-dialog {
+  margin: 0;
+  max-block-size: 100%;
+  overflow-y: auto;
 }
 .zerp-card-selection {
   display: flex;
@@ -617,4 +638,11 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-block: 0.75rem;
+}
+
+.zerp-record-feedback-origin {
+  min-block-size: 6rem;
+}
+.zerp-record-feedback-origin--retry {
+  min-block-size: 9rem;
 }

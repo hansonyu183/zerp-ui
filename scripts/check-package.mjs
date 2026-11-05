@@ -1,3 +1,4 @@
+import { recordDialogSmoke, relatedDialogSmoke } from "./card-modal-smoke.mjs";
 import { execFileSync } from "node:child_process";
 import {
   mkdir,
@@ -499,6 +500,7 @@ try {
 }
 
 async function directSmoke(page) {
+  await recordDialogSmoke(page);
   const choose = (value) =>
     page.getByLabel("资料演示", { exact: true }).selectOption(value);
   await choose("form");
@@ -878,6 +880,7 @@ async function reportSmoke(page) {
     .getByRole("heading", { name: "合成报表 · 分批", exact: true })
     .waitFor();
   await compactReportSmoke(page);
+  await relatedDialogSmoke(page);
   await page.clock.install();
   const button = (name) => page.getByRole("button", { name, exact: true });
   await page
