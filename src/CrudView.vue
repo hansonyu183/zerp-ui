@@ -17,6 +17,7 @@ import {
   watch,
 } from "vue";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import { VProgressLinear } from "vuetify/components";
 import type {
   CrudDefinition,
@@ -745,65 +746,61 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         aria-label="加载中"
       />
     </div>
-    <div class="zerp-record-feedback-origin">
-      <Teleport :to="feedbackTarget ?? 'body'" :disabled="!feedbackTarget">
-        <div class="zerp-feedback-region">
-          <Feedback
-            :message="lock.phase === 'blocked' ? '请先恢复原请求' : undefined"
-            kind="warning"
-            persistent
-            ><VBtn
-              color=""
-              variant="tonal"
-              type="button"
-              :disabled="verifying"
-              @click="restoreWrite"
-            >
-              重试恢复原请求
-            </VBtn></Feedback
-          >
-          <Feedback :message="error" kind="error"
-            ><VBtn
-              color=""
-              variant="tonal"
-              v-if="permissions.query"
-              type="button"
-              @click="query(page)"
-            >
-              重试读取
-            </VBtn></Feedback
-          >
-          <Feedback :message="notice" />
-          <Feedback
-            :message="lock.phase === 'unknown' ? '请求结果未知' : undefined"
-            kind="warning"
-            persistent
-          >
-            写入结果未知。普通查询或关闭编辑不能解除锁定。<VBtn
-              color=""
-              variant="tonal"
-              v-if="definition.reconcile && permissions.reconcile"
-              type="button"
-              :disabled="verifying"
-              @click="reconcile"
-            >
-              核实本次请求
-            </VBtn>
-          </Feedback>
-          <Feedback
-            :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
-            kind="warning"
-            persistent
-          >
-            {{
-              lock.outcome === "not-applied"
-                ? "原请求已确认未应用，请完成读取；不会再次提交。"
-                : "写入已成功，请重试读取；不会再次提交。"
-            }}
-          </Feedback>
-        </div>
-      </Teleport>
-    </div>
+    <FeedbackRegion :target="feedbackTarget">
+      <Feedback
+        :message="lock.phase === 'blocked' ? '请先恢复原请求' : undefined"
+        kind="warning"
+        persistent
+        ><VBtn
+          color=""
+          variant="tonal"
+          type="button"
+          :disabled="verifying"
+          @click="restoreWrite"
+        >
+          重试恢复原请求
+        </VBtn></Feedback
+      >
+      <Feedback :message="error" kind="error"
+        ><VBtn
+          color=""
+          variant="tonal"
+          v-if="permissions.query"
+          type="button"
+          @click="query(page)"
+        >
+          重试读取
+        </VBtn></Feedback
+      >
+      <Feedback :message="notice" />
+      <Feedback
+        :message="lock.phase === 'unknown' ? '请求结果未知' : undefined"
+        kind="warning"
+        persistent
+      >
+        写入结果未知。普通查询或关闭编辑不能解除锁定。<VBtn
+          color=""
+          variant="tonal"
+          v-if="definition.reconcile && permissions.reconcile"
+          type="button"
+          :disabled="verifying"
+          @click="reconcile"
+        >
+          核实本次请求
+        </VBtn>
+      </Feedback>
+      <Feedback
+        :message="lock.phase === 'refresh' ? '等待读取权威结果' : undefined"
+        kind="warning"
+        persistent
+      >
+        {{
+          lock.outcome === "not-applied"
+            ? "原请求已确认未应用，请完成读取；不会再次提交。"
+            : "写入已成功，请重试读取；不会再次提交。"
+        }}
+      </Feedback>
+    </FeedbackRegion>
     <VBtn
       color=""
       variant="tonal"

@@ -77,7 +77,7 @@ export async function capabilitiesSmoke(page, printEvidence) {
     name: "准备执行处理",
     exact: true,
   });
-  const controls = [messages, confirmation, prepare];
+  const controls = [confirmation, prepare];
   await prepare.scrollIntoViewIfNeeded();
   await expect(messages.locator(".zerp-feedback")).toHaveCount(0);
   await assertStableFeedback(page, controls, async () => {

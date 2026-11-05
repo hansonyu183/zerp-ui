@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false });
 defineSlots<{}>();
+import FeedbackHost from "./FeedbackHost.vue";
 import PageContentHost from "./PageContentHost.vue";
 import type { PageDefinition, AppPageHandle } from "./pages";
 import type { EditProtection } from "./edit-guard";
@@ -21,6 +22,7 @@ import {
   VListItem,
 } from "vuetify/components";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import {
   defaultThemeChoice,
   shellDefaults,
@@ -159,238 +161,243 @@ function navigated(event: MouseEvent) {
         :style="{ '--zerp-app-bar-height': `${barHeight}px` }"
         @keydown="escapeNavigation"
       >
-        <VAppBar name="app-bar" :order="0" :height="xs ? 56 : 64">
-          <div class="zerp-shell-toolbar">
-            <VBtn
-              ref="navigationToggle"
-              :aria-controls="navigationId"
-              :aria-expanded="drawer ?? !mobile"
-              aria-label="切换导航"
-              icon
-              size="default"
-              @click="drawer = !(drawer ?? !mobile)"
-              >☰</VBtn
-            >
-            <RouterLink
-              :to="brand.home"
-              class="zerp-shell-brand"
-              :aria-label="`${brand.productName}：首页`"
-            >
-              <VAvatar color="primary" :size="xs ? 28 : 36">
-                <span v-if="brand.mark.kind === 'text'">{{
-                  brand.mark.text
-                }}</span>
-                <img v-else :src="brand.mark.src" :alt="brand.mark.alt" />
-              </VAvatar>
-              <span class="zerp-shell-brand-copy">
-                <strong :title="brand.productName">{{
-                  brand.productName
-                }}</strong>
-                <span
-                  v-if="brandState.kind === 'ready'"
-                  class="zerp-shell-enterprise"
-                  >{{ brand.enterpriseName }}</span
-                >
-              </span>
-            </RouterLink>
-            <Feedback
-              class="zerp-shell-brand-status"
-              :kind="brandState.kind === 'error' ? 'error' : 'status'"
-              :message="
-                brandState.kind === 'loading'
-                  ? '品牌加载中'
-                  : brandState.kind === 'error'
-                    ? brandState.caption
-                    : undefined
-              "
-              ><VBtn
-                v-if="brandState.kind === 'error'"
-                @click="emit('retry-brand')"
-                >重试品牌</VBtn
-              ></Feedback
-            >
-            <div class="zerp-shell-actions">
-              <VMenu
-                v-model="themeMenu"
-                :disabled="!active"
-                location="bottom end"
-                content-class="zerp-shell-overlay"
-              >
-                <template #activator="{ props: activator }"
-                  ><VBtn
-                    v-bind="activator"
-                    icon
-                    size="default"
-                    aria-label="主题预设"
-                    title="主题预设"
-                    ><span class="zerp-ui-icon" aria-hidden="true"
-                      >&#xF050E;</span
-                    ></VBtn
-                  ></template
-                >
-                <VList
-                  class="zerp-shell-menu"
-                  role="menu"
-                  aria-label="主题预设"
-                >
-                  <VListItem
-                    v-for="(choice, index) in presets"
-                    :key="choice"
-                    role="menuitemradio"
-                    :aria-checked="theme.preset === choice"
-                    :aria-label="`Material Design ${index + 1}`"
-                    @click="preset(choice)"
-                    :title="`Material Design ${index + 1}`"
-                    :active="theme.preset === choice"
-                  />
-                </VList>
-              </VMenu>
+        <FeedbackHost>
+          <VAppBar name="app-bar" :order="0" :height="xs ? 56 : 64">
+            <div class="zerp-shell-toolbar">
               <VBtn
-                aria-label="切换明暗模式"
-                title="切换明暗模式"
+                ref="navigationToggle"
+                :aria-controls="navigationId"
+                :aria-expanded="drawer ?? !mobile"
+                aria-label="切换导航"
                 icon
                 size="default"
-                @click="
-                  emit('update:theme', {
-                    ...theme,
-                    mode: theme.mode === 'light' ? 'dark' : 'light',
-                  })
-                "
-                ><span class="zerp-ui-icon" aria-hidden="true">{{
-                  theme.mode === "light" ? "\u{F0594}" : "\u{F0599}"
-                }}</span></VBtn
+                @click="drawer = !(drawer ?? !mobile)"
+                >☰</VBtn
               >
-              <VMenu
-                v-if="account"
-                v-model="accountMenu"
-                :disabled="!active"
-                location="bottom end"
-                content-class="zerp-shell-overlay"
+              <RouterLink
+                :to="brand.home"
+                class="zerp-shell-brand"
+                :aria-label="`${brand.productName}：首页`"
               >
-                <template #activator="{ props: activator }"
-                  ><VBtn
-                    v-bind="activator"
-                    :aria-label="`账户：${account.label}`"
-                    :title="account.label"
-                    class="zerp-shell-account-button"
-                    size="default"
-                    ><VAvatar color="primary" :size="xs ? 28 : 34"
-                      ><img
-                        v-if="account.avatar"
-                        :src="account.avatar.src"
-                        :alt="account.avatar.alt"
-                      /><span v-else aria-hidden="true">{{
-                        account.label.trim().slice(0, 1) || "U"
-                      }}</span></VAvatar
-                    ><span class="zerp-shell-account-label">{{
-                      account.label
-                    }}</span></VBtn
-                  ></template
-                >
-                <VList
-                  class="zerp-shell-account"
-                  role="menu"
-                  aria-label="账户菜单"
-                >
-                  <VListItem
-                    v-for="action in accountActions"
-                    :key="action"
-                    role="menuitem"
-                    @click="active && emit('account-action', action)"
-                    :title="labels[action]"
-                  />
-                </VList>
-              </VMenu>
-            </div>
-          </div>
-        </VAppBar>
-        <VNavigationDrawer
-          v-model="drawer"
-          :order="1"
-          :retain-focus="mobile"
-          :capture-focus="mobile"
-        >
-          <nav :id="navigationId" ref="navigationElement" aria-label="主导航">
-            <Feedback
-              :kind="navigationState.kind === 'error' ? 'error' : 'status'"
-              :message="
-                navigationState.kind === 'loading'
-                  ? '导航加载中'
-                  : navigationState.kind === 'error'
-                    ? navigationState.caption
-                    : undefined
-              "
-              ><VBtn
-                v-if="navigationState.kind === 'error'"
-                @click="emit('retry-navigation')"
-                >重试导航</VBtn
-              ></Feedback
-            >
-            <template v-if="navigationState.kind === 'ready'">
-              <component
-                :is="group.ungrouped ? 'div' : 'details'"
-                v-for="group in navigation"
-                :key="group.key"
-                :open="group.ungrouped ? undefined : false"
-              >
-                <summary v-if="!group.ungrouped">{{ group.caption }}</summary>
-                <RouterLink
-                  v-for="item in group.items"
-                  :key="item.key"
-                  :to="item.to"
-                  custom
-                  v-slot="{ href, navigate, isActive, isExactActive }"
-                >
-                  <a
-                    :href="href"
-                    :class="{
-                      'router-link-active':
-                        selectedNavigationKey === undefined
-                          ? isActive
-                          : selectedItem === item,
-                      'router-link-exact-active':
-                        selectedNavigationKey === undefined
-                          ? isExactActive
-                          : selectedItem === item,
-                    }"
-                    :aria-current="
-                      (
-                        selectedNavigationKey === undefined
-                          ? isExactActive
-                          : selectedItem === item
-                      )
-                        ? 'page'
-                        : undefined
-                    "
-                    @click="
-                      navigated($event);
-                      navigate($event);
-                    "
-                    ><span
-                      v-if="item.icon"
-                      aria-hidden="true"
-                      class="zerp-ui-icon"
-                      >{{ navigationGlyph(item.icon) }}</span
-                    >{{ item.caption }}</a
+                <VAvatar color="primary" :size="xs ? 28 : 36">
+                  <span v-if="brand.mark.kind === 'text'">{{
+                    brand.mark.text
+                  }}</span>
+                  <img v-else :src="brand.mark.src" :alt="brand.mark.alt" />
+                </VAvatar>
+                <span class="zerp-shell-brand-copy">
+                  <strong :title="brand.productName">{{
+                    brand.productName
+                  }}</strong>
+                  <span
+                    v-if="brandState.kind === 'ready'"
+                    class="zerp-shell-enterprise"
+                    >{{ brand.enterpriseName }}</span
                   >
-                </RouterLink>
-              </component>
-            </template>
-          </nav>
-        </VNavigationDrawer>
-        <VMain
-          ><div :id="overlayId" class="zerp-shell-overlays" />
-          <div class="zerp-shell-content">
-            <PageContentHost
-              ref="pageContent"
-              :page="page"
-              :scope="scope"
-              :active="active"
-              @protection="emit('protection', $event)"
-            />
-            <footer>{{ footer }}</footer>
-          </div></VMain
-        >
+                </span>
+              </RouterLink>
+              <FeedbackRegion
+                ><Feedback
+                  :kind="brandState.kind === 'error' ? 'error' : 'status'"
+                  :message="
+                    brandState.kind === 'loading'
+                      ? '品牌加载中'
+                      : brandState.kind === 'error'
+                        ? brandState.caption
+                        : undefined
+                  "
+                  ><VBtn
+                    v-if="brandState.kind === 'error'"
+                    @click="emit('retry-brand')"
+                    >重试品牌</VBtn
+                  ></Feedback
+                ></FeedbackRegion
+              >
+              <div class="zerp-shell-actions">
+                <VMenu
+                  v-model="themeMenu"
+                  :disabled="!active"
+                  location="bottom end"
+                  content-class="zerp-shell-overlay"
+                >
+                  <template #activator="{ props: activator }"
+                    ><VBtn
+                      v-bind="activator"
+                      icon
+                      size="default"
+                      aria-label="主题预设"
+                      title="主题预设"
+                      ><span class="zerp-ui-icon" aria-hidden="true"
+                        >&#xF050E;</span
+                      ></VBtn
+                    ></template
+                  >
+                  <VList
+                    class="zerp-shell-menu"
+                    role="menu"
+                    aria-label="主题预设"
+                  >
+                    <VListItem
+                      v-for="(choice, index) in presets"
+                      :key="choice"
+                      role="menuitemradio"
+                      :aria-checked="theme.preset === choice"
+                      :aria-label="`Material Design ${index + 1}`"
+                      @click="preset(choice)"
+                      :title="`Material Design ${index + 1}`"
+                      :active="theme.preset === choice"
+                    />
+                  </VList>
+                </VMenu>
+                <VBtn
+                  aria-label="切换明暗模式"
+                  title="切换明暗模式"
+                  icon
+                  size="default"
+                  @click="
+                    emit('update:theme', {
+                      ...theme,
+                      mode: theme.mode === 'light' ? 'dark' : 'light',
+                    })
+                  "
+                  ><span class="zerp-ui-icon" aria-hidden="true">{{
+                    theme.mode === "light" ? "\u{F0594}" : "\u{F0599}"
+                  }}</span></VBtn
+                >
+                <VMenu
+                  v-if="account"
+                  v-model="accountMenu"
+                  :disabled="!active"
+                  location="bottom end"
+                  content-class="zerp-shell-overlay"
+                >
+                  <template #activator="{ props: activator }"
+                    ><VBtn
+                      v-bind="activator"
+                      :aria-label="`账户：${account.label}`"
+                      :title="account.label"
+                      class="zerp-shell-account-button"
+                      size="default"
+                      ><VAvatar color="primary" :size="xs ? 28 : 34"
+                        ><img
+                          v-if="account.avatar"
+                          :src="account.avatar.src"
+                          :alt="account.avatar.alt"
+                        /><span v-else aria-hidden="true">{{
+                          account.label.trim().slice(0, 1) || "U"
+                        }}</span></VAvatar
+                      ><span class="zerp-shell-account-label">{{
+                        account.label
+                      }}</span></VBtn
+                    ></template
+                  >
+                  <VList
+                    class="zerp-shell-account"
+                    role="menu"
+                    aria-label="账户菜单"
+                  >
+                    <VListItem
+                      v-for="action in accountActions"
+                      :key="action"
+                      role="menuitem"
+                      @click="active && emit('account-action', action)"
+                      :title="labels[action]"
+                    />
+                  </VList>
+                </VMenu>
+              </div>
+            </div>
+          </VAppBar>
+          <VNavigationDrawer
+            v-model="drawer"
+            :order="1"
+            :retain-focus="mobile"
+            :capture-focus="mobile"
+          >
+            <nav :id="navigationId" ref="navigationElement" aria-label="主导航">
+              <FeedbackRegion
+                ><Feedback
+                  :kind="navigationState.kind === 'error' ? 'error' : 'status'"
+                  :message="
+                    navigationState.kind === 'loading'
+                      ? '导航加载中'
+                      : navigationState.kind === 'error'
+                        ? navigationState.caption
+                        : undefined
+                  "
+                  ><VBtn
+                    v-if="navigationState.kind === 'error'"
+                    @click="emit('retry-navigation')"
+                    >重试导航</VBtn
+                  ></Feedback
+                ></FeedbackRegion
+              >
+              <template v-if="navigationState.kind === 'ready'">
+                <component
+                  :is="group.ungrouped ? 'div' : 'details'"
+                  v-for="group in navigation"
+                  :key="group.key"
+                  :open="group.ungrouped ? undefined : false"
+                >
+                  <summary v-if="!group.ungrouped">{{ group.caption }}</summary>
+                  <RouterLink
+                    v-for="item in group.items"
+                    :key="item.key"
+                    :to="item.to"
+                    custom
+                    v-slot="{ href, navigate, isActive, isExactActive }"
+                  >
+                    <a
+                      :href="href"
+                      :class="{
+                        'router-link-active':
+                          selectedNavigationKey === undefined
+                            ? isActive
+                            : selectedItem === item,
+                        'router-link-exact-active':
+                          selectedNavigationKey === undefined
+                            ? isExactActive
+                            : selectedItem === item,
+                      }"
+                      :aria-current="
+                        (
+                          selectedNavigationKey === undefined
+                            ? isExactActive
+                            : selectedItem === item
+                        )
+                          ? 'page'
+                          : undefined
+                      "
+                      @click="
+                        navigated($event);
+                        navigate($event);
+                      "
+                      ><span
+                        v-if="item.icon"
+                        aria-hidden="true"
+                        class="zerp-ui-icon"
+                        >{{ navigationGlyph(item.icon) }}</span
+                      >{{ item.caption }}</a
+                    >
+                  </RouterLink>
+                </component>
+              </template>
+            </nav>
+          </VNavigationDrawer>
+          <VMain
+            ><div :id="overlayId" class="zerp-shell-overlays" />
+            <div class="zerp-shell-content">
+              <PageContentHost
+                ref="pageContent"
+                :page="page"
+                :scope="scope"
+                :active="active"
+                @protection="emit('protection', $event)"
+              />
+              <footer>{{ footer }}</footer>
+            </div></VMain
+          >
+        </FeedbackHost>
       </VLayout>
     </VDefaultsProvider>
   </VThemeProvider>

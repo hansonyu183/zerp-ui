@@ -1160,7 +1160,7 @@ it.each(["eligible", "recoveryAllowed"] as const)(
   },
 );
 
-it("keeps a permanent business message reserve when messages are added, dismissed and removed", async () => {
+it("keeps business feedback in a separate overlay host when messages are added, dismissed and removed", async () => {
   const op = operation();
   let messages: import("../src/index").Interaction<never>[] = [];
   const w = await start(

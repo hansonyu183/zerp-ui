@@ -6,6 +6,19 @@ export async function assertStableFeedback(page, controls, change) {
     boxes: await Promise.all(controls.map((control) => control.boundingBox())),
     scroll: await page.evaluate(() => ({ x: scrollX, y: scrollY })),
   });
+  const assertNoReserve = async () => {
+    assert.ok(
+      await page
+        .locator(".zerp-feedback-region")
+        .evaluateAll((regions) =>
+          regions.every(
+            (region) => region.getBoundingClientRect().height === 0,
+          ),
+        ),
+      "feedback regions must not reserve document space",
+    );
+  };
+  await assertNoReserve();
   // Measure from a settled layout; viewport/drawer transitions are independent of feedback.
   let before = await capture(),
     stable = 0;
@@ -24,6 +37,7 @@ export async function assertStableFeedback(page, controls, change) {
     "feedback geometry targets are visible",
   );
   await change();
+  await assertNoReserve();
   const after = await capture();
   assert.deepEqual(
     after,

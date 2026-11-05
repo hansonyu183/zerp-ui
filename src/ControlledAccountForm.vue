@@ -8,6 +8,7 @@ import { equalValues } from "./editor-values";
 import { validateFields, type FormValidationState } from "./validation";
 import DynamicForm from "./DynamicForm.vue";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 
 const props = withDefaults(
   defineProps<{
@@ -126,11 +127,11 @@ function cancel() {
     :aria-label="kind === 'profile' ? '名称与头像' : '更改密码'"
     @submit.prevent="submit"
   >
-    <div class="zerp-feedback-region">
+    <FeedbackRegion>
       <Feedback :message="error" kind="error" />
       <Feedback :message="notice" />
       <Feedback :message="validationMessage" kind="error" />
-    </div>
+    </FeedbackRegion>
     <DynamicForm
       purpose="short"
       :key="generation"

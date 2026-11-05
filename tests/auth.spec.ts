@@ -90,7 +90,9 @@ it("dismisses authentication feedback without changing controlled values and reo
   expect(w.emitted("update:values")).toBeUndefined();
   expect(w.emitted("submit")).toBeUndefined();
   await w.setProps({ error: "请核对账号" });
-  expect(w.get('[role="alert"]').text()).toContain("请核对账号");
+  expect(w.get('[role="alert"][aria-label="错误提示"]').text()).toContain(
+    "请核对账号",
+  );
   expect(
     (w.get('input[autocomplete="username"]').element as HTMLInputElement).value,
   ).toBe("user");

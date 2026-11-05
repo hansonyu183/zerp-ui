@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FeedbackHost from "./FeedbackHost.vue";
 import { nextTick, onBeforeUnmount } from "vue";
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import {
@@ -48,14 +49,10 @@ onBeforeUnmount(() => {
         role="region"
         :aria-label="title"
       >
-        <VCardTitle>{{ title }}</VCardTitle>
-        <VCardText
-          ><div
-            :ref="
-              (element) => emit('feedback', element as HTMLElement | null)
-            " />
-          <slot
-        /></VCardText>
+        <FeedbackHost @target="emit('feedback', $event)">
+          <VCardTitle>{{ title }}</VCardTitle>
+          <VCardText><slot /></VCardText>
+        </FeedbackHost>
       </VCard>
     </VDefaultsProvider>
   </VDialog>

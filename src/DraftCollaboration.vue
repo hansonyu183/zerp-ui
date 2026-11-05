@@ -10,6 +10,7 @@ import type {
 } from "./collaboration";
 import BusinessInteractions from "./BusinessInteractions.vue";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 const props = defineProps<{
   adapter: DraftCollaboration<D, T>;
   modelValue: D;
@@ -167,16 +168,18 @@ onBeforeUnmount(() => {
       height="4"
     />
   </div>
-  <Feedback :message="error" kind="error" persistent
-    ><VBtn
-      type="button"
-      variant="text"
-      color=""
-      :disabled="disabled || calculating"
-      @click="run('change')"
-    >
-      重试业务计算
-    </VBtn></Feedback
+  <FeedbackRegion
+    ><Feedback :message="error" kind="error" persistent
+      ><VBtn
+        type="button"
+        variant="text"
+        color=""
+        :disabled="disabled || calculating"
+        @click="run('change')"
+      >
+        重试业务计算
+      </VBtn></Feedback
+    ></FeedbackRegion
   >
   <BusinessInteractions
     :items="items"

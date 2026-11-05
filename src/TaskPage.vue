@@ -12,6 +12,7 @@ import BusinessInteractions from "./BusinessInteractions.vue";
 import OperationRuntime from "./OperationRuntime.vue";
 import PrintPreview from "./PrintPreview.vue";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import { clone, message } from "./clone";
 import { equalValues } from "./editor-values";
 import { validate } from "./validation";
@@ -195,7 +196,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section aria-label="业务处理">
-    <Feedback :message="error" kind="error" />
+    <FeedbackRegion><Feedback :message="error" kind="error" /></FeedbackRegion>
     <DynamicForm
       :fields="fields"
       :model-value="draft"

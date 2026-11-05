@@ -3,6 +3,7 @@ import { computed, ref, shallowRef, watch, onBeforeUnmount } from "vue";
 import OperationRuntime from "./OperationRuntime.vue";
 import { VBtn } from "vuetify/components";
 import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 import { clone, message } from "./clone";
 import { equalValues } from "./editor-values";
 import type { OperationModel, OperationSettlement } from "./operation";
@@ -226,18 +227,19 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section aria-label="批量办理">
-    <Feedback :message="error" kind="error" persistent
-      ><VBtn
-        variant="text"
-        color=""
-        type="button"
-        :disabled="busy || (!options.recoveryAllowed && !options.eligible)"
-        @click="load"
-      >
-        重试恢复批次
-      </VBtn></Feedback
+    <FeedbackRegion
+      ><Feedback :message="error" kind="error" persistent
+        ><VBtn
+          variant="text"
+          color=""
+          type="button"
+          :disabled="busy || (!options.recoveryAllowed && !options.eligible)"
+          @click="load"
+        >
+          重试恢复批次
+        </VBtn></Feedback
+      ></FeedbackRegion
     >
-    <p>每项分别预览、确认和提交。结果未确认时不能继续下一项。</p>
     <ul>
       <li v-for="item in displayed" :key="item.key">
         {{ item.label
