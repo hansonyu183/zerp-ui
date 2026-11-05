@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
+import { compactReportSmoke } from "./compact-layout-smoke.mjs";
 import { detailsSmoke } from "./details-smoke.mjs";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
 import { authLayoutSmoke } from "./auth-layout-smoke.mjs";
@@ -873,6 +874,10 @@ async function configurationSmoke(page) {
 }
 
 async function reportSmoke(page) {
+  await page
+    .getByRole("heading", { name: "合成报表 · 分批", exact: true })
+    .waitFor();
+  await compactReportSmoke(page);
   await page.clock.install();
   const button = (name) => page.getByRole("button", { name, exact: true });
   await page
@@ -1298,6 +1303,7 @@ async function voucherSmoke(page) {
     .click();
   await value().fill("合成新单据");
   await expectValue(page.getByLabel("精确金额"), "9007199254740993.0100");
+  await page.getByLabel("精确来源", { exact: true }).click();
   await page.getByLabel("精确来源搜索", { exact: true }).fill("合成来源");
   await button("搜索引用").click();
   await button("合成来源甲").click();

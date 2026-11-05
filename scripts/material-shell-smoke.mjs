@@ -180,7 +180,10 @@ async function materialFieldsAndModalSmoke(page, preset, mode) {
     `[id="${await amount.getAttribute("aria-describedby")}"]`,
   );
   await expect(error).toHaveText("独立金额应为完整十进制数。");
-  await readable(error, `MD${preset} ${mode} field error contrast`);
+  await readable(
+    page.getByRole("note", { name: "独立金额错误详情", exact: true }),
+    `MD${preset} ${mode} field error contrast`,
+  );
   await fieldState(amount, preset, `MD${preset} ${mode} error field`);
   await amount.fill("9007199254740993.0100");
   await expect(amount).not.toHaveAttribute("aria-invalid", "true");
@@ -243,7 +246,10 @@ async function materialFieldsAndModalSmoke(page, preset, mode) {
     `[id="${await cardName.getAttribute("aria-describedby")}"]`,
   );
   await expect(cardError).toHaveText("请填写资料名称。");
-  await readable(cardError, `MD${preset} ${mode} card field error contrast`);
+  await readable(
+    page.getByRole("note", { name: "资料名称错误详情", exact: true }),
+    `MD${preset} ${mode} card field error contrast`,
+  );
   await fieldState(cardName, preset, `MD${preset} ${mode} card error field`);
   await cardName.fill("待放弃合成输入");
   const cancel = editor.getByRole("button", { name: "取消编辑", exact: true });

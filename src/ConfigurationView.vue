@@ -589,6 +589,7 @@ onBeforeUnmount(() => {
 
     <form v-if="permissions.read" @submit.prevent="query(1, true)">
       <DynamicForm
+        purpose="filter"
         :key="generation"
         v-model="filters"
         :fields="definition.filters"

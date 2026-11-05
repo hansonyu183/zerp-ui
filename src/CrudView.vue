@@ -706,6 +706,7 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
 
     <form v-if="permissions.query" @submit.prevent="query(1, true)">
       <DynamicForm
+        purpose="filter"
         :key="version"
         :fields="shownFilters"
         v-model="filters"

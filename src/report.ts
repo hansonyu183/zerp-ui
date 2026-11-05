@@ -16,9 +16,18 @@ type ParameterKind =
 type ParameterField<F> = F extends { type: infer T }
   ? Omit<F, "type"> & { type: Extract<T, ParameterKind> }
   : never;
-export type ReportParameters<P extends object> = readonly ParameterField<
+type BooleanKey<P> = keyof P extends never
+  ? string
+  : {
+      [K in Extract<keyof P, string>]-?: NonNullable<P[K]> extends boolean
+        ? K
+        : never;
+    }[Extract<keyof P, string>];
+export type ReportParameters<P extends object> = readonly (ParameterField<
   Fields<P>[number]
->[];
+> & {
+  enabledBy?: { key: BooleanKey<P>; label: string; readonly?: boolean };
+})[];
 type ColumnKind<V> =
   NonNullable<V> extends boolean
     ? { type: "boolean" }

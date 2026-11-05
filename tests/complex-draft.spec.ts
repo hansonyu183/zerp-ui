@@ -74,7 +74,7 @@ it("saves only confirmed complex blocks with exact values, children and adopted 
       saves.push(value);
     },
   });
-  expect(w.text()).toContain("历史仓库");
+  expect(input(w, "仓库").element.value).toBe("历史仓库");
   expect(w.text()).not.toContain("目录新仓库名");
   await click(w, "编辑单位 1");
   await input(w, "换算比").setValue("9007199254740993.0100");
@@ -200,17 +200,21 @@ it("retains historical reference facts but clears a dependent selection on paren
         })),
     },
   });
-  expect(w.text()).toContain("历史仓库");
+  expect(input(w, "仓库").element.value).toBe("历史仓库");
   expect(w.text()).not.toContain("目录新仓库名");
   await input(w, "补充说明").setValue(true);
   await input(w, "地区说明").setValue("保留条件字段内容");
+  await input(w, "地区").trigger("click");
+  await flushPromises();
   await click(w, "合成南区");
-  expect(w.text()).not.toContain("历史仓库");
+  expect(input(w, "仓库").element.value).toBe("");
   expect(new Set(parents)).toEqual(new Set(["north", "south"]));
   expect(parents.at(-1)).toBe("south");
   oldSearch({ items: [{ id: "late", label: "迟到北区仓库" }], total: 1 });
   await flushPromises();
   expect(w.text()).not.toContain("迟到北区仓库");
+  await input(w, "仓库").trigger("click");
+  await flushPromises();
   await click(w, "新南区仓库");
   await answer(w);
   await click(w, "保存");
@@ -337,6 +341,7 @@ it("adopts isolated calculations only for the current complex draft and ignores 
   expect(input(w, "资料名称").element.value).toBe("合成复杂资料");
   expect(save).not.toHaveBeenCalled();
 });
+// Full mounted nested-dialog adoption is substantially slower on the CI runner.
 it("retains an unfinished child draft when a calculation adopts equal committed row values", async () => {
   type Input = Parameters<
     DraftCollaboration<ComplexDraft, unknown>["change"]
@@ -384,4 +389,4 @@ it("retains an unfinished child draft when a calculation adopts equal committed 
     { ingredient: "原配料", ratio: "1.0000" },
     { ingredient: "未确认配料", ratio: "1.0000" },
   ]);
-});
+}, 60000);

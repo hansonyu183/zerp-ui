@@ -132,6 +132,7 @@ function cancel() {
       <Feedback :message="validationMessage" kind="error" />
     </div>
     <DynamicForm
+      purpose="short"
       :key="generation"
       :fields="fields"
       :model-value="draft"

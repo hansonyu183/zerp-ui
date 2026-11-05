@@ -1,9 +1,16 @@
-import { defineReport, type ReportAdapter, type ReportExport } from "@zerp/ui";
+import {
+  defineReport,
+  type ReportAdapter,
+  type ReportExport,
+  type ReferenceValue,
+} from "@zerp/ui";
 export type Parameters = {
   keyword: string;
   range: string[];
   state: string;
   minimum: string;
+  useMinimum: boolean;
+  sources: ReferenceValue[];
   includeZero: boolean;
 };
 export type Row = {
@@ -129,14 +136,34 @@ export function reportExample(
           { value: "pending", label: "待处理" },
         ],
       },
-      { key: "minimum", label: "金额下限", type: "decimal" },
+      {
+        key: "minimum",
+        label: "金额下限",
+        type: "decimal",
+        enabledBy: { key: "useMinimum", label: "使用金额" },
+      },
       { key: "includeZero", label: "包含零值", type: "boolean" },
+      {
+        key: "sources",
+        label: "来源",
+        type: "references",
+        adapter: {
+          search: async ({ page, keyword }) => ({
+            items: [{ id: String(page), label: keyword || `合成来源${page}` }],
+            hasMore: page < 2,
+          }),
+          resolve: async ({ ids }) =>
+            ids.map((id) => ({ id, label: `合成来源${id}` })),
+        },
+      },
     ],
     initialParameters: () => ({
       keyword: "",
       range: ["2026-10-01", "2026-10-31"],
       state: "",
       minimum: "",
+      useMinimum: true,
+      sources: [],
       includeZero: true,
     }),
     columns: [

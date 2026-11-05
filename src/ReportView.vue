@@ -688,6 +688,7 @@ onBeforeUnmount(() => {
   <section class="zerp-ui" :aria-label="definition.title">
     <form @submit.prevent="search">
       <DynamicForm
+        purpose="filter"
         :key="formGeneration"
         :fields="definition.parameters as unknown as Fields<P>"
         :model-value="input"
@@ -697,28 +698,30 @@ onBeforeUnmount(() => {
         @update:model-value="updateInput"
         @pending="pending = $event"
       />
-      <VBtn
-        color=""
-        variant="tonal"
-        v-if="canQuery"
-        type="submit"
-        :disabled="pending || cancelling || checking"
-      >
-        查询
-      </VBtn>
-      <VBtn
-        color=""
-        variant="tonal"
-        v-if="canExport"
-        type="button"
-        :disabled="
-          exporting ||
-          (definition.kind === 'fixed' ? !fixed || !usable : pending)
-        "
-        @click="download"
-      >
-        导出
-      </VBtn>
+      <div class="zerp-filter-actions">
+        <VBtn
+          color=""
+          variant="tonal"
+          v-if="canQuery"
+          type="submit"
+          :disabled="pending || cancelling || checking"
+        >
+          查询
+        </VBtn>
+        <VBtn
+          color=""
+          variant="tonal"
+          v-if="canExport"
+          type="button"
+          :disabled="
+            exporting ||
+            (definition.kind === 'fixed' ? !fixed || !usable : pending)
+          "
+          @click="download"
+        >
+          导出
+        </VBtn>
+      </div>
     </form>
     <p v-if="!canQuery && canExport && definition.kind === 'parameter'">
       你可以填写参数并导出此报表。

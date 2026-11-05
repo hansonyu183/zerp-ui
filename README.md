@@ -28,13 +28,13 @@
 
 0.12.0 整合异步行草稿、整单候选原子采用、逐行权限与动态字段，并补回只读资料详情的获权删除；完整页面与 Material 所有权保持。
 
-0.14.0 修复认证页双端布局，并将手机卡片选择与图标短文字操作统一到首行。认证页直接挂载；手机可见操作随宽度收敛，其余进入“更多”，选择、权限与原动作协议保持。
+0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.14.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.14.0) 下载 `zerp-ui-0.14.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.15.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.15.0) 下载 `zerp-ui-0.15.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.14.0.tgz
+pnpm add ./zerp-ui-0.15.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -226,3 +226,9 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 `VoucherEditorDefinition` 通过完整页面的 editor 或 voucher 领域区块使用：`rowFields` 可为字段数组或接收隔离当前行的同步函数；`rowOperations` 限定新增、编辑、删除。简单行使用可异步的 `emptyRow` 与 `transformRow`；整单计算使用互斥的 `rowDraft.prepare/change`，返回表头和全部明细的候选。候选在明确确认前只作局部展示，取消丢弃全部候选；异步等待阻止确认，错误保留先前值，资源/身份/权限变化使迟到响应失效。最终写入和未知结果锁仍归页面运行时。
 
 合成完整页面示例见 `examples/voucher/ActiveRowFields.vue`。该示例通过公开完整页面消费上述能力，不提供独立内部组件出口。
+
+### 报表条件启用
+
+`ReportParameters<P>` 的参数可声明 `enabledBy: { key, label, readonly? }`，key 指向 P 中的布尔属性；空模型的动态报表在运行时核对。不要同时把该启用属性声明成独立参数，也不能指向参数自身。示例：`{ key: "minimum", type: "decimal", label: "金额", enabledBy: { key: "useMinimum", label: "使用金额" } }`。
+
+值为 false 时禁用输入并跳过该参数值校验，不删除已输入值；查询仍传递完整参数 DTO，由消费者解释筛选语义。必选条件设置 `readonly: true` 并提供初始 true。布局、折行和提示呈现由库决定。
