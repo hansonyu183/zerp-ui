@@ -1390,7 +1390,8 @@ async function voucherSmoke(page) {
   await scenario("unknown-applied");
   await button("保存").click();
   assert.ok(
-    await script
+    await page
+      .getByRole("dialog", { name: "编辑配置", exact: true })
       .getByRole("button", { name: "关闭编辑", exact: true })
       .isDisabled(),
   );
