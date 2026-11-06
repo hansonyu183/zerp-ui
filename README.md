@@ -30,11 +30,11 @@
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.17.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.17.1) 下载 `zerp-ui-0.17.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.18.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.18.0) 下载 `zerp-ui-0.18.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.17.1.tgz
+pnpm add ./zerp-ui-0.18.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -242,3 +242,18 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 ## 消息与查询信息
 
 页面消息以浮层呈现，不预留空白提示区；编辑与引用弹窗内的消息留在弹窗中。长消息可滚动，核实和重试入口持续可达，关闭提示不改变写入状态。报表通过“查询信息”查看已采用条件和必要上下文。
+
+### 只读资料分组（0.18.0）
+
+`domainBlocks<D>().fields({ key, label, fields, readGroups })` 的 `readGroups` 只声明内容归属：
+
+```ts
+readGroups: [
+  { key: "basic", label: "基本资料", fields: ["name", "code"] },
+  { key: "contact", label: "联系信息", fields: ["phone", "address"] },
+];
+```
+
+字段键受区块值类型约束；动态目录沿用 `Fields<object>` 的动态键边界。组内保留原字段顺序，同一字段只出现一次（首先声明的分组优先）；未归组字段进入“其他”，空组省略。多组采用 Tab，单组直接展示；不传分组时展示全部字段。切换记录或资源后选择首组，Tab 不触发 Adapter。独立详情的 `groups` 采用相同呈现。
+
+常规事实根据容器宽度在 600/900px 切为两/三列，手机一列；标签在值上方。`textarea`、列表和重复记录占整行，长文本保留换行且不溢出。不提供消费者列数或 CSS 配置。0.18.0 工件验证与获授权的 oit-go 接入分别记录于 #87；合成验证与真实应用验收分别报告。

@@ -18,7 +18,7 @@ type DetailKind<V, I> =
           ? { type: "integer" | "text" }
           : NonNullable<V> extends string
             ? {
-                type: "text" | "decimal" | "date" | "enum";
+                type: "text" | "textarea" | "decimal" | "date" | "enum";
                 options?: readonly { value: string; label: string }[];
               }
             : never;
@@ -82,4 +82,41 @@ export function formFacts(fields: readonly AnyField[]): readonly FactField[] {
                   : field.type,
           },
     );
+}
+
+/** Read-only content grouping; field definitions remain the single source of truth. */
+export type ReadFieldGroup<T extends object> = {
+  key: string;
+  label: string;
+  fields: readonly (keyof T extends never
+    ? string
+    : Extract<keyof T, string>)[];
+};
+export type FactGroup = {
+  key: string;
+  label: string;
+  fields: readonly FactField[];
+};
+export function groupFacts(
+  fields: readonly FactField[],
+  groups?: readonly { key: string; label: string; fields: readonly string[] }[],
+  label = "资料",
+): FactGroup[] {
+  if (!groups?.length) return [{ key: "all", label, fields }];
+  const used = new Set<string>();
+  const result = groups
+    .map((group, index) => ({
+      key: `group-${index}-${group.key}`,
+      label: group.label,
+      fields: fields.filter((field) => {
+        if (used.has(field.key) || !group.fields.includes(field.key))
+          return false;
+        used.add(field.key);
+        return true;
+      }),
+    }))
+    .filter((group) => group.fields.length);
+  const rest = fields.filter((field) => !used.has(field.key));
+  if (rest.length) result.push({ key: "other", label: "其他", fields: rest });
+  return result;
 }
