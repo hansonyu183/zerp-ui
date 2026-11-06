@@ -1,9 +1,9 @@
 import { h, type VNodeChild } from "vue";
 import DynamicForm from "./DynamicForm.vue";
-import FactFields from "./FactFields.vue";
+import GroupedFacts from "./GroupedFacts.vue";
 import DomainRows from "./DomainRows.vue";
 import VoucherEditor from "./VoucherEditor.vue";
-import { formFacts } from "./details";
+import { formFacts, groupFacts, type ReadFieldGroup } from "./details";
 import { validate } from "./validation";
 import type { Fields } from "./contracts";
 import { validateVoucherContent } from "./voucher-editor";
@@ -51,6 +51,7 @@ export function domainBlocks<D extends object>() {
         key: K;
         label: string;
         fields: Fields<D[K] & object>;
+        readGroups?: readonly ReadFieldGroup<D[K] & object>[];
       },
     ): DomainBlock<D> {
       return Object.freeze({
@@ -65,23 +66,31 @@ export function domainBlocks<D extends object>() {
         [renderBlock]: (context: DomainBlockContext<D>) => {
           const value = context.value[options.key];
           if (!value || typeof value !== "object") return null;
+          if (context.mode === "read")
+            return h(GroupedFacts, {
+              value,
+              groups: groupFacts(
+                formFacts(options.fields),
+                options.readGroups,
+                options.label,
+              ),
+              scope: context.scope,
+            });
           return h(
             "fieldset",
             { "aria-label": options.label, disabled: context.disabled },
             [
               h("legend", options.label),
-              context.mode === "read"
-                ? h(FactFields, { value, fields: formFacts(options.fields) })
-                : h(DynamicForm<D[K] & object>, {
-                    fields: options.fields,
-                    modelValue: value,
-                    scope: context.scope,
-                    mode: context.formMode,
-                    disabled: context.disabled,
-                    "onUpdate:modelValue": (local: D[K] & object) =>
-                      context.update(setKey(context.value, options.key, local)),
-                    onPending: context.pending,
-                  }),
+              h(DynamicForm<D[K] & object>, {
+                fields: options.fields,
+                modelValue: value,
+                scope: context.scope,
+                mode: context.formMode,
+                disabled: context.disabled,
+                "onUpdate:modelValue": (local: D[K] & object) =>
+                  context.update(setKey(context.value, options.key, local)),
+                onPending: context.pending,
+              }),
             ],
           );
         },

@@ -125,7 +125,7 @@ export type {
   OperationDefinition,
 } from "./operation";
 
-export type { DetailFields, DetailGroup } from "./details";
+export type { DetailFields, DetailGroup, ReadFieldGroup } from "./details";
 export type { EditWriteState, EditProtection } from "./edit-guard";
 
 export { validateFields } from "./validation";

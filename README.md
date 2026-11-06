@@ -242,3 +242,18 @@ Node/pnpm 版本与实际命令以 package.json 的 engines/packageManager/scrip
 ## 消息与查询信息
 
 页面消息以浮层呈现，不预留空白提示区；编辑与引用弹窗内的消息留在弹窗中。长消息可滚动，核实和重试入口持续可达，关闭提示不改变写入状态。报表通过“查询信息”查看已采用条件和必要上下文。
+
+### 只读资料分组（0.18.0）
+
+`domainBlocks<D>().fields({ key, label, fields, readGroups })` 的 `readGroups` 只声明内容归属：
+
+```ts
+readGroups: [
+  { key: "basic", label: "基本资料", fields: ["name", "code"] },
+  { key: "contact", label: "联系信息", fields: ["phone", "address"] },
+];
+```
+
+字段键受区块值类型约束；动态目录沿用 `Fields<object>` 的动态键边界。组内保留原字段顺序，同一字段只出现一次（首先声明的分组优先）；未归组字段进入“其他”，空组省略。多组采用 Tab，单组直接展示；不传分组时展示全部字段。切换记录或资源后选择首组，Tab 不触发 Adapter。独立详情的 `groups` 采用相同呈现。
+
+常规事实根据容器宽度在 600/900px 切为两/三列，手机一列；标签在值上方。`textarea`、列表和重复记录占整行，长文本保留换行且不溢出。不提供消费者列数或 CSS 配置。0.18.0 本地工件验证与真实应用接入分别记录于 #87；上方固定安装入口继续指向已正式发布版本。

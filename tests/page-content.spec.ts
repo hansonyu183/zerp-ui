@@ -1322,3 +1322,54 @@ it("presents every domain-row action as disabled while the original save is pend
     expect(action(name).attributes("disabled")).toBeDefined();
   wrapper.unmount();
 });
+
+it("resets detail tabs on resource/record changes and omits empty groups through AppPage", async () => {
+  const value = { name: "合成名称", note: "原始\n备注" };
+  const groups = [
+    { key: "empty", label: "空组", fields: [] },
+    {
+      key: "basic",
+      label: "基本资料",
+      fields: [{ key: "name" as const, label: "名称", type: "text" as const }],
+    },
+    {
+      key: "notes",
+      label: "背景与备注",
+      fields: [
+        { key: "note" as const, label: "备注", type: "textarea" as const },
+      ],
+    },
+  ];
+  const make = (instance: string) =>
+    defineDetailsPage({ title: "合成分组详情", instance, value, groups });
+  const wrapper = mountPage(make("one"));
+  await flushPromises();
+  const tab = (label: string) =>
+    wrapper.findAll('[role="tab"]').find((node) => node.text() === label)!;
+  expect(wrapper.findAll('[role="tab"]').map((node) => node.text())).toEqual([
+    "基本资料",
+    "背景与备注",
+  ]);
+  await tab("背景与备注").trigger("click");
+  await flushPromises();
+  expect(tab("背景与备注").attributes("aria-selected")).toBe("true");
+  await wrapper.setProps({ page: make("two") });
+  await flushPromises();
+  expect(tab("基本资料").attributes("aria-selected")).toBe("true");
+  await tab("背景与备注").trigger("click");
+  await wrapper.setProps({ scope: "different-synthetic-session" });
+  await flushPromises();
+  expect(tab("基本资料").attributes("aria-selected")).toBe("true");
+  await wrapper.setProps({
+    page: defineDetailsPage({
+      title: "单组",
+      instance: "three",
+      value,
+      groups: [groups[1]!],
+    }),
+  });
+  await flushPromises();
+  expect(wrapper.findAll('[role="tab"]')).toHaveLength(0);
+  expect(wrapper.text()).toContain("合成名称");
+  wrapper.unmount();
+});

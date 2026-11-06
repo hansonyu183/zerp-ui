@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { groupedFactsSmoke } from "./grouped-facts-smoke.mjs";
 import { assertBelowToolbar } from "./shell-interaction-smoke.mjs";
 import { assertStableFeedback } from "./feedback-smoke.mjs";
 export async function detailsSmoke(page) {
@@ -130,4 +131,5 @@ export async function detailsSmoke(page) {
   await page
     .getByRole("heading", { name: "已离开资料", exact: true })
     .waitFor();
+  await groupedFactsSmoke(page);
 }

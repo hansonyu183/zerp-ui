@@ -7,6 +7,8 @@ import {
   type EditWriteState,
 } from "@zerp/ui";
 import ExamplePage from "../shared/ExamplePage.vue";
+import GroupedRecord from "./GroupedRecord.vue";
+const grouped = ref(false);
 import {
   adapter,
   editor,
@@ -116,38 +118,44 @@ const page = defineDetailsPage(() => ({
 }));
 </script>
 <template>
-  <ExamplePage
-    v-if="record && active && present"
-    ref="guard"
-    :page="page"
-    :scope="scope"
-    :active="active"
-  />
-  <section class="example-controls" aria-label="合成详情控制">
-    <p>仅使用合成数据与模拟 Adapter。路由、身份及写入状态由本示例宿主持有。</p>
-    <template v-if="active && present">
-      <a href="#left" @click.prevent="leave">离开资料</a>
-      <button type="button" @click="revoke">模拟身份失效</button>
-      <button
-        type="button"
-        :disabled="writeState !== 'idle'"
-        @click="switchRecord"
-      >
-        切换记录
-      </button>
-      <button type="button" @click="writeState = 'pending'">
-        模拟写入进行中
-      </button>
-      <button type="button" @click="writeState = 'unknown'">
-        模拟结果未知
-      </button>
-      <button type="button" @click="writeState = 'idle'">
-        模拟原请求已权威核实
-      </button>
+  <GroupedRecord v-if="grouped" />
+  <template v-else>
+    <ExamplePage
+      v-if="record && active && present"
+      ref="guard"
+      :page="page"
+      :scope="scope"
+      :active="active"
+    />
+    <section class="example-controls" aria-label="合成详情控制">
+      <p>
+        仅使用合成数据与模拟 Adapter。路由、身份及写入状态由本示例宿主持有。
+      </p>
+      <template v-if="active && present">
+        <a href="#left" @click.prevent="leave">离开资料</a>
+        <button type="button" @click="revoke">模拟身份失效</button>
+        <button
+          type="button"
+          :disabled="writeState !== 'idle'"
+          @click="switchRecord"
+        >
+          切换记录
+        </button>
+        <button type="button" @click="writeState = 'pending'">
+          模拟写入进行中
+        </button>
+        <button type="button" @click="writeState = 'unknown'">
+          模拟结果未知
+        </button>
+        <button type="button" @click="writeState = 'idle'">
+          模拟原请求已权威核实
+        </button>
 
-      <output role="status">{{ related }}</output>
-    </template>
-    <h2 v-else-if="!active">身份已失效，资料已清理</h2>
-    <h2 v-else>已离开资料</h2>
-  </section>
+        <output role="status">{{ related }}</output>
+      </template>
+      <h2 v-else-if="!active">身份已失效，资料已清理</h2>
+      <h2 v-else>已离开资料</h2>
+    </section>
+  </template>
+  <button type="button" @click="grouped = !grouped">查看字段分组示例</button>
 </template>
