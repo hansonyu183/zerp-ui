@@ -30,11 +30,11 @@
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.17.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.17.1) 下载 `zerp-ui-0.17.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.18.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.18.0) 下载 `zerp-ui-0.18.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.17.1.tgz
+pnpm add ./zerp-ui-0.18.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -256,4 +256,4 @@ readGroups: [
 
 字段键受区块值类型约束；动态目录沿用 `Fields<object>` 的动态键边界。组内保留原字段顺序，同一字段只出现一次（首先声明的分组优先）；未归组字段进入“其他”，空组省略。多组采用 Tab，单组直接展示；不传分组时展示全部字段。切换记录或资源后选择首组，Tab 不触发 Adapter。独立详情的 `groups` 采用相同呈现。
 
-常规事实根据容器宽度在 600/900px 切为两/三列，手机一列；标签在值上方。`textarea`、列表和重复记录占整行，长文本保留换行且不溢出。不提供消费者列数或 CSS 配置。0.18.0 本地工件验证与真实应用接入分别记录于 #87；上方固定安装入口继续指向已正式发布版本。
+常规事实根据容器宽度在 600/900px 切为两/三列，手机一列；标签在值上方。`textarea`、列表和重复记录占整行，长文本保留换行且不溢出。不提供消费者列数或 CSS 配置。0.18.0 工件验证与获授权的 oit-go 接入分别记录于 #87；合成验证与真实应用验收分别报告。
