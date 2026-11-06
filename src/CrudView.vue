@@ -31,8 +31,8 @@ import type {
 
 import type { EditProtection, EditGuardHandle } from "./edit-guard";
 import EditGuard from "./EditGuard.vue";
-import FactFields from "./FactFields.vue";
-import { formFacts } from "./details";
+import GroupedFacts from "./GroupedFacts.vue";
+import { formFacts, groupFields } from "./details";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
 import { equalValues } from "./editor-values";
@@ -886,14 +886,22 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       :blocked="blocked"
       @close="cancel"
     >
-      <FactFields
+      <GroupedFacts
         v-if="editor.readOnly"
         :value="editor.values"
-        :fields="formFacts(editFields as readonly AnyField[])"
+        :groups="
+          groupFields(
+            formFacts(editFields as readonly AnyField[]),
+            definition.groups,
+          )
+        "
+        :scope="scope"
+        :instance="editVersion"
       />
       <DynamicForm
         v-else
         :fields="editFields"
+        :groups="definition.groups"
         :model-value="editor.values"
         :scope="scope"
         :disabled="blocked || !permissions.write"

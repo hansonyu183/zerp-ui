@@ -45,8 +45,8 @@ adapter.read({ scope: "one", id: 42 });
 void groups;
 void leave;
 
-import { domainBlocks, type ReadFieldGroup } from "../src/index";
-const fieldGroups: ReadFieldGroup<{ name: string; count: number }>[] = [
+import { domainBlocks, type FieldGroup } from "../src/index";
+const fieldGroups: FieldGroup<{ name: string; count: number }>[] = [
   { key: "basic", label: "基本", fields: ["name", "count"] },
   // @ts-expect-error group keys must belong to the local value
   { key: "invalid", label: "错误", fields: ["unknown"] },
@@ -56,6 +56,6 @@ domainBlocks<{ local: { name: string } }>().fields({
   label: "资料",
   fields: [{ key: "name", label: "名称", type: "text" }],
   // @ts-expect-error grouping cannot reference parent or unrelated fields
-  readGroups: [{ key: "bad", label: "错误", fields: ["local"] }],
+  groups: [{ key: "bad", label: "错误", fields: ["local"] }],
 });
 void fieldGroups;

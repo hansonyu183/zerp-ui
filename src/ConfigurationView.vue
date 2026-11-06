@@ -20,8 +20,8 @@ import type {
 } from "./configuration";
 import type { EditProtection, EditGuardHandle } from "./edit-guard";
 import EditGuard from "./EditGuard.vue";
-import FactFields from "./FactFields.vue";
-import { formFacts } from "./details";
+import GroupedFacts from "./GroupedFacts.vue";
+import { formFacts, groupFields } from "./details";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
 import { equalValues, freezeValues } from "./editor-values";
@@ -705,14 +705,22 @@ onBeforeUnmount(() => {
       :blocked="blocked"
       @close="close"
     >
-      <FactFields
+      <GroupedFacts
         v-if="!editor.writable"
         :value="editor.values"
-        :fields="formFacts(formFields as readonly AnyField[])"
+        :groups="
+          groupFields(
+            formFacts(formFields as readonly AnyField[]),
+            definition.groups,
+          )
+        "
+        :scope="scope"
+        :instance="editId"
       />
       <DynamicForm
         v-else
         :fields="formFields"
+        :groups="definition.groups"
         :model-value="clone(editor.values)"
         :scope="scope"
         :mode="editor.creating ? 'create' : 'edit'"

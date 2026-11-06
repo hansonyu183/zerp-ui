@@ -1373,3 +1373,202 @@ it("resets detail tabs on resource/record changes and omits empty groups through
   expect(wrapper.text()).toContain("合成名称");
   wrapper.unmount();
 });
+
+it.each([false, true])(
+  "keeps cross-tab references and full create input in a field block=%s",
+  async (block) => {
+    type Local = {
+      parent: import("../src/index").ReferenceValue | null;
+      child: import("../src/index").ReferenceValue | null;
+      count: number;
+      note: string;
+    };
+    type Draft = Local & { local: Local };
+    const values = (): Local => ({
+      parent: { id: "old", label: "旧父项" },
+      child: { id: "child", label: "旧子项" },
+      count: 0,
+      note: "",
+    });
+    const received: Draft[] = [];
+    const adapter: import("../src/index").ReferenceAdapter = {
+      search: async () => ({
+        items: [{ id: "new", label: "新父项" }],
+        total: 1,
+      }),
+      resolve: async ({ ids }) =>
+        ids.map((id) => ({ id, label: id === "old" ? "旧父项" : "旧子项" })),
+    };
+    const fields: import("../src/index").Fields<Local> = [
+      { key: "parent", label: "父项", type: "reference", adapter },
+      {
+        key: "child",
+        label: "子项",
+        type: "reference",
+        adapter,
+        parentKey: "parent",
+      },
+      { key: "count", label: "跨组数量", type: "integer" },
+      { key: "note", label: "跨组备注", type: "text", required: true },
+    ];
+    const groups: import("../src/index").FieldGroup<Local>[] = [
+      { key: "one", label: "首组", fields: ["parent", "count"] },
+      { key: "two", label: "次组", fields: ["child", "note"] },
+    ];
+    const definition = defineCrud<Draft, {}, { id: string }, string>({
+      resource: "grouped-create",
+      title: "分组创建",
+      fields: block ? [] : fields,
+      groups: block ? undefined : groups,
+      filters: [],
+      initialFilters: () => ({}),
+      columns: [{ key: "id", label: "编号" }],
+      identity: (row) => row.id,
+      actions: () => ["view", "edit"],
+      adapter: {
+        query: async () => ({ items: [], total: 0 }),
+        get: async () => ({
+          identity: "one",
+          values: { ...values(), local: values() },
+        }),
+        empty: () => ({ ...values(), local: values() }),
+        create: async (attempt) => {
+          received.push(attempt.input!);
+          return { status: "success" };
+        },
+        save: async () => ({ status: "success" }),
+      },
+    });
+    const wrapper = mountPage(
+      defineCrudPage({
+        definition,
+        permissions: { query: true, create: true, write: true },
+        blocks: block
+          ? [
+              domainBlocks<Draft>().fields({
+                key: "local",
+                label: "局部资料",
+                fields,
+                groups,
+              }),
+            ]
+          : [],
+      }),
+    );
+    try {
+      await flushPromises();
+      const button = (name: string) =>
+        hostAndDialogButtons(wrapper).find(
+          (node) =>
+            node.text() === name || node.attributes("aria-label") === name,
+        )!;
+      await button("新增").trigger("click");
+      await flushPromises();
+      await button("保存").trigger("click");
+      await flushPromises();
+      expect(received).toHaveLength(0);
+      await wrapper.get('input[aria-label="跨组数量"]').setValue("-");
+      await wrapper.get('[role="tab"][aria-label="次组"]').trigger("click");
+      await wrapper.get('input[aria-label="跨组备注"]').setValue("新备注");
+      await flushPromises();
+      expect(button("保存").attributes("disabled")).toBeDefined();
+      await wrapper.get('[role="tab"][aria-label="首组"]').trigger("click");
+      expect(
+        wrapper.get<HTMLInputElement>('input[aria-label="跨组数量"]').element
+          .value,
+      ).toBe("-");
+      await wrapper.get('input[aria-label="跨组数量"]').setValue("7");
+      // Clearing the parent must clear a child that lives on another, hidden panel.
+      await wrapper.get('input[aria-label="父项"]').trigger("click");
+      await flushPromises();
+      await button("移除旧父项").trigger("click");
+      await button("完成选择").trigger("click");
+      await flushPromises();
+      await button("保存").trigger("click");
+      await flushPromises();
+      expect(received).toHaveLength(1);
+      expect(
+        block
+          ? received[0].local
+          : {
+              parent: received[0].parent,
+              child: received[0].child,
+              count: received[0].count,
+              note: received[0].note,
+            },
+      ).toEqual({ parent: null, child: null, count: 7, note: "新备注" });
+    } finally {
+      wrapper.unmount();
+    }
+  },
+  15000,
+);
+
+it("saves a configuration across tabs and resets its selection when reopened", async () => {
+  const { defineConfigurationPage } = await import("../src/index");
+  const saved: { name: string; note: string }[] = [];
+  const definition = defineConfiguration<
+    { name: string; note: string },
+    {},
+    { id: string },
+    string
+  >({
+    resource: "grouped-config",
+    title: "分组配置",
+    fields: [
+      { key: "name", label: "配置名称", type: "text" },
+      { key: "note", label: "配置备注", type: "text" },
+    ],
+    groups: [
+      { key: "base", label: "配置基本", fields: ["name"] },
+      { key: "notes", label: "配置补充", fields: ["note"] },
+    ],
+    filters: [],
+    initialFilters: () => ({}),
+    columns: [{ key: "id", label: "编号" }],
+    identity: (row) => row.id,
+    adapter: {
+      query: async () => ({ items: [{ id: "one" }], total: 1 }),
+      get: async () => ({
+        identity: "one",
+        values: { name: "原名称", note: "原备注" },
+      }),
+      save: async (attempt) => {
+        saved.push(attempt.input);
+        return { status: "success" };
+      },
+    },
+  });
+  const wrapper = mountPage(
+    defineConfigurationPage({
+      definition,
+      permissions: { read: true, write: true },
+      initialRow: { id: "one" },
+    }),
+  );
+  try {
+    await flushPromises();
+    await wrapper.get('input[aria-label="配置名称"]').setValue("新名称");
+    await wrapper.get('[role="tab"][aria-label="配置补充"]').trigger("click");
+    await wrapper.get('input[aria-label="配置备注"]').setValue("新备注");
+    await hostAndDialogButtons(wrapper)
+      .find((node) => node.text() === "保存")!
+      .trigger("click");
+    await flushPromises();
+    expect(saved).toEqual([{ name: "新名称", note: "新备注" }]);
+    await hostAndDialogButtons(wrapper)
+      .find(
+        (node) =>
+          node.text() === "编辑" || node.attributes("aria-label") === "编辑",
+      )!
+      .trigger("click");
+    await flushPromises();
+    expect(
+      wrapper
+        .get('[role="tab"][aria-label="配置基本"]')
+        .attributes("aria-selected"),
+    ).toBe("true");
+  } finally {
+    wrapper.unmount();
+  }
+});
