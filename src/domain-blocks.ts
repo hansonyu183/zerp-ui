@@ -3,9 +3,9 @@ import DynamicForm from "./DynamicForm.vue";
 import GroupedFacts from "./GroupedFacts.vue";
 import DomainRows from "./DomainRows.vue";
 import VoucherEditor from "./VoucherEditor.vue";
-import { formFacts, groupFacts, type ReadFieldGroup } from "./details";
+import { formFacts, groupFields } from "./details";
 import { validate } from "./validation";
-import type { Fields } from "./contracts";
+import type { Fields, FieldGroup } from "./contracts";
 import { validateVoucherContent } from "./voucher-editor";
 import type {
   VoucherEditorDefinition,
@@ -51,7 +51,7 @@ export function domainBlocks<D extends object>() {
         key: K;
         label: string;
         fields: Fields<D[K] & object>;
-        readGroups?: readonly ReadFieldGroup<D[K] & object>[];
+        groups?: readonly FieldGroup<D[K] & object>[];
       },
     ): DomainBlock<D> {
       return Object.freeze({
@@ -69,9 +69,9 @@ export function domainBlocks<D extends object>() {
           if (context.mode === "read")
             return h(GroupedFacts, {
               value,
-              groups: groupFacts(
+              groups: groupFields(
                 formFacts(options.fields),
-                options.readGroups,
+                options.groups,
                 options.label,
               ),
               scope: context.scope,
@@ -83,6 +83,7 @@ export function domainBlocks<D extends object>() {
               h("legend", options.label),
               h(DynamicForm<D[K] & object>, {
                 fields: options.fields,
+                groups: options.groups,
                 modelValue: value,
                 scope: context.scope,
                 mode: context.formMode,

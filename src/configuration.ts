@@ -4,6 +4,7 @@ import type {
   Attempt,
   Column,
   Fields,
+  FieldGroup,
   Page,
   ReconcileResult,
   WriteResult,
@@ -43,6 +44,7 @@ export type ConfigurationDefinition<
   saveLabel?: string;
   savedMessage?: string;
   fields: Fields<D>;
+  groups?: readonly FieldGroup<D>[];
   filters: Fields<F>;
   initialFilters: () => F;
   columns: readonly Column<R>[];
