@@ -83,6 +83,15 @@ export type Fields<T extends object> = keyof T extends never
   : readonly {
       [K in Extract<keyof T, string>]-?: Keyed<Kind<T[K]>, K>;
     }[Extract<keyof T, string>][];
+/** Content grouping shared by read and edit; field definitions remain the single source of truth. */
+export type FieldGroup<T extends object> = {
+  key: string;
+  label: string;
+  fields: readonly (keyof T extends never
+    ? string
+    : Extract<keyof T, string>)[];
+};
+
 export type Column<R> = {
   key: Extract<keyof R, string>;
   label: string;
@@ -153,6 +162,7 @@ export type CrudDefinition<
   resource: string;
   title: string;
   fields: Fields<D>;
+  groups?: readonly FieldGroup<D>[];
   filters: Fields<F>;
   initialFilters: () => F;
   columns: readonly Column<R>[];

@@ -78,7 +78,61 @@ export async function groupedFactsSmoke(page) {
   await expect(
     editor.getByRole("textbox", { name: "客户名称", exact: true }),
   ).toHaveValue("合成客户乙");
-  assert.equal(await editor.getByRole("tab").count(), 0);
+  const editTab = (name) => editor.getByRole("tab", { name, exact: true });
+  await expect(editor.getByRole("tab")).toHaveCount(4); // passwords stay editable
+  const name = editor.getByRole("textbox", { name: "客户名称", exact: true });
+  const count = editor.getByRole("textbox", { name: "零值", exact: true });
+  const save = editor.getByRole("button", { name: "保存", exact: true });
+  await name.fill("分组编辑客户");
+  await count.fill("-");
+  await editTab("背景与备注").click();
+  const note = editor.getByRole("textbox", { name: "背景信息", exact: true });
+  await note.fill("跨 Tab 备注\n第二行");
+  await expect(save).toBeDisabled();
+  await expect(editTab("基本资料")).toContainText("1项待完善");
+  await editTab("其他").click();
+  const other = editor.getByRole("textbox", { name: "新增字段", exact: true });
+  await other.fill("");
+  await editTab("基本资料").click();
+  await expect(count).toHaveValue("-");
+  await expect(name).toHaveValue("分组编辑客户");
+  await count.fill("12");
+  await save.click(); // required field on a hidden panel rejects the whole save
+  await expect(page.locator('output[aria-label="分组保存内容"]')).toBeEmpty();
+  await expect(editTab("其他")).toContainText("1项待完善");
+  await page.getByRole("button", { name: "关闭错误提示", exact: true }).click();
   await editor.getByRole("button", { name: "取消编辑", exact: true }).click();
+  const guard = page.getByRole("dialog", { name: "未保存修改", exact: true });
+  await expect(guard).toBeVisible();
+  await guard.getByRole("button", { name: "继续编辑", exact: true }).click();
+  await editTab("其他").click();
+  await other.fill("已完善");
+  await editTab("背景与备注").click();
+  await expect(note).toHaveValue("跨 Tab 备注\n第二行");
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(page.locator('output[aria-label="分组保存内容"]')).toContainText(
+    "分组编辑客户",
+  );
+  const saved = JSON.parse(
+    await page.locator('output[aria-label="分组保存内容"]').textContent(),
+  );
+  assert.deepEqual(saved, {
+    values: {
+      name: "分组编辑客户",
+      code: "two",
+      zero: 12,
+      enabled: false,
+      empty: "",
+      note: "跨 Tab 备注\n第二行",
+      tags: ["合成标签"],
+      password: "synthetic-hidden",
+      other: "已完善",
+    },
+  });
+  await page.getByRole("button", { name: "关闭状态提示", exact: true }).click();
+  await page.getByRole("button", { name: "查看", exact: true }).first().click();
+  await expect(tab("基本资料")).toHaveAttribute("aria-selected", "true");
+  await dialog.getByRole("button", { name: "取消编辑", exact: true }).click();
   await page.setViewportSize({ width: 1280, height: 720 });
 }

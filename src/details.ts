@@ -84,24 +84,16 @@ export function formFacts(fields: readonly AnyField[]): readonly FactField[] {
     );
 }
 
-/** Read-only content grouping; field definitions remain the single source of truth. */
-export type ReadFieldGroup<T extends object> = {
-  key: string;
-  label: string;
-  fields: readonly (keyof T extends never
-    ? string
-    : Extract<keyof T, string>)[];
-};
 export type FactGroup = {
   key: string;
   label: string;
   fields: readonly FactField[];
 };
-export function groupFacts(
-  fields: readonly FactField[],
+export function groupFields<F extends { key: string }>(
+  fields: readonly F[],
   groups?: readonly { key: string; label: string; fields: readonly string[] }[],
   label = "资料",
-): FactGroup[] {
+): { key: string; label: string; fields: readonly F[] }[] {
   if (!groups?.length) return [{ key: "all", label, fields }];
   const used = new Set<string>();
   const result = groups

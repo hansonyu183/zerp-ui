@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { defineCrud, defineCrudPage, domainBlocks } from "@zerp/ui";
 import ExamplePage from "../shared/ExamplePage.vue";
 type Local = {
@@ -14,6 +15,7 @@ type Local = {
   other: string;
 };
 type Draft = { values: Local };
+const saved = ref<Draft>();
 const rows = [
   { id: "one", name: "合成客户甲" },
   { id: "two", name: "合成客户乙" },
@@ -59,7 +61,10 @@ const definition = defineCrud<Draft, {}, (typeof rows)[number], string>({
       },
     }),
     create: async () => ({ status: "success" }),
-    save: async () => ({ status: "success" }),
+    save: async (attempt) => {
+      saved.value = attempt.input;
+      return { status: "success" };
+    },
   },
 });
 const page = defineCrudPage({
@@ -86,9 +91,9 @@ const page = defineCrudPage({
           options: [{ value: "合成标签", label: "合成标签" }],
         },
         { key: "password", label: "密码", type: "password" },
-        { key: "other", label: "新增字段", type: "text" },
+        { key: "other", label: "新增字段", type: "text", required: true },
       ],
-      readGroups: [
+      groups: [
         {
           key: "basic",
           label: "基本资料",
@@ -101,4 +106,7 @@ const page = defineCrudPage({
   ],
 });
 </script>
-<template><ExamplePage :page="page" /></template>
+<template>
+  <ExamplePage :page="page" />
+  <output aria-label="分组保存内容">{{ JSON.stringify(saved) }}</output>
+</template>

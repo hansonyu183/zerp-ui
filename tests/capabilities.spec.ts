@@ -1222,6 +1222,10 @@ it("opens a real Material leave portal, cancels without writing and invalidates 
     );
     const controls = modal.findAll("button");
     expect(controls.map((b) => b.text())).toEqual(["继续编辑", "放弃本地修改"]);
+    // Escape belongs to the active Material portal after it receives focus.
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(controls[0].element),
+    );
     window.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
