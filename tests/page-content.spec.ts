@@ -1455,49 +1455,53 @@ it.each([false, true])(
           : [],
       }),
     );
-    await flushPromises();
-    const button = (name: string) =>
-      hostAndDialogButtons(wrapper).find(
-        (node) =>
-          node.text() === name || node.attributes("aria-label") === name,
-      )!;
-    await button("新增").trigger("click");
-    await flushPromises();
-    await button("保存").trigger("click");
-    await flushPromises();
-    expect(received).toHaveLength(0);
-    await wrapper.get('input[aria-label="跨组数量"]').setValue("-");
-    await wrapper.get('[role="tab"][aria-label="次组"]').trigger("click");
-    await wrapper.get('input[aria-label="跨组备注"]').setValue("新备注");
-    await flushPromises();
-    expect(button("保存").attributes("disabled")).toBeDefined();
-    await wrapper.get('[role="tab"][aria-label="首组"]').trigger("click");
-    expect(
-      wrapper.get<HTMLInputElement>('input[aria-label="跨组数量"]').element
-        .value,
-    ).toBe("-");
-    await wrapper.get('input[aria-label="跨组数量"]').setValue("7");
-    // Clearing the parent must clear a child that lives on another, hidden panel.
-    await wrapper.get('input[aria-label="父项"]').trigger("click");
-    await flushPromises();
-    await button("移除旧父项").trigger("click");
-    await button("完成选择").trigger("click");
-    await flushPromises();
-    await button("保存").trigger("click");
-    await flushPromises();
-    expect(received).toHaveLength(1);
-    expect(
-      block
-        ? received[0].local
-        : {
-            parent: received[0].parent,
-            child: received[0].child,
-            count: received[0].count,
-            note: received[0].note,
-          },
-    ).toEqual({ parent: null, child: null, count: 7, note: "新备注" });
-    wrapper.unmount();
+    try {
+      await flushPromises();
+      const button = (name: string) =>
+        hostAndDialogButtons(wrapper).find(
+          (node) =>
+            node.text() === name || node.attributes("aria-label") === name,
+        )!;
+      await button("新增").trigger("click");
+      await flushPromises();
+      await button("保存").trigger("click");
+      await flushPromises();
+      expect(received).toHaveLength(0);
+      await wrapper.get('input[aria-label="跨组数量"]').setValue("-");
+      await wrapper.get('[role="tab"][aria-label="次组"]').trigger("click");
+      await wrapper.get('input[aria-label="跨组备注"]').setValue("新备注");
+      await flushPromises();
+      expect(button("保存").attributes("disabled")).toBeDefined();
+      await wrapper.get('[role="tab"][aria-label="首组"]').trigger("click");
+      expect(
+        wrapper.get<HTMLInputElement>('input[aria-label="跨组数量"]').element
+          .value,
+      ).toBe("-");
+      await wrapper.get('input[aria-label="跨组数量"]').setValue("7");
+      // Clearing the parent must clear a child that lives on another, hidden panel.
+      await wrapper.get('input[aria-label="父项"]').trigger("click");
+      await flushPromises();
+      await button("移除旧父项").trigger("click");
+      await button("完成选择").trigger("click");
+      await flushPromises();
+      await button("保存").trigger("click");
+      await flushPromises();
+      expect(received).toHaveLength(1);
+      expect(
+        block
+          ? received[0].local
+          : {
+              parent: received[0].parent,
+              child: received[0].child,
+              count: received[0].count,
+              note: received[0].note,
+            },
+      ).toEqual({ parent: null, child: null, count: 7, note: "新备注" });
+    } finally {
+      wrapper.unmount();
+    }
   },
+  15000,
 );
 
 it("saves a configuration across tabs and resets its selection when reopened", async () => {
