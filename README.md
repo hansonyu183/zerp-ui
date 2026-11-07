@@ -14,6 +14,8 @@
 
 0.13.0 的完整变更见 [CHANGELOG](CHANGELOG.md#0130)：手机端列表改为卡片、导航分组默认收起，配置定义移除 `createLabel`，新增文案统一由库负责。
 
+导航组超过 12 项时，库按显示名称的共同词头自动增加可折叠子组；过长列表按首尾名称分段，每段最多 12 项。短分组和 `ungrouped` 入口不变。归组不读取资源标识或路由，不增加后端请求；叶子名称、链接与组内顺序保持原值。
+
 ## 固定版本安装
 
 0.10.0 全面统一 Material 字段、列表、事实、业务交互和弹层；保留 MD1/MD2/MD3 明暗预设与现有精确值、历史引用、局部草稿及原请求恢复协议。公开入口仍为 AuthPage/AppPage；呈现 DOM 改变按 0.x 规则提升 minor。实现与行为证据映射见 [Material 对照矩阵](docs/material/README.md)，历史工件保持不可变。
@@ -30,11 +32,11 @@
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.19.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.19.1) 下载 `zerp-ui-0.19.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.20.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.20.0) 下载 `zerp-ui-0.20.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.19.1.tgz
+pnpm add ./zerp-ui-0.20.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。

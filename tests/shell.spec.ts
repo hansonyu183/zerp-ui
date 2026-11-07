@@ -341,3 +341,128 @@ it("chooses readable foregrounds for light and saturated brand surfaces in every
     }
   }
 });
+
+it("groups long menus by displayed names and bounds unrelated lists without interpreting keys or routes", async () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/catalog", component: { template: "<p>资料</p>" } }],
+  });
+  await router.push("/catalog");
+  const captions = [
+    "客户",
+    "产品",
+    "客户分类",
+    "产品分类",
+    "客户联系人",
+    "供应商",
+    "供应商分类",
+    "BA 采购订单",
+    "BB 采购入库单",
+    "国家",
+    "币种",
+    "部门",
+    "仓库",
+    ...Array.from({ length: 13 }, (_, index) => `销售单据${index + 1}`),
+  ];
+  const items = captions.map((caption, index) => ({
+    key: `opaque-${index}`,
+    caption,
+    to: `/catalog?item=${index}`,
+  }));
+  const plugins = config.global.plugins;
+  config.global.plugins = [createVuetify({ theme: createShellThemes() })];
+  const wrapper = mount(AppPage, {
+    props: {
+      brand: {
+        productName: "产品",
+        home: "/catalog",
+        enterpriseName: "企业",
+        mark: { kind: "text", text: "星" },
+      },
+      brandState: { kind: "ready" },
+      navigationState: { kind: "ready" },
+      navigation: [{ key: "opaque", caption: "基础资料", items }],
+      selectedNavigationKey: "opaque-2",
+      page: defineDetailsPage({
+        title: "资料",
+        instance: "menu",
+        value: { content: "内容" },
+        groups: [
+          {
+            key: "facts",
+            label: "资料",
+            fields: [{ key: "content", label: "内容", type: "text" }],
+          },
+        ],
+      }),
+      scope: "menu",
+      footer: "合成消费者",
+    },
+    global: { plugins: [router] },
+  });
+  config.global.plugins = plugins;
+  try {
+    const root = wrapper.get("nav > details");
+    expect(root.get("summary").text()).toBe("基础资料");
+    expect(root.attributes("open")).toBeUndefined();
+    const groups = wrapper.findAll(".zerp-navigation-section");
+    expect(groups.map((group) => group.get("summary").text())).toEqual([
+      "客户",
+      "产品",
+      "供应商",
+      "采购",
+      "销售单据1 — 销售单据7",
+      "销售单据8 — 销售单据13",
+    ]);
+    expect(groups[0]!.findAll("a").map((link) => link.text())).toEqual([
+      "客户",
+      "客户分类",
+      "客户联系人",
+    ]);
+    expect(groups[3]!.findAll("a").map((link) => link.text())).toEqual([
+      "BA 采购订单",
+      "BB 采购入库单",
+    ]);
+    expect(
+      wrapper
+        .findAll("nav a")
+        .map((link) => link.attributes("href"))
+        .sort(),
+    ).toEqual(items.map((item) => item.to).sort());
+    expect(wrapper.get('nav a[aria-current="page"]').text()).toBe("客户分类");
+    for (const group of groups)
+      expect(group.findAll("a").length).toBeLessThanOrEqual(12);
+    // Replacing the permission-filtered directory removes all prior entries.
+    const unrelated = Array.from({ length: 13 }, (_, index) => ({
+      key: `new-${index}`,
+      caption: String.fromCodePoint(0x4e00 + index),
+      to: `/catalog?new=${index}`,
+    }));
+    await wrapper.setProps({
+      scope: "new-menu",
+      navigation: [{ key: "new", caption: "单据", items: unrelated }],
+      selectedNavigationKey: null,
+    });
+    expect(wrapper.findAll("nav a")).toHaveLength(13);
+    expect(
+      wrapper
+        .findAll(".zerp-navigation-section")
+        .map((group) => group.findAll("a").length),
+    ).toEqual([7, 6]);
+    expect(wrapper.findAll("nav a").map((link) => link.text())).toEqual(
+      unrelated.map((item) => item.caption),
+    );
+    expect(wrapper.find("nav a[aria-current]").exists()).toBe(false);
+    await wrapper.setProps({
+      navigation: [
+        { key: "small", caption: "单据", items: items.slice(0, 12) },
+      ],
+    });
+    expect(wrapper.findAll(".zerp-navigation-section")).toHaveLength(0);
+    expect(wrapper.findAll("nav a").map((link) => link.text())).toEqual(
+      captions.slice(0, 12),
+    );
+  } finally {
+    wrapper.unmount();
+  }
+});
