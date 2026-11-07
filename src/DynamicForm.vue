@@ -292,6 +292,7 @@ onBeforeUnmount(() => emit("pending", false));
       v-for="(group, index) in groups"
       :key="group.key"
       v-show="groups.length < 2 || group.key === selectedGroup"
+      :class="{ 'zerp-form-panel': groups.length > 1 }"
       :id="`${formId}-panel-${index}`"
       :role="groups.length > 1 ? 'tabpanel' : undefined"
       :aria-labelledby="

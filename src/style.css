@@ -20,6 +20,9 @@
   container-type: inline-size;
   min-inline-size: 0;
 }
+.zerp-form-panel {
+  padding-block-start: 1rem;
+}
 .zerp-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
