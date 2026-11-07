@@ -1226,6 +1226,10 @@ it("opens a real Material leave portal, cancels without writing and invalidates 
     await vi.waitFor(() =>
       expect(document.activeElement).toBe(controls[0].element),
     );
+    // Vuetify defers overlay-stack updates with setTimeout(0). Focus is
+    // assigned earlier, so settle that timer turn before sending Escape.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await flushPromises();
     window.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
