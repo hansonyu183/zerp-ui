@@ -2,6 +2,7 @@
 defineOptions({ inheritAttrs: false });
 defineSlots<{}>();
 import FeedbackHost from "./FeedbackHost.vue";
+import { navigationSections } from "./navigation-sections";
 import PageContentHost from "./PageContentHost.vue";
 import type { PageDefinition, AppPageHandle } from "./pages";
 import type { EditProtection } from "./edit-guard";
@@ -96,6 +97,12 @@ const defaults = computed(() => ({
   VTooltip: overlayDefaults.value,
   VSnackbar: overlayDefaults.value,
 }));
+const navigationGroups = computed(() =>
+  props.navigation.map((group) => ({
+    group,
+    sections: navigationSections(group),
+  })),
+);
 const selectedItem = computed(() =>
   props.navigation
     .flatMap((group) => group.items)
@@ -336,51 +343,61 @@ function navigated(event: MouseEvent) {
               <template v-if="navigationState.kind === 'ready'">
                 <component
                   :is="group.ungrouped ? 'div' : 'details'"
-                  v-for="group in navigation"
+                  v-for="{ group, sections } in navigationGroups"
                   :key="group.key"
                   :open="group.ungrouped ? undefined : false"
                 >
                   <summary v-if="!group.ungrouped">{{ group.caption }}</summary>
-                  <RouterLink
-                    v-for="item in group.items"
-                    :key="item.key"
-                    :to="item.to"
-                    custom
-                    v-slot="{ href, navigate, isActive, isExactActive }"
+                  <component
+                    :is="section.caption ? 'details' : 'div'"
+                    v-for="(section, index) in sections"
+                    :key="index"
+                    :class="{ 'zerp-navigation-section': section.caption }"
                   >
-                    <a
-                      :href="href"
-                      :class="{
-                        'router-link-active':
-                          selectedNavigationKey === undefined
-                            ? isActive
-                            : selectedItem === item,
-                        'router-link-exact-active':
-                          selectedNavigationKey === undefined
-                            ? isExactActive
-                            : selectedItem === item,
-                      }"
-                      :aria-current="
-                        (
-                          selectedNavigationKey === undefined
-                            ? isExactActive
-                            : selectedItem === item
-                        )
-                          ? 'page'
-                          : undefined
-                      "
-                      @click="
-                        navigated($event);
-                        navigate($event);
-                      "
-                      ><span
-                        v-if="item.icon"
-                        aria-hidden="true"
-                        class="zerp-ui-icon"
-                        >{{ navigationGlyph(item.icon) }}</span
-                      >{{ item.caption }}</a
+                    <summary v-if="section.caption">
+                      {{ section.caption }}
+                    </summary>
+                    <RouterLink
+                      v-for="item in section.items"
+                      :key="item.key"
+                      :to="item.to"
+                      custom
+                      v-slot="{ href, navigate, isActive, isExactActive }"
                     >
-                  </RouterLink>
+                      <a
+                        :href="href"
+                        :class="{
+                          'router-link-active':
+                            selectedNavigationKey === undefined
+                              ? isActive
+                              : selectedItem === item,
+                          'router-link-exact-active':
+                            selectedNavigationKey === undefined
+                              ? isExactActive
+                              : selectedItem === item,
+                        }"
+                        :aria-current="
+                          (
+                            selectedNavigationKey === undefined
+                              ? isExactActive
+                              : selectedItem === item
+                          )
+                            ? 'page'
+                            : undefined
+                        "
+                        @click="
+                          navigated($event);
+                          navigate($event);
+                        "
+                        ><span
+                          v-if="item.icon"
+                          aria-hidden="true"
+                          class="zerp-ui-icon"
+                          >{{ navigationGlyph(item.icon) }}</span
+                        >{{ item.caption }}</a
+                      >
+                    </RouterLink>
+                  </component>
                 </component>
               </template>
             </nav>

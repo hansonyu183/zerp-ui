@@ -63,6 +63,29 @@ const navigation: NavigationGroup[] = [
       },
     ],
   },
+  {
+    key: "long-menu",
+    caption: "多项导航",
+    items: [
+      "客户",
+      "客户分类",
+      "客户联系人",
+      "产品",
+      "产品分类",
+      "供应商",
+      "供应商分类",
+      "AA 采购订单",
+      "AB 采购入库单",
+      "国家",
+      "币种",
+      "部门",
+      "仓库",
+    ].map((caption, index) => ({
+      key: `synthetic-menu-${index}`,
+      caption,
+      to: `/direct?menu=${index}`,
+    })),
+  },
 ];
 const selectedNavigationKey = computed(() =>
   route.path === "/direct" && ["one", "two"].includes(String(route.query.kind))

@@ -80,6 +80,42 @@ export async function shellInteractionSmoke(page) {
       `${name} touch target edges are hit-testable`,
     );
   }
+  // Same behavior through the installed tgz: native disclosure keyboard and narrow links.
+  await toggle.click();
+  const longMenu = navigation
+    .locator("details")
+    .filter({ has: page.locator("summary", { hasText: /^多项导航$/ }) })
+    .first();
+  const parentSummary = longMenu.locator(":scope > summary");
+  await parentSummary.focus();
+  await page.keyboard.press("Enter");
+  await expect(longMenu).toHaveAttribute("open", "");
+  const customer = longMenu
+    .locator("details")
+    .filter({ has: page.locator("summary", { hasText: /^客户$/ }) });
+  const customerSummary = customer.locator(":scope > summary");
+  await customerSummary.focus();
+  await page.keyboard.press("Space");
+  await expect(
+    customer.getByRole("link", { name: "客户分类", exact: true }),
+  ).toBeVisible();
+  await expect(
+    customer.getByRole("link", { name: "客户分类", exact: true }),
+  ).toHaveAttribute("href", "/direct?menu=1");
+  assert.equal(await longMenu.locator("a").count(), 13);
+  assert.ok(
+    await navigation.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  );
+  await page.keyboard.press("Space");
+  await expect(
+    customer.getByRole("link", { name: "客户分类", exact: true }),
+  ).toBeHidden();
+  await parentSummary.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
   const bar = page.locator(".v-app-bar");
   const belowBar = (locator) =>
     assertBelowToolbar(page, locator, { withinViewport: false });

@@ -798,3 +798,11 @@
   font-size: 12px;
   padding: 4px 6px;
 }
+
+.zerp-shell nav .zerp-navigation-section {
+  margin-inline-start: 0.75rem;
+}
+.zerp-shell nav summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
