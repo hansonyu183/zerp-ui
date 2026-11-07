@@ -83,6 +83,41 @@ export async function groupedFactsSmoke(page) {
   const name = editor.getByRole("textbox", { name: "客户名称", exact: true });
   const count = editor.getByRole("textbox", { name: "零值", exact: true });
   const save = editor.getByRole("button", { name: "保存", exact: true });
+  // Filled inputs expose floating labels; their paint must clear the Tab boundary.
+  for (const preset of [1, 2, 3]) {
+    await page.getByRole("button", { name: "主题预设", exact: true }).click();
+    await page
+      .getByRole("menuitemradio", {
+        name: `Material Design ${preset}`,
+        exact: true,
+      })
+      .click();
+    for (const width of [1440, 800, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const focused of [true, false]) {
+        if (focused) await name.focus();
+        else await editTab("基本资料").focus();
+        await expect
+          .poll(
+            async () => {
+              const tabs = await editor.locator(".v-tabs").boundingBox();
+              const label = await editor
+                .locator(
+                  '.zerp-form-field:has(input[aria-label="客户名称"]) .v-field-label--floating',
+                )
+                .boundingBox();
+              assert.ok(tabs && label);
+              return label.y - (tabs.y + tabs.height);
+            },
+            {
+              message: `MD${preset}, ${width}px, focused=${focused}: floating label clears Tabs`,
+            },
+          )
+          .toBeGreaterThan(0);
+      }
+    }
+  }
+
   await name.fill("分组编辑客户");
   await count.fill("-");
   await editTab("背景与备注").click();
