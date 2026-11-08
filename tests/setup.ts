@@ -1,5 +1,4 @@
 import { config } from "@vue/test-utils";
-import { createVuetify } from "vuetify";
 import { vi } from "vitest";
 vi.stubGlobal(
   "ResizeObserver",
@@ -9,12 +8,18 @@ vi.stubGlobal(
     disconnect() {}
   },
 );
-window.matchMedia = vi.fn().mockImplementation(() => ({
-  matches: false,
+// jsdom has no layout/animation engine. Use Vuetify's supported reduced-motion
+// preference so VField label animations do not recursively resolve inherited
+// colors on deep synthetic forms. Real browser consumers keep normal motion.
+window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+  matches: query === "(prefers-reduced-motion: reduce)",
+  media: query,
   addEventListener() {},
   removeEventListener() {},
 }));
 
+// Vuetify snapshots matchMedia support on import. Install the browser preference first.
+const { createVuetify } = await import("vuetify");
 config.global.plugins = [createVuetify()];
 
 vi.stubGlobal(
