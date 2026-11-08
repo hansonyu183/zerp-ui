@@ -806,3 +806,58 @@
   cursor: pointer;
   overflow-wrap: anywhere;
 }
+
+.zerp-workbench-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+}
+.zerp-workbench-grid > *,
+.zerp-workbench-links li {
+  min-width: 0;
+}
+.zerp-workbench-links {
+  list-style: none;
+  padding: 0;
+}
+.zerp-workbench-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  overflow-wrap: anywhere;
+}
+.zerp-workbench-information {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.zerp-workbench-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.zerp-workbench-search .v-input {
+  flex: 1 1 12rem;
+}
+.zerp-preference-list {
+  list-style: none;
+  padding: 0;
+}
+.zerp-preference-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+}
+.zerp-preference-list li > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.zerp-workbench-progress {
+  height: 4px;
+}

@@ -84,6 +84,8 @@ export async function checkArtifact(tgz, expected) {
         "defineVoucherPage",
         "defineWorkflow",
         "defineWorkflowPage",
+        "defineWorkbenchPage",
+        "defineWorkbenchPreferencesPage",
         "domainBlocks",
         "validateFields",
         "operationLabels",
