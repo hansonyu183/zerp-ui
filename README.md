@@ -32,11 +32,11 @@
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.23.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.23.0) 下载 `zerp-ui-0.23.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.24.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.24.0) 下载 `zerp-ui-0.24.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.23.0.tgz
+pnpm add ./zerp-ui-0.24.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -273,3 +273,7 @@ groups: [
 `defineWorkbenchPreferencesPage<K>` 接收 `title`、`instance` 与稳定 Adapter。`load({ scope, signal })` 返回 `{ id, key: K, name, added }[]`，其中 id 是跨分类唯一且稳定的UI标识；`setAdded({ scope, signal, key, added })` 必须幂等设置目标偏好，不能实现为toggle或业务命令。库负责名称搜索、每页50项、添加移除和互斥；抛错后保留原目标，可核对权威状态或重试同一目标。成功后读取失败只能重读。候选缺失不证明未应用；匹配原目标的权威读取才可核对完成。此有限偏好协议不替代业务写入原请求保证。
 
 Adapter 必须按捕获的身份/账套执行请求，遵守 signal 并拒绝失效响应。实例、作用域、active或Adapter切换会清理页面并隔离旧响应。统计口径、权限过滤、排序、偏好持久化与Router由消费者负责。本页不开放模板、组件或布局配置。完整合成示例见 `examples/workbench`，相关命令见 package.json。
+
+### 工作台 Material 与布局（0.24.0）
+
+工作台使用主题化 Vuetify 卡片、列表入口与操作区。重要信息在上方横跨整行，桌面下方单据、报表、资料三等宽列；手机保持重要信息在前，其余按顺序纵向排列。卡片及按钮不固定圆角、描边或颜色，沿用当前 MD1/MD2/MD3 Blueprint 与明暗主题默认值；链接保留键盘、修饰键与新标签行为。工厂与 Adapter API 不变。
