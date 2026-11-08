@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, shallowRef, watch } from "vue";
-import { RouterLink } from "vue-router";
 import {
   VBtn,
   VCard,
   VCardText,
+  VCardActions,
+  VList,
+  VListItem,
+  VListItemTitle,
+  VIcon,
   VCardTitle,
   VProgressLinear,
 } from "vuetify/components";
@@ -87,70 +91,76 @@ onBeforeUnmount(cancel);
     >
     <div class="zerp-workbench-grid">
       <VCard
+        tag="section"
+        aria-label="重要信息"
+        class="zerp-workbench-information"
+      >
+        <VCardTitle tag="h2">重要信息</VCardTitle>
+        <VCardText>
+          <VList v-if="data?.information.length">
+            <VListItem v-for="item in data.information" :key="item.key">
+              <VListItemTitle>{{ item.text }}</VListItemTitle>
+            </VListItem>
+          </VList>
+          <p v-else>暂无信息</p>
+        </VCardText>
+      </VCard>
+      <VCard
         v-for="section in sections"
         :key="section.key"
         tag="section"
         :aria-label="section.title"
-        variant="outlined"
       >
         <VCardTitle tag="h2">{{ section.title }}</VCardTitle>
         <VCardText>
           <p v-if="data?.[section.key].description">
             {{ data[section.key].description }}
           </p>
-          <ul
+          <VList
             v-if="data?.[section.key].items.length"
             class="zerp-workbench-links"
           >
-            <li
+            <VListItem
               v-for="item in expanded[section.key]
                 ? data[section.key].items
                 : data[section.key].items.slice(0, 12)"
               :key="item.key"
+              :to="item.to"
             >
-              <RouterLink :to="item.to"
-                ><span
-                  v-if="item.icon"
-                  class="zerp-ui-icon"
-                  aria-hidden="true"
-                  >{{ navigationGlyph(item.icon) }}</span
-                >{{ item.name }}</RouterLink
+              <template v-if="item.icon" #prepend
+                ><VIcon
+                  ><span class="zerp-ui-icon">{{
+                    navigationGlyph(item.icon)
+                  }}</span></VIcon
+                ></template
               >
-            </li>
-          </ul>
+              <VListItemTitle>{{ item.name }}</VListItemTitle>
+            </VListItem>
+          </VList>
           <p v-else>
             {{
               busy ? "正在读取，请稍候。" : error ? "读取失败" : section.empty
             }}
           </p>
+        </VCardText>
+        <VCardActions
+          v-if="
+            (data?.[section.key].items.length ?? 0) > 12 ||
+            (section.key === 'reports' && options.manageReportsTo)
+          "
+        >
           <VBtn
             v-if="(data?.[section.key].items.length ?? 0) > 12"
-            variant="text"
             :aria-expanded="expanded[section.key]"
             @click="expanded[section.key] = !expanded[section.key]"
             >{{ expanded[section.key] ? "收起" : "展开全部" }}</VBtn
           >
-          <RouterLink
+          <VBtn
             v-if="section.key === 'reports' && options.manageReportsTo"
             :to="options.manageReportsTo"
-            >管理常用报表</RouterLink
+            >管理常用报表</VBtn
           >
-        </VCardText>
-      </VCard>
-      <VCard tag="section" aria-label="重要信息" variant="outlined">
-        <VCardTitle tag="h2">重要信息</VCardTitle>
-        <VCardText
-          ><ul v-if="data?.information.length">
-            <li
-              v-for="item in data.information"
-              :key="item.key"
-              class="zerp-workbench-information"
-            >
-              {{ item.text }}
-            </li>
-          </ul>
-          <p v-else>暂无信息</p></VCardText
-        >
+        </VCardActions>
       </VCard>
     </div>
   </section>

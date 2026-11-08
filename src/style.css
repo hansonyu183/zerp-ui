@@ -809,27 +809,27 @@
 
 .zerp-workbench-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
   gap: 1rem;
 }
-.zerp-workbench-grid > *,
-.zerp-workbench-links li {
+.zerp-workbench-grid > * {
   min-width: 0;
 }
-.zerp-workbench-links {
-  list-style: none;
-  padding: 0;
-}
-.zerp-workbench-links a {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0;
-  overflow-wrap: anywhere;
-}
 .zerp-workbench-information {
+  grid-column: 1 / -1;
+}
+.zerp-workbench .v-list-item-title {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.zerp-workbench .v-card-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 959px) {
+  .zerp-workbench-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .zerp-workbench-search {
   display: flex;

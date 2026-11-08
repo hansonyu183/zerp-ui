@@ -79,6 +79,11 @@ it("shows four simultaneous sections, normal links and independent twelve-item e
   );
   for (const name of ["常用单据", "常用报表", "常用资料", "重要信息"])
     expect(w.find(`section[aria-label="${name}"]`).exists()).toBe(true);
+  expect(
+    Array.from(w.find(".zerp-workbench-grid").element.children).map((element) =>
+      element.getAttribute("aria-label"),
+    ),
+  ).toEqual(["重要信息", "常用单据", "常用报表", "常用资料"]);
   expect(w.text()).toContain("暂无信息");
   expect(w.text()).not.toContain("单据12");
   expect(w.find('a[href="/voucher/0"]').text()).toBe("单据0");
