@@ -14,22 +14,25 @@ export async function complexDraftSmoke(page) {
   );
   await expect(page.getByText("目录新仓库名", { exact: true })).toHaveCount(0);
   await expect(save).toBeDisabled();
-  await page.getByRole("button", { name: "编辑单位 1", exact: true }).click();
-  await page.getByRole("textbox", { name: "单位数量", exact: true }).fill("-");
+  await page
+    .getByRole("textbox", { name: "单位数量", exact: true })
+    .first()
+    .fill("-");
   await expect(save).toBeDisabled();
-  await expect(
-    page.getByRole("button", { name: "确定单位", exact: true }),
-  ).toBeDisabled();
-  await page.getByRole("textbox", { name: "单位数量", exact: true }).fill("0");
+  await page
+    .getByRole("textbox", { name: "单位数量", exact: true })
+    .first()
+    .fill("0");
   await page
     .getByRole("textbox", { name: "换算比", exact: true })
+    .first()
     .fill("9007199254740993.0100");
-  await page.getByRole("button", { name: "确定单位", exact: true }).click();
-  await page.getByRole("button", { name: "编辑价格 1", exact: true }).click();
   await page
     .getByRole("textbox", { name: "价格金额", exact: true })
     .fill("999.00");
-  await page.getByRole("button", { name: "取消价格", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "价格金额", exact: true })
+    .fill("1.2300");
   await page
     .getByRole("button", { name: "编辑配料 · 明细行 2", exact: true })
     .click();
@@ -47,7 +50,6 @@ export async function complexDraftSmoke(page) {
   await child
     .getByRole("textbox", { name: "配料比例", exact: true })
     .fill("0.0000001");
-  await child.getByRole("button", { name: "确定子项", exact: true }).click();
   await child.getByRole("button", { name: "确定配料", exact: true }).click();
   await page
     .getByRole("checkbox", { name: "核对计算结果", exact: true })

@@ -70,7 +70,7 @@ it("keeps decimal strings and incomplete numeric input, zero, false and null dis
   expect(value.value.empty).toBeNull();
   w.unmount();
 });
-it("cancels a parent draft including confirmed recursive children", async () => {
+it("edits recursive rows directly and removes their entire subtree", async () => {
   type D = { rows: { name: string; children: { name: string }[] }[] };
   const { w, value } = form<D>(
     [
@@ -97,13 +97,13 @@ it("cancels a parent draft including confirmed recursive children", async () => 
   await w.get('input[aria-label="名称"]').setValue("父");
   await click(w, "新增");
   await w.get('input[aria-label="子名称"]').setValue("子");
-  await click(w, "确定子项");
-  expect(value.value.rows).toEqual([]);
-  await click(w, "取消子项");
+  expect(value.value.rows).toEqual([
+    { name: "父", children: [{ name: "子" }] },
+  ]);
+  await click(w, "删除行 1");
   expect(value.value.rows).toEqual([]);
   await click(w, "新增");
   await w.get('input[aria-label="名称"]').setValue("确认");
-  await click(w, "确定子项");
   expect(value.value.rows).toEqual([{ name: "确认", children: [] }]);
   w.unmount();
 });
@@ -491,12 +491,13 @@ it("blocks invalid child drafts and preserves readonly historical values without
     "legacy-date",
   );
   await click(w, "新增");
-  const confirm = () =>
-    w.findAll("button").find((button) => button.text() === "确定子项")!;
-  expect(confirm().attributes("disabled")).toBeDefined();
+  expect(
+    w
+      .findComponent(DynamicForm as Component)
+      .emitted("validation")
+      ?.at(-1)?.[0],
+  ).toMatchObject({ valid: false });
   await w.get('input[aria-label="子名称"]').setValue("合成子项");
-  expect(confirm().attributes("disabled")).toBeUndefined();
-  await click(w, "确定子项");
   expect(value.value.rows).toEqual([{ name: "合成子项" }]);
   w.unmount();
 });
@@ -541,5 +542,42 @@ it("clears unfinished integer state when its context or visible field is replace
     valid: true,
     pending: false,
   });
+  w.unmount();
+});
+
+it("keeps unfinished input attached to its row when a preceding row is deleted", async () => {
+  const { w, value } = form<{ rows: { count: number | null }[] }>(
+    [
+      {
+        key: "rows",
+        type: "rows",
+        label: "数量行",
+        fields: [{ key: "count", type: "integer", label: "行数量" }],
+        empty: () => ({ count: 0 }),
+      },
+    ],
+    { rows: [{ count: 1 }, { count: 2 }] },
+  );
+  await w.findAll('input[aria-label="行数量"]')[1].setValue("-");
+  await click(w, "删除数量行 1");
+  expect(w.get('input[aria-label="行数量"]').element).toHaveProperty(
+    "value",
+    "-",
+  );
+  expect(value.value.rows).toEqual([{ count: 2 }]);
+  expect(
+    w
+      .findComponent(DynamicForm as Component)
+      .emitted("pending")
+      ?.at(-1),
+  ).toEqual([true]);
+  await w.get('input[aria-label="行数量"]').setValue("0");
+  expect(value.value.rows).toEqual([{ count: 0 }]);
+  expect(
+    w
+      .findComponent(DynamicForm as Component)
+      .emitted("pending")
+      ?.at(-1),
+  ).toEqual([false]);
   w.unmount();
 });

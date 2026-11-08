@@ -52,9 +52,6 @@ export async function detailsSmoke(page) {
   await button("编辑资料").click();
   await button("编辑原料 · 明细行 1").click();
   await children
-    .getByRole("button", { name: "编辑原料1", exact: true })
-    .click();
-  await children
     .getByRole("combobox", { name: "原料单位", exact: true })
     .press("ArrowDown");
   const unit = page.getByRole("option", { name: "公斤", exact: true });
@@ -64,7 +61,6 @@ export async function detailsSmoke(page) {
     true,
   );
   await unit.click();
-  await children.getByRole("button", { name: "取消子项", exact: true }).click();
   await children.getByRole("button", { name: "取消原料", exact: true }).click();
   await page.getByLabel("名称", { exact: true }).fill("修改后的合成资料");
   await page.getByRole("link", { name: "离开资料", exact: true }).click();

@@ -1124,7 +1124,6 @@ it.each(
       await flushPromises();
     };
     if (mode === "create") await click("新增");
-    if (kind === "rows") await click("编辑模式子项 1");
     const activeLabel = mode === "create" ? "仅创建字段" : "仅编辑字段";
     const hiddenLabel = mode === "create" ? "仅编辑字段" : "仅创建字段";
     expect(wrapper.find(`input[aria-label="${activeLabel}"]`).exists()).toBe(
@@ -1136,7 +1135,6 @@ it.each(
     await wrapper
       .get(`input[aria-label="${activeLabel}"]`)
       .setValue("当前模式内容");
-    if (kind === "rows") await click("确定模式子项");
     await click("保存");
     expect(received).toHaveLength(1);
     expect(received[0].operation).toBe(mode === "create" ? "create" : "save");
@@ -1307,7 +1305,7 @@ it("presents every domain-row action as disabled while the original save is pend
   await flushPromises();
   const action = (name: string) =>
     hostAndDialogButtons(wrapper).find((node) => node.text() === name)!;
-  const names = ["编辑锁定条目 1", "删除锁定条目 1", "新增"];
+  const names = ["删除锁定条目 1", "新增"];
   for (const name of names)
     expect(action(name).attributes("disabled")).toBeUndefined();
   await action("保存").trigger("click");
@@ -1315,7 +1313,10 @@ it("presents every domain-row action as disabled while the original save is pend
   for (const name of names)
     expect(action(name).attributes("disabled")).toBeDefined();
   await action("新增").trigger("click");
-  expect(wrapper.find('input[aria-label="条目名称"]').exists()).toBe(false);
+  expect(wrapper.findAll('input[aria-label="条目名称"]')).toHaveLength(1);
+  expect(
+    wrapper.get('input[aria-label="条目名称"]').attributes("disabled"),
+  ).toBeDefined();
   finish({ status: "unknown" });
   await flushPromises();
   for (const name of names)
@@ -1568,6 +1569,72 @@ it("saves a configuration across tabs and resets its selection when reopened", a
         .get('[role="tab"][aria-label="配置基本"]')
         .attributes("aria-selected"),
     ).toBe("true");
+  } finally {
+    wrapper.unmount();
+  }
+});
+
+it("edits configuration block rows immediately and saves only a valid complete draft", async () => {
+  const { defineConfigurationPage } = await import("../src/index");
+  type Draft = { items: { name: string; count: number | null }[] };
+  const saved: Draft[] = [];
+  const definition = defineConfiguration<Draft, {}, { id: string }, string>({
+    resource: "direct-config-rows",
+    title: "统一配置编辑",
+    fields: [],
+    filters: [],
+    initialFilters: () => ({}),
+    columns: [{ key: "id", label: "编号" }],
+    identity: (row) => row.id,
+    adapter: {
+      query: async () => ({ items: [{ id: "one" }], total: 1 }),
+      get: async () => ({
+        identity: "one",
+        values: { items: [{ name: "原配置", count: 1 }] },
+      }),
+      save: async (attempt) => {
+        saved.push(attempt.input);
+        return { status: "success" };
+      },
+    },
+  });
+  const wrapper = mountPage(
+    defineConfigurationPage({
+      definition,
+      permissions: { read: true, write: true },
+      initialRow: { id: "one" },
+      blocks: [
+        domainBlocks<Draft>().rows({
+          key: "items",
+          label: "类型与编号",
+          fields: [
+            { key: "name", label: "类型名称", type: "text", required: true },
+            { key: "count", label: "顺序段长度", type: "integer" },
+          ],
+          empty: () => ({ name: "", count: 0 }),
+          get: (rows) => rows,
+          set: (_rows, rows) => [...rows],
+        }),
+      ],
+    }),
+  );
+  const save = () =>
+    hostAndDialogButtons(wrapper).find((node) => node.text() === "保存")!;
+  try {
+    await flushPromises();
+    expect(
+      hostAndDialogButtons(wrapper).some(
+        (node) => node.text() === "编辑类型与编号 1",
+      ),
+    ).toBe(false);
+    await wrapper.get('input[aria-label="类型名称"]').setValue("采购订单");
+    await wrapper.get('input[aria-label="顺序段长度"]').setValue("-");
+    expect(save().attributes("disabled")).toBeDefined();
+    expect(saved).toEqual([]);
+    await wrapper.get('input[aria-label="顺序段长度"]').setValue("3");
+    await save().trigger("click");
+    await flushPromises();
+    expect(saved).toEqual([{ items: [{ name: "采购订单", count: 3 }] }]);
   } finally {
     wrapper.unmount();
   }

@@ -118,6 +118,7 @@ const childClose = ref<InstanceType<typeof VBtn>[]>([]);
 const headerPending = ref(false);
 const rowPending = ref(false);
 const childPending = ref(false);
+const childInvalid = ref(false);
 function pending() {
   emit(
     "pending",
@@ -162,16 +163,17 @@ function beginChild(
   pending();
   nextTick(() => childClose.value[0]?.$el?.focus());
 }
+const childColumn = computed(() => childEditing.value?.column);
 const childFields = computed(
   () =>
-    (childEditing.value
+    (childColumn.value
       ? [
           {
             key: "items",
-            label: childEditing.value.column.label,
+            label: childColumn.value.label,
             type: "rows",
-            fields: childEditing.value.column.fields,
-            empty: childEditing.value.column.empty,
+            fields: childColumn.value.fields,
+            empty: childColumn.value.empty,
           },
         ]
       : []) as unknown as Fields<{ items: C[] }>,
@@ -183,6 +185,7 @@ function cancelChild(restoreFocus = true) {
   childTrigger = null;
   childEditing.value = null;
   childPending.value = false;
+  childInvalid.value = false;
   pending();
   if (restoreFocus)
     nextTick(() => {
@@ -197,7 +200,8 @@ function cancelChild(restoreFocus = true) {
 }
 function finishChild() {
   const draft = childEditing.value;
-  if (!draft || !canUpdate.value || childPending.value) return;
+  if (!draft || !canUpdate.value || childPending.value || childInvalid.value)
+    return;
   if (!equalValues(props.modelValue.rows, draft.sourceRows)) {
     cancelChild();
     return;
@@ -667,6 +671,10 @@ const tableColumns = computed(() => {
               childEditing?.token === child.token &&
               (childEditing = { ...child, rows: $event.items })
             "
+            @validation="
+              childEditing?.token === child.token &&
+              (childInvalid = !$event.valid)
+            "
             @pending="
               if (childEditing?.token === child.token) {
                 childPending = $event;
@@ -679,7 +687,7 @@ const tableColumns = computed(() => {
             variant="flat"
             v-if="canUpdate"
             type="button"
-            :disabled="childPending"
+            :disabled="childPending || childInvalid"
             @click="childEditing?.token === child.token && finishChild()"
           >
             确定{{ child.column.label }}
