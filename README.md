@@ -32,11 +32,11 @@
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.22.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.22.0) 下载 `zerp-ui-0.22.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.23.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.23.0) 下载 `zerp-ui-0.23.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.22.0.tgz
+pnpm add ./zerp-ui-0.23.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -265,3 +265,11 @@ groups: [
 ### 领域区块分组（0.22.0）
 
 配置、资料维护、资料提交和处理页面的多个领域区块按原有标签、顺序统一为Tab；单区块直接展示，零区块不生成空容器。所有组保持挂载、共用原草稿和保存，隐藏组仍校验并提示待完善；局部输入pending时不能切组。切换记录或作用域回到首组，Tab不调用Adapter，也不改变未知写入状态。普通字段不声明分组或使用空分组时仍直接展示。
+
+## 工作台（0.23.0）
+
+`defineWorkbenchPage` 通过 `AppPage` 同屏呈现常用单据、常用报表、常用资料、重要信息。提供 `title`、`instance`、稳定 `adapter` 与可选 `manageReportsTo`；`adapter.load({ scope, signal })` 返回 `WorkbenchSnapshot`。前三个区段各提供 `{ items, description? }`，入口为 `{ key, name, to, icon? }`；信息为 `{ key, text }[]`。库保留输入顺序，每区默认12项并负责展开收起、加载和重试。
+
+`defineWorkbenchPreferencesPage<K>` 接收 `title`、`instance` 与稳定 Adapter。`load({ scope, signal })` 返回 `{ id, key: K, name, added }[]`，其中 id 是跨分类唯一且稳定的UI标识；`setAdded({ scope, signal, key, added })` 必须幂等设置目标偏好，不能实现为toggle或业务命令。库负责名称搜索、每页50项、添加移除和互斥；抛错后保留原目标，可核对权威状态或重试同一目标。成功后读取失败只能重读。候选缺失不证明未应用；匹配原目标的权威读取才可核对完成。此有限偏好协议不替代业务写入原请求保证。
+
+Adapter 必须按捕获的身份/账套执行请求，遵守 signal 并拒绝失效响应。实例、作用域、active或Adapter切换会清理页面并隔离旧响应。统计口径、权限过滤、排序、偏好持久化与Router由消费者负责。本页不开放模板、组件或布局配置。完整合成示例见 `examples/workbench`，相关命令见 package.json。

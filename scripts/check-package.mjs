@@ -1,3 +1,5 @@
+import { workbenchSmoke } from "./workbench-smoke.mjs";
+const workbenchMode = process.argv.includes("--workbench");
 import { recordDialogSmoke, relatedDialogSmoke } from "./card-modal-smoke.mjs";
 import { execFileSync } from "node:child_process";
 import {
@@ -101,23 +103,25 @@ await writeFile(
 await cp(
   join(
     root,
-    capabilitiesMode
-      ? "examples/capabilities"
-      : detailsMode
-        ? "examples/details"
-        : shellMode
-          ? "examples/shell"
-          : workflowMode
-            ? "examples/workflow"
-            : voucherMode
-              ? "examples/voucher"
-              : documentMode
-                ? "examples/document"
-                : reportMode
-                  ? "examples/report"
-                  : configuration
-                    ? "examples/configuration"
-                    : "examples/direct",
+    workbenchMode
+      ? "examples/workbench"
+      : capabilitiesMode
+        ? "examples/capabilities"
+        : detailsMode
+          ? "examples/details"
+          : shellMode
+            ? "examples/shell"
+            : workflowMode
+              ? "examples/workflow"
+              : voucherMode
+                ? "examples/voucher"
+                : documentMode
+                  ? "examples/document"
+                  : reportMode
+                    ? "examples/report"
+                    : configuration
+                      ? "examples/configuration"
+                      : "examples/direct",
   ),
   consumer,
   {
@@ -197,23 +201,25 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    capabilitiesMode
-      ? "tests/capabilities.type-test.ts"
-      : detailsMode
-        ? "tests/details.type-test.ts"
-        : shellMode
-          ? "tests/shell.type-test.ts"
-          : workflowMode
-            ? "tests/workflow.type-test.ts"
-            : voucherMode
-              ? "tests/voucher.type-test.ts"
-              : documentMode
-                ? "tests/document.type-test.ts"
-                : reportMode
-                  ? "tests/report.type-test.ts"
-                  : configuration
-                    ? "tests/configuration.type-test.ts"
-                    : "tests/contracts.type-test.ts",
+    workbenchMode
+      ? "tests/workbench.type-test.ts"
+      : capabilitiesMode
+        ? "tests/capabilities.type-test.ts"
+        : detailsMode
+          ? "tests/details.type-test.ts"
+          : shellMode
+            ? "tests/shell.type-test.ts"
+            : workflowMode
+              ? "tests/workflow.type-test.ts"
+              : voucherMode
+                ? "tests/voucher.type-test.ts"
+                : documentMode
+                  ? "tests/document.type-test.ts"
+                  : reportMode
+                    ? "tests/report.type-test.ts"
+                    : configuration
+                      ? "tests/configuration.type-test.ts"
+                      : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
@@ -338,23 +344,25 @@ try {
   };
   observe(page);
   await page.goto(`http://127.0.0.1:${address.port}`);
-  const smoke = capabilitiesMode
-    ? capabilitiesSmoke
-    : detailsMode
-      ? detailsSmoke
-      : shellMode
-        ? shellSmoke
-        : workflowMode
-          ? workflowSmoke
-          : voucherMode
-            ? voucherSmoke
-            : documentMode
-              ? documentSmoke
-              : reportMode
-                ? reportSmoke
-                : configuration
-                  ? configurationSmoke
-                  : directSmoke;
+  const smoke = workbenchMode
+    ? workbenchSmoke
+    : capabilitiesMode
+      ? capabilitiesSmoke
+      : detailsMode
+        ? detailsSmoke
+        : shellMode
+          ? shellSmoke
+          : workflowMode
+            ? workflowSmoke
+            : voucherMode
+              ? voucherSmoke
+              : documentMode
+                ? documentSmoke
+                : reportMode
+                  ? reportSmoke
+                  : configuration
+                    ? configurationSmoke
+                    : directSmoke;
   const printEvidenceRoot = join(
     root,
     ".scratch/print-output",
@@ -371,23 +379,25 @@ try {
     mode: "installed-tgz",
     directory: join(printEvidenceRoot, "installed-tgz"),
   });
-  const exampleName = capabilitiesMode
-    ? "capabilities"
-    : detailsMode
-      ? "details"
-      : shellMode
-        ? "shell"
-        : workflowMode
-          ? "workflow"
-          : voucherMode
-            ? "voucher"
-            : documentMode
-              ? "document"
-              : reportMode
-                ? "report"
-                : configuration
-                  ? "configuration"
-                  : "direct";
+  const exampleName = workbenchMode
+    ? "workbench"
+    : capabilitiesMode
+      ? "capabilities"
+      : detailsMode
+        ? "details"
+        : shellMode
+          ? "shell"
+          : workflowMode
+            ? "workflow"
+            : voucherMode
+              ? "voucher"
+              : documentMode
+                ? "document"
+                : reportMode
+                  ? "report"
+                  : configuration
+                    ? "configuration"
+                    : "direct";
   const exampleRoot = join(root, "examples", exampleName);
   const exampleServer = await preview({
     root: exampleRoot,
@@ -443,38 +453,42 @@ try {
       "public exports",
       "single Vue/Vuetify/Router host resolution and npm installation tree",
       "no failed browser assets",
-      ...(detailsMode
+      ...(workbenchMode
         ? [
-            "grouped raw facts, historical references, read-only child keyboard inspection, local draft leave confirmation, write locks, authentication cleanup and host beforeunload cleanup in both consumer contexts",
+            "four simultaneous workbench sections, twelve-item expansion, normal/new-tab links, typed preference search/add/remove/reload and responsive layout in both consumer contexts",
           ]
-        : shellMode
+        : detailsMode
           ? [
-              "auth flows, app themes/defaults, all six view consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
+              "grouped raw facts, historical references, read-only child keyboard inspection, local draft leave confirmation, write locks, authentication cleanup and host beforeunload cleanup in both consumer contexts",
             ]
-          : workflowMode
+          : shellMode
             ? [
-                "workflow node/target eligibility, exact audit reconciliation, voucher/runtime consumer routing and refresh-only retry in both contexts",
+                "auth flows, app themes/defaults, all six view consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
               ]
-            : voucherMode
+            : workflowMode
               ? [
-                  "voucher header/detail/child dialog, local and outer draft cancellation, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
+                  "workflow node/target eligibility, exact audit reconciliation, voucher/runtime consumer routing and refresh-only retry in both contexts",
                 ]
-              : documentMode
+              : voucherMode
                 ? [
-                    "document official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
+                    "voucher header/detail/child dialog, local and outer draft cancellation, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
                   ]
-                : reportMode
+                : documentMode
                   ? [
-                      "report dynamic columns, finite presentation/groups, isolated adopted context, retained valid reads, authority expiry, restore and cancellation; parameter total/hasMore and typed DTO examples",
+                      "document official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
                     ]
-                  : configuration
+                  : reportMode
                     ? [
-                        "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                        "report dynamic columns, finite presentation/groups, isolated adopted context, retained valid reads, authority expiry, restore and cancellation; parameter total/hasMore and typed DTO examples",
                       ]
-                    : [
-                        "browser create/edit and 20 examples",
-                        "phone record cards retain field labels, exact selection and row operations; desktop tables restored",
-                      ]),
+                    : configuration
+                      ? [
+                          "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                        ]
+                      : [
+                          "browser create/edit and 20 examples",
+                          "phone record cards retain field labels, exact selection and row operations; desktop tables restored",
+                        ]),
     ],
     exitCode: 0,
   };

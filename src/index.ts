@@ -190,3 +190,16 @@ export type {
   BatchPersistence,
 } from "./batch";
 export type { OperationActionOf } from "./operation";
+
+export { defineWorkbenchPage, defineWorkbenchPreferencesPage } from "./pages";
+export type {
+  WorkbenchRequest,
+  WorkbenchLink,
+  WorkbenchSection,
+  WorkbenchSnapshot,
+  WorkbenchAdapter,
+  WorkbenchPage,
+  WorkbenchPreference,
+  WorkbenchPreferencesAdapter,
+  WorkbenchPreferencesPage,
+} from "./workbench";

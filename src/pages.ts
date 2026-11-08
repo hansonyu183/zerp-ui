@@ -10,6 +10,8 @@ import { clone } from "./clone";
 
 export type AppPageHandle = { requestLeave(): Promise<boolean> };
 export type PageKind =
+  | "workbench"
+  | "workbench-preferences"
   | "batch"
   | "task"
   | "crud"
@@ -729,5 +731,39 @@ export function defineBatchPage<M extends OperationModel, I, B>(
       record: value.owner.resource,
       security: [value.owner.scope, value.owner.operator],
     }),
+  );
+}
+
+import WorkbenchPageView from "./WorkbenchPage.vue";
+import WorkbenchPreferencesPageView from "./WorkbenchPreferencesPage.vue";
+import type { WorkbenchPage, WorkbenchPreferencesPage } from "./workbench";
+export function defineWorkbenchPage(
+  source: PageSource<WorkbenchPage & ContentOnly>,
+): PageDefinition<"workbench"> {
+  return page(
+    "workbench",
+    () => toValue(source),
+    (value, context) =>
+      h(WorkbenchPageView, {
+        options: value,
+        scope: context.scope,
+        active: context.active,
+      }),
+    (value) => ({ definition: value.adapter, record: value.instance }),
+  );
+}
+export function defineWorkbenchPreferencesPage<K>(
+  source: PageSource<WorkbenchPreferencesPage<K> & ContentOnly>,
+): PageDefinition<"workbench-preferences"> {
+  return page(
+    "workbench-preferences",
+    () => toValue(source),
+    (value, context) =>
+      h(WorkbenchPreferencesPageView<K>, {
+        options: value,
+        scope: context.scope,
+        active: context.active,
+      }),
+    (value) => ({ definition: value.adapter, record: value.instance }),
   );
 }
