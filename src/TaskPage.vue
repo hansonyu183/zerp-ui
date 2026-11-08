@@ -6,7 +6,7 @@
 import { computed, ref, shallowRef, watch, onBeforeUnmount } from "vue";
 import { VBtn, VSelect, VFileInput } from "vuetify/components";
 import DynamicForm from "./DynamicForm.vue";
-import DomainBlockHost from "./DomainBlockHost.vue";
+import DomainBlockTabs from "./DomainBlockTabs.vue";
 import DraftCollaborationView from "./DraftCollaboration.vue";
 import BusinessInteractions from "./BusinessInteractions.vue";
 import OperationRuntime from "./OperationRuntime.vue";
@@ -189,6 +189,28 @@ function adopt() {
     settlement.value = null;
   }
 }
+const blockResetKey = computed(() => ({
+  scope: props.scope,
+  instance: props.options.instance,
+  identity: props.options.identity,
+}));
+const blockBindings = computed(() =>
+  (props.options.blocks ?? []).map((block) => ({
+    key: block.key,
+    block,
+    props: {
+      modelValue: draft.value,
+      scope: props.scope,
+      mode: "edit" as const,
+      formMode: "edit" as const,
+      disabled: disabled.value,
+      "onUpdate:modelValue": update,
+      onPending: (value: boolean) => {
+        local.value = { ...local.value, [block.key]: value };
+      },
+    },
+  })),
+);
 onBeforeUnmount(() => {
   alive = false;
   controller?.abort();
@@ -206,17 +228,10 @@ onBeforeUnmount(() => {
       @update:model-value="update"
       @pending="local = { ...local, form: $event }"
     />
-    <DomainBlockHost
-      v-for="block in options.blocks"
-      :key="block.key"
-      :block="block"
-      :model-value="draft"
-      :scope="scope"
-      mode="edit"
-      form-mode="edit"
-      :disabled="disabled"
-      @update:model-value="update"
-      @pending="local = { ...local, [block.key]: $event }"
+    <DomainBlockTabs
+      :blocks="blockBindings"
+      :reset-key="blockResetKey"
+      :pending="!!options.blocks?.some((block) => local[block.key])"
     />
     <DraftCollaborationView
       v-if="options.collaboration"

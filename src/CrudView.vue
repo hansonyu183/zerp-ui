@@ -6,7 +6,7 @@
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import { VDefaultsProvider, VBtn, VCard, VDialog } from "vuetify/components";
 import RecordDialog from "./RecordDialog.vue";
-import DomainBlockHost from "./DomainBlockHost.vue";
+import DomainBlockTabs from "./DomainBlockTabs.vue";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import {
   computed,
@@ -919,11 +919,10 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         @update:model-value="bindings.form($event)"
         @pending="blockPending = { ...blockPending, collaboration: $event }"
       />
-      <DomainBlockHost
-        v-for="block in bindings.blocks"
-        :block="block.block"
-        :key="block.key"
-        v-bind="block.props"
+      <DomainBlockTabs
+        :blocks="bindings.blocks"
+        :reset-key="`${scope}:${editVersion}`"
+        :pending="!!blocks?.some((block) => blockPending[block.key])"
       />
       <VBtn
         color=""

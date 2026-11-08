@@ -32,11 +32,11 @@
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.21.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.21.0) 下载 `zerp-ui-0.21.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.22.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.22.0) 下载 `zerp-ui-0.22.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.21.0.tgz
+pnpm add ./zerp-ui-0.22.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -261,3 +261,7 @@ groups: [
 常规事实根据容器宽度在 600/900px 切为两/三列，手机一列；标签在值上方。`textarea`、列表和重复记录占整行，长文本保留换行且不溢出。不提供消费者列数或 CSS 配置。0.18.0 工件验证与获授权的 oit-go 接入分别记录于 #87；合成验证与真实应用验收分别报告。
 
 新建和编辑复用同一 `groups`（`FieldGroup<T>`）定义；`defineCrud`、`defineConfiguration` 也可在字段旁声明 `groups`。切换 Tab 保留完整草稿和未完成输入，所有组共同校验和保存；标签提示待完善项，子项确认或取消前暂不能切组。0.18.0 的 `readGroups` / `ReadFieldGroup` 直接迁移为 `groups` / `FieldGroup`。
+
+### 领域区块分组（0.22.0）
+
+配置、资料维护、资料提交和处理页面的多个领域区块按原有标签、顺序统一为Tab；单区块直接展示，零区块不生成空容器。所有组保持挂载、共用原草稿和保存，隐藏组仍校验并提示待完善；局部输入pending时不能切组。切换记录或作用域回到首组，Tab不调用Adapter，也不改变未知写入状态。普通字段不声明分组或使用空分组时仍直接展示。

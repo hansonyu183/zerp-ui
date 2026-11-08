@@ -6,7 +6,7 @@
 import { VBtn, VCard, VFileInput } from "vuetify/components";
 import { equalValues } from "./editor-values";
 import type { EditProtection } from "./edit-guard";
-import DomainBlockHost from "./DomainBlockHost.vue";
+import DomainBlockTabs from "./DomainBlockTabs.vue";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
@@ -923,11 +923,10 @@ onBeforeUnmount(() => {
             {{ submitCaption }}
           </VBtn>
         </VCard>
-        <DomainBlockHost
-          v-for="block in bindings.blocks"
-          :block="block.block"
-          :key="`${instance}:${block.key}`"
-          v-bind="block.props"
+        <DomainBlockTabs
+          :blocks="bindings.blocks"
+          :reset-key="`${scope}:${instance}`"
+          :pending="!!blocks?.some((block) => pending[`block:${block.key}`])"
         />
       </template>
       <p v-else>暂无{{ selected === "official" ? "正式资料" : "开放候选" }}</p>

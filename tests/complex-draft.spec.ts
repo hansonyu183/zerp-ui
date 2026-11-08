@@ -387,3 +387,13 @@ it("retains an unfinished child draft when a calculation adopts equal committed 
     { ingredient: "未确认配料", ratio: "1.0000" },
   ]);
 }, 60000);
+
+it("business confirmation keeps saving locked while domain tabs remain available", async () => {
+  const w = await start();
+  const tab = w.get('[role="tab"][aria-label="计算事实"]');
+  expect(tab.attributes("disabled")).toBeUndefined();
+  await tab.trigger("click");
+  await flushPromises();
+  expect(tab.attributes("aria-selected")).toBe("true");
+  expect(button(w, "保存").attributes("disabled")).toBeDefined();
+});
