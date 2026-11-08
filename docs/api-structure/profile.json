@@ -1,0 +1,16 @@
+{
+  "id": "api-structure/1-design",
+  "status": "design-only",
+  "specification": "https://github.com/hansonyu183/zerp-ui/issues/106",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "openapi": "3.1.1",
+  "types": ["string", "integer", "number", "boolean", "object", "array", "null"],
+  "keywords": ["$id", "$schema", "$ref", "title", "description", "type", "properties", "required", "additionalProperties", "items", "minItems", "maxItems", "uniqueItems", "minLength", "maxLength", "pattern", "minimum", "maximum", "exclusiveMinimum", "enum", "oneOf", "const", "default", "readOnly", "writeOnly", "format"],
+  "formats": ["date", "uuid", "password", "binary"],
+  "nullable": "one non-null primitive/object/array type plus null; no general type union",
+  "oneOf": "only branches containing const and optional title/description; distinct scalar values",
+  "references": "local components or same-origin immutable schema URI; no reference siblings; no recursive expansion",
+  "additionalProperties": "false or explicit non-empty value schema; never true",
+  "annotationPolicy": "title/description describe business data; no menu, component, view, layout, hidden or disabled keywords",
+  "extensionPolicy": "new concrete OIT scenario, failed representation proof, decision in issue, schema fixture and inference test before protocol extension"
+}
