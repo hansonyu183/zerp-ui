@@ -38,3 +38,17 @@ const invalidSubmit: AuthSubmit = {
   password: "b",
 };
 void [values, mode, submit, invalidSubmit];
+
+const semanticNavigation: NavigationGroup = {
+  key: "vouchers",
+  caption: "单据",
+  items: [
+    {
+      key: "AB",
+      caption: "AB 采购收货",
+      to: "/voucher?type=AB",
+      section: { key: "A", caption: "采购" },
+    },
+  ],
+};
+void semanticNavigation;

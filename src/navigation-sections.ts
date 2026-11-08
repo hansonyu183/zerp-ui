@@ -47,8 +47,24 @@ function sections(items: readonly Item[], caption?: string): Section[] {
 
 /** Presentation only: never inspect resource keys, routes or business metadata. */
 export function navigationSections(group: NavigationGroup): readonly Section[] {
-  if (group.ungrouped || group.items.length <= limit)
-    return [{ items: group.items }];
+  if (group.ungrouped) return [{ items: group.items }];
+  if (group.items.some((item) => item.section)) {
+    const explicit = new Map<
+      string | undefined,
+      { caption?: string; items: Item[] }
+    >();
+    for (const item of group.items) {
+      const key = item.section?.key;
+      const section = explicit.get(key) ?? {
+        caption: item.section?.caption,
+        items: [],
+      };
+      section.items.push(item);
+      explicit.set(key, section);
+    }
+    return [...explicit.values()];
+  }
+  if (group.items.length <= limit) return [{ items: group.items }];
   const candidates = new Map<string, Item[]>();
   for (const item of group.items) {
     const word = firstWord(item);

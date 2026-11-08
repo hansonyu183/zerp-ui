@@ -14,7 +14,32 @@
 
 0.13.0 的完整变更见 [CHANGELOG](CHANGELOG.md#0130)：手机端列表改为卡片、导航分组默认收起，配置定义移除 `createLabel`，新增文案统一由库负责。
 
-导航组超过 12 项时，库按显示名称的共同词头自动增加可折叠子组；过长列表按首尾名称分段，每段最多 12 项。短分组和 `ungrouped` 入口不变。归组不读取资源标识或路由，不增加后端请求；叶子名称、链接与组内顺序保持原值。
+导航项可提供 `section: { key, caption }` 声明语义分组：同一 key 汇入同一可折叠二级组，caption 由消费者提供业务名称；组顺序按首次出现，组内保留原顺序。相同 key 必须提供相同 caption，不同 key 即使名称相同仍是独立组。显式组不受 12 项阈值影响，也不按名称再次拆分；没有 section 的项直接列出。`ungrouped` 始终直列。
+
+未提供任何 section 时，导航组超过 12 项才按显示名称的共同词头自动归组；过长列表按首尾名称分段，每段最多 12 项。归组不读取资源标识或路由，不增加后端请求；叶子名称、链接保持原值。业务码分组必须由消费者显式提供 section，不能依赖显示名称推断类型码。
+
+```ts
+const navigation: NavigationGroup[] = [
+  {
+    key: "vouchers",
+    caption: "单据",
+    items: [
+      {
+        key: "AB",
+        caption: "AB 采购收货",
+        to: "/vou?type=AB",
+        section: { key: "A", caption: "采购" },
+      },
+      {
+        key: "AC",
+        caption: "AC 采购发票",
+        to: "/vou?type=AC",
+        section: { key: "A", caption: "采购" },
+      },
+    ],
+  },
+];
+```
 
 ## 固定版本安装
 
@@ -32,11 +57,11 @@
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.24.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.24.0) 下载 `zerp-ui-0.24.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.25.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.25.0) 下载 `zerp-ui-0.25.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.24.0.tgz
+pnpm add ./zerp-ui-0.25.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。

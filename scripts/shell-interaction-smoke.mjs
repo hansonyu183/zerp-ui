@@ -80,6 +80,30 @@ export async function shellInteractionSmoke(page) {
       `${name} touch target edges are hit-testable`,
     );
   }
+  // Explicit semantic sections remain intact even below/above the automatic threshold.
+  await toggle.click();
+  const explicit = navigation.locator(":scope > details").filter({
+    has: page.locator(":scope > summary", { hasText: /^编码分组单据$/ }),
+  });
+  await explicit.locator(":scope > summary").click();
+  const purchase = explicit
+    .locator("details")
+    .filter({ has: page.locator(":scope > summary", { hasText: /^采购$/ }) });
+  await expect(purchase.locator("a")).toHaveCount(13);
+  await purchase.locator(":scope > summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    purchase.getByRole("link", { name: "A0 合成采购0", exact: true }),
+  ).toBeVisible();
+  await expect(
+    purchase.getByRole("link", { name: "A0 合成采购0", exact: true }),
+  ).toHaveAttribute("href", "/direct?type=A0");
+  await expect(explicit.locator("details")).toHaveCount(2);
+  await expect(
+    explicit.getByRole("link", { name: "单据查询", exact: true }),
+  ).toBeVisible();
+  await explicit.locator(":scope > summary").click();
+  await page.keyboard.press("Escape");
   // Same behavior through the installed tgz: native disclosure keyboard and narrow links.
   await toggle.click();
   const longMenu = navigation

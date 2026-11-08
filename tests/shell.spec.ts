@@ -462,6 +462,53 @@ it("groups long menus by displayed names and bounds unrelated lists without inte
     expect(wrapper.findAll("nav a").map((link) => link.text())).toEqual(
       captions.slice(0, 12),
     );
+    const explicitItems = [
+      { key: "search", caption: "单据查询", to: "/catalog" },
+      ...Array.from({ length: 13 }, (_, index) => ({
+        key: `A${index}`,
+        caption: `A${index} 不同名称${index}`,
+        to: `/catalog?type=A${index}`,
+        section: { key: "A", caption: "采购" },
+      })),
+      {
+        key: "BA",
+        caption: "BA 采购退货",
+        to: "/catalog?type=BA",
+        section: { key: "B", caption: "采购" },
+      },
+    ];
+    await wrapper.setProps({
+      navigation: [{ key: "vouchers", caption: "单据", items: explicitItems }],
+    });
+    const explicit = wrapper.findAll(".zerp-navigation-section");
+    expect(explicit.map((section) => section.get("summary").text())).toEqual([
+      "采购",
+      "采购",
+    ]);
+    expect(explicit.map((section) => section.findAll("a").length)).toEqual([
+      13, 1,
+    ]);
+    expect(
+      wrapper.findAll("nav a").map((link) => link.attributes("href")),
+    ).toEqual(explicitItems.map((item) => item.to));
+    await wrapper.setProps({
+      navigation: [
+        { key: "vouchers", caption: "单据", items: explicitItems.slice(0, 3) },
+      ],
+    });
+    expect(wrapper.findAll(".zerp-navigation-section")).toHaveLength(1);
+    expect(wrapper.findAll("nav a")).toHaveLength(3);
+    await wrapper.setProps({
+      navigation: [
+        {
+          key: "vouchers",
+          caption: "单据",
+          ungrouped: true,
+          items: explicitItems,
+        },
+      ],
+    });
+    expect(wrapper.findAll(".zerp-navigation-section")).toHaveLength(0);
   } finally {
     wrapper.unmount();
   }
