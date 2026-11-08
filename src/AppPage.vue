@@ -351,7 +351,7 @@ function navigated(event: MouseEvent) {
                   <component
                     :is="section.caption ? 'details' : 'div'"
                     v-for="(section, index) in sections"
-                    :key="index"
+                    :key="section.key ?? index"
                     :class="{ 'zerp-navigation-section': section.caption }"
                   >
                     <summary v-if="section.caption">

@@ -1,7 +1,11 @@
 import type { NavigationGroup } from "./shell";
 
 type Item = NavigationGroup["items"][number];
-type Section = Readonly<{ caption?: string; items: readonly Item[] }>;
+type Section = Readonly<{
+  key?: string;
+  caption?: string;
+  items: readonly Item[];
+}>;
 const limit = 12;
 const words = new Intl.Segmenter("zh-CN", { granularity: "word" });
 
@@ -51,11 +55,12 @@ export function navigationSections(group: NavigationGroup): readonly Section[] {
   if (group.items.some((item) => item.section)) {
     const explicit = new Map<
       string | undefined,
-      { caption?: string; items: Item[] }
+      { key?: string; caption?: string; items: Item[] }
     >();
     for (const item of group.items) {
       const key = item.section?.key;
       const section = explicit.get(key) ?? {
+        key,
         caption: item.section?.caption,
         items: [],
       };
