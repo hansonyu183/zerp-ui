@@ -5,7 +5,7 @@
 >
 import { VBtn } from "vuetify/components";
 import RecordDialog from "./RecordDialog.vue";
-import DomainBlockHost from "./DomainBlockHost.vue";
+import DomainBlockTabs from "./DomainBlockTabs.vue";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import Feedback from "./Feedback.vue";
@@ -738,11 +738,10 @@ onBeforeUnmount(() => {
         @update:model-value="bindings.form($event)"
         @pending="pending = { ...pending, collaboration: $event }"
       />
-      <DomainBlockHost
-        v-for="block in bindings.blocks"
-        :block="block.block"
-        :key="block.key"
-        v-bind="block.props"
+      <DomainBlockTabs
+        :blocks="bindings.blocks"
+        :reset-key="`${scope}:${editId}`"
+        :pending="Object.values(pending).some(Boolean)"
       />
       <VBtn
         color=""

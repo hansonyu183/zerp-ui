@@ -5,15 +5,20 @@ export async function complexDraftSmoke(page) {
   await expect(
     page.getByRole("heading", { name: "复杂资料协作", exact: true }),
   ).toBeVisible();
+  const tab = (label) =>
+    page.getByRole("tab", { name: label, exact: true }).click();
   const save = page.getByRole("button", { name: "保存", exact: true });
+  await tab("计算事实");
   await expect(
     page.getByRole("textbox", { name: "合计结果", exact: true }),
   ).toHaveValue("1.2300");
+  await tab("嵌套资料");
   await expect(page.getByLabel("仓库", { exact: true })).toHaveValue(
     "历史仓库",
   );
   await expect(page.getByText("目录新仓库名", { exact: true })).toHaveCount(0);
   await expect(save).toBeDisabled();
+  await tab("单位");
   await page
     .getByRole("textbox", { name: "单位数量", exact: true })
     .first()
@@ -27,12 +32,14 @@ export async function complexDraftSmoke(page) {
     .getByRole("textbox", { name: "换算比", exact: true })
     .first()
     .fill("9007199254740993.0100");
+  await tab("价格");
   await page
     .getByRole("textbox", { name: "价格金额", exact: true })
     .fill("999.00");
   await page
     .getByRole("textbox", { name: "价格金额", exact: true })
     .fill("1.2300");
+  await tab("配方明细");
   await page
     .getByRole("button", { name: "编辑配料 · 明细行 2", exact: true })
     .click();
@@ -71,6 +78,7 @@ export async function complexDraftSmoke(page) {
   await expect(detail).toContainText("1.2300");
   await expect(detail).not.toContainText("999.00");
   await expect(detail).toContainText("合成工件核对");
+  await tab("配方明细");
   await page
     .getByRole("button", { name: "查看配料 · 明细行 2", exact: true })
     .click();
