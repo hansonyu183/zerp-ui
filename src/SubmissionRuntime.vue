@@ -926,7 +926,7 @@ onBeforeUnmount(() => {
         <DomainBlockTabs
           :blocks="bindings.blocks"
           :reset-key="`${scope}:${instance}`"
-          :pending="busy"
+          :pending="!!blocks?.some((block) => pending[`block:${block.key}`])"
         />
       </template>
       <p v-else>暂无{{ selected === "official" ? "正式资料" : "开放候选" }}</p>

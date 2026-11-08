@@ -922,7 +922,7 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       <DomainBlockTabs
         :blocks="bindings.blocks"
         :reset-key="`${scope}:${editVersion}`"
-        :pending="Object.values(blockPending).some(Boolean)"
+        :pending="!!blocks?.some((block) => blockPending[block.key])"
       />
       <VBtn
         color=""

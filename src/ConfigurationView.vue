@@ -741,7 +741,7 @@ onBeforeUnmount(() => {
       <DomainBlockTabs
         :blocks="bindings.blocks"
         :reset-key="`${scope}:${editId}`"
-        :pending="Object.values(pending).some(Boolean)"
+        :pending="!!blocks?.some((block) => pending[`block:${block.key}`])"
       />
       <VBtn
         color=""

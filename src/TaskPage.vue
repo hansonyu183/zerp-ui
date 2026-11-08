@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
     <DomainBlockTabs
       :blocks="blockBindings"
       :reset-key="blockResetKey"
-      :pending="pending"
+      :pending="!!options.blocks?.some((block) => local[block.key])"
     />
     <DraftCollaborationView
       v-if="options.collaboration"
