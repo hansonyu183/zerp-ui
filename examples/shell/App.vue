@@ -64,6 +64,25 @@ const navigation: NavigationGroup[] = [
     ],
   },
   {
+    key: "explicit-vouchers",
+    caption: "编码分组单据",
+    items: [
+      { key: "search", caption: "单据查询", to: "/direct?type=all" },
+      ...Array.from({ length: 13 }, (_, index) => ({
+        key: `purchase-${index}`,
+        caption: `A${index} 合成采购${index}`,
+        to: `/direct?type=A${index}`,
+        section: { key: "A", caption: "采购" },
+      })),
+      {
+        key: "sale",
+        caption: "BB 合成销售",
+        to: "/direct?type=BB",
+        section: { key: "B", caption: "销售" },
+      },
+    ],
+  },
+  {
     key: "long-menu",
     caption: "多项导航",
     items: [

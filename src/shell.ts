@@ -33,6 +33,7 @@ export type NavigationGroup = Readonly<{
     caption: string;
     to: RouteLocationRaw;
     icon?: NavigationIcon;
+    section?: Readonly<{ key: string; caption: string }>;
   }>[];
 }>;
 export const defaultThemeChoice: ThemeChoice = Object.freeze({

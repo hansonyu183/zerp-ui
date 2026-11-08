@@ -15,7 +15,7 @@ assert.equal(
 );
 const sourceSHA = git("rev-parse", "HEAD");
 const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-assert.equal(pkg.version, "0.24.0");
+assert.equal(pkg.version, "0.25.0");
 const dir = join(root, ".scratch", "release", sourceSHA);
 await mkdir(dir, { recursive: true });
 const commands = [];
@@ -59,7 +59,7 @@ const slices = [
     "workflow",
     "shell",
   ].map((name, index) => ({
-    issue: index + 9,
+    issue: name === "shell" ? 104 : index + 9,
     name,
     build: `build:${name}`,
     flag: [`--${name}`],
