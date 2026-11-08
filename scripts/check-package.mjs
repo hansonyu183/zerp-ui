@@ -823,10 +823,18 @@ async function configurationSmoke(page) {
     await edit();
     if (value === "period")
       await page.getByLabel("锁定", { exact: true }).check();
-    else
+    else {
       await page
         .getByRole("textbox", { name: "名称", exact: true })
         .fill("报表保存");
+      const parameter = page.getByRole("textbox", {
+        name: "参数名",
+        exact: true,
+      });
+      await expect(parameter).toHaveValue("期间");
+      await expect(button("编辑参数1")).toHaveCount(0);
+      await parameter.fill("直接编辑期间");
+    }
     await save();
     await page.getByRole("status").filter({ hasText: "配置已保存" }).waitFor();
   }
@@ -1106,12 +1114,10 @@ async function documentSmoke(page) {
   await button("正式资料").click();
   await button("编辑档案").click();
   await name().fill("新候选定价");
-  await button("编辑合成客户定价 1").click();
   await page
     .getByRole("combobox", { name: "定价客户", exact: true })
     .press("ArrowDown");
   await page.getByRole("option", { name: "客户乙", exact: true }).click();
-  await button("确定合成客户定价").click();
   await page.getByLabel("本地附件").setInputFiles({
     name: "synthetic.txt",
     mimeType: "text/plain",
@@ -1177,13 +1183,11 @@ async function documentSmoke(page) {
     .waitFor();
   await page.getByText("0.0100", { exact: true }).waitFor();
   await button("编辑档案").click();
-  await button("编辑合成产品配方 1").click();
   await page
     .getByRole("combobox", { name: "配方原料", exact: true })
     .press("ArrowDown");
   await page.getByRole("option", { name: "合成原料乙", exact: true }).click();
   await page.getByLabel("配方用量").fill("1.2300");
-  await button("确定合成产品配方").click();
   await scenario("conflict");
   await button("提交档案").click();
   await page.getByRole("alert").filter({ hasText: "合成修订冲突" }).waitFor();
@@ -1260,7 +1264,6 @@ async function voucherSmoke(page) {
     .click();
   await standalone.getByLabel("原料").fill("合成原料甲");
   await standalone.getByLabel("用量").fill("0.0100");
-  await standalone.getByRole("button", { name: "确定子项" }).click();
   await standalone.getByRole("button", { name: "确定配方" }).click();
   assert.ok(
     (
@@ -1443,7 +1446,6 @@ async function voucherSmoke(page) {
   await openingButton("编辑配方 · 明细行 1").click();
   await formulaButton("新增").click();
   await formulaDialog.getByLabel("子项金额").fill("2.5000");
-  await formulaButton("确定子项").click();
   await formulaButton("取消配方").click();
   assert.ok(
     (
@@ -1453,7 +1455,6 @@ async function voucherSmoke(page) {
   await openingButton("编辑配方 · 明细行 1").click();
   await formulaButton("新增").click();
   await formulaDialog.getByLabel("子项金额").fill("2.5000");
-  await formulaButton("确定子项").click();
   await formulaButton("确定配方").click();
   await button("提交单据").click();
   await viewRow("SYN-2").click();

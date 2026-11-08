@@ -1,7 +1,6 @@
 import { h, type VNodeChild } from "vue";
 import DynamicForm from "./DynamicForm.vue";
 import GroupedFacts from "./GroupedFacts.vue";
-import DomainRows from "./DomainRows.vue";
 import VoucherEditor from "./VoucherEditor.vue";
 import { formFacts, groupFields } from "./details";
 import { validate } from "./validation";
@@ -76,24 +75,20 @@ export function domainBlocks<D extends object>() {
               ),
               scope: context.scope,
             });
-          return h(
-            "fieldset",
-            { "aria-label": options.label, disabled: context.disabled },
-            [
-              h("legend", options.label),
-              h(DynamicForm<D[K] & object>, {
-                fields: options.fields,
-                groups: options.groups,
-                modelValue: value,
-                scope: context.scope,
-                mode: context.formMode,
-                disabled: context.disabled,
-                "onUpdate:modelValue": (local: D[K] & object) =>
-                  context.update(setKey(context.value, options.key, local)),
-                onPending: context.pending,
-              }),
-            ],
-          );
+          return h("section", { "aria-label": options.label }, [
+            h("h3", options.label),
+            h(DynamicForm<D[K] & object>, {
+              fields: options.fields,
+              groups: options.groups,
+              modelValue: value,
+              scope: context.scope,
+              mode: context.formMode,
+              disabled: context.disabled,
+              "onUpdate:modelValue": (local: D[K] & object) =>
+                context.update(setKey(context.value, options.key, local)),
+              onPending: context.pending,
+            }),
+          ]);
         },
       });
     },
@@ -107,6 +102,17 @@ export function domainBlocks<D extends object>() {
         set: (value: D[K], rows: readonly R[]) => D[K];
       },
     ): DomainBlock<D> {
+      // The rows factory explicitly selects collection semantics, including rows
+      // whose shape also happens to match ReferenceValue.
+      const fields = [
+        {
+          key: "rows",
+          label: options.label,
+          type: "rows",
+          fields: options.fields,
+          empty: options.empty,
+        },
+      ] as unknown as Fields<{ rows: readonly R[] }>;
       return Object.freeze({
         key: options.key,
         label: options.label,
@@ -116,21 +122,34 @@ export function domainBlocks<D extends object>() {
             .map((row) => validate(options.fields, row, mode))
             .find(Boolean),
         [renderBlock]: (context: DomainBlockContext<D>) => {
-          return h(DomainRows<R>, {
-            label: options.label,
-            fields: options.fields,
-            empty: options.empty,
-            modelValue: options.get(context.value[options.key]),
+          const rows = options.get(context.value[options.key]);
+          if (context.mode === "read")
+            return h("section", { "aria-label": options.label }, [
+              h("h3", options.label),
+              ...rows.map((row, index) =>
+                h(GroupedFacts, {
+                  value: row,
+                  groups: groupFields(
+                    formFacts(options.fields),
+                    undefined,
+                    `${options.label} ${index + 1}`,
+                  ),
+                  scope: context.scope,
+                }),
+              ),
+            ]);
+          return h(DynamicForm<{ rows: readonly R[] }>, {
+            fields,
+            modelValue: { rows },
             scope: context.scope,
-            mode: context.mode,
-            formMode: context.formMode,
+            mode: context.formMode,
             disabled: context.disabled,
-            "onUpdate:modelValue": (rows: readonly R[]) =>
+            "onUpdate:modelValue": (value: { rows: readonly R[] }) =>
               context.update(
                 setKey(
                   context.value,
                   options.key,
-                  options.set(context.value[options.key], rows),
+                  options.set(context.value[options.key], value.rows),
                 ),
               ),
             onPending: context.pending,

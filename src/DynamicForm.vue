@@ -1,13 +1,5 @@
 <script setup lang="ts" generic="T extends object">
-import {
-  computed,
-  ref,
-  shallowRef,
-  watch,
-  watchEffect,
-  onBeforeUnmount,
-  useId,
-} from "vue";
+import { computed, ref, watch, watchEffect, onBeforeUnmount, useId } from "vue";
 import type { AnyField, Fields, ReferenceValue, FieldGroup } from "./contracts";
 import {
   VTabs,
@@ -17,17 +9,14 @@ import {
   VSelect,
   VCheckbox,
   VBtn,
-  VCard,
-  VCardText,
-  VCardActions,
 } from "vuetify/components";
 import { fieldEnabled, type FormField } from "./form-field";
 import FieldFeedback from "./FieldFeedback.vue";
-import FactFields from "./FactFields.vue";
-import { formFacts, groupFields } from "./details";
+import { groupFields } from "./details";
 import ReferencePicker from "./ReferencePicker.vue";
 import { validateFields, type FormValidationState } from "./validation";
 import { clone } from "./clone";
+import { equalValues } from "./editor-values";
 const props = defineProps<{
   fields: Fields<T>;
   groups?: readonly FieldGroup<T>[];
@@ -64,11 +53,7 @@ function groupIssueCount(fields: readonly FormField[]) {
   const keys = new Set<string>(
     validation.value.issues.map((issue) => String(issue.key)),
   );
-  for (const source of sources.value) {
-    if (source === "$child" || source === "$editing") {
-      if (editing.value) keys.add(editing.value.key);
-    } else keys.add(source.replace(/^\$integer:/, ""));
-  }
+  for (const source of sources.value) keys.add(sourceField(source));
   return fields.filter((field) => keys.has(field.key)).length;
 }
 function set(key: string, value: unknown) {
@@ -81,6 +66,8 @@ function set(key: string, value: unknown) {
     )
       next[field.key] = field.type === "reference" ? null : [];
   }
+  if (props.fields.some((field) => field.key === key && field.type === "rows"))
+    emittedRows.set(key, value);
   emit("update:modelValue", next as T);
 }
 const formId = useId();
@@ -130,22 +117,20 @@ function input(field: AnyField, value: string) {
     }
   } else set(field.key, value);
 }
-const editing = shallowRef<{
-  key: string;
-  index: number;
-  value: object;
-  fields: readonly AnyField[];
-} | null>(null);
-const childInvalid = ref(false);
-const childPending = ref(false),
-  sources = ref(new Set<string>());
+const sources = ref(new Set<string>());
+const rowKeys = new Map<string, number[]>();
+const emittedRows = new Map<string, unknown>();
+let nextRowKey = 0;
+function sourceField(source: string) {
+  return source.replace(/^\$integer:/, "").replace(/^\$row:(.*):\d+$/, "$1");
+}
 const validation = computed(() =>
   validateFields(props.fields, props.modelValue, props.mode ?? "edit"),
 );
 const hasPending = computed(() =>
   [...sources.value].some((key) => {
     const field = (props.fields as readonly FormField[]).find(
-      (f) => f.key === key.replace(/^\$integer:/, ""),
+      (f) => f.key === sourceField(key),
     );
     return !field || fieldEnabled(field, props.modelValue);
   }),
@@ -186,40 +171,46 @@ function options(field: Extract<AnyField, { type: "enum" | "multi-enum" }>) {
 function rows(key: string) {
   return (values.value[key] ?? []) as object[];
 }
-function begin(field: Extract<AnyField, { type: "rows" }>, index: number) {
-  childPending.value = false;
-  childInvalid.value = false;
-  pending("$child", false);
-  editing.value = {
-    key: field.key,
-    index,
-    value: clone(index < 0 ? field.empty() : rows(field.key)[index]),
-    fields: field.fields,
-  };
-  pending("$editing", true);
+function rowEntries(key: string) {
+  const values = rows(key);
+  let keys = rowKeys.get(key);
+  if (!keys) rowKeys.set(key, (keys = []));
+  while (keys.length < values.length) keys.push(nextRowKey++);
+  keys.length = values.length;
+  return values.map((value, index) => ({ value, id: keys[index] }));
 }
-function confirm() {
-  const e = editing.value;
-  if (!e || props.disabled || childPending.value || childInvalid.value) return;
-  const next = [...rows(e.key)];
-  if (e.index < 0) next.push(clone(e.value));
-  else next[e.index] = clone(e.value);
-  set(e.key, next);
-  editing.value = null;
-  pending("$editing", false);
+function writable(field: AnyField) {
+  return (
+    !props.disabled && !field.readonly && fieldEnabled(field, props.modelValue)
+  );
 }
-function cancelEditing() {
-  editing.value = null;
-  pending("$child", false);
-  pending("$editing", false);
+function updateRow(field: AnyField, id: number, value: object) {
+  const index = rowKeys.get(field.key)?.indexOf(id) ?? -1;
+  if (!writable(field) || index < 0) return;
+  const next = [...rows(field.key)];
+  next[index] = value;
+  set(field.key, next);
+}
+function removeRow(field: AnyField, id: number) {
+  const keys = rowKeys.get(field.key);
+  const index = keys?.indexOf(id) ?? -1;
+  if (!writable(field) || index < 0) return;
+  keys!.splice(index, 1);
+  pending(`$row:${field.key}:${id}`, false);
+  set(
+    field.key,
+    rows(field.key).filter((_, i) => i !== index),
+  );
+}
+function rowPending(key: string, id: number, busy: boolean) {
+  if (rowKeys.get(key)?.includes(id)) pending(`$row:${key}:${id}`, busy);
 }
 watch(
-  () => [props.scope, props.fields],
+  () => [props.scope, props.fields, props.mode],
   () => {
     selectedGroup.value = groups.value[0]?.key;
-    editing.value = null;
-    childPending.value = false;
-    childInvalid.value = false;
+    rowKeys.clear();
+    emittedRows.clear();
     sources.value.clear();
     integerInput.value = {};
     emittedInteger.clear();
@@ -230,6 +221,19 @@ watch(
   () => ({ ...values.value }),
   (current, previous) => {
     for (const field of props.fields as readonly AnyField[]) {
+      if (field.type === "rows") {
+        const emitted = emittedRows.get(field.key);
+        emittedRows.delete(field.key);
+        if (
+          !equalValues(current[field.key], previous[field.key]) &&
+          !equalValues(current[field.key], emitted)
+        ) {
+          rowKeys.delete(field.key);
+          for (const source of sources.value)
+            if (source.startsWith(`$row:${field.key}:`))
+              sources.value.delete(source);
+        }
+      }
       if (
         field.type !== "integer" ||
         Object.is(current[field.key], previous[field.key])
@@ -277,7 +281,6 @@ onBeforeUnmount(() => emit("pending", false));
             ? `${formId}-issues-${index}`
             : undefined
         "
-        :disabled="!!editing"
       >
         {{ group.label }}
         <span
@@ -357,36 +360,37 @@ onBeforeUnmount(() => emit("pending", false));
               class="zerp-field-group"
             >
               <legend>{{ field.label }}</legend>
-              <ol>
-                <li v-for="(row, index) in rows(field.key)" :key="index">
-                  <FactFields :value="row" :fields="formFacts(field.fields)" />
-                  <VBtn
-                    type="button"
-                    variant="text"
-                    :disabled="disabled || field.readonly || !!editing"
-                    @click="begin(field, index)"
-                    >编辑{{ field.label }}{{ index + 1 }}</VBtn
-                  >
-                  <VBtn
-                    type="button"
-                    variant="text"
-                    color="error"
-                    :disabled="disabled || field.readonly || !!editing"
-                    @click="
-                      set(
-                        field.key,
-                        rows(field.key).filter((_, i) => i !== index),
-                      )
-                    "
-                    >删除{{ field.label }}{{ index + 1 }}</VBtn
-                  >
-                </li>
-              </ol>
+              <section
+                v-for="(row, index) in rowEntries(field.key)"
+                :key="row.id"
+                :aria-label="`${field.label} ${index + 1}`"
+                class="zerp-form-row"
+              >
+                <DynamicForm
+                  :fields="field.fields"
+                  :model-value="row.value"
+                  :scope="scope"
+                  :mode="mode"
+                  :disabled="!writable(field)"
+                  @update:model-value="updateRow(field, row.id, $event)"
+                  @pending="rowPending(field.key, row.id, $event)"
+                />
+                <VBtn
+                  type="button"
+                  variant="text"
+                  color="error"
+                  :disabled="!writable(field)"
+                  @click="removeRow(field, row.id)"
+                  >删除{{ field.label }} {{ index + 1 }}</VBtn
+                >
+              </section>
               <VBtn
                 type="button"
                 variant="tonal"
-                :disabled="disabled || field.readonly || !!editing"
-                @click="begin(field, -1)"
+                :disabled="!writable(field)"
+                @click="
+                  set(field.key, [...rows(field.key), clone(field.empty())])
+                "
                 >新增</VBtn
               >
             </fieldset>
@@ -476,39 +480,5 @@ onBeforeUnmount(() => emit("pending", false));
         </div>
       </div>
     </section>
-    <VCard
-      class="zerp-form-field--wide"
-      v-if="editing"
-      aria-label="编辑子项"
-      variant="outlined"
-    >
-      <VCardText
-        ><DynamicForm
-          :fields="editing.fields"
-          :model-value="editing.value"
-          :scope="scope"
-          :disabled="disabled"
-          :mode="mode"
-          @update:model-value="editing = { ...editing!, value: $event }"
-          @validation="childInvalid = !$event.valid"
-          @pending="
-            childPending = $event;
-            pending('$child', $event);
-          "
-      /></VCardText>
-      <VCardActions
-        ><VBtn
-          type="button"
-          color="primary"
-          variant="flat"
-          :disabled="disabled || childPending || childInvalid"
-          @click="confirm"
-          >确定子项</VBtn
-        >
-        <VBtn type="button" :disabled="disabled" @click="cancelEditing"
-          >取消子项</VBtn
-        ></VCardActions
-      >
-    </VCard>
   </div>
 </template>

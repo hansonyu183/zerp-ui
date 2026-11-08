@@ -60,7 +60,7 @@ async function click(w: VueWrapper, label: string) {
   await flushPromises();
 }
 function input(w: VueWrapper, label: string) {
-  return w.get<HTMLInputElement>(`input[aria-label="${label}"]`);
+  return w.findAll<HTMLInputElement>(`input[aria-label="${label}"]`)[0];
 }
 async function answer(w: VueWrapper) {
   await input(w, "核对计算结果").setValue(true);
@@ -69,7 +69,7 @@ async function answer(w: VueWrapper) {
   await input(w, "计算说明").trigger("change");
   await flushPromises();
 }
-it("saves only confirmed complex blocks with exact values, children and adopted historical references", async () => {
+it("saves directly edited complex blocks with exact values, children and adopted historical references", async () => {
   const saves: ComplexDraft[] = [];
   const w = await start({
     save: async (value) => {
@@ -78,23 +78,18 @@ it("saves only confirmed complex blocks with exact values, children and adopted 
   });
   expect(input(w, "仓库").element.value).toBe("历史仓库");
   expect(w.text()).not.toContain("目录新仓库名");
-  await click(w, "编辑单位 1");
   await input(w, "换算比").setValue("9007199254740993.0100");
   expect(button(w, "保存").attributes("disabled")).toBeDefined();
-  await click(w, "确定单位");
-  await click(w, "编辑价格 1");
   await input(w, "价格金额").setValue("999.00");
-  await click(w, "取消价格");
+  await input(w, "价格金额").setValue("1.2300");
   await click(w, "编辑配料 · 明细行 1");
   const dialog = new DOMWrapper(document.body).get(
     '[role="dialog"][aria-label="配料 · 明细行 1"]',
   );
-  await click(w, "编辑配料1");
   await dialog
     .get('input[aria-label="配料名"]')
     .setValue("已确认但取消整个配料面板");
-  await click(w, "确定子项");
-  // Discard the entire local child panel, including any confirmed children.
+  // Discard the entire local child panel, including its directly edited children.
   await click(w, "取消配料");
   await click(w, "编辑配料 · 明细行 2");
   await click(w, "新增");
@@ -103,7 +98,6 @@ it("saves only confirmed complex blocks with exact values, children and adopted 
   );
   await second.get('input[aria-label="配料名"]').setValue("合成乙料");
   await second.get('input[aria-label="配料比例"]').setValue("0.0000001");
-  await click(w, "确定子项");
   await click(w, "确定配料");
   await answer(w);
   await click(w, "保存");
@@ -136,13 +130,11 @@ it("saves only confirmed complex blocks with exact values, children and adopted 
     [{ ingredient: "合成乙料", ratio: "0.0000001" }],
   ]);
 });
-it("protects unfinished unit and child input, and cancels it without a final write", async () => {
+it("protects unfinished collection input and discards a child panel without a final write", async () => {
   const save = vi.fn(async () => {});
   const w = await start({ save });
   await answer(w);
-  await click(w, "编辑单位 1");
   await input(w, "单位数量").setValue("-");
-  expect(button(w, "确定单位").attributes("disabled")).toBeDefined();
   expect(button(w, "保存").attributes("disabled")).toBeDefined();
   const leaving = (w.vm as unknown as AppPageHandle).requestLeave();
   await flushPromises();
@@ -154,13 +146,15 @@ it("protects unfinished unit and child input, and cancels it without a final wri
   await click(w, "继续编辑");
   expect(await leaving).toBe(false);
   expect(input(w, "单位数量").element.value).toBe("-");
-  await click(w, "取消单位");
+  await input(w, "单位数量").setValue("0");
+  await flushPromises();
+  // Direct field edits invoke the consumer calculation and renew its required answers.
+  await answer(w);
   expect(button(w, "保存").attributes("disabled")).toBeUndefined();
   await click(w, "编辑配料 · 明细行 1");
   await click(w, "新增");
   expect(button(w, "确定配料").attributes("disabled")).toBeDefined();
   expect(button(w, "保存").attributes("disabled")).toBeDefined();
-  await click(w, "取消子项");
   await click(w, "取消配料");
   expect(button(w, "保存").attributes("disabled")).toBeUndefined();
   expect(save).not.toHaveBeenCalled();
@@ -250,9 +244,7 @@ it("requires both business answers, explicitly stores their calculated facts and
   await flushPromises();
   expect(input(w, "已采用说明").element.value).toBe("尚未采用");
   expect(button(w, "保存").attributes("disabled")).toBeUndefined();
-  await click(w, "编辑价格 1");
   await input(w, "价格金额").setValue("9007199254740993.0100");
-  await click(w, "确定价格");
   expect(input(w, "合计结果").element.value).toBe("9007199254740993.0100");
   expect(input(w, "已采用说明").element.value).toBe("");
   expect(button(w, "保存").attributes("disabled")).toBeDefined();
@@ -373,17 +365,20 @@ it("retains an unfinished child draft when a calculation adopts equal committed 
   let dialog = new DOMWrapper(document.body).get(
     '[role="dialog"][aria-label="配料 · 明细行 1"]',
   );
-  await dialog.get('input[aria-label="配料名"]').setValue("未确认配料");
+  await dialog
+    .findAll('input[aria-label="配料名"]')
+    .at(-1)!
+    .setValue("未确认配料");
   pending.resolve(await complexCollaboration.change(pending.input));
   await flushPromises();
   dialog = new DOMWrapper(document.body).get(
     '[role="dialog"][aria-label="配料 · 明细行 1"]',
   );
   expect(
-    dialog.get<HTMLInputElement>('input[aria-label="配料名"]').element.value,
+    dialog.findAll<HTMLInputElement>('input[aria-label="配料名"]').at(-1)!
+      .element.value,
   ).toBe("未确认配料");
   expect(button(w, "保存").attributes("disabled")).toBeDefined();
-  await click(w, "确定子项");
   await click(w, "确定配料");
   await answer(w);
   await click(w, "保存");

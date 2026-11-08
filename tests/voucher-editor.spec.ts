@@ -160,7 +160,6 @@ it("edits only the selected row's formula children and discards cancelled change
   await new DOMWrapper(document.body)
     .get('input[aria-label="用量"]')
     .setValue("0.0100");
-  await click(wrapper, "确定子项");
   await click(wrapper, "取消配方");
   expect(value.value.rows[1].formula).toEqual([]);
   await click(wrapper, "编辑配方 · 明细行 2");
@@ -171,7 +170,6 @@ it("edits only the selected row's formula children and discards cancelled change
   await new DOMWrapper(document.body)
     .get('input[aria-label="用量"]')
     .setValue("0.0100");
-  await click(wrapper, "确定子项");
   await click(wrapper, "确定配方");
   expect(value.value.rows[0].formula).toEqual([]);
   expect(value.value.rows[1].formula).toEqual([
@@ -220,18 +218,26 @@ it("moves focus into the formula dialog and restores it on close", async () => {
   expect(document.activeElement).toBe(trigger.element);
   wrapper.unmount();
 });
-it("keeps the formula draft pending while a child row is being edited", async () => {
+it("blocks confirmation while a directly edited formula row is invalid", async () => {
   const { wrapper, value } = formulaEditor();
   await click(wrapper, "编辑配方 · 明细行 1");
   await click(wrapper, "新增");
+  await new DOMWrapper(document.body)
+    .get('input[aria-label="用量"]')
+    .setValue("-");
   expect(
     hostAndDialogButtons(wrapper)
       .find((b) => b.text() === "确定配方")!
       .attributes("disabled"),
   ).toBeDefined();
-  await click(wrapper, "取消子项");
-  await click(wrapper, "确定配方");
   expect(value.value.rows[0].formula).toEqual([]);
+  await new DOMWrapper(document.body)
+    .get('input[aria-label="用量"]')
+    .setValue("1.2300");
+  await click(wrapper, "确定配方");
+  expect(value.value.rows[0].formula).toEqual([
+    { material: "", amount: "1.2300" },
+  ]);
   wrapper.unmount();
 });
 it("drops a formula draft if the parent rows change while it is open", async () => {
