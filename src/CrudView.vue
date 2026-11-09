@@ -35,6 +35,7 @@ import GroupedFacts from "./GroupedFacts.vue";
 import { formFacts, groupFields } from "./details";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
+import type { RecordLink } from "./shell";
 import { equalValues } from "./editor-values";
 import { clone, message } from "./clone";
 import { validate } from "./validation";
@@ -53,6 +54,7 @@ const props = defineProps<{
   readOnly?: boolean;
   selectedKeys?: readonly (string | number)[];
   rowKey?: (row: R) => string | number;
+  rowLinks?: (row: R) => readonly RecordLink[];
   listActions?: (row: R) => readonly Exclude<ListAction, CrudAction>[];
   permissions: {
     query: boolean;
@@ -814,6 +816,7 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
     </VBtn>
     <DataList
       :columns="definition.columns"
+      :row-links="permissions.query ? rowLinks : undefined"
       :cell="
         (row, key) =>
           permissions.query &&

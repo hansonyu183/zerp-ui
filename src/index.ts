@@ -203,3 +203,5 @@ export type {
   WorkbenchPreferencesAdapter,
   WorkbenchPreferencesPage,
 } from "./workbench";
+
+export type { PageNavigationGroup, RecordLink } from "./shell";

@@ -142,3 +142,13 @@ export function navigationGlyph(icon: NavigationIcon) {
     throw new Error(`未知导航图标：${icon}`);
   return navigationIcons[icon];
 }
+
+/** Business-owned destinations presented inside the current page. */
+export type PageNavigationGroup = {
+  key: string;
+  caption: string;
+  kind: "tabs" | "menu";
+  selectedKey?: string | null;
+  items: NavigationGroup["items"];
+};
+export type RecordLink = { key: string; label: string; href: string };

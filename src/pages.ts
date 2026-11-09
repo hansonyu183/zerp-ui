@@ -1,3 +1,4 @@
+import type { RecordLink } from "./shell";
 import type { DraftCollaboration, ReportInteractions } from "./collaboration";
 import RelatedPageDialog from "./RelatedPageDialog.vue";
 import ReportInteractionPanel from "./ReportInteractionPanel.vue";
@@ -181,6 +182,7 @@ export type CrudPage<
     selectedKeys: readonly (string | number)[];
     onChange: (keys: (string | number)[]) => void;
   };
+  rowLinks?: (row: R) => readonly RecordLink[];
   listActions?: (row: R) => readonly Exclude<ListAction, CrudAction>[];
   onListAction?: (action: Exclude<ListAction, CrudAction>, row: R) => void;
   onQueried?: (filters: F) => void;
@@ -213,6 +215,7 @@ export function defineCrudPage<
         rowKey: value.selection?.rowKey,
         selectedKeys: value.selection?.selectedKeys,
         "onUpdate:selectedKeys": value.selection?.onChange,
+        rowLinks: value.rowLinks,
         listActions: value.listActions,
         onListAction: value.onListAction,
       }),

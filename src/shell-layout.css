@@ -70,3 +70,19 @@
     padding-inline: 4px;
   }
 }
+
+.zerp-page-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.zerp-page-navigation__tabs {
+  display: flex;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.zerp-page-navigation__tabs .v-btn {
+  flex-shrink: 0;
+}

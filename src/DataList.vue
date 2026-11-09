@@ -14,6 +14,7 @@ import { VBtn, VCard, VCheckboxBtn, VTable } from "vuetify/components";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
 import RowActions from "./RowActions.vue";
+import type { RecordLink } from "./shell";
 import {
   validateReportColumns,
   validateReportPresentation,
@@ -36,6 +37,7 @@ const props = defineProps<{
   selectable?: (row: R) => boolean;
   actions?: (row: R) => readonly A[];
   viewHref?: (row: R) => string | undefined;
+  rowLinks?: (row: R) => readonly RecordLink[];
   disabled?: boolean;
   wide?: boolean;
   rowKey?: (row: R) => K;
@@ -110,7 +112,8 @@ const dataColumns = computed(() =>
 const hasActions = computed(
   () =>
     rowActions.value.some((actions) => actions.length) ||
-    actionColumns.value.length > 0,
+    actionColumns.value.length > 0 ||
+    props.result.items.some((row) => props.rowLinks?.(row).length),
 );
 const displayColumns = computed(() => {
   const data = dataColumns.value.map((column) => ({
@@ -130,19 +133,26 @@ const displayColumns = computed(() => {
   ];
 });
 function cellActions(row: R) {
-  return actionColumns.value.flatMap((column) => {
-    const intent = props.cell?.(row, column.key);
-    return intent
-      ? [
-          {
-            key: column.key,
-            label: intent.label,
-            disabled: intent.disabled,
-            href: intent.kind === "record" ? intent.href : undefined,
-          },
-        ]
-      : [];
-  });
+  return [
+    ...(props.rowLinks?.(row) ?? []).map((link) => ({
+      ...link,
+      key: "link:" + link.key,
+      disabled: false,
+    })),
+    ...actionColumns.value.flatMap((column) => {
+      const intent = props.cell?.(row, column.key);
+      return intent
+        ? [
+            {
+              key: column.key,
+              label: intent.label,
+              disabled: intent.disabled,
+              href: intent.kind === "record" ? intent.href : undefined,
+            },
+          ]
+        : [];
+    }),
+  ];
 }
 // Without a consumer key, retain object identity rather than rebinding an open menu by array index.
 // Selection and report presentation still require the consumer's exact rowKey.
@@ -210,6 +220,10 @@ function activateCell(
     !props.result.items.includes(row)
   ) {
     event.preventDefault();
+    return;
+  }
+  if (props.rowLinks?.(row).some((link) => "link:" + link.key === key)) {
+    if (props.loading) event.preventDefault();
     return;
   }
   const intent = props.cell?.(row, key);

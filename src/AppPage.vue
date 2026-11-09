@@ -32,6 +32,7 @@ import {
   type Brand,
   type LoadState,
   type NavigationGroup,
+  type PageNavigationGroup,
   type ShellAccount,
   type AccountIntent,
   type ThemeChoice,
@@ -43,6 +44,7 @@ const props = withDefaults(
     navigation: readonly NavigationGroup[];
     navigationState: LoadState;
     selectedNavigationKey?: string | null;
+    pageNavigation?: readonly PageNavigationGroup[];
     page: PageDefinition;
     scope: string;
     active?: boolean;
@@ -405,6 +407,50 @@ function navigated(event: MouseEvent) {
           <VMain
             ><div :id="overlayId" class="zerp-shell-overlays" />
             <div class="zerp-shell-content">
+              <nav
+                v-if="
+                  active && pageNavigation?.some((group) => group.items.length)
+                "
+                aria-label="页面导航"
+                class="zerp-page-navigation"
+              >
+                <template v-for="group in pageNavigation" :key="group.key">
+                  <div
+                    v-if="group.kind === 'tabs' && group.items.length"
+                    :aria-label="group.caption"
+                    class="zerp-page-navigation__tabs"
+                  >
+                    <VBtn
+                      v-for="item in group.items"
+                      :key="item.key"
+                      :to="item.to"
+                      :active="group.selectedKey === item.key"
+                      :aria-current="
+                        group.selectedKey === item.key ? 'page' : undefined
+                      "
+                      variant="text"
+                      >{{ item.caption }}</VBtn
+                    >
+                  </div>
+                  <VMenu v-else-if="group.items.length">
+                    <template #activator="{ props: menuProps }"
+                      ><VBtn
+                        v-bind="menuProps"
+                        variant="text"
+                        append-icon="mdi-chevron-down"
+                        >{{ group.caption }}</VBtn
+                      ></template
+                    >
+                    <VList
+                      ><VListItem
+                        v-for="item in group.items"
+                        :key="item.key"
+                        :to="item.to"
+                        :title="item.caption"
+                    /></VList>
+                  </VMenu>
+                </template>
+              </nav>
               <PageContentHost
                 ref="pageContent"
                 :page="page"
