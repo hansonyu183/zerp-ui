@@ -32,14 +32,15 @@ const emit = defineEmits<{
   pending: [value: boolean];
   validation: [value: FormValidationState<T>];
 }>();
-const values = computed(() =>
-  Object.fromEntries(
+const values = computed(() => ({
+  ...props.modelValue,
+  ...Object.fromEntries(
     (props.fields as readonly AnyField[]).map((field) => [
       field.key,
       valueAt(props.modelValue, field.key),
     ]),
   ),
-);
+}));
 const visible = computed(() =>
   (props.fields as readonly FormField[]).filter(
     (f) =>
