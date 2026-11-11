@@ -352,8 +352,11 @@
   display: none;
 }
 .zerp-feedback-stack .zerp-feedback {
-  pointer-events: auto;
+  pointer-events: none;
   margin-block-start: 0.5rem;
+}
+.zerp-feedback-stack .zerp-feedback :is(button, a, input, select, textarea) {
+  pointer-events: auto;
 }
 .zerp-record-dialog .zerp-feedback-stack,
 .zerp-reference-panel .zerp-feedback-stack {
