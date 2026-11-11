@@ -1,3 +1,4 @@
+import { writeLock } from "./write-lock";
 import type { RecordLink } from "./shell";
 import type { DraftCollaboration, ReportInteractions } from "./collaboration";
 import RelatedPageDialog from "./RelatedPageDialog.vue";
@@ -38,6 +39,7 @@ type ContentOnly = {
 };
 /** Package-private capability. Consumers can obtain it only from a finite page factory. */
 export const snapshotPage = Symbol("zerp.page");
+export const probePageRecovery = Symbol("zerp.page-recovery");
 export type PageContext = {
   scope: string;
   active: boolean;
@@ -50,6 +52,7 @@ export interface PageDefinition<K extends PageKind = PageKind> {
   readonly kind: K;
   readonly title: string;
   readonly [snapshotPage]: () => PageSnapshot;
+  readonly [probePageRecovery]?: (scope: string) => Promise<boolean>;
 }
 export type PageAdmission = {
   definition?: object;
@@ -66,9 +69,11 @@ function page<T extends { title: string }, K extends PageKind>(
   source: PageSource<T>,
   render: (value: T, context: PageContext) => VNodeChild,
   admission: (value: T) => PageAdmission = () => ({}),
+  recovery?: (scope: string) => Promise<boolean>,
 ): PageDefinition<K> {
   return Object.freeze({
     kind,
+    [probePageRecovery]: recovery,
     get title() {
       return toValue(source).title;
     },
@@ -241,6 +246,19 @@ export function defineCrudPage<
           ? undefined
           : value.definition.identity(value.initialRow),
     }),
+    async (scope) => {
+      const definition = toValue(source).definition;
+      if (
+        writeLock(definition.adapter, definition.resource, scope).phase !==
+        "idle"
+      )
+        return true;
+      const journal = await definition.persistence?.load({
+        scope,
+        resource: definition.resource,
+      });
+      return !!journal && journal.completed !== true;
+    },
   );
 }
 export type ConfigurationPage<

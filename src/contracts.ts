@@ -150,7 +150,7 @@ export type Attempt<D, I> = Readonly<{
 }>;
 export type WriteResult<I = never> =
   | { status: "success"; identity?: I }
-  | { status: "failure"; message: string }
+  | { status: "failure"; message: string; field?: string }
   | { status: "unknown"; message?: string };
 export type ReconcileResult<E, I = never> =
   | { status: "unknown" }
@@ -230,6 +230,7 @@ export type CrudDefinition<
   ) => Readonly<Partial<Record<Extract<keyof R, string>, string>>>;
   identity: (row: R) => I;
   actions: (row: R) => readonly CrudAction[];
+  disabledActions?: (row: R) => Readonly<Partial<Record<CrudAction, string>>>;
   viewLabel?: (row: R) => string;
   viewTitle?: string;
   adapter: CrudAdapter<D, F, R, I>;

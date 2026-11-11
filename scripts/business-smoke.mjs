@@ -85,5 +85,7 @@ export async function businessSmoke(page) {
     .getByRole("button", { name: "取消编辑", exact: true })
     .click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(root.getByText("保留父草稿", { exact: true })).toBeVisible();
+  await expect(
+    root.getByRole("article", { name: "记录 1", exact: true }),
+  ).toContainText("保留父草稿");
 }

@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import {
   AppPage,
   defineBusinessPage,
+  defineModulePage,
   type Attempt,
   type AppPageHandle,
   type BusinessObject,
@@ -33,7 +34,7 @@ function fixture(resource: string, unknown = false) {
   }));
   const adapter = {
     empty: (): Data => ({ name: "" }),
-    query: async () => ({ items: [{ name: resource }], total: 1 }),
+    query: vi.fn(async () => ({ items: [{ name: resource }], total: 1 })),
     get: async () => ({ values: { name: resource }, identity: resource }),
     create: save,
     save,
@@ -127,10 +128,12 @@ it("keeps independent child uncertainty out of sibling write permissions while p
   const dialog = document.querySelector('[role="dialog"]')!;
   input(dialog, "名称", "保留父输入");
   await flushPromises();
+  await click(dialog, "所属资料");
   const firstRegion = dialog.querySelector('.zerp-ui[aria-label="first"]')!;
   await click(firstRegion, "编辑");
   await click(firstRegion, "保存");
   expect(first.save).toHaveBeenCalledTimes(1);
+  await click(dialog, "其他所属资料");
   const secondRegion = dialog.querySelector('.zerp-ui[aria-label="second"]')!;
   await click(secondRegion, "编辑");
   const siblingSave = [
@@ -238,4 +241,113 @@ it("adopts an authoritative identity when an uncertain creation is reconciled", 
   await click(document, "核实本次请求");
   expect(get).toHaveBeenCalledWith({ scope: "a", identity: "assigned" });
   expect(create).toHaveBeenCalledTimes(1);
+});
+it("loads normal module collections only when visited and keeps their model order", async () => {
+  const first = fixture("first"),
+    second = fixture("second");
+  const module = {
+    kind: "object",
+    name: "模块",
+    properties: {
+      first: { kind: "collection", name: "甲组" },
+      second: { kind: "collection", name: "乙组" },
+    },
+    form: { fields: ["second", "first"] },
+  } as const satisfies BusinessObject;
+  const wrapper = host(
+    defineModulePage({
+      model: module,
+      collections: {
+        first: defineBusinessPage({
+          definition: first.definition,
+          permissions,
+        }),
+        second: defineBusinessPage({
+          definition: second.definition,
+          permissions,
+        }),
+      },
+    }),
+  );
+  await flushPromises();
+  expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([
+    "乙组",
+    "甲组",
+  ]);
+  expect(first.adapter.query).not.toHaveBeenCalled();
+  expect(second.adapter.query).toHaveBeenCalledTimes(1);
+  await click(document, "甲组");
+  expect(first.adapter.query).toHaveBeenCalledTimes(1);
+  await click(document, "乙组");
+  expect(second.adapter.query).toHaveBeenCalledTimes(1);
+});
+it("locates a rejected nested field in its owning tab and preserves the input", async () => {
+  const f = fixture("validation");
+  const nestedModel = {
+    ...model,
+    properties: {
+      ...model.properties,
+      contact: {
+        kind: "object" as const,
+        name: "联系信息",
+        properties: { mobile: { kind: "text" as const, name: "手机" } },
+        form: { fields: ["mobile"] },
+      },
+    },
+    form: { fields: ["name", "contact"] },
+  };
+  const save = vi.fn(async () => ({
+    status: "failure" as const,
+    message: "请检查手机。",
+    field: "contact.mobile",
+  }));
+  host(
+    defineBusinessPage({
+      definition: {
+        ...f.definition,
+        model: nestedModel,
+        adapter: {
+          ...f.adapter,
+          save,
+          get: async () => ({
+            values: { name: "draft", contact: { mobile: "keep" } },
+            identity: "validation",
+          }),
+        },
+      },
+      permissions,
+    }),
+  );
+  await flushPromises();
+  await click(document, "编辑");
+  const dialog = document.querySelector('[role="dialog"]')!;
+  await click(dialog, "保存");
+  expect(document.activeElement?.getAttribute("aria-label")).toBe("手机");
+  expect(
+    dialog.querySelector<HTMLInputElement>('input[aria-label="手机"]')!.value,
+  ).toBe("keep");
+  expect(dialog.textContent).toContain("请检查手机。");
+  expect(save).toHaveBeenCalledTimes(1);
+});
+it("keeps eligible but disabled actions visible without dispatching a write", async () => {
+  const f = fixture("disabled");
+  host(
+    defineBusinessPage({
+      definition: {
+        ...f.definition,
+        disabledActions: () => ({ edit: "当前期间不能修改。" }),
+      },
+      permissions,
+    }),
+  );
+  await flushPromises();
+  const button = document.querySelector<HTMLButtonElement>(
+    'button[aria-label="编辑"]',
+  )!;
+  expect(button.disabled).toBe(true);
+  expect(button.getAttribute("aria-description")).toBe("当前期间不能修改。");
+  button.click();
+  await flushPromises();
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(f.save).not.toHaveBeenCalled();
 });

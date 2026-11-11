@@ -40,7 +40,7 @@ import DataList from "./DataList.vue";
 import type { RecordLink } from "./shell";
 import { equalValues } from "./editor-values";
 import { clone, message } from "./clone";
-import { setValueAt } from "./model";
+import { setValueAt, valueAt } from "./model";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
 import { writeRecovery } from "./write-recovery";
@@ -141,6 +141,13 @@ const editFields = computed(
           readonlyFields.value.some((key) => key === field.key),
       })) as unknown as typeof props.definition.fields,
 );
+const fieldIssue = shallowRef<{ key: string; message: string }>();
+const focusField = shallowRef<{ key: string; version: number }>();
+let focusVersion = 0;
+function focusIssue(key: string | undefined, message: string) {
+  fieldIssue.value = key ? { key, message } : undefined;
+  if (key) focusField.value = { key, version: ++focusVersion };
+}
 const moreFilters = ref(false);
 const sort = ref(props.definition.initialSort);
 const exporting = ref(false);
@@ -171,7 +178,12 @@ async function restoreWrite() {
   try {
     await recover.restore();
     if (!current(v) || target !== lock.value) return;
-    if (target.attempt?.input && !editor.value) {
+    if (
+      props.retainEditor &&
+      props.permissions.query &&
+      target.attempt?.input &&
+      !editor.value
+    ) {
       const identity =
         target.context &&
         typeof target.context === "object" &&
@@ -351,6 +363,8 @@ async function begin(row?: R, readOnly = false) {
     editor.value ||
     !props.permissions.query ||
     (!readOnly && !props.permissions.write) ||
+    (row &&
+      props.definition.disabledActions?.(row)[readOnly ? "view" : "edit"]) ||
     (row
       ? !props.definition.actions(row).includes(readOnly ? "view" : "edit")
       : !props.permissions.create)
@@ -359,6 +373,8 @@ async function begin(row?: R, readOnly = false) {
   const v = version,
     e = ++editVersion;
   error.value = "";
+  fieldIssue.value = undefined;
+  focusField.value = undefined;
   formPending.value = false;
   readonlyFields.value = [];
   blockPending.value = {};
@@ -397,7 +413,10 @@ async function begin(row?: R, readOnly = false) {
       readonlyFields.value = detail.readonlyFields ?? [];
       editor.value = {
         values: adoptValues(detail.values),
-        readOnly: readOnly || detail.writable === false,
+        readOnly:
+          readOnly ||
+          detail.writable === false ||
+          !!props.definition.disabledActions?.(detail.row ?? row).edit,
         writable: detail.writable !== false,
         identity: clone(detail.identity),
         row: detail.row ?? row,
@@ -443,6 +462,9 @@ async function openRow(row: R, readOnly = true): Promise<boolean> {
     detailLoading.value ||
     !props.permissions.query ||
     (!readOnly && !props.permissions.write) ||
+    props.definition.disabledActions?.(requestedRow)[
+      readOnly ? "view" : "edit"
+    ] ||
     !props.definition.actions(requestedRow).includes(readOnly ? "view" : "edit")
   )
     return false;
@@ -500,8 +522,17 @@ const bindings = computed(() => {
     !editor.value?.readOnly;
   return {
     form: (values: D) => {
-      if (editable())
+      if (editable()) {
+        if (
+          fieldIssue.value &&
+          !equalValues(
+            valueAt(editor.value!.values, fieldIssue.value.key),
+            valueAt(values, fieldIssue.value.key),
+          )
+        )
+          fieldIssue.value = undefined;
         editor.value = { ...editor.value!, values: clone(values) };
+      }
     },
     calculated: (values: D) => {
       if (live() && !blocked.value && props.permissions.query)
@@ -554,7 +585,16 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
     localPending.value ||
     !props.permissions.query ||
     !props.permissions.write ||
-    ((operation === "save" || operation === "create") && editor.value?.readOnly)
+    ((operation === "save" || operation === "create") &&
+      editor.value?.readOnly) ||
+    (row &&
+      props.definition.disabledActions?.(row)[
+        operation === "save"
+          ? "edit"
+          : operation === "create"
+            ? "edit"
+            : operation
+      ])
   )
     return;
   if (operation === "create" && !props.permissions.create) return;
@@ -587,9 +627,20 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       );
     if (invalid) {
       error.value = invalid;
+      const field = (editFields.value as readonly AnyField[]).find(
+        (field) =>
+          !!validate(
+            [field],
+            input,
+            operation === "create" ? "create" : "edit",
+          ),
+      );
+      focusIssue(field?.key, invalid);
       return;
     }
   }
+  fieldIssue.value = undefined;
+  focusField.value = undefined;
   let identity =
     operation === "save" || operation === "create"
       ? clone(editor.value?.identity)
@@ -676,6 +727,20 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       target.phase = "unknown";
       return;
     }
+    const disabledReason =
+      row &&
+      definition.disabledActions?.(row)[
+        operation === "save" || operation === "create" ? "edit" : operation
+      ];
+    if (disabledReason) {
+      target.phase = "refresh";
+      await originalRecovery.settle("not-applied");
+      await originalRecovery.complete();
+      target.phase = "idle";
+      target.attempt = null;
+      if (current(v)) error.value = disabledReason;
+      return;
+    }
     const outcome = await execute.call(definition.adapter, clone(attempt));
     if (outcome.status === "success") {
       if ("identity" in outcome && outcome.identity !== undefined) {
@@ -699,7 +764,10 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       await originalRecovery.complete();
       target.phase = "idle";
       target.attempt = null;
-      if (current(v)) error.value = outcome.message;
+      if (current(v)) {
+        error.value = outcome.message;
+        focusIssue(outcome.field, outcome.message);
+      }
     } else {
       target.phase = "unknown";
       if (current(v))
@@ -867,6 +935,8 @@ watch(
     verifying.value = false;
     error.value = "";
     notice.value = "";
+    fieldIssue.value = undefined;
+    focusField.value = undefined;
     void restoreWrite()
       .then(() => query())
       .then(() => {
@@ -1034,6 +1104,7 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       "
       :columns="definition.columns"
       :labels="definition.labels"
+      :disabled-actions="definition.disabledActions"
       :row-links="permissions.query ? rowLinks : undefined"
       :cell="
         (row, key) =>
@@ -1114,6 +1185,8 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       <RecordSections
         v-if="related"
         :fields="editFields"
+        :focus-field="focusField"
+        :issues="fieldIssue ? [fieldIssue] : []"
         :groups="definition.groups"
         :related="relatedEntries"
         :model-value="editor.values"
@@ -1143,6 +1216,8 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       />
       <DynamicForm
         v-else
+        :focus-field="focusField"
+        :issues="fieldIssue ? [fieldIssue] : []"
         :fields="editFields"
         :groups="definition.groups"
         :model-value="editor.values"
@@ -1183,7 +1258,10 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
           (!editor.row || definition.actions(editor.row).includes('edit'))
         "
         type="button"
-        :disabled="blocked"
+        :disabled="
+          blocked ||
+          !!(editor.row && definition.disabledActions?.(editor.row).edit)
+        "
         @click="
           retainEditor || !editor.row
             ? (editor = { ...editor, readOnly: false })
@@ -1202,7 +1280,7 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         color="error"
         variant="tonal"
         type="button"
-        :disabled="blocked"
+        :disabled="blocked || !!definition.disabledActions?.(editor.row).delete"
         @click="
           confirming = {
             row: editor.row,

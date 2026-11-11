@@ -311,8 +311,8 @@ Adapter 必须按捕获的身份/账套执行请求，遵守 signal 并拒绝失
 
 `defineBusinessPage` 从 `definition.model` 的有序 `list.fields`、`form.fields` 生成列、嵌套字段及对象分组，复用 CRUD、草稿联动与原请求恢复。`rowValue` 指明业务值在列表记录中的属性；`reference(field, path)` 提供引用 Adapter，数据保留原始 ID，树浏览通过独立的 `ancestor` 事实传递，不与级联依赖 `parent` 混用。秘密字段采用保留（`undefined`）、修改（新字符串）、清除（`null`），读取采用时不回显旧秘密。
 
-`defineModulePage({ model, collections })` 按获权模型的集合属性及投影顺序生成模块 Tab，`collections` 只映射对应完整页面定义。`related` 将所辖对象/集合路径映射到独立页面工厂；库内嵌关联资源，各自保留草稿、保存、未知锁与恢复，并汇总离开保护。消费者应按资源身份保持 Adapter、持久化端口及页面定义稳定；刷新快照不应重建所属页面。创建前没有所属身份时，关联工厂返回 `undefined`。
+`defineModulePage({ model, collections })` 按获权模型的集合属性及投影顺序生成模块 Tab，普通集合访问时才加载并保持已访问状态；未决原请求通过持久化端口发现后加载所属运行时，`collections` 只映射对应完整页面定义。`related` 将所辖对象/集合路径映射到独立页面工厂；库内嵌关联资源，各自保留草稿、保存、未知锁与恢复，并汇总离开保护。消费者应按资源身份保持 Adapter、持久化端口及页面定义稳定；刷新快照不应重建所属页面。创建前没有所属身份时，关联工厂返回 `undefined`。
 
-跨独立资源的业务联锁由消费者提供权威事实；库不会因联系人结果未知而自动禁止账款设置写入。业务页面在权威重读后保留详情及所属资源，避免父保存丢失子草稿。普通对象与独立资源按同一表单投影共用一组 Tab，`section`/`onSection` 同步所属分组，`onRecord` 通知已采用的记录身份；消费者负责将这些事实映射到 Router。可选 `initialize` 读取创建初值和前置身份，`prepare` 在保留原请求前冻结消费者前置身份；返回不代表业务写入。`rebase` 只重读并按业务规则合并本地输入，返回新基线。最终 create/save/delete 仍经过原 Adapter。创建成功及原请求核实为已应用时，Adapter 可返回权威 `identity`，以持久采用最终身份，避免刷新失败或重载后重发创建。
+跨独立资源的业务联锁由消费者提供权威事实；库不会因联系人结果未知而自动禁止账款设置写入。业务页面在权威重读后保留详情及所属资源，避免父保存丢失子草稿。普通对象与独立资源按同一表单投影共用一组 Tab，`section`/`onSection` 同步所属分组，`onRecord` 通知已采用的记录身份；消费者负责将这些事实映射到 Router。可选 `initialize` 读取创建初值和前置身份，`prepare` 在保留原请求前冻结消费者前置身份；返回不代表业务写入。`rebase` 只重读并按业务规则合并本地输入，返回新基线。最终 create/save/delete 仍经过原 Adapter。`disabledActions` 提供已有资格但当前不能执行的动作及原因；`failure.field` 按稳定字段路径定位分组及输入，并保留草稿。创建成功及原请求核实为已应用时，Adapter 可返回权威 `identity`，以持久采用最终身份，避免刷新失败或重载后重发创建。
 
 [业务模块独立示例](examples/business)使用合成模型与 Adapter，覆盖嵌套列、五个模块 Tab、独立所属资源、树形引用、秘密值及原请求核实，不代表真实 OIT API 或生产验收。

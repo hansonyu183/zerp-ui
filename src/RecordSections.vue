@@ -4,6 +4,7 @@ import { VTab, VTabs } from "vuetify/components";
 import DynamicForm from "./DynamicForm.vue";
 import GroupedFacts from "./GroupedFacts.vue";
 import PageContentHost from "./PageContentHost.vue";
+import { usePageRecovery } from "./page-recovery";
 import { formFacts, groupFields } from "./details";
 import type { AnyField, Fields, FieldGroup } from "./contracts";
 import type { ModuleEntry } from "./business";
@@ -21,6 +22,8 @@ const props = defineProps<{
   readOnly?: boolean;
   disabled?: boolean;
   mode: "create" | "edit";
+  focusField?: { key: string; version: number };
+  issues?: readonly { key: string; message: string }[];
 }>();
 const emit = defineEmits<{
   "update:modelValue": [value: D];
@@ -28,6 +31,11 @@ const emit = defineEmits<{
   protection: [value: EditProtection];
   select: [key: string];
 }>();
+const visited = ref(new Set<string>());
+const { required, probing } = usePageRecovery(
+  () => props.related,
+  () => props.scope,
+);
 const id = useId(),
   selected = ref<string>(),
   pending = ref<Record<string, boolean>>({}),
@@ -77,7 +85,12 @@ const sections = computed(() => {
 watch(
   () => [props.scope, props.instance],
   () => {
-    selected.value = props.selected ?? sections.value[0]?.key;
+    selected.value = sections.value.some(
+      (section) => section.key === props.selected,
+    )
+      ? props.selected
+      : sections.value[0]?.key;
+    visited.value = new Set(selected.value ? [selected.value] : []);
     pending.value = {};
     children.value = {};
   },
@@ -86,8 +99,10 @@ watch(
 watch(
   () => props.selected,
   (value) => {
-    if (sections.value.some((section) => section.key === value))
+    if (sections.value.some((section) => section.key === value)) {
       selected.value = value;
+      if (value) visited.value.add(value);
+    }
   },
 );
 watch(
@@ -108,14 +123,38 @@ watch(
   { immediate: true, flush: "sync" },
 );
 watch(
-  () => combineProtection(Object.values(children.value)),
+  () =>
+    combineProtection([
+      ...Object.values(children.value),
+      ...(probing.value
+        ? [
+            {
+              dirty: false,
+              localPending: false,
+              invalid: false,
+              writeState: "blocked" as const,
+            },
+          ]
+        : []),
+    ]),
   (value) => emit("protection", value),
   { immediate: true, flush: "sync" },
+);
+watch(
+  () => props.focusField,
+  (request) => {
+    if (!request) return;
+    const section = sections.value.find((section) =>
+      section.fields.some((field) => field.key === request.key),
+    );
+    if (section) select(section.key);
+  },
 );
 function select(value: unknown) {
   const key = String(value);
   if (!sections.value.some((section) => section.key === key)) return;
   selected.value = key;
+  visited.value.add(key);
   emit("select", key);
 }
 </script>
@@ -136,8 +175,16 @@ function select(value: unknown) {
       >{{ section.label
       }}<span
         v-if="
+          children[section.key] && children[section.key]!.writeState !== 'idle'
+        "
+        >待处理</span
+      ><span
+        v-if="
           !readOnly &&
-          validate(section.fields as readonly AnyField[], modelValue, mode)
+          (validate(section.fields as readonly AnyField[], modelValue, mode) ||
+            issues?.some((issue) =>
+              section.fields.some((field) => field.key === issue.key),
+            ))
         "
         >待完善</span
       ></VTab
@@ -153,7 +200,12 @@ function select(value: unknown) {
     :class="{ 'zerp-form-panel': sections.length > 1 }"
   >
     <PageContentHost
-      v-if="section.page"
+      v-if="
+        section.page &&
+        (visited.has(section.key) ||
+          selected === section.key ||
+          required.has(section.key))
+      "
       :page="section.page"
       :scope="scope"
       :discard="discard"
@@ -161,7 +213,7 @@ function select(value: unknown) {
       :heading="false"
       @protection="children = { ...children, [section.key]: $event }"
     />
-    <template v-else-if="section.fields.length">
+    <template v-else-if="!section.page && section.fields.length">
       <GroupedFacts
         v-if="readOnly"
         :value="modelValue"
@@ -178,6 +230,8 @@ function select(value: unknown) {
       <DynamicForm
         v-else
         :fields="section.fields"
+        :focus-field="focusField"
+        :issues="issues"
         :model-value="modelValue"
         :scope="scope"
         :disabled="disabled"
@@ -186,6 +240,6 @@ function select(value: unknown) {
         @pending="pending = { ...pending, [section.key]: $event }"
       />
     </template>
-    <p v-else>请先保存资料，再维护{{ section.label }}。</p>
+    <p v-else-if="!section.page">请先保存资料，再维护{{ section.label }}。</p>
   </section>
 </template>

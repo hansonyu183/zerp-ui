@@ -47,6 +47,7 @@ const props = defineProps<{
   selectedKeys?: readonly (string | number)[];
   selectable?: (row: R) => boolean;
   actions?: (row: R) => readonly A[];
+  disabledActions?: (row: R) => Readonly<Partial<Record<ListAction, string>>>;
   viewHref?: (row: R) => string | undefined;
   rowLinks?: (row: R) => readonly RecordLink[];
   disabled?: boolean;
@@ -217,7 +218,8 @@ function dispatch(action: ListAction, row: R) {
     !props.loading &&
     !presentationError.value &&
     props.result.items.includes(row) &&
-    props.actions?.(row).includes(action as A)
+    props.actions?.(row).includes(action as A) &&
+    !props.disabledActions?.(row)[action]
   )
     emit("action", action as A, row);
 }
@@ -400,6 +402,7 @@ function display(row: Partial<R>, column: Column<R>) {
                 <RowActions
                   v-if="hasActions"
                   :actions="rowActions[index]!"
+                  :reasons="disabledActions?.(row)"
                   :entries="cellActions(row)"
                   :busy="loading"
                   :disabled="disabled"
@@ -442,6 +445,7 @@ function display(row: Partial<R>, column: Column<R>) {
                 <RowActions
                   v-else-if="entry.kind === 'actions'"
                   :actions="rowActions[index]!"
+                  :reasons="disabledActions?.(row)"
                   :entries="cellActions(row)"
                   :disabled="disabled"
                   :busy="loading"

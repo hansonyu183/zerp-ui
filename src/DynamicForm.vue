@@ -1,5 +1,13 @@
 <script setup lang="ts" generic="T extends object">
-import { computed, ref, watch, watchEffect, onBeforeUnmount, useId } from "vue";
+import {
+  computed,
+  ref,
+  watch,
+  watchEffect,
+  onBeforeUnmount,
+  useId,
+  nextTick,
+} from "vue";
 import type { AnyField, Fields, ReferenceValue, FieldGroup } from "./contracts";
 import {
   VTabs,
@@ -26,6 +34,8 @@ const props = defineProps<{
   disabled?: boolean;
   mode?: "create" | "edit";
   purpose?: "filter" | "edit" | "short";
+  focusField?: { key: string; version: number };
+  issues?: readonly { key: string; message: string }[];
 }>();
 const emit = defineEmits<{
   "update:modelValue": [value: T];
@@ -63,6 +73,7 @@ function groupIssueCount(fields: readonly FormField[]) {
     validation.value.issues.map((issue) => String(issue.key)),
   );
   for (const source of sources.value) keys.add(sourceField(source));
+  for (const issue of props.issues ?? []) keys.add(issue.key);
   return fields.filter((field) => keys.has(field.key)).length;
 }
 function set(key: string, value: unknown) {
@@ -98,10 +109,36 @@ function blurField(event: FocusEvent) {
     focusedField.value = null;
 }
 function errors(field: AnyField) {
-  return validation.value.issues
-    .filter((issue) => issue.key === field.key)
-    .map((issue) => issue.message);
+  return [
+    ...new Set(
+      [...validation.value.issues, ...(props.issues ?? [])]
+        .filter((issue) => issue.key === field.key)
+        .map((issue) => issue.message),
+    ),
+  ];
 }
+const root = ref<HTMLElement>();
+watch(
+  () => props.focusField,
+  async (request) => {
+    if (!request || !visible.value.some((field) => field.key === request.key))
+      return;
+    selectedGroup.value = groups.value.find((group) =>
+      group.fields.some((field) => field.key === request.key),
+    )?.key;
+    await nextTick();
+    if (props.focusField !== request || props.disabled) return;
+    const element = [
+      ...(root.value?.querySelectorAll<HTMLElement>("[data-field]") ?? []),
+    ].find((element) => element.dataset.field === request.key);
+    element
+      ?.querySelector<HTMLElement>(
+        'input[type="password"]:not(:disabled), input:not(:disabled), textarea:not(:disabled)',
+      )
+      ?.focus();
+  },
+  { immediate: true, flush: "post" },
+);
 const referenceStates = computed(() =>
   Object.fromEntries(
     (props.fields as readonly AnyField[])
@@ -336,7 +373,7 @@ watch(visible, (fields) => {
 onBeforeUnmount(() => emit("pending", false));
 </script>
 <template>
-  <div class="zerp-form-container">
+  <div ref="root" class="zerp-form-container">
     <VTabs
       v-if="groups.length > 1"
       v-model="selectedGroup"
@@ -388,6 +425,7 @@ onBeforeUnmount(() => emit("pending", false));
             {{ field.section.label }}
           </h3>
           <div
+            :data-field="field.key"
             class="zerp-form-field"
             :class="{
               'zerp-form-field--wide':

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { VTabs, VTab } from "vuetify/components";
 import PageContentHost from "./PageContentHost.vue";
+import { usePageRecovery } from "./page-recovery";
 import type { ModuleEntry } from "./business";
 import { combineProtection, type EditProtection } from "./edit-guard";
 const props = withDefaults(
@@ -19,20 +20,33 @@ const emit = defineEmits<{
   protection: [value: EditProtection];
   select: [key: string];
 }>();
-const selected = ref(props.selected ?? props.entries[0]?.key);
+const selected = ref(
+  props.entries.some((entry) => entry.key === props.selected)
+    ? props.selected
+    : props.entries[0]?.key,
+);
+const visited = ref(new Set([selected.value]));
+const { required, probing } = usePageRecovery(
+  () => props.entries,
+  () => props.scope,
+  () => props.active,
+);
 const states = ref<Record<string, EditProtection>>({});
 watch(
   () => [props.scope, props.active],
   () => {
     states.value = {};
+    visited.value = new Set([selected.value]);
   },
   { flush: "sync" },
 );
 watch(
   () => props.selected,
   (value) => {
-    if (props.entries.some((entry) => entry.key === value))
+    if (props.entries.some((entry) => entry.key === value)) {
       selected.value = value!;
+      visited.value.add(value!);
+    }
   },
 );
 watch(
@@ -45,7 +59,19 @@ watch(
   },
 );
 const protection = computed(() =>
-  combineProtection(Object.values(states.value)),
+  combineProtection([
+    ...Object.values(states.value),
+    ...(probing.value
+      ? [
+          {
+            dirty: false,
+            localPending: false,
+            invalid: false,
+            writeState: "blocked" as const,
+          },
+        ]
+      : []),
+  ]),
 );
 watch(protection, (value) => emit("protection", value), {
   immediate: true,
@@ -55,6 +81,7 @@ function select(value: unknown) {
   const key = String(value);
   if (!props.entries.some((entry) => entry.key === key)) return;
   selected.value = key;
+  visited.value.add(key);
   emit("select", key);
 }
 </script>
@@ -66,9 +93,13 @@ function select(value: unknown) {
     show-arrows
     @update:model-value="select"
   >
-    <VTab v-for="entry in entries" :key="entry.key" :value="entry.key">{{
-      entry.label
-    }}</VTab>
+    <VTab v-for="entry in entries" :key="entry.key" :value="entry.key"
+      >{{ entry.label
+      }}<span
+        v-if="states[entry.key] && states[entry.key]!.writeState !== 'idle'"
+        >待处理</span
+      ></VTab
+    >
   </VTabs>
   <section
     v-for="entry in entries"
@@ -77,6 +108,11 @@ function select(value: unknown) {
     :aria-label="entry.label"
   >
     <PageContentHost
+      v-if="
+        visited.has(entry.key) ||
+        entry.key === selected ||
+        required.has(entry.key)
+      "
       :page="entry.page"
       :scope="scope"
       :active="active ?? true"
