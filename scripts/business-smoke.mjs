@@ -34,7 +34,17 @@ export async function businessSmoke(page) {
   await child
     .getByRole("textbox", { name: "名称", exact: true })
     .fill("更新联系人");
+  await page.getByLabel("保存结果", { exact: true }).selectOption("unknown");
+  await page.getByLabel("确认已保存", { exact: true }).check();
   await child.getByRole("button", { name: "保存", exact: true }).click();
+  // Nested fixed status text must not intercept the resource recovery button.
+  await child
+    .getByRole("button", { name: "核实本次请求", exact: true })
+    .click();
+  await expect(
+    child.getByRole("button", { name: "核实本次请求", exact: true }),
+  ).toHaveCount(0);
+  await page.getByLabel("保存结果", { exact: true }).selectOption("success");
   await contacts.getByRole("button", { name: "取消编辑", exact: true }).click();
   await expect(
     contacts.getByRole("cell", { name: "更新联系人", exact: true }),

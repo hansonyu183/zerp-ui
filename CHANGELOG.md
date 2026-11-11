@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.1
+
+- Keep layered feedback messages from intercepting clicks on nested resource recovery controls; feedback buttons remain interactive.
+
 ## 0.26.0
 
 - 新增无 UI 依赖的公开 `@zerp/ui/model` 入口，以及业务类型、有序列表/表单投影、嵌套路径与输入类型推导。
