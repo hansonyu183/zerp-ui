@@ -9,6 +9,7 @@
   "
 >
 import Feedback from "./Feedback.vue";
+import { valueAt } from "./model";
 import FeedbackRegion from "./FeedbackRegion.vue";
 import { VBtn, VCard, VCheckboxBtn, VTable } from "vuetify/components";
 import { computed } from "vue";
@@ -26,9 +27,19 @@ import type {
   ReportPresentation,
   ReportAppearance,
 } from "./report";
-import type { Column, Page, CrudAction, ListAction } from "./contracts";
+import type {
+  Column,
+  Page,
+  CrudAction,
+  ListAction,
+  ListSort,
+} from "./contracts";
 const props = defineProps<{
   columns: readonly Column<R>[];
+  labels?: (
+    row: R,
+  ) => Readonly<Partial<Record<Extract<keyof R, string>, string>>>;
+  sort?: ListSort;
   result: Page<R>;
   page: number;
   pageSize: number;
@@ -96,6 +107,7 @@ const emit = defineEmits<{
   cell: [cell: ReportCell<T>, row: R];
   page: [value: number];
   action: [action: A, row: R];
+  sort: [value: ListSort];
 }>();
 const visibleColumns = computed(() =>
   props.columns.filter((c) => c.visible !== false),
@@ -242,7 +254,9 @@ function activateCell(
     emit("cell", intent, row);
 }
 function display(row: Partial<R>, column: Column<R>) {
-  const value = row[column.key];
+  const label = props.labels?.(row)[column.key];
+  if (label !== undefined) return label;
+  const value = valueAt(row, column.key);
   return value === null || value === undefined
     ? "—"
     : value === ""
@@ -313,6 +327,29 @@ function display(row: Partial<R>, column: Column<R>) {
                 @update:model-value="selectRows(eligible, !!$event)"
               />
               <template v-else-if="entry.kind === 'actions'">操作</template>
+              <VBtn
+                v-else-if="sort"
+                type="button"
+                variant="text"
+                :disabled="disabled || loading"
+                @click="
+                  emit('sort', {
+                    key: entry.column.key,
+                    direction:
+                      sort.key === entry.column.key && sort.direction === 'asc'
+                        ? 'desc'
+                        : 'asc',
+                  })
+                "
+                >{{ entry.column.label
+                }}{{
+                  sort.key === entry.column.key
+                    ? sort.direction === "asc"
+                      ? " ↑"
+                      : " ↓"
+                    : ""
+                }}</VBtn
+              >
               <template v-else>{{ entry.column.label }}</template>
             </th>
           </tr>

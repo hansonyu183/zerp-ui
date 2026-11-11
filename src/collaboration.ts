@@ -41,6 +41,7 @@ export type DraftCollaboration<D extends object, T = never> = {
   change(input: {
     scope: string;
     value: D;
+    mode?: "read" | "edit";
     event: "initialize" | "change" | "answer" | "action";
     answers: InteractionAnswers;
     target?: T;

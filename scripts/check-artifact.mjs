@@ -36,6 +36,8 @@ export async function checkArtifact(tgz, expected) {
       "LICENSE",
       "dist/index.js",
       "dist/index.d.ts",
+      "dist/model.js",
+      "dist/model.d.ts",
       "dist/zerp-ui.css",
       "dist/MDI-LICENSE.txt",
       "dist/materialdesignicons-webfont.woff2",
@@ -73,6 +75,8 @@ export async function checkArtifact(tgz, expected) {
         "defineConfigurationPage",
         "defineCrud",
         "defineCrudPage",
+        "defineBusinessPage",
+        "defineModulePage",
         "defineDetailsPage",
         "defineDocument",
         "defineDocumentPage",
@@ -91,6 +95,16 @@ export async function checkArtifact(tgz, expected) {
         "operationLabels",
       ].sort(),
       "Only the two complete components and finite non-component APIs may be exported",
+    );
+    const modelSource = await readFile(join(root, "dist/model.js"), "utf8");
+    assert.equal(
+      ts.preProcessFile(modelSource, true, true).importedFiles.length,
+      0,
+      "The public model must not load UI code or dependencies",
+    );
+    assert.ok(
+      !/\b(?:window|document|localStorage)\b|\.css["']/.test(modelSource),
+      "The model must run without a browser",
     );
     const dependencies = { ...pkg.dependencies, ...pkg.peerDependencies };
     const imports = new Set();

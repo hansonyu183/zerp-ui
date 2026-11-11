@@ -205,3 +205,12 @@ export type {
 } from "./workbench";
 
 export type { PageNavigationGroup, RecordLink } from "./shell";
+
+export { defineBusinessPage, defineModulePage } from "./business";
+export type { BusinessObject } from "./model";
+export type {
+  BusinessDefinition,
+  BusinessPage,
+  ModuleEntry,
+  ModuleDefinition,
+} from "./business";

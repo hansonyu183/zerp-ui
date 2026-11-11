@@ -59,11 +59,11 @@ const navigation: NavigationGroup[] = [
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.25.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.25.0) 下载 `zerp-ui-0.25.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.26.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.26.0) 下载 `zerp-ui-0.26.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.25.0.tgz
+pnpm add ./zerp-ui-0.26.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -304,3 +304,15 @@ Adapter 必须按捕获的身份/账套执行请求，遵守 signal 并拒绝失
 ### 工作台 Material 与布局（0.24.0）
 
 工作台使用主题化 Vuetify 卡片、列表入口与操作区。重要信息在上方横跨整行，桌面下方单据、报表、资料三等宽列；手机保持重要信息在前，其余按顺序纵向排列。卡片及按钮不固定圆角、描边或颜色，沿用当前 MD1/MD2/MD3 Blueprint 与明暗主题默认值；链接保留键盘、修饰键与新标签行为。工厂与 Adapter API 不变。
+
+## 业务类型与模块
+
+`@zerp/ui/model` 提供不加载 Vue、Vuetify、CSS 或浏览器环境的业务类型、值/输入推导及路径、投影工具。前后端从此入口共享通用模型；具体业务定义、输入规则、HTTP 和持久化仍由消费者持有。
+
+`defineBusinessPage` 从 `definition.model` 的有序 `list.fields`、`form.fields` 生成列、嵌套字段及对象分组，复用 CRUD、草稿联动与原请求恢复。`rowValue` 指明业务值在列表记录中的属性；`reference(field, path)` 提供引用 Adapter，数据保留原始 ID，树浏览通过独立的 `ancestor` 事实传递，不与级联依赖 `parent` 混用。秘密字段采用保留（`undefined`）、修改（新字符串）、清除（`null`），读取采用时不回显旧秘密。
+
+`defineModulePage({ model, collections })` 按获权模型的集合属性及投影顺序生成模块 Tab，`collections` 只映射对应完整页面定义。`related` 将所辖对象/集合路径映射到独立页面工厂；库内嵌关联资源，各自保留草稿、保存、未知锁与恢复，并汇总离开保护。消费者应按资源身份保持 Adapter、持久化端口及页面定义稳定；刷新快照不应重建所属页面。创建前没有所属身份时，关联工厂返回 `undefined`。
+
+跨独立资源的业务联锁由消费者提供权威事实；库不会因联系人结果未知而自动禁止账款设置写入。`retainEditor` 在权威重读后保留详情及所属资源，避免父保存丢失子草稿。可选 `initialize` 读取创建初值和前置身份，`prepare` 在保留原请求前冻结消费者前置身份；返回不代表业务写入。`rebase` 只重读并按业务规则合并本地输入，返回新基线。最终 create/save/delete 仍经过原 Adapter。
+
+[业务模块独立示例](examples/business)使用合成模型与 Adapter，覆盖嵌套列、五个模块 Tab、独立所属资源、树形引用、秘密值及原请求核实，不代表真实 OIT API 或生产验收。

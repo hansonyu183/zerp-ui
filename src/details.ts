@@ -1,4 +1,4 @@
-import type { AnyField, ReferenceValue } from "./contracts";
+import type { AnyField, ReferenceValue, ReferenceAdapter } from "./contracts";
 
 type DetailKind<V, I> =
   NonNullable<V> extends ReferenceValue
@@ -38,6 +38,7 @@ export type DetailGroup<T extends object, I = never> = {
 // Internal rendering shape; the public mapped type pairs each key with its value.
 export type FactField = {
   key: string;
+  section?: { key: string; label: string };
   label: string;
   type: string;
   options?: readonly { value: string; label: string }[];
@@ -45,11 +46,15 @@ export type FactField = {
   rowKey?: (row: object) => string;
   rowLabel?: (row: object) => string;
   related?: (value: ReferenceValue) => unknown;
+  adapter?: ReferenceAdapter;
+  valueMode?: "id";
+  parentKey?: string;
 };
 export function factText(
   value: unknown,
   field: Pick<FactField, "type" | "options">,
 ): string {
+  if (field.type === "secret") return "保密";
   if (value === undefined || value === null) return "—";
   if (value === "") return "（空字符串）";
   if (field.type === "boolean" && typeof value === "boolean")

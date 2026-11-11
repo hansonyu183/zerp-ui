@@ -11,6 +11,7 @@ import { clone } from "./clone";
 
 export type AppPageHandle = { requestLeave(): Promise<boolean> };
 export type PageKind =
+  | "module"
   | "workbench"
   | "workbench-preferences"
   | "batch"
@@ -41,6 +42,7 @@ export type PageContext = {
   scope: string;
   active: boolean;
   discardVersion: number;
+  embedded?: boolean;
   protection: (value: EditProtection) => boolean;
   requestLeave: () => Promise<boolean>;
 };
@@ -175,6 +177,10 @@ export type CrudPage<
     reconcile?: boolean;
   };
   blocks?: readonly DomainBlock<D>[];
+  related?: (identity: I) => readonly import("./business").ModuleEntry[];
+  retainEditor?: boolean;
+  collaborateOnRead?: boolean;
+  onRecord?: (identity: I | undefined) => void;
   initialRow?: R;
   readOnly?: boolean;
   selection?: {
@@ -193,7 +199,7 @@ export function defineCrudPage<
   R extends object,
   I,
   E = never,
->(source: PageSource<CrudPage<D, F, R, I, E>>): PageDefinition {
+>(source: PageSource<CrudPage<D, F, R, I, E>>): PageDefinition<"crud"> {
   return page(
     "crud",
     () => {
@@ -205,6 +211,11 @@ export function defineCrudPage<
         definition: value.definition,
         permissions: value.permissions,
         blocks: value.blocks,
+        related: value.related,
+        retainEditor: value.retainEditor,
+        collaborateOnRead: value.collaborateOnRead,
+        embedded: context.embedded,
+        onRecord: value.onRecord,
         scope: context.scope,
         initialRow: value.initialRow,
         readOnly: value.readOnly,

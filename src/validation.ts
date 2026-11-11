@@ -1,5 +1,6 @@
 import { fieldEnabled, type FormField } from "./form-field";
 import type { AnyField, Fields } from "./contracts";
+import { valueAt } from "./model";
 export type FieldValidationIssue<T extends object> = Readonly<{
   key: Extract<keyof T, string>;
   message: string;
@@ -46,10 +47,10 @@ export function validate(
     if (
       field.readonly ||
       (field.mode && field.mode !== mode) ||
-      (field.when && record[field.when.key] !== field.when.equals)
+      (field.when && valueAt(values, field.when.key) !== field.when.equals)
     )
       continue;
-    const value = record[field.key];
+    const value = valueAt(values, field.key);
     if (
       field.required &&
       (value === null ||
@@ -84,17 +85,28 @@ export function validate(
         ))
     )
       return `${field.label}应为可选值。`;
-    if (field.type === "reference" && !validReference(value))
+    if (
+      field.type === "reference" &&
+      !(field.valueMode === "id"
+        ? typeof value === "string" && !!value
+        : validReference(value))
+    )
       return `${field.label}应为有效引用。`;
     if (
       field.type === "references" &&
-      (!Array.isArray(value) || !value.every(validReference))
+      (!Array.isArray(value) ||
+        !value.every((item) =>
+          field.valueMode === "id"
+            ? typeof item === "string" && !!item
+            : validReference(item),
+        ))
     )
       return `${field.label}应为有效引用。`;
     if (
       field.type === "text" ||
       field.type === "textarea" ||
-      field.type === "password"
+      field.type === "password" ||
+      field.type === "secret"
     ) {
       if (typeof value !== "string") return `${field.label}应为文本。`;
       if (field.minLength !== undefined && value.length < field.minLength)

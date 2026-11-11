@@ -1,3 +1,5 @@
+import { businessSmoke } from "./business-smoke.mjs";
+const businessMode = process.argv.includes("--business");
 import { workbenchSmoke } from "./workbench-smoke.mjs";
 const workbenchMode = process.argv.includes("--workbench");
 import { recordDialogSmoke, relatedDialogSmoke } from "./card-modal-smoke.mjs";
@@ -103,25 +105,27 @@ await writeFile(
 await cp(
   join(
     root,
-    workbenchMode
-      ? "examples/workbench"
-      : capabilitiesMode
-        ? "examples/capabilities"
-        : detailsMode
-          ? "examples/details"
-          : shellMode
-            ? "examples/shell"
-            : workflowMode
-              ? "examples/workflow"
-              : voucherMode
-                ? "examples/voucher"
-                : documentMode
-                  ? "examples/document"
-                  : reportMode
-                    ? "examples/report"
-                    : configuration
-                      ? "examples/configuration"
-                      : "examples/direct",
+    businessMode
+      ? "examples/business"
+      : workbenchMode
+        ? "examples/workbench"
+        : capabilitiesMode
+          ? "examples/capabilities"
+          : detailsMode
+            ? "examples/details"
+            : shellMode
+              ? "examples/shell"
+              : workflowMode
+                ? "examples/workflow"
+                : voucherMode
+                  ? "examples/voucher"
+                  : documentMode
+                    ? "examples/document"
+                    : reportMode
+                      ? "examples/report"
+                      : configuration
+                        ? "examples/configuration"
+                        : "examples/direct",
   ),
   consumer,
   {
@@ -201,25 +205,27 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    workbenchMode
-      ? "tests/workbench.type-test.ts"
-      : capabilitiesMode
-        ? "tests/capabilities.type-test.ts"
-        : detailsMode
-          ? "tests/details.type-test.ts"
-          : shellMode
-            ? "tests/shell.type-test.ts"
-            : workflowMode
-              ? "tests/workflow.type-test.ts"
-              : voucherMode
-                ? "tests/voucher.type-test.ts"
-                : documentMode
-                  ? "tests/document.type-test.ts"
-                  : reportMode
-                    ? "tests/report.type-test.ts"
-                    : configuration
-                      ? "tests/configuration.type-test.ts"
-                      : "tests/contracts.type-test.ts",
+    businessMode
+      ? "tests/business.type-test.ts"
+      : workbenchMode
+        ? "tests/workbench.type-test.ts"
+        : capabilitiesMode
+          ? "tests/capabilities.type-test.ts"
+          : detailsMode
+            ? "tests/details.type-test.ts"
+            : shellMode
+              ? "tests/shell.type-test.ts"
+              : workflowMode
+                ? "tests/workflow.type-test.ts"
+                : voucherMode
+                  ? "tests/voucher.type-test.ts"
+                  : documentMode
+                    ? "tests/document.type-test.ts"
+                    : reportMode
+                      ? "tests/report.type-test.ts"
+                      : configuration
+                        ? "tests/configuration.type-test.ts"
+                        : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
@@ -227,6 +233,7 @@ await writeFile(
   join(consumer, "contracts.type-test.ts"),
   fixture
     .replaceAll("../src/index", "@zerp/ui")
+    .replaceAll("../src/model", "@zerp/ui/model")
     .replaceAll("../examples/details/adapters", "./adapters"),
 );
 if (voucherMode) {
@@ -255,6 +262,17 @@ for (const name of ["vue", "vuetify", "vue-router", "@zerp/ui/style.css"])
     require.resolve(name).startsWith(join(consumer, "node_modules")),
     `${name} escaped independent install tree`,
   );
+if (businessMode) {
+  run(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      "import assert from 'node:assert/strict'; import { propertyAt, valueAt, formSections } from '@zerp/ui/model'; assert.equal(valueAt({contact:{name:'sample'}},'contact.name'),'sample'); assert.equal(propertyAt({kind:'object',name:'sample',properties:{}},'missing'),undefined); assert.deepEqual(formSections({kind:'object',name:'sample',properties:{},form:{fields:[]}}),[]);",
+    ],
+    consumer,
+  );
+}
 const libraryRequire = createRequire(require.resolve("@zerp/ui/style.css"));
 for (const name of Object.keys(pkg.peerDependencies)) {
   assert.equal(
@@ -344,25 +362,27 @@ try {
   };
   observe(page);
   await page.goto(`http://127.0.0.1:${address.port}`);
-  const smoke = workbenchMode
-    ? workbenchSmoke
-    : capabilitiesMode
-      ? capabilitiesSmoke
-      : detailsMode
-        ? detailsSmoke
-        : shellMode
-          ? shellSmoke
-          : workflowMode
-            ? workflowSmoke
-            : voucherMode
-              ? voucherSmoke
-              : documentMode
-                ? documentSmoke
-                : reportMode
-                  ? reportSmoke
-                  : configuration
-                    ? configurationSmoke
-                    : directSmoke;
+  const smoke = businessMode
+    ? businessSmoke
+    : workbenchMode
+      ? workbenchSmoke
+      : capabilitiesMode
+        ? capabilitiesSmoke
+        : detailsMode
+          ? detailsSmoke
+          : shellMode
+            ? shellSmoke
+            : workflowMode
+              ? workflowSmoke
+              : voucherMode
+                ? voucherSmoke
+                : documentMode
+                  ? documentSmoke
+                  : reportMode
+                    ? reportSmoke
+                    : configuration
+                      ? configurationSmoke
+                      : directSmoke;
   const printEvidenceRoot = join(
     root,
     ".scratch/print-output",
@@ -379,25 +399,27 @@ try {
     mode: "installed-tgz",
     directory: join(printEvidenceRoot, "installed-tgz"),
   });
-  const exampleName = workbenchMode
-    ? "workbench"
-    : capabilitiesMode
-      ? "capabilities"
-      : detailsMode
-        ? "details"
-        : shellMode
-          ? "shell"
-          : workflowMode
-            ? "workflow"
-            : voucherMode
-              ? "voucher"
-              : documentMode
-                ? "document"
-                : reportMode
-                  ? "report"
-                  : configuration
-                    ? "configuration"
-                    : "direct";
+  const exampleName = businessMode
+    ? "business"
+    : workbenchMode
+      ? "workbench"
+      : capabilitiesMode
+        ? "capabilities"
+        : detailsMode
+          ? "details"
+          : shellMode
+            ? "shell"
+            : workflowMode
+              ? "workflow"
+              : voucherMode
+                ? "voucher"
+                : documentMode
+                  ? "document"
+                  : reportMode
+                    ? "report"
+                    : configuration
+                      ? "configuration"
+                      : "direct";
   const exampleRoot = join(root, "examples", exampleName);
   const exampleServer = await preview({
     root: exampleRoot,

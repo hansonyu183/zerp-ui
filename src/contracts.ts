@@ -8,11 +8,13 @@ export type ReferenceValue = {
   label: string;
   selectable?: boolean;
   snapshot?: unknown;
+  hasChildren?: boolean;
 };
 export type ReferenceAdapter = {
   search(input: {
     scope: string;
     parent?: ReferenceValue | null;
+    ancestor?: ReferenceValue | null;
     keyword: string;
     page: number;
     pageSize: number;
@@ -26,6 +28,7 @@ export type ReferenceAdapter = {
 type Common<K extends string> = {
   key: K;
   label: string;
+  section?: { key: string; label: string };
   required?: boolean;
   readonly?: boolean;
   mode?: "create" | "edit";
@@ -34,7 +37,7 @@ type Common<K extends string> = {
 export type AnyField = Common<string> &
   (
     | {
-        type: "text" | "textarea" | "password";
+        type: "text" | "textarea" | "password" | "secret";
         minLength?: number;
         maxLength?: number;
       }
@@ -47,8 +50,20 @@ export type AnyField = Common<string> &
         options: readonly { value: string; label: string }[];
       }
     | { type: "enum"; options: readonly { value: string; label: string }[] }
-    | { type: "reference"; adapter: ReferenceAdapter; parentKey?: string }
-    | { type: "references"; adapter: ReferenceAdapter; parentKey?: string }
+    | {
+        type: "reference";
+        adapter: ReferenceAdapter;
+        parentKey?: string;
+        valueMode?: "id";
+        hierarchical?: boolean;
+      }
+    | {
+        type: "references";
+        adapter: ReferenceAdapter;
+        parentKey?: string;
+        valueMode?: "id";
+        hierarchical?: boolean;
+      }
     | { type: "rows"; fields: readonly AnyField[]; empty: () => object }
   );
 type Kind<V> =
@@ -57,23 +72,35 @@ type Kind<V> =
     : NonNullable<V> extends number
       ? Extract<AnyField, { type: "integer" }>
       : NonNullable<V> extends string
-        ? Extract<
-            AnyField,
-            {
-              type:
-                "text" | "textarea" | "password" | "date" | "decimal" | "enum";
-            }
-          >
+        ? | Extract<
+              AnyField,
+              {
+                type:
+                  | "text"
+                  | "textarea"
+                  | "password"
+                  | "secret"
+                  | "date"
+                  | "decimal"
+                  | "enum";
+              }
+            >
+          | (Extract<AnyField, { type: "reference" }> & { valueMode: "id" })
         : NonNullable<V> extends readonly (infer R)[]
           ? R extends string
-            ? Extract<AnyField, { type: "multi-enum" | "date-range" }>
+            ? | Extract<AnyField, { type: "multi-enum" | "date-range" }>
+              | (Extract<AnyField, { type: "references" }> & {
+                  valueMode: "id";
+                })
             : R extends ReferenceValue
-              ? Extract<AnyField, { type: "references" }>
+              ? Extract<AnyField, { type: "references" }> & {
+                  valueMode?: never;
+                }
               : R extends object
                 ? { type: "rows"; fields: Fields<R>; empty: () => R }
                 : never
           : NonNullable<V> extends ReferenceValue
-            ? Extract<AnyField, { type: "reference" }>
+            ? Extract<AnyField, { type: "reference" }> & { valueMode?: never }
             : never;
 type Keyed<V, K extends string> = V extends unknown
   ? Common<K> & Omit<V, "key">
@@ -121,13 +148,14 @@ export type Attempt<D, I> = Readonly<{
   input?: D;
   identity?: I;
 }>;
-export type WriteResult =
-  | { status: "success" }
+export type WriteResult<I = never> =
+  | { status: "success"; identity?: I }
   | { status: "failure"; message: string }
   | { status: "unknown"; message?: string };
 export type ReconcileResult<E> =
   | { status: "unknown" }
   | { status: "applied" | "not-applied"; attemptId: string; evidence: E };
+export type ListSort = { key: string; direction: "asc" | "desc" };
 export type CrudAdapter<
   D extends object,
   F extends object,
@@ -139,16 +167,35 @@ export type CrudAdapter<
     filters: F;
     page: number;
     pageSize: number;
+    sort?: ListSort;
   }): Promise<Page<R>>;
   get(input: { scope: string; identity: I }): Promise<{
     values: D;
     identity: I;
     readonlyFields?: readonly Extract<keyof D, string>[];
     writable?: boolean;
+    row?: R;
   }>;
   empty(input: { scope: string; filters: F }): D;
-  create(attempt: Attempt<D, I>): Promise<WriteResult>;
-  save(attempt: Attempt<D, I>): Promise<WriteResult>;
+  initialize?(input: {
+    scope: string;
+    filters: F;
+  }): Promise<{ values: D; identity?: I }>;
+  rebase?(input: {
+    scope: string;
+    identity: I;
+    value: D;
+    baseline: D;
+  }): Promise<{
+    values: D;
+    baseline: D;
+    identity: I;
+    readonlyFields?: readonly Extract<keyof D, string>[];
+    writable?: boolean;
+  }>;
+  prepare?(input: Omit<Attempt<D, I>, "id" | "resource">): Promise<I>;
+  create(attempt: Attempt<D, I>): Promise<WriteResult<I>>;
+  save(attempt: Attempt<D, I>): Promise<WriteResult<I>>;
   setEnabled?(attempt: Attempt<D, I>): Promise<WriteResult>;
   delete?(attempt: Attempt<D, I>): Promise<WriteResult>;
 };
@@ -161,11 +208,20 @@ export type CrudDefinition<
 > = {
   resource: string;
   title: string;
+  initialSort?: ListSort;
+  export?: (input: {
+    scope: string;
+    filters: F;
+    sort?: ListSort;
+  }) => Promise<void>;
   fields: Fields<D>;
   groups?: readonly FieldGroup<D>[];
   filters: Fields<F>;
   initialFilters: () => F;
   columns: readonly Column<R>[];
+  labels?: (
+    row: R,
+  ) => Readonly<Partial<Record<Extract<keyof R, string>, string>>>;
   identity: (row: R) => I;
   actions: (row: R) => readonly CrudAction[];
   viewLabel?: (row: R) => string;
