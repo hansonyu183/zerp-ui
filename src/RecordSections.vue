@@ -170,6 +170,7 @@ function select(value: unknown) {
       v-for="(section, index) in sections"
       :key="section.key"
       :value="section.key"
+      :aria-label="section.label"
       :id="`${id}-tab-${index}`"
       :aria-controls="`${id}-panel-${index}`"
       >{{ section.label

@@ -93,7 +93,11 @@ function select(value: unknown) {
     show-arrows
     @update:model-value="select"
   >
-    <VTab v-for="entry in entries" :key="entry.key" :value="entry.key"
+    <VTab
+      v-for="entry in entries"
+      :key="entry.key"
+      :value="entry.key"
+      :aria-label="entry.label"
       >{{ entry.label
       }}<span
         v-if="states[entry.key] && states[entry.key]!.writeState !== 'idle'"
