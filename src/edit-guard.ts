@@ -15,3 +15,26 @@ export type EditProtection = Readonly<{
   invalid: boolean;
   writeState: EditWriteState;
 }>;
+
+/** Aggregate departure facts; this never grants or removes another runtime's write permission. */
+export function combineProtection(
+  states: readonly EditProtection[],
+): EditProtection {
+  const order: readonly EditWriteState[] = [
+    "pending",
+    "unknown",
+    "blocked",
+    "seal",
+    "refresh",
+    "idle",
+  ];
+  return {
+    dirty: states.some((state) => state.dirty),
+    localPending: states.some((state) => state.localPending),
+    invalid: states.some((state) => state.invalid),
+    writeState:
+      order.find((phase) =>
+        states.some((state) => state.writeState === phase),
+      ) ?? "idle",
+  };
+}

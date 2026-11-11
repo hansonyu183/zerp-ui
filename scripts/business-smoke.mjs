@@ -39,7 +39,10 @@ export async function businessSmoke(page) {
   await expect(
     contacts.getByRole("cell", { name: "更新联系人", exact: true }),
   ).toBeVisible();
-  await parent.getByRole("tab", { name: "基本资料", exact: true }).click();
+  await parent
+    .getByRole("tab", { name: "基本资料", exact: true })
+    .first()
+    .click();
   await expect(
     parent.getByRole("textbox", { name: "名称", exact: true }),
   ).toHaveValue("保留父草稿");

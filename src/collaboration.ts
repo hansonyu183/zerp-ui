@@ -6,7 +6,13 @@ export type Interaction<T = never> =
       level?: "error" | "warning" | "status";
     }
   | { kind: "confirm"; id: string; label: string; required?: boolean }
-  | { kind: "input"; id: string; label: string; required?: boolean }
+  | {
+      kind: "input";
+      id: string;
+      label: string;
+      required?: boolean;
+      options?: readonly { value: string; label: string }[];
+    }
   | {
       kind: "menu" | "tree";
       id: string;

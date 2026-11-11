@@ -59,7 +59,8 @@ function projectedFields(
       return [];
     }
     const key = prefix + path;
-    if (node.kind === "collection") return [];
+    if (node.kind === "collection")
+      throw Error(`请提供${node.name}的独立资源定义。`);
     if (node.kind === "object")
       return projectedFields(
         node,
@@ -166,7 +167,7 @@ export type BusinessPage<
   E = never,
 > = Omit<
   CrudPage<BusinessValue<T>, F, R, I, E>,
-  "definition" | "blocks" | "related" | "collaborateOnRead"
+  "definition" | "blocks" | "related" | "collaborateOnRead" | "retainEditor"
 > & {
   definition: BusinessDefinition<T, F, R, I, E>;
   related?: Readonly<
@@ -260,6 +261,7 @@ export function defineBusinessPage<
     ...value.value,
     definition: runtime(value.value.definition),
     collaborateOnRead: true,
+    retainEditor: true,
     related: (identity: I) =>
       (value.value.definition.model.form?.fields ?? []).flatMap((key) => {
         const page = value.value.related?.[key]?.(identity);

@@ -7,7 +7,7 @@ import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import { VDefaultsProvider, VBtn, VCard, VDialog } from "vuetify/components";
 import RecordEditor from "./RecordEditor.vue";
 import DomainBlockTabs from "./DomainBlockTabs.vue";
-import ModulePage from "./ModulePage.vue";
+import RecordSections from "./RecordSections.vue";
 import type { ModuleEntry } from "./business";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import {
@@ -55,6 +55,7 @@ const props = defineProps<{
   retainEditor?: boolean;
   collaborateOnRead?: boolean;
   embedded?: boolean;
+  section?: string;
   beforeClose?: () => Promise<boolean>;
   discardVersion?: number;
   initialRow?: R;
@@ -74,6 +75,7 @@ const emit = defineEmits<{
   protection: [state: EditProtection];
   queried: [filters: F];
   record: [identity: I | undefined];
+  section: [key: string];
   "update:selectedKeys": [keys: (string | number)[]];
   listAction: [action: Exclude<ListAction, CrudAction>, row: R];
 }>();
@@ -91,6 +93,7 @@ const filters = shallowRef<F>(props.definition.initialFilters()),
 const editor = shallowRef<{
     values: D;
     creating?: boolean;
+    notice?: string;
     readOnly?: boolean;
     writable?: boolean;
     identity?: I;
@@ -248,11 +251,13 @@ async function query(next = 1, submit = false) {
             identity: clone(detail.identity),
             row: detail.row ?? editor.value.row,
             creating: false,
+            notice: detail.notice,
             writable: detail.writable !== false,
             readOnly: true,
           };
           initial.value = adoptValues(detail.values);
           readonlyFields.value = detail.readonlyFields ?? [];
+          emit("record", clone(detail.identity));
         } else {
           editor.value = null;
           initial.value = null;
@@ -397,6 +402,7 @@ async function begin(row?: R, readOnly = false) {
         identity: clone(detail.identity),
         row: detail.row ?? row,
         creating: false,
+        notice: detail.notice,
         readonlyFields: detail.readonlyFields,
       };
       emit("record", clone(detail.identity));
@@ -677,7 +683,7 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
         if (current(v) && editor.value)
           editor.value = {
             ...editor.value,
-            identity: clone(outcome.identity as I),
+            identity: clone(outcome.identity),
           };
       }
       target.phase = "refresh";
@@ -734,6 +740,11 @@ async function reconcile() {
       target.attempt === attempt &&
       target.phase === "unknown"
     ) {
+      if (outcome.identity !== undefined && outcome.status === "applied") {
+        target.context = { identity: clone(outcome.identity) };
+        if (current(v) && editor.value)
+          editor.value = { ...editor.value, identity: clone(outcome.identity) };
+      }
       target.phase = "refresh";
       await originalRecovery.settle(outcome.status);
       if (outcome.status === "applied") {
@@ -1099,8 +1110,27 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       "
       @close="cancel"
     >
+      <Feedback :message="editor.notice" kind="warning" />
+      <RecordSections
+        v-if="related"
+        :fields="editFields"
+        :groups="definition.groups"
+        :related="relatedEntries"
+        :model-value="editor.values"
+        :scope="scope"
+        :instance="editVersion"
+        :discard="discardVersion"
+        :selected="section"
+        :read-only="editor.readOnly"
+        :disabled="blocked || detailLoading || !permissions.write"
+        :mode="editor.creating ? 'create' : 'edit'"
+        @update:model-value="bindings.form"
+        @pending="bindings.pending"
+        @protection="relatedProtection = $event"
+        @select="emit('section', $event)"
+      />
       <GroupedFacts
-        v-if="editor.readOnly"
+        v-else-if="editor.readOnly"
         :value="editor.values"
         :groups="
           groupFields(
@@ -1136,14 +1166,6 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         :disabled="blocked"
         @update:model-value="bindings.calculated($event)"
         @pending="blockPending = { ...blockPending, collaboration: $event }"
-      />
-      <ModulePage
-        v-if="relatedEntries.length"
-        embedded
-        :entries="relatedEntries"
-        :scope="scope"
-        :discard="discardVersion"
-        @protection="relatedProtection = $event"
       />
       <DomainBlockTabs
         :blocks="bindings.blocks"

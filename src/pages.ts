@@ -181,6 +181,8 @@ export type CrudPage<
   retainEditor?: boolean;
   collaborateOnRead?: boolean;
   onRecord?: (identity: I | undefined) => void;
+  section?: string;
+  onSection?: (key: string) => void;
   initialRow?: R;
   readOnly?: boolean;
   selection?: {
@@ -216,6 +218,8 @@ export function defineCrudPage<
         collaborateOnRead: value.collaborateOnRead,
         embedded: context.embedded,
         onRecord: value.onRecord,
+        section: value.section,
+        onSection: value.onSection,
         scope: context.scope,
         initialRow: value.initialRow,
         readOnly: value.readOnly,

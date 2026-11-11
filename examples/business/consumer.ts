@@ -165,7 +165,14 @@ function collection(
     definition: {
       resource,
       title,
-      model: sampleType,
+      model: related
+        ? sampleType
+        : {
+            ...sampleType,
+            form: {
+              fields: ["name", "category", "contact", "attributes", "empty"],
+            },
+          },
       filters: [],
       initialFilters: () => ({}),
       identity: (row: Sample) => row.id!,
@@ -183,7 +190,6 @@ function collection(
           : { status: "unknown" as const },
     },
     permissions: { query: true, create: true, write: true, reconcile: true },
-    retainEditor: true,
     related: related
       ? {
           contacts: () => relatedEntries[0]!.page,

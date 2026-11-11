@@ -41,7 +41,7 @@ function fixture(resource: string, unknown = false) {
   const definition = {
     resource,
     title: resource,
-    model,
+    model: { ...model, form: { fields: ["name"] } },
     filters: [],
     initialFilters: () => ({}),
     identity: () => resource,
@@ -119,7 +119,6 @@ it("keeps independent child uncertainty out of sibling write permissions while p
   const page = defineBusinessPage({
     definition: { ...parent.definition, model: parentModel },
     permissions,
-    retainEditor: true,
     related: { children: () => child, sibling: () => sibling },
   });
   const wrapper = host(page);
@@ -168,7 +167,6 @@ it("adopts a created identity so a subsequent edit uses save rather than create"
     defineBusinessPage({
       definition: { ...f.definition, adapter },
       permissions,
-      retainEditor: true,
     }),
   );
   await flushPromises();
@@ -207,4 +205,37 @@ it("does not send a prepared write after the session scope has changed", async (
   done("deferred");
   await flushPromises();
   expect(f.save).not.toHaveBeenCalled();
+});
+it("adopts an authoritative identity when an uncertain creation is reconciled", async () => {
+  const f = fixture("created");
+  const create = vi.fn(async () => ({ status: "unknown" as const }));
+  const get = vi.fn(async ({ identity }: { identity: string }) => ({
+    values: { name: "created" },
+    identity,
+    writable: true,
+  }));
+  const page = defineBusinessPage({
+    definition: {
+      ...f.definition,
+      adapter: { ...f.adapter, create, get },
+      reconcile: async (attempt) => ({
+        status: "applied" as const,
+        attemptId: attempt.id,
+        evidence: "receipt",
+        identity: "assigned",
+      }),
+    },
+    permissions,
+  });
+  const wrapper = host(page);
+  await flushPromises();
+  await click(document, "新增");
+  await click(document.querySelector('[role="dialog"]')!, "保存");
+  wrapper.unmount();
+  mounted.splice(mounted.indexOf(wrapper), 1);
+  host(page);
+  await flushPromises();
+  await click(document, "核实本次请求");
+  expect(get).toHaveBeenCalledWith({ scope: "a", identity: "assigned" });
+  expect(create).toHaveBeenCalledTimes(1);
 });

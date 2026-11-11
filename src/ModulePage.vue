@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { VTabs, VTab } from "vuetify/components";
 import PageContentHost from "./PageContentHost.vue";
 import type { ModuleEntry } from "./business";
-import type { EditProtection } from "./edit-guard";
+import { combineProtection, type EditProtection } from "./edit-guard";
 const props = withDefaults(
   defineProps<{
     entries: readonly ModuleEntry[];
@@ -44,19 +44,9 @@ watch(
     );
   },
 );
-const protection = computed<EditProtection>(() => {
-  const values = Object.values(states.value);
-  const order = ["pending", "unknown", "blocked", "refresh", "idle"] as const;
-  return {
-    dirty: values.some((state) => state.dirty),
-    localPending: values.some((state) => state.localPending),
-    invalid: values.some((state) => state.invalid),
-    writeState:
-      order.find((phase) =>
-        values.some((state) => state.writeState === phase),
-      ) ?? "idle",
-  };
-});
+const protection = computed(() =>
+  combineProtection(Object.values(states.value)),
+);
 watch(protection, (value) => emit("protection", value), {
   immediate: true,
   flush: "sync",

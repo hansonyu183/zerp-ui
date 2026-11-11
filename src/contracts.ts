@@ -152,9 +152,14 @@ export type WriteResult<I = never> =
   | { status: "success"; identity?: I }
   | { status: "failure"; message: string }
   | { status: "unknown"; message?: string };
-export type ReconcileResult<E> =
+export type ReconcileResult<E, I = never> =
   | { status: "unknown" }
-  | { status: "applied" | "not-applied"; attemptId: string; evidence: E };
+  | {
+      status: "applied" | "not-applied";
+      attemptId: string;
+      evidence: E;
+      identity?: I;
+    };
 export type ListSort = { key: string; direction: "asc" | "desc" };
 export type CrudAdapter<
   D extends object,
@@ -175,6 +180,7 @@ export type CrudAdapter<
     readonlyFields?: readonly Extract<keyof D, string>[];
     writable?: boolean;
     row?: R;
+    notice?: string;
   }>;
   empty(input: { scope: string; filters: F }): D;
   initialize?(input: {
@@ -196,8 +202,8 @@ export type CrudAdapter<
   prepare?(input: Omit<Attempt<D, I>, "id" | "resource">): Promise<I>;
   create(attempt: Attempt<D, I>): Promise<WriteResult<I>>;
   save(attempt: Attempt<D, I>): Promise<WriteResult<I>>;
-  setEnabled?(attempt: Attempt<D, I>): Promise<WriteResult>;
-  delete?(attempt: Attempt<D, I>): Promise<WriteResult>;
+  setEnabled?(attempt: Attempt<D, I>): Promise<WriteResult<I>>;
+  delete?(attempt: Attempt<D, I>): Promise<WriteResult<I>>;
 };
 export type CrudDefinition<
   D extends object,
@@ -229,7 +235,7 @@ export type CrudDefinition<
   adapter: CrudAdapter<D, F, R, I>;
   collaboration?: DraftCollaboration<D, unknown>;
   persistence?: WritePersistence<Attempt<D, I>>;
-  reconcile?: (attempt: Attempt<D, I>) => Promise<ReconcileResult<E>>;
+  reconcile?: (attempt: Attempt<D, I>) => Promise<ReconcileResult<E, I>>;
 };
 export function defineCrud<
   D extends object,
