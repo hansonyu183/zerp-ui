@@ -1,6 +1,6 @@
 {
   "name": "@zerp/ui",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "type": "module",
   "license": "MIT",
   "files": [
@@ -14,7 +14,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./style.css": "./dist/zerp-ui.css"
+    "./style.css": "./dist/zerp-ui.css",
+    "./model": {
+      "types": "./dist/model.d.ts",
+      "import": "./dist/model.js"
+    }
   },
   "sideEffects": [
     "**/*.css"
@@ -64,7 +68,10 @@
     "check:capabilities": "pnpm build && pnpm build:capabilities && node scripts/check-package.mjs --capabilities",
     "dev:workbench": "vite examples/workbench --host 127.0.0.1",
     "build:workbench": "vite build examples/workbench",
-    "check:workbench": "pnpm build && pnpm build:workbench && node scripts/check-package.mjs --workbench"
+    "check:workbench": "pnpm build && pnpm build:workbench && node scripts/check-package.mjs --workbench",
+    "dev:business": "vite examples/business --host 127.0.0.1",
+    "build:business": "vite build examples/business",
+    "check:business": "pnpm build && pnpm build:business && node scripts/check-package.mjs --business"
   },
   "devDependencies": {
     "@napi-rs/canvas": "1.1.0",

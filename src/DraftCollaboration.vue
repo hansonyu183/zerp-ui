@@ -17,6 +17,7 @@ const props = defineProps<{
   scope: string;
   instance: string | number;
   disabled?: boolean;
+  readOnly?: boolean;
 }>();
 const emit = defineEmits<{
   "update:modelValue": [value: D];
@@ -48,6 +49,7 @@ async function run(
   try {
     const result = await props.adapter.change({
       value,
+      mode: props.readOnly ? "read" : "edit",
       scope,
       event,
       answers: clone(answers.value),
@@ -103,7 +105,7 @@ async function run(
   }
 }
 watch(
-  () => [props.scope, props.instance, props.adapter] as const,
+  () => [props.scope, props.instance, props.adapter, props.readOnly] as const,
   () => {
     items.value = [];
     answers.value = {};

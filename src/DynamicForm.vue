@@ -1,5 +1,13 @@
 <script setup lang="ts" generic="T extends object">
-import { computed, ref, watch, watchEffect, onBeforeUnmount, useId } from "vue";
+import {
+  computed,
+  ref,
+  watch,
+  watchEffect,
+  onBeforeUnmount,
+  useId,
+  nextTick,
+} from "vue";
 import type { AnyField, Fields, ReferenceValue, FieldGroup } from "./contracts";
 import {
   VTabs,
@@ -16,6 +24,7 @@ import { groupFields } from "./details";
 import ReferencePicker from "./ReferencePicker.vue";
 import { validateFields, type FormValidationState } from "./validation";
 import { clone } from "./clone";
+import { valueAt, setValueAt } from "./model";
 import { equalValues } from "./editor-values";
 const props = defineProps<{
   fields: Fields<T>;
@@ -25,18 +34,28 @@ const props = defineProps<{
   disabled?: boolean;
   mode?: "create" | "edit";
   purpose?: "filter" | "edit" | "short";
+  focusField?: { key: string; version: number };
+  issues?: readonly { key: string; message: string }[];
 }>();
 const emit = defineEmits<{
   "update:modelValue": [value: T];
   pending: [value: boolean];
   validation: [value: FormValidationState<T>];
 }>();
-const values = computed(() => props.modelValue as Record<string, unknown>);
+const values = computed(() => ({
+  ...props.modelValue,
+  ...Object.fromEntries(
+    (props.fields as readonly AnyField[]).map((field) => [
+      field.key,
+      valueAt(props.modelValue, field.key),
+    ]),
+  ),
+}));
 const visible = computed(() =>
   (props.fields as readonly FormField[]).filter(
     (f) =>
       (!f.mode || f.mode === props.mode) &&
-      (!f.when || values.value[f.when.key] === f.when.equals),
+      (!f.when || valueAt(props.modelValue, f.when.key) === f.when.equals),
   ),
 );
 const groups = computed(() => groupFields(visible.value, props.groups));
@@ -54,18 +73,27 @@ function groupIssueCount(fields: readonly FormField[]) {
     validation.value.issues.map((issue) => String(issue.key)),
   );
   for (const source of sources.value) keys.add(sourceField(source));
+  for (const issue of props.issues ?? []) keys.add(issue.key);
   return fields.filter((field) => keys.has(field.key)).length;
 }
 function set(key: string, value: unknown) {
   if (props.disabled) return;
-  const next = { ...props.modelValue, [key]: value } as Record<string, unknown>;
-  for (const field of props.fields as readonly AnyField[]) {
-    if (
-      (field.type === "reference" || field.type === "references") &&
-      field.parentKey === key
-    )
-      next[field.key] = field.type === "reference" ? null : [];
-  }
+  const next = clone(props.modelValue);
+  setValueAt(next, key, value);
+  const changed = [key],
+    seen = new Set(changed);
+  for (const parent of changed)
+    for (const field of props.fields as readonly AnyField[]) {
+      if (
+        (field.type === "reference" || field.type === "references") &&
+        field.parentKey === parent &&
+        !seen.has(field.key)
+      ) {
+        setValueAt(next, field.key, field.type === "reference" ? null : []);
+        changed.push(field.key);
+        seen.add(field.key);
+      }
+    }
   if (props.fields.some((field) => field.key === key && field.type === "rows"))
     emittedRows.set(key, value);
   emit("update:modelValue", next as T);
@@ -81,9 +109,92 @@ function blurField(event: FocusEvent) {
     focusedField.value = null;
 }
 function errors(field: AnyField) {
-  return validation.value.issues
-    .filter((issue) => issue.key === field.key)
-    .map((issue) => issue.message);
+  return [
+    ...new Set(
+      [...validation.value.issues, ...(props.issues ?? [])]
+        .filter((issue) => issue.key === field.key)
+        .map((issue) => issue.message),
+    ),
+  ];
+}
+const root = ref<HTMLElement>();
+watch(
+  () => props.focusField,
+  async (request) => {
+    if (!request || !visible.value.some((field) => field.key === request.key))
+      return;
+    selectedGroup.value = groups.value.find((group) =>
+      group.fields.some((field) => field.key === request.key),
+    )?.key;
+    await nextTick();
+    if (props.focusField !== request || props.disabled) return;
+    const element = [
+      ...(root.value?.querySelectorAll<HTMLElement>("[data-field]") ?? []),
+    ].find((element) => element.dataset.field === request.key);
+    element
+      ?.querySelector<HTMLElement>(
+        'input[type="password"]:not(:disabled), input:not(:disabled), textarea:not(:disabled)',
+      )
+      ?.focus();
+  },
+  { immediate: true, flush: "post" },
+);
+const referenceStates = computed(() =>
+  Object.fromEntries(
+    (props.fields as readonly AnyField[])
+      .filter(
+        (field) => field.type === "reference" || field.type === "references",
+      )
+      .map((field) => {
+        if (field.type !== "reference" && field.type !== "references")
+          throw Error("引用字段无效。");
+        const value = values.value[field.key];
+        const wrap = (id: unknown): ReferenceValue => ({
+          id: String(id),
+          label: "",
+        });
+        const parent = field.parentKey
+          ? valueAt(props.modelValue, field.parentKey)
+          : undefined;
+        return [
+          field.key,
+          {
+            value:
+              field.valueMode === "id"
+                ? Array.isArray(value)
+                  ? value.map(wrap)
+                  : value == null || value === ""
+                    ? null
+                    : wrap(value)
+                : ((value ?? null) as ReferenceValue | ReferenceValue[] | null),
+            parent:
+              typeof parent === "string"
+                ? wrap(parent)
+                : (parent as ReferenceValue | null | undefined),
+          },
+        ];
+      }),
+  ),
+);
+function reference(
+  field: Extract<AnyField, { type: "reference" | "references" }>,
+) {
+  return referenceStates.value[field.key]!.value;
+}
+function updateReference(
+  field: Extract<AnyField, { type: "reference" | "references" }>,
+  value: ReferenceValue | readonly ReferenceValue[] | null,
+) {
+  set(
+    field.key,
+    field.valueMode === "id"
+      ? Array.isArray(value)
+        ? value.map((item) => item.id)
+        : value
+          ? (value as ReferenceValue).id
+          : null
+      : value,
+  );
 }
 function control(field: FormField) {
   return {
@@ -262,7 +373,7 @@ watch(visible, (fields) => {
 onBeforeUnmount(() => emit("pending", false));
 </script>
 <template>
-  <div class="zerp-form-container">
+  <div ref="root" class="zerp-form-container">
     <VTabs
       v-if="groups.length > 1"
       v-model="selectedGroup"
@@ -303,182 +414,236 @@ onBeforeUnmount(() => emit("pending", false));
       "
     >
       <div class="zerp-form" :class="`zerp-form--${purpose ?? 'edit'}`">
-        <div
-          v-for="field in group.fields"
-          :key="field.key"
-          class="zerp-form-field"
-          :class="{
-            'zerp-form-field--wide':
-              field.type === 'textarea' || field.type === 'rows',
-            'zerp-form-field--enabled': !!field.enabledBy,
-          }"
-        >
-          <VCheckbox
-            v-if="field.enabledBy"
-            class="zerp-field-enable"
-            density="compact"
-            hide-details
-            :label="field.enabledBy.label"
-            :aria-label="field.enabledBy.label"
-            :model-value="values[field.enabledBy.key] === true"
-            :disabled="disabled || field.enabledBy.readonly"
-            @update:model-value="set(field.enabledBy.key, $event === true)"
-          />
-          <div
-            class="zerp-field-input"
-            @focusin="focusedField = field.key"
-            @focusout="blurField"
+        <template v-for="(field, fieldIndex) in group.fields" :key="field.key">
+          <h3
+            v-if="
+              field.section &&
+              group.fields[fieldIndex - 1]?.section?.key !== field.section.key
+            "
+            class="zerp-form-section-title"
           >
-            <ReferencePicker
-              v-if="field.type === 'reference' || field.type === 'references'"
-              :adapter="field.adapter"
-              :parent="
-                field.parentKey
-                  ? (values[field.parentKey] as ReferenceValue | null)
-                  : undefined
-              "
-              :model-value="
-                (values[field.key] ?? null) as
-                  ReferenceValue | ReferenceValue[] | null
-              "
-              :scope="scope"
-              :label="field.label"
-              :multiple="field.type === 'references'"
-              :disabled="
-                disabled || field.readonly || !fieldEnabled(field, modelValue)
-              "
-              :description-id="`${formId}-${field.key}-messages`"
-              :invalid="errors(field).length > 0"
-              @update:model-value="set(field.key, $event)"
-              @pending="pending(field.key, $event)"
+            {{ field.section.label }}
+          </h3>
+          <div
+            :data-field="field.key"
+            class="zerp-form-field"
+            :class="{
+              'zerp-form-field--wide':
+                field.type === 'textarea' || field.type === 'rows',
+              'zerp-form-field--enabled': !!field.enabledBy,
+            }"
+          >
+            <VCheckbox
+              v-if="field.enabledBy"
+              class="zerp-field-enable"
+              density="compact"
+              hide-details
+              :label="field.enabledBy.label"
+              :aria-label="field.enabledBy.label"
+              :model-value="values[field.enabledBy.key] === true"
+              :disabled="disabled || field.enabledBy.readonly"
+              @update:model-value="set(field.enabledBy.key, $event === true)"
             />
-            <fieldset
-              v-else-if="field.type === 'rows'"
-              :disabled="
-                disabled || field.readonly || !fieldEnabled(field, modelValue)
-              "
-              class="zerp-field-group"
+            <div
+              class="zerp-field-input"
+              @focusin="focusedField = field.key"
+              @focusout="blurField"
             >
-              <legend>{{ field.label }}</legend>
-              <section
-                v-for="(row, index) in rowEntries(field.key)"
-                :key="row.id"
-                :aria-label="`${field.label} ${index + 1}`"
-                class="zerp-form-row"
+              <ReferencePicker
+                v-if="field.type === 'reference' || field.type === 'references'"
+                :adapter="field.adapter"
+                :parent="referenceStates[field.key]?.parent"
+                :model-value="reference(field)"
+                :hierarchical="field.hierarchical"
+                :scope="scope"
+                :label="field.label"
+                :multiple="field.type === 'references'"
+                :disabled="
+                  disabled || field.readonly || !fieldEnabled(field, modelValue)
+                "
+                :description-id="`${formId}-${field.key}-messages`"
+                :invalid="errors(field).length > 0"
+                @update:model-value="updateReference(field, $event)"
+                @pending="pending(field.key, $event)"
+              />
+              <fieldset
+                v-else-if="field.type === 'rows'"
+                :disabled="
+                  disabled || field.readonly || !fieldEnabled(field, modelValue)
+                "
+                class="zerp-field-group"
               >
-                <DynamicForm
-                  :fields="field.fields"
-                  :model-value="row.value"
-                  :scope="scope"
-                  :mode="mode"
-                  :disabled="!writable(field)"
-                  @update:model-value="updateRow(field, row.id, $event)"
-                  @pending="rowPending(field.key, row.id, $event)"
-                />
+                <legend>{{ field.label }}</legend>
+                <section
+                  v-for="(row, index) in rowEntries(field.key)"
+                  :key="row.id"
+                  :aria-label="`${field.label} ${index + 1}`"
+                  class="zerp-form-row"
+                >
+                  <DynamicForm
+                    :fields="field.fields"
+                    :model-value="row.value"
+                    :scope="scope"
+                    :mode="mode"
+                    :disabled="!writable(field)"
+                    @update:model-value="updateRow(field, row.id, $event)"
+                    @pending="rowPending(field.key, row.id, $event)"
+                  />
+                  <VBtn
+                    type="button"
+                    variant="text"
+                    color="error"
+                    :disabled="!writable(field)"
+                    @click="removeRow(field, row.id)"
+                    >删除{{ field.label }} {{ index + 1 }}</VBtn
+                  >
+                </section>
                 <VBtn
                   type="button"
-                  variant="text"
-                  color="error"
+                  variant="tonal"
                   :disabled="!writable(field)"
-                  @click="removeRow(field, row.id)"
-                  >删除{{ field.label }} {{ index + 1 }}</VBtn
+                  @click="
+                    set(field.key, [...rows(field.key), clone(field.empty())])
+                  "
+                  >新增</VBtn
                 >
-              </section>
-              <VBtn
-                type="button"
-                variant="tonal"
-                :disabled="!writable(field)"
-                @click="
-                  set(field.key, [...rows(field.key), clone(field.empty())])
+              </fieldset>
+              <fieldset
+                v-else-if="field.type === 'date-range'"
+                :disabled="
+                  disabled || field.readonly || !fieldEnabled(field, modelValue)
                 "
-                >新增</VBtn
+                class="zerp-field-group"
               >
-            </fieldset>
-            <fieldset
-              v-else-if="field.type === 'date-range'"
-              :disabled="
-                disabled || field.readonly || !fieldEnabled(field, modelValue)
-              "
-              class="zerp-field-group"
-            >
-              <legend>{{ field.label }}</legend>
-              <div class="zerp-date-range">
-                <VTextField
-                  v-for="(suffix, index) in ['起', '止']"
-                  :key="suffix"
+                <legend>{{ field.label }}</legend>
+                <div class="zerp-date-range">
+                  <VTextField
+                    v-for="(suffix, index) in ['起', '止']"
+                    :key="suffix"
+                    v-bind="control(field)"
+                    :label="field.label + suffix"
+                    :aria-label="field.label + suffix"
+                    :type="field.readonly ? 'text' : 'date'"
+                    :model-value="range(field.key)[index] ?? ''"
+                    @update:model-value="setRange(field.key, index, $event)"
+                  />
+                </div>
+              </fieldset>
+              <div v-else-if="field.type === 'secret'">
+                <VSelect
                   v-bind="control(field)"
-                  :label="field.label + suffix"
-                  :aria-label="field.label + suffix"
-                  :type="field.readonly ? 'text' : 'date'"
-                  :model-value="range(field.key)[index] ?? ''"
-                  @update:model-value="setRange(field.key, index, $event)"
+                  :model-value="
+                    values[field.key] === undefined
+                      ? 'keep'
+                      : values[field.key] === null
+                        ? 'clear'
+                        : 'replace'
+                  "
+                  :items="[
+                    { title: '保留', value: 'keep' },
+                    { title: '修改', value: 'replace' },
+                    { title: '清除', value: 'clear' },
+                  ]"
+                  @update:model-value="
+                    set(
+                      field.key,
+                      $event === 'keep'
+                        ? undefined
+                        : $event === 'clear'
+                          ? null
+                          : '',
+                    )
+                  "
+                />
+                <VTextField
+                  v-if="
+                    values[field.key] !== undefined &&
+                    values[field.key] !== null
+                  "
+                  v-bind="control(field)"
+                  :label="`新的${field.label}`"
+                  :aria-label="`新的${field.label}`"
+                  type="password"
+                  autocomplete="new-password"
+                  :maxlength="field.maxLength"
+                  :model-value="values[field.key] ?? ''"
+                  @update:model-value="set(field.key, $event)"
                 />
               </div>
-            </fieldset>
-            <VTextarea
-              v-else-if="field.type === 'textarea'"
-              v-bind="control(field)"
-              :model-value="values[field.key] as string"
-              @update:model-value="set(field.key, $event)"
-            />
-            <VSelect
-              v-else-if="field.type === 'enum' || field.type === 'multi-enum'"
-              v-bind="control(field)"
-              :multiple="field.type === 'multi-enum'"
-              :model-value="values[field.key]"
-              :items="
-                field.type === 'multi-enum'
-                  ? options(field)
-                  : [
-                      { value: '', label: '请选择', historical: false },
-                      ...options(field),
-                    ]
-              "
-              item-title="label"
-              item-value="value"
-              :item-props="(item) => ({ disabled: item.historical })"
-              @update:model-value="set(field.key, $event)"
-            />
-            <VCheckbox
-              v-else-if="field.type === 'boolean'"
-              v-bind="control(field)"
-              :model-value="values[field.key] as boolean | null"
-              @update:model-value="set(field.key, $event)"
-            />
-            <VTextField
-              v-else
-              v-bind="control(field)"
-              :type="
-                field.type === 'password'
-                  ? 'password'
-                  : field.type === 'date' && !field.readonly
-                    ? 'date'
-                    : 'text'
-              "
-              :inputmode="
-                field.type === 'decimal'
-                  ? 'decimal'
-                  : field.type === 'integer'
-                    ? 'numeric'
-                    : undefined
-              "
-              :model-value="
-                field.type === 'integer'
-                  ? (integerInput[field.key] ?? values[field.key] ?? '')
-                  : (values[field.key] ?? '')
-              "
-              @update:model-value="input(field, $event)"
-            />
-            <FieldFeedback
-              :key="scope"
-              :id="`${formId}-${field.key}-messages`"
-              :label="field.label"
-              :messages="errors(field)"
-              :focused="focusedField === field.key"
-            />
+              <VTextarea
+                v-else-if="field.type === 'textarea'"
+                v-bind="control(field)"
+                :model-value="values[field.key] as string"
+                @update:model-value="set(field.key, $event)"
+              />
+              <VSelect
+                v-else-if="field.type === 'enum' || field.type === 'multi-enum'"
+                v-bind="control(field)"
+                :multiple="field.type === 'multi-enum'"
+                :model-value="values[field.key]"
+                :items="
+                  field.type === 'multi-enum'
+                    ? options(field)
+                    : [
+                        { value: '', label: '请选择', historical: false },
+                        ...options(field),
+                      ]
+                "
+                item-title="label"
+                item-value="value"
+                :item-props="(item) => ({ disabled: item.historical })"
+                @update:model-value="set(field.key, $event)"
+              />
+              <VCheckbox
+                v-else-if="field.type === 'boolean'"
+                v-bind="control(field)"
+                :model-value="values[field.key] as boolean | null"
+                @update:model-value="set(field.key, $event)"
+              />
+              <VTextField
+                v-else
+                v-bind="control(field)"
+                :type="
+                  field.type === 'password'
+                    ? 'password'
+                    : field.type === 'date' && !field.readonly
+                      ? 'date'
+                      : 'text'
+                "
+                :inputmode="
+                  field.type === 'decimal'
+                    ? 'decimal'
+                    : field.type === 'integer'
+                      ? 'numeric'
+                      : undefined
+                "
+                :model-value="
+                  field.type === 'integer'
+                    ? (integerInput[field.key] ?? values[field.key] ?? '')
+                    : (values[field.key] ?? '')
+                "
+                @update:model-value="input(field, $event)"
+              />
+              <FieldFeedback
+                :key="scope"
+                :id="`${formId}-${field.key}-messages`"
+                :label="field.label"
+                :messages="errors(field)"
+                :focused="focusedField === field.key"
+              />
+            </div>
           </div>
-        </div>
+        </template>
       </div>
     </section>
   </div>
 </template>
+
+<style scoped>
+.zerp-form-section-title {
+  grid-column: 1 / -1;
+  font: inherit;
+  font-weight: 600;
+  margin: 0.75rem 0 0;
+}
+</style>

@@ -1,3 +1,5 @@
+import { writeLock } from "./write-lock";
+import type { RecordLink } from "./shell";
 import type { DraftCollaboration, ReportInteractions } from "./collaboration";
 import RelatedPageDialog from "./RelatedPageDialog.vue";
 import ReportInteractionPanel from "./ReportInteractionPanel.vue";
@@ -10,6 +12,7 @@ import { clone } from "./clone";
 
 export type AppPageHandle = { requestLeave(): Promise<boolean> };
 export type PageKind =
+  | "module"
   | "workbench"
   | "workbench-preferences"
   | "batch"
@@ -36,10 +39,12 @@ type ContentOnly = {
 };
 /** Package-private capability. Consumers can obtain it only from a finite page factory. */
 export const snapshotPage = Symbol("zerp.page");
+export const probePageRecovery = Symbol("zerp.page-recovery");
 export type PageContext = {
   scope: string;
   active: boolean;
   discardVersion: number;
+  embedded?: boolean;
   protection: (value: EditProtection) => boolean;
   requestLeave: () => Promise<boolean>;
 };
@@ -47,6 +52,7 @@ export interface PageDefinition<K extends PageKind = PageKind> {
   readonly kind: K;
   readonly title: string;
   readonly [snapshotPage]: () => PageSnapshot;
+  readonly [probePageRecovery]?: (scope: string) => Promise<boolean>;
 }
 export type PageAdmission = {
   definition?: object;
@@ -63,9 +69,11 @@ function page<T extends { title: string }, K extends PageKind>(
   source: PageSource<T>,
   render: (value: T, context: PageContext) => VNodeChild,
   admission: (value: T) => PageAdmission = () => ({}),
+  recovery?: (scope: string) => Promise<boolean>,
 ): PageDefinition<K> {
   return Object.freeze({
     kind,
+    [probePageRecovery]: recovery,
     get title() {
       return toValue(source).title;
     },
@@ -174,6 +182,12 @@ export type CrudPage<
     reconcile?: boolean;
   };
   blocks?: readonly DomainBlock<D>[];
+  related?: (identity: I) => readonly import("./business").ModuleEntry[];
+  retainEditor?: boolean;
+  collaborateOnRead?: boolean;
+  onRecord?: (identity: I | undefined) => void;
+  section?: string;
+  onSection?: (key: string) => void;
   initialRow?: R;
   readOnly?: boolean;
   selection?: {
@@ -181,6 +195,7 @@ export type CrudPage<
     selectedKeys: readonly (string | number)[];
     onChange: (keys: (string | number)[]) => void;
   };
+  rowLinks?: (row: R) => readonly RecordLink[];
   listActions?: (row: R) => readonly Exclude<ListAction, CrudAction>[];
   onListAction?: (action: Exclude<ListAction, CrudAction>, row: R) => void;
   onQueried?: (filters: F) => void;
@@ -191,7 +206,7 @@ export function defineCrudPage<
   R extends object,
   I,
   E = never,
->(source: PageSource<CrudPage<D, F, R, I, E>>): PageDefinition {
+>(source: PageSource<CrudPage<D, F, R, I, E>>): PageDefinition<"crud"> {
   return page(
     "crud",
     () => {
@@ -203,6 +218,13 @@ export function defineCrudPage<
         definition: value.definition,
         permissions: value.permissions,
         blocks: value.blocks,
+        related: value.related,
+        retainEditor: value.retainEditor,
+        collaborateOnRead: value.collaborateOnRead,
+        embedded: context.embedded,
+        onRecord: value.onRecord,
+        section: value.section,
+        onSection: value.onSection,
         scope: context.scope,
         initialRow: value.initialRow,
         readOnly: value.readOnly,
@@ -213,6 +235,7 @@ export function defineCrudPage<
         rowKey: value.selection?.rowKey,
         selectedKeys: value.selection?.selectedKeys,
         "onUpdate:selectedKeys": value.selection?.onChange,
+        rowLinks: value.rowLinks,
         listActions: value.listActions,
         onListAction: value.onListAction,
       }),
@@ -223,6 +246,19 @@ export function defineCrudPage<
           ? undefined
           : value.definition.identity(value.initialRow),
     }),
+    async (scope) => {
+      const definition = toValue(source).definition;
+      if (
+        writeLock(definition.adapter, definition.resource, scope).phase !==
+        "idle"
+      )
+        return true;
+      const journal = await definition.persistence?.load({
+        scope,
+        resource: definition.resource,
+      });
+      return !!journal && journal.completed !== true;
+    },
   );
 }
 export type ConfigurationPage<

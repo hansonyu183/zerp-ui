@@ -87,7 +87,7 @@ const start = async (
   d: Omit<ReturnType<typeof definition>, "reconcile"> & {
     reconcile?: (
       a: import("../src/index").Attempt<{ name: string }, string>,
-    ) => Promise<import("../src/index").ReconcileResult<unknown>>;
+    ) => Promise<import("../src/index").ReconcileResult<unknown, string>>;
   },
   scope = "a",
 ) => {

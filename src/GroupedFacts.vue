@@ -54,6 +54,7 @@ watch(groups, (next) => {
         >
           <FactFields
             :value="value"
+            :scope="scope"
             :fields="group.fields"
             @related="emit('related', $event)"
           />
@@ -64,6 +65,7 @@ watch(groups, (next) => {
       <h3 class="text-subtitle-2">{{ groups[0].label }}</h3>
       <FactFields
         :value="value"
+        :scope="scope"
         :fields="groups[0].fields"
         @related="emit('related', $event)"
       />

@@ -9,11 +9,13 @@
   "
 >
 import Feedback from "./Feedback.vue";
+import { valueAt } from "./model";
 import FeedbackRegion from "./FeedbackRegion.vue";
 import { VBtn, VCard, VCheckboxBtn, VTable } from "vuetify/components";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
 import RowActions from "./RowActions.vue";
+import type { RecordLink } from "./shell";
 import {
   validateReportColumns,
   validateReportPresentation,
@@ -25,9 +27,19 @@ import type {
   ReportPresentation,
   ReportAppearance,
 } from "./report";
-import type { Column, Page, CrudAction, ListAction } from "./contracts";
+import type {
+  Column,
+  Page,
+  CrudAction,
+  ListAction,
+  ListSort,
+} from "./contracts";
 const props = defineProps<{
   columns: readonly Column<R>[];
+  labels?: (
+    row: R,
+  ) => Readonly<Partial<Record<Extract<keyof R, string>, string>>>;
+  sort?: ListSort;
   result: Page<R>;
   page: number;
   pageSize: number;
@@ -35,7 +47,9 @@ const props = defineProps<{
   selectedKeys?: readonly (string | number)[];
   selectable?: (row: R) => boolean;
   actions?: (row: R) => readonly A[];
+  disabledActions?: (row: R) => Readonly<Partial<Record<ListAction, string>>>;
   viewHref?: (row: R) => string | undefined;
+  rowLinks?: (row: R) => readonly RecordLink[];
   disabled?: boolean;
   wide?: boolean;
   rowKey?: (row: R) => K;
@@ -94,6 +108,7 @@ const emit = defineEmits<{
   cell: [cell: ReportCell<T>, row: R];
   page: [value: number];
   action: [action: A, row: R];
+  sort: [value: ListSort];
 }>();
 const visibleColumns = computed(() =>
   props.columns.filter((c) => c.visible !== false),
@@ -110,7 +125,8 @@ const dataColumns = computed(() =>
 const hasActions = computed(
   () =>
     rowActions.value.some((actions) => actions.length) ||
-    actionColumns.value.length > 0,
+    actionColumns.value.length > 0 ||
+    props.result.items.some((row) => props.rowLinks?.(row).length),
 );
 const displayColumns = computed(() => {
   const data = dataColumns.value.map((column) => ({
@@ -130,19 +146,26 @@ const displayColumns = computed(() => {
   ];
 });
 function cellActions(row: R) {
-  return actionColumns.value.flatMap((column) => {
-    const intent = props.cell?.(row, column.key);
-    return intent
-      ? [
-          {
-            key: column.key,
-            label: intent.label,
-            disabled: intent.disabled,
-            href: intent.kind === "record" ? intent.href : undefined,
-          },
-        ]
-      : [];
-  });
+  return [
+    ...(props.rowLinks?.(row) ?? []).map((link) => ({
+      ...link,
+      key: "link:" + link.key,
+      disabled: false,
+    })),
+    ...actionColumns.value.flatMap((column) => {
+      const intent = props.cell?.(row, column.key);
+      return intent
+        ? [
+            {
+              key: column.key,
+              label: intent.label,
+              disabled: intent.disabled,
+              href: intent.kind === "record" ? intent.href : undefined,
+            },
+          ]
+        : [];
+    }),
+  ];
 }
 // Without a consumer key, retain object identity rather than rebinding an open menu by array index.
 // Selection and report presentation still require the consumer's exact rowKey.
@@ -195,7 +218,8 @@ function dispatch(action: ListAction, row: R) {
     !props.loading &&
     !presentationError.value &&
     props.result.items.includes(row) &&
-    props.actions?.(row).includes(action as A)
+    props.actions?.(row).includes(action as A) &&
+    !props.disabledActions?.(row)[action]
   )
     emit("action", action as A, row);
 }
@@ -210,6 +234,10 @@ function activateCell(
     !props.result.items.includes(row)
   ) {
     event.preventDefault();
+    return;
+  }
+  if (props.rowLinks?.(row).some((link) => "link:" + link.key === key)) {
+    if (props.loading) event.preventDefault();
     return;
   }
   const intent = props.cell?.(row, key);
@@ -227,8 +255,11 @@ function activateCell(
   )
     emit("cell", intent, row);
 }
+function displayRow(row: R, column: Column<R>) {
+  return props.labels?.(row)[column.key] ?? display(row, column);
+}
 function display(row: Partial<R>, column: Column<R>) {
-  const value = row[column.key];
+  const value = valueAt(row, column.key);
   return value === null || value === undefined
     ? "—"
     : value === ""
@@ -299,6 +330,29 @@ function display(row: Partial<R>, column: Column<R>) {
                 @update:model-value="selectRows(eligible, !!$event)"
               />
               <template v-else-if="entry.kind === 'actions'">操作</template>
+              <VBtn
+                v-else-if="sort"
+                type="button"
+                variant="text"
+                :disabled="disabled || loading"
+                @click="
+                  emit('sort', {
+                    key: entry.column.key,
+                    direction:
+                      sort.key === entry.column.key && sort.direction === 'asc'
+                        ? 'desc'
+                        : 'asc',
+                  })
+                "
+                >{{ entry.column.label
+                }}{{
+                  sort.key === entry.column.key
+                    ? sort.direction === "asc"
+                      ? " ↑"
+                      : " ↓"
+                    : ""
+                }}</VBtn
+              >
               <template v-else>{{ entry.column.label }}</template>
             </th>
           </tr>
@@ -348,6 +402,7 @@ function display(row: Partial<R>, column: Column<R>) {
                 <RowActions
                   v-if="hasActions"
                   :actions="rowActions[index]!"
+                  :reasons="disabledActions?.(row)"
                   :entries="cellActions(row)"
                   :busy="loading"
                   :disabled="disabled"
@@ -390,6 +445,7 @@ function display(row: Partial<R>, column: Column<R>) {
                 <RowActions
                   v-else-if="entry.kind === 'actions'"
                   :actions="rowActions[index]!"
+                  :reasons="disabledActions?.(row)"
                   :entries="cellActions(row)"
                   :disabled="disabled"
                   :busy="loading"
@@ -418,7 +474,7 @@ function display(row: Partial<R>, column: Column<R>) {
                       :href="intent.href"
                       :aria-label="intent.label"
                       @click="activateCell($event, row, entry.column.key)"
-                      >{{ display(row, entry.column) }}</a
+                      >{{ displayRow(row, entry.column) }}</a
                     >
                     <VBtn
                       v-else-if="intent"
@@ -430,9 +486,11 @@ function display(row: Partial<R>, column: Column<R>) {
                       :disabled="disabled || intent.disabled"
                       @click="activateCell($event, row, entry.column.key)"
                     >
-                      {{ display(row, entry.column) }}
+                      {{ displayRow(row, entry.column) }}
                     </VBtn>
-                    <template v-else>{{ display(row, entry.column) }}</template>
+                    <template v-else>{{
+                      displayRow(row, entry.column)
+                    }}</template>
                   </template>
                 </template>
               </component>

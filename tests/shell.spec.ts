@@ -85,6 +85,40 @@ it("renders consumer links, retries and controlled theme intents without owning 
   );
   expect(wrapper.get("nav a").attributes("aria-current")).toBe("page");
   expect(wrapper.text()).toContain("库内事实");
+  await wrapper.setProps({
+    pageNavigation: [
+      {
+        key: "record",
+        caption: "记录设置",
+        kind: "tabs",
+        selectedKey: "permissions",
+        items: [
+          { key: "basic", caption: "基本信息", to: "/catalog?part=basic" },
+          {
+            key: "permissions",
+            caption: "操作权限",
+            to: "/catalog?part=permissions",
+          },
+        ],
+      },
+    ],
+  });
+  expect(wrapper.get('nav[aria-label="主导航"]').text()).not.toContain(
+    "操作权限",
+  );
+  expect(
+    wrapper
+      .get('nav[aria-label="页面导航"] a[href="/catalog?part=permissions"]')
+      .attributes("aria-current"),
+  ).toBe("page");
+  expect(
+    wrapper
+      .get('nav[aria-label="页面导航"] a[href="/catalog?part=basic"]')
+      .attributes("aria-current"),
+  ).toBeUndefined();
+  await wrapper.setProps({ active: false });
+  expect(wrapper.find('nav[aria-label="页面导航"]').exists()).toBe(false);
+  await wrapper.setProps({ active: true, pageNavigation: [] });
 
   expect(wrapper.get("nav .zerp-ui-icon").text()).toBe("\u{F0219}");
   await wrapper.setProps({

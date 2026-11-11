@@ -16,6 +16,7 @@ const props = withDefaults(
     active?: boolean;
     discard?: number;
     heading?: boolean;
+    embedded?: boolean;
   }>(),
   { active: true, heading: true },
 );
@@ -92,6 +93,7 @@ const content = computed(() => {
       ? admitted.value.render({
           scope: props.scope,
           active: props.active,
+          embedded: props.embedded,
           discardVersion: discardVersion.value,
           protection: (value) => {
             if (epoch !== generation.value || !props.active) return false;

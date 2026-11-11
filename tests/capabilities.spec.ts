@@ -1573,3 +1573,64 @@ it.each(["applied", "unknown"])(
     w.unmount();
   },
 );
+
+it("keeps page navigation and list associations without duplicating them in view or edit dialogs", async () => {
+  const d = crud(writeStore<Attempt<{ name: string }, string>>().port);
+  const w = await start(
+    defineCrudPage({
+      definition: d,
+      permissions: { query: true, create: true, write: true },
+      rowLinks: (row) => [
+        {
+          key: "settings",
+          label: "关联设置",
+          href: `/records/${row.id}/settings`,
+        },
+      ],
+    }),
+  );
+  try {
+    await w.setProps({
+      pageNavigation: [
+        {
+          key: "records",
+          caption: "资料",
+          kind: "tabs",
+          selectedKey: "basic",
+          items: [
+            { key: "basic", caption: "基本信息", to: "/" },
+            { key: "settings", caption: "关联设置", to: "/settings" },
+          ],
+        },
+      ],
+    });
+    await flushPromises();
+    await click(w, "更多操作");
+    expect(
+      document.querySelector('a[href="/records/one/settings"]'),
+    ).not.toBeNull();
+    await click(w, "更多操作");
+    expect(w.get('nav[aria-label="页面导航"]').findAll("a")).toHaveLength(2);
+    await click(w, "查看");
+    let dialog = new DOMWrapper(document.querySelector('[role="dialog"]')!);
+    expect(dialog.find("nav").exists()).toBe(false);
+    expect(dialog.find('a[href="/records/one/settings"]').exists()).toBe(false);
+    await dialog
+      .findAll("button")
+      .find((button) => button.text() === "编辑")!
+      .trigger("click");
+    await flushPromises();
+    dialog = new DOMWrapper(document.querySelector('[role="dialog"]')!);
+    expect(dialog.find("nav").exists()).toBe(false);
+    expect(w.get('nav[aria-label="页面导航"]').findAll("a")).toHaveLength(2);
+    await dialog.get("input").setValue("未保存");
+    await dialog
+      .findAll("button")
+      .find((button) => button.text() === "取消编辑")!
+      .trigger("click");
+    await flushPromises();
+    expect(document.body.textContent).toContain("未保存修改");
+  } finally {
+    w.unmount();
+  }
+});

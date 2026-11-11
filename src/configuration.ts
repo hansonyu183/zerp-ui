@@ -71,12 +71,8 @@ export function defineConfiguration<
   return definition;
 }
 /** Authoritative identity is required for continuing a newly created draft. */
-export type ConfigurationWriteResult<I> =
-  | Exclude<WriteResult, { status: "success" }>
-  | { status: "success"; identity?: I };
-export type ConfigurationReconcileResult<E, I> = ReconcileResult<E> & {
-  identity?: I;
-};
+export type ConfigurationWriteResult<I> = WriteResult<I>;
+export type ConfigurationReconcileResult<E, I> = ReconcileResult<E, I>;
 export type ConfigurationViewHandle<R> = {
   newDraft(): Promise<boolean>;
   openRow(row: R): Promise<boolean>;

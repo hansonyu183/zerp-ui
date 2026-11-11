@@ -12,6 +12,7 @@ import {
 import type { ListAction } from "./contracts";
 const props = defineProps<{
   actions: readonly ListAction[];
+  reasons?: Readonly<Partial<Record<ListAction, string>>>;
   disabled?: boolean;
   busy?: boolean;
   entries?: readonly {
@@ -81,7 +82,13 @@ watch(
   },
 );
 function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
-  if (props.disabled || props.busy || !props.actions.includes(action)) return;
+  if (
+    props.disabled ||
+    props.busy ||
+    props.reasons?.[action] ||
+    !props.actions.includes(action)
+  )
+    return;
   if (
     action === "view" &&
     props.viewHref &&
@@ -100,7 +107,8 @@ const items = computed(() => [
     label: captions[action],
     icon: icons[action],
     href: action === "view" ? props.viewHref : undefined,
-    disabled: props.disabled || props.busy,
+    disabled: props.disabled || props.busy || !!props.reasons?.[action],
+    reason: props.reasons?.[action],
     action,
     cellKey: undefined,
   })),
@@ -111,6 +119,7 @@ const items = computed(() => [
     icon: "mdi-open-in-new",
     disabled: props.disabled || entry.disabled,
     action: undefined,
+    reason: undefined,
   })),
 ]);
 function activate(
@@ -137,24 +146,32 @@ function activate(
     <VTooltip
       v-for="item in items.slice(0, primaryCount)"
       :key="item.key"
-      :text="item.label"
+      :text="item.reason ? `${item.label}：${item.reason}` : item.label"
       :disabled="xs"
     >
       <template #activator="{ props: tooltip }">
-        <VBtn
+        <span
           v-bind="tooltip"
-          :aria-label="item.label"
-          :icon="!xs"
-          :href="!item.disabled ? item.href : undefined"
-          :disabled="item.disabled"
-          variant="text"
-          color="on-surface"
-          size="default"
-          @click="activate($event, item)"
-          ><VIcon :icon="item.icon" aria-hidden="true" /><span v-if="xs">{{
-            item.label
-          }}</span></VBtn
+          :tabindex="item.disabled && item.reason ? 0 : undefined"
+          :aria-label="
+            item.reason ? `${item.label}：${item.reason}` : undefined
+          "
         >
+          <VBtn
+            :aria-label="item.label"
+            :aria-description="item.reason"
+            :icon="!xs"
+            :href="!item.disabled ? item.href : undefined"
+            :disabled="item.disabled"
+            variant="text"
+            color="on-surface"
+            size="default"
+            @click="activate($event, item)"
+            ><VIcon :icon="item.icon" aria-hidden="true" /><span v-if="xs">{{
+              item.label
+            }}</span></VBtn
+          >
+        </span>
       </template>
     </VTooltip>
     <VMenu
@@ -185,6 +202,7 @@ function activate(
           :key="item.key"
           role="menuitem"
           :title="item.label"
+          :subtitle="item.reason"
           :prepend-icon="item.icon"
           :href="!item.disabled ? item.href : undefined"
           :disabled="item.disabled"

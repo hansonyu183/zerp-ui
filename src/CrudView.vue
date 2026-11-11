@@ -5,8 +5,10 @@
 >
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import { VDefaultsProvider, VBtn, VCard, VDialog } from "vuetify/components";
-import RecordDialog from "./RecordDialog.vue";
+import RecordEditor from "./RecordEditor.vue";
 import DomainBlockTabs from "./DomainBlockTabs.vue";
+import RecordSections from "./RecordSections.vue";
+import type { ModuleEntry } from "./business";
 import { validateDomainBlocks, type DomainBlock } from "./domain-blocks";
 import {
   computed,
@@ -35,8 +37,10 @@ import GroupedFacts from "./GroupedFacts.vue";
 import { formFacts, groupFields } from "./details";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
+import type { RecordLink } from "./shell";
 import { equalValues } from "./editor-values";
 import { clone, message } from "./clone";
+import { setValueAt, valueAt } from "./model";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
 import { writeRecovery } from "./write-recovery";
@@ -47,12 +51,18 @@ const props = defineProps<{
   definition: CrudDefinition<D, F, R, I, E>;
   scope: string;
   blocks?: readonly DomainBlock<D>[];
+  related?: (identity: I) => readonly ModuleEntry[];
+  retainEditor?: boolean;
+  collaborateOnRead?: boolean;
+  embedded?: boolean;
+  section?: string;
   beforeClose?: () => Promise<boolean>;
   discardVersion?: number;
   initialRow?: R;
   readOnly?: boolean;
   selectedKeys?: readonly (string | number)[];
   rowKey?: (row: R) => string | number;
+  rowLinks?: (row: R) => readonly RecordLink[];
   listActions?: (row: R) => readonly Exclude<ListAction, CrudAction>[];
   permissions: {
     query: boolean;
@@ -64,6 +74,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   protection: [state: EditProtection];
   queried: [filters: F];
+  record: [identity: I | undefined];
+  section: [key: string];
   "update:selectedKeys": [keys: (string | number)[]];
   listAction: [action: Exclude<ListAction, CrudAction>, row: R];
 }>();
@@ -80,6 +92,8 @@ const filters = shallowRef<F>(props.definition.initialFilters()),
   notice = ref("");
 const editor = shallowRef<{
     values: D;
+    creating?: boolean;
+    notice?: string;
     readOnly?: boolean;
     writable?: boolean;
     identity?: I;
@@ -94,6 +108,27 @@ const editor = shallowRef<{
     action: Exclude<CrudAction, "edit" | "view">;
   } | null>(null),
   verifying = ref(false);
+const relatedEntries = shallowRef<readonly ModuleEntry[]>([]);
+const relatedProtection = shallowRef<EditProtection>({
+  dirty: false,
+  localPending: false,
+  invalid: false,
+  writeState: "idle",
+});
+watch(
+  () => editor.value?.identity,
+  (identity) => {
+    relatedEntries.value =
+      identity !== undefined ? (props.related?.(identity) ?? []) : [];
+    if (!relatedEntries.value.length)
+      relatedProtection.value = {
+        dirty: false,
+        localPending: false,
+        invalid: false,
+        writeState: "idle",
+      };
+  },
+);
 const readonlyFields = shallowRef<readonly Extract<keyof D, string>[]>([]);
 const editFields = computed(
   () =>
@@ -106,7 +141,16 @@ const editFields = computed(
           readonlyFields.value.some((key) => key === field.key),
       })) as unknown as typeof props.definition.fields,
 );
+const fieldIssue = shallowRef<{ key: string; message: string }>();
+const focusField = shallowRef<{ key: string; version: number }>();
+let focusVersion = 0;
+function focusIssue(key: string | undefined, message: string) {
+  fieldIssue.value = key ? { key, message } : undefined;
+  if (key) focusField.value = { key, version: ++focusVersion };
+}
 const moreFilters = ref(false);
+const sort = ref(props.definition.initialSort);
+const exporting = ref(false);
 const shownFilters = computed(() =>
   moreFilters.value
     ? props.definition.filters
@@ -128,11 +172,34 @@ const recovery = () =>
     resource: props.definition.resource,
   });
 async function restoreWrite() {
-  const recover = recovery();
+  const recover = recovery(),
+    target = lock.value,
+    v = version;
   try {
     await recover.restore();
+    if (!current(v) || target !== lock.value) return;
+    if (
+      props.retainEditor &&
+      props.permissions.query &&
+      target.attempt?.input &&
+      !editor.value
+    ) {
+      const identity =
+        target.context &&
+        typeof target.context === "object" &&
+        "identity" in target.context
+          ? (target.context.identity as I)
+          : target.attempt.identity;
+      editor.value = {
+        values: clone(target.attempt.input),
+        creating: target.attempt.operation === "create",
+        identity: clone(identity),
+        readOnly: target.outcome === "applied",
+      };
+      initial.value = clone(target.attempt.input);
+    }
   } catch (cause) {
-    error.value = message(cause);
+    if (current(v)) error.value = message(cause);
   }
 }
 const blocked = computed(() => lock.value.phase !== "idle");
@@ -171,6 +238,7 @@ async function query(next = 1, submit = false) {
       filters: clone(requested),
       page: next,
       pageSize: 20,
+      ...(sort.value ? { sort: clone(sort.value) } : {}),
     });
     if (!current(v) || q !== queryVersion) return;
     result.value = clone(value);
@@ -182,13 +250,34 @@ async function query(next = 1, submit = false) {
       target.phase === "refresh" &&
       target.attempt === refreshAttempt
     ) {
-      await recovery().complete();
       if (target.outcome === "applied" && current(v) && q === queryVersion) {
-        editor.value = null;
-        initial.value = null;
+        if (props.retainEditor && editor.value?.identity !== undefined) {
+          const detail = await props.definition.adapter.get({
+            scope: props.scope,
+            identity: clone(editor.value.identity),
+          });
+          if (!current(v) || q !== queryVersion) return;
+          editor.value = {
+            ...editor.value,
+            values: adoptValues(detail.values),
+            identity: clone(detail.identity),
+            row: detail.row ?? editor.value.row,
+            creating: false,
+            notice: detail.notice,
+            writable: detail.writable !== false,
+            readOnly: true,
+          };
+          initial.value = adoptValues(detail.values);
+          readonlyFields.value = detail.readonlyFields ?? [];
+          emit("record", clone(detail.identity));
+        } else {
+          editor.value = null;
+          initial.value = null;
+        }
         formPending.value = false;
         blockPending.value = {};
       }
+      await recovery().complete();
       target.phase = "idle";
       target.attempt = null;
     }
@@ -196,6 +285,67 @@ async function query(next = 1, submit = false) {
     if (current(v) && q === queryVersion) error.value = message(e);
   } finally {
     if (current(v) && q === queryVersion) loading.value = false;
+  }
+}
+function adoptValues(value: D): D {
+  const result = clone(value);
+  for (const field of props.definition.fields as readonly AnyField[])
+    if (field.type === "secret") setValueAt(result, field.key, undefined);
+  return result;
+}
+async function rebase() {
+  const value = editor.value,
+    v = version,
+    e = editVersion;
+  if (
+    !value ||
+    value.identity === undefined ||
+    blocked.value ||
+    detailLoading.value ||
+    localPending.value ||
+    !props.definition.adapter.rebase
+  )
+    return;
+  detailLoading.value = true;
+  try {
+    const result = await props.definition.adapter.rebase({
+      scope: props.scope,
+      identity: clone(value.identity),
+      value: clone(value.values),
+      baseline: clone(initial.value!),
+    });
+    if (!current(v) || e !== editVersion) return;
+    editor.value = {
+      ...value,
+      values: clone(result.values),
+      identity: clone(result.identity),
+      writable: result.writable !== false,
+      readOnly: value.readOnly || result.writable === false,
+      readonlyFields: result.readonlyFields,
+    };
+    readonlyFields.value = result.readonlyFields ?? [];
+    initial.value = clone(result.baseline);
+  } catch (cause) {
+    if (current(v)) error.value = message(cause);
+  } finally {
+    if (current(v)) detailLoading.value = false;
+  }
+}
+async function exportRows() {
+  if (!props.definition.export || exporting.value || !props.permissions.query)
+    return;
+  const v = version;
+  exporting.value = true;
+  try {
+    await props.definition.export({
+      scope: props.scope,
+      filters: clone(applied.value),
+      sort: clone(sort.value),
+    });
+  } catch (cause) {
+    if (current(v)) error.value = message(cause);
+  } finally {
+    if (current(v)) exporting.value = false;
   }
 }
 const feedbackTarget = shallowRef<HTMLElement | null>(null);
@@ -213,6 +363,8 @@ async function begin(row?: R, readOnly = false) {
     editor.value ||
     !props.permissions.query ||
     (!readOnly && !props.permissions.write) ||
+    (row &&
+      props.definition.disabledActions?.(row)[readOnly ? "view" : "edit"]) ||
     (row
       ? !props.definition.actions(row).includes(readOnly ? "view" : "edit")
       : !props.permissions.create)
@@ -221,20 +373,33 @@ async function begin(row?: R, readOnly = false) {
   const v = version,
     e = ++editVersion;
   error.value = "";
+  fieldIssue.value = undefined;
+  focusField.value = undefined;
   formPending.value = false;
   readonlyFields.value = [];
   blockPending.value = {};
   if (!row) {
-    editor.value = {
-      values: clone(
-        props.definition.adapter.empty({
-          scope: props.scope,
-          filters: clone(applied.value),
-        }),
-      ),
-    };
-    initial.value = clone(editor.value.values);
-    return true;
+    detailLoading.value = true;
+    try {
+      const input = { scope: props.scope, filters: clone(applied.value) };
+      const initialized = props.definition.adapter.initialize
+        ? await props.definition.adapter.initialize(input)
+        : { values: props.definition.adapter.empty(input) };
+      if (!current(v) || e !== editVersion || !props.permissions.create)
+        return false;
+      editor.value = {
+        values: clone(initialized.values),
+        identity: clone(initialized.identity),
+        creating: true,
+      };
+      initial.value = clone(editor.value.values);
+      return true;
+    } catch (cause) {
+      if (current(v)) error.value = message(cause);
+      return false;
+    } finally {
+      if (current(v) && e === editVersion) detailLoading.value = false;
+    }
   }
   detailLoading.value = true;
   try {
@@ -244,16 +409,22 @@ async function begin(row?: R, readOnly = false) {
         identity,
       });
     if (current(v) && e === editVersion) {
-      initial.value = clone(detail.values);
+      initial.value = adoptValues(detail.values);
       readonlyFields.value = detail.readonlyFields ?? [];
       editor.value = {
-        values: clone(detail.values),
-        readOnly: readOnly || detail.writable === false,
+        values: adoptValues(detail.values),
+        readOnly:
+          readOnly ||
+          detail.writable === false ||
+          !!props.definition.disabledActions?.(detail.row ?? row).edit,
         writable: detail.writable !== false,
         identity: clone(detail.identity),
-        row,
+        row: detail.row ?? row,
+        creating: false,
+        notice: detail.notice,
         readonlyFields: detail.readonlyFields,
       };
+      emit("record", clone(detail.identity));
       return true;
     }
   } catch (e) {
@@ -265,7 +436,7 @@ async function begin(row?: R, readOnly = false) {
 async function cancel(): Promise<boolean> {
   const v = version,
     e = editVersion;
-  if (blocked.value) return false;
+  if (blocked.value || detailLoading.value) return false;
   if (
     editor.value &&
     !(await (props.beforeClose
@@ -279,6 +450,7 @@ async function cancel(): Promise<boolean> {
   formPending.value = false;
   blockPending.value = {};
   editVersion++;
+  emit("record", undefined);
   return true;
 }
 async function openRow(row: R, readOnly = true): Promise<boolean> {
@@ -290,6 +462,9 @@ async function openRow(row: R, readOnly = true): Promise<boolean> {
     detailLoading.value ||
     !props.permissions.query ||
     (!readOnly && !props.permissions.write) ||
+    props.definition.disabledActions?.(requestedRow)[
+      readOnly ? "view" : "edit"
+    ] ||
     !props.definition.actions(requestedRow).includes(readOnly ? "view" : "edit")
   )
     return false;
@@ -303,26 +478,31 @@ const localPending = computed(
 );
 const protection = computed<EditProtection>(() => ({
   dirty:
-    !!editor.value &&
-    !editor.value.readOnly &&
-    !equalValues(editor.value.values, initial.value),
-  localPending: localPending.value,
+    relatedProtection.value.dirty ||
+    (!!editor.value &&
+      !editor.value.readOnly &&
+      !equalValues(editor.value.values, initial.value)),
+  localPending: localPending.value || relatedProtection.value.localPending,
   invalid:
-    !!editor.value &&
-    !editor.value.readOnly &&
-    !!(
-      validate(
-        editFields.value as readonly AnyField[],
-        editor.value.values,
-        editor.value.row ? "edit" : "create",
-      ) ??
-      validateDomainBlocks(
-        props.blocks,
-        editor.value.values,
-        editor.value.row ? "edit" : "create",
-      )
-    ),
-  writeState: lock.value.phase,
+    relatedProtection.value.invalid ||
+    (!!editor.value &&
+      !editor.value.readOnly &&
+      !!(
+        validate(
+          editFields.value as readonly AnyField[],
+          editor.value.values,
+          editor.value.creating ? "create" : "edit",
+        ) ??
+        validateDomainBlocks(
+          props.blocks,
+          editor.value.values,
+          editor.value.creating ? "create" : "edit",
+        )
+      )),
+  writeState:
+    lock.value.phase !== "idle"
+      ? lock.value.phase
+      : relatedProtection.value.writeState,
 }));
 watch(protection, (value) => emit("protection", value), {
   immediate: true,
@@ -337,11 +517,25 @@ const bindings = computed(() => {
   const editable = () =>
     live() &&
     !blocked.value &&
+    !detailLoading.value &&
     props.permissions.write &&
     !editor.value?.readOnly;
   return {
     form: (values: D) => {
-      if (editable())
+      if (editable()) {
+        if (
+          fieldIssue.value &&
+          !equalValues(
+            valueAt(editor.value!.values, fieldIssue.value.key),
+            valueAt(values, fieldIssue.value.key),
+          )
+        )
+          fieldIssue.value = undefined;
+        editor.value = { ...editor.value!, values: clone(values) };
+      }
+    },
+    calculated: (values: D) => {
+      if (live() && !blocked.value && props.permissions.query)
         editor.value = { ...editor.value!, values: clone(values) };
     },
     pending: (value: boolean) => {
@@ -357,9 +551,9 @@ const bindings = computed(() => {
           props: {
             modelValue: clone(editor.value!.values),
             scope: props.scope,
-            formMode: editor.value?.row
-              ? ("edit" as const)
-              : ("create" as const),
+            formMode: editor.value?.creating
+              ? ("create" as const)
+              : ("edit" as const),
             mode:
               editor.value?.readOnly || readonlyFields.value.includes(block.key)
                 ? ("read" as const)
@@ -387,10 +581,20 @@ const bindings = computed(() => {
 async function write(operation: Attempt<D, I>["operation"], row?: R) {
   if (
     blocked.value ||
+    detailLoading.value ||
     localPending.value ||
     !props.permissions.query ||
     !props.permissions.write ||
-    ((operation === "save" || operation === "create") && editor.value?.readOnly)
+    ((operation === "save" || operation === "create") &&
+      editor.value?.readOnly) ||
+    (row &&
+      props.definition.disabledActions?.(row)[
+        operation === "save"
+          ? "edit"
+          : operation === "create"
+            ? "edit"
+            : operation
+      ])
   )
     return;
   if (operation === "create" && !props.permissions.create) return;
@@ -403,7 +607,8 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
     return;
   const definition = props.definition,
     target = lock.value,
-    v = version;
+    v = version,
+    e = editVersion;
   const input =
     operation === "save" || operation === "create"
       ? clone(editor.value?.values)
@@ -422,15 +627,51 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       );
     if (invalid) {
       error.value = invalid;
+      const field = (editFields.value as readonly AnyField[]).find(
+        (field) =>
+          !!validate(
+            [field],
+            input,
+            operation === "create" ? "create" : "edit",
+          ),
+      );
+      focusIssue(field?.key, invalid);
       return;
     }
   }
-  const identity =
-    operation === "save"
+  fieldIssue.value = undefined;
+  focusField.value = undefined;
+  let identity =
+    operation === "save" || operation === "create"
       ? clone(editor.value?.identity)
       : row
         ? clone(definition.identity(row))
         : undefined;
+  if (definition.adapter.prepare) {
+    detailLoading.value = true;
+    try {
+      identity = await definition.adapter.prepare({
+        scope: props.scope,
+        operation,
+        input,
+        identity,
+      });
+    } catch (cause) {
+      if (current(v)) error.value = message(cause);
+      return;
+    } finally {
+      if (current(v)) detailLoading.value = false;
+    }
+    if (
+      !current(v) ||
+      e !== editVersion ||
+      blocked.value ||
+      localPending.value ||
+      !props.permissions.write ||
+      (input && !equalValues(input, editor.value?.values))
+    )
+      return;
+  }
   const attempt: Attempt<D, I> = Object.freeze({
     id: crypto.randomUUID(),
     scope: props.scope,
@@ -454,6 +695,7 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
   target.attempt = attempt;
   target.outcome = undefined;
   target.refreshed = undefined;
+  target.context = undefined;
   error.value = "";
   notice.value = "";
   confirming.value = null;
@@ -485,12 +727,34 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       target.phase = "unknown";
       return;
     }
+    const disabledReason =
+      row &&
+      definition.disabledActions?.(row)[
+        operation === "save" || operation === "create" ? "edit" : operation
+      ];
+    if (disabledReason) {
+      target.phase = "refresh";
+      await originalRecovery.settle("not-applied");
+      await originalRecovery.complete();
+      target.phase = "idle";
+      target.attempt = null;
+      if (current(v)) error.value = disabledReason;
+      return;
+    }
     const outcome = await execute.call(definition.adapter, clone(attempt));
     if (outcome.status === "success") {
+      if ("identity" in outcome && outcome.identity !== undefined) {
+        target.context = { identity: clone(outcome.identity) };
+        if (current(v) && editor.value)
+          editor.value = {
+            ...editor.value,
+            identity: clone(outcome.identity),
+          };
+      }
       target.phase = "refresh";
       await originalRecovery.settle("applied");
       if (current(v)) {
-        editor.value = null;
+        if (!props.retainEditor || operation === "delete") editor.value = null;
         notice.value = "写入成功。";
         await query(page.value);
       }
@@ -500,7 +764,10 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       await originalRecovery.complete();
       target.phase = "idle";
       target.attempt = null;
-      if (current(v)) error.value = outcome.message;
+      if (current(v)) {
+        error.value = outcome.message;
+        focusIssue(outcome.field, outcome.message);
+      }
     } else {
       target.phase = "unknown";
       if (current(v))
@@ -541,12 +808,17 @@ async function reconcile() {
       target.attempt === attempt &&
       target.phase === "unknown"
     ) {
+      if (outcome.identity !== undefined && outcome.status === "applied") {
+        target.context = { identity: clone(outcome.identity) };
+        if (current(v) && editor.value)
+          editor.value = { ...editor.value, identity: clone(outcome.identity) };
+      }
       target.phase = "refresh";
       await originalRecovery.settle(outcome.status);
       if (outcome.status === "applied") {
         target.phase = "refresh";
         if (current(v)) {
-          editor.value = null;
+          if (!props.retainEditor) editor.value = null;
           await query(page.value);
         }
       } else {
@@ -655,12 +927,16 @@ watch(
     blockPending.value = {};
     confirming.value = null;
     page.value = 1;
+    sort.value = props.definition.initialSort;
+    exporting.value = false;
     loading.value = false;
     detailLoading.value = false;
     formPending.value = false;
     verifying.value = false;
     error.value = "";
     notice.value = "";
+    fieldIssue.value = undefined;
+    focusField.value = undefined;
     void restoreWrite()
       .then(() => query())
       .then(() => {
@@ -812,8 +1088,24 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
     >
       <span class="zerp-ui-icon" aria-hidden="true">&#xf0415;</span>新增
     </VBtn>
+    <VBtn
+      v-if="definition.export && permissions.query"
+      type="button"
+      variant="tonal"
+      :disabled="exporting || loading"
+      @click="exportRows"
+      >导出</VBtn
+    >
     <DataList
+      :sort="sort"
+      @sort="
+        sort = $event;
+        query(1);
+      "
       :columns="definition.columns"
+      :labels="definition.labels"
+      :disabled-actions="definition.disabledActions"
+      :row-links="permissions.query ? rowLinks : undefined"
       :cell="
         (row, key) =>
           permissions.query &&
@@ -875,7 +1167,8 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         </VCard></VDefaultsProvider
       ></VDialog
     >
-    <RecordDialog
+    <RecordEditor
+      :inline="embedded"
       @feedback="feedbackTarget = $event"
       :return-focus="editorTrigger"
       v-if="editor"
@@ -883,11 +1176,34 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       :title="
         editor.readOnly ? (definition.viewTitle ?? '查看资料') : '编辑资料'
       "
-      :blocked="blocked"
+      :blocked="
+        blocked || detailLoading || relatedProtection.writeState !== 'idle'
+      "
       @close="cancel"
     >
+      <Feedback :message="editor.notice" kind="warning" />
+      <RecordSections
+        v-if="related"
+        :fields="editFields"
+        :focus-field="focusField"
+        :issues="fieldIssue ? [fieldIssue] : []"
+        :groups="definition.groups"
+        :related="relatedEntries"
+        :model-value="editor.values"
+        :scope="scope"
+        :instance="editVersion"
+        :discard="discardVersion"
+        :selected="section"
+        :read-only="editor.readOnly"
+        :disabled="blocked || detailLoading || !permissions.write"
+        :mode="editor.creating ? 'create' : 'edit'"
+        @update:model-value="bindings.form"
+        @pending="bindings.pending"
+        @protection="relatedProtection = $event"
+        @select="emit('section', $event)"
+      />
       <GroupedFacts
-        v-if="editor.readOnly"
+        v-else-if="editor.readOnly"
         :value="editor.values"
         :groups="
           groupFields(
@@ -900,23 +1216,30 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       />
       <DynamicForm
         v-else
+        :focus-field="focusField"
+        :issues="fieldIssue ? [fieldIssue] : []"
         :fields="editFields"
         :groups="definition.groups"
         :model-value="editor.values"
         :scope="scope"
-        :disabled="blocked || !permissions.write"
-        :mode="editor.row ? 'edit' : 'create'"
+        :disabled="blocked || detailLoading || !permissions.write"
+        :mode="editor.creating ? 'create' : 'edit'"
         :onUpdate:modelValue="bindings.form"
         :onPending="bindings.pending"
       />
       <DraftCollaborationView
-        v-if="definition.collaboration && editor && !editor.readOnly"
+        v-if="
+          definition.collaboration &&
+          editor &&
+          (!editor.readOnly || collaborateOnRead)
+        "
         :adapter="definition.collaboration"
+        :read-only="editor.readOnly"
         :model-value="editor.values"
         :scope="scope"
         :instance="editVersion"
         :disabled="blocked"
-        @update:model-value="bindings.form($event)"
+        @update:model-value="bindings.calculated($event)"
         @pending="blockPending = { ...blockPending, collaboration: $event }"
       />
       <DomainBlockTabs
@@ -930,13 +1253,20 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         v-if="
           editor.readOnly &&
           editor.writable &&
-          editor.row &&
+          editor.identity !== undefined &&
           permissions.write &&
-          definition.actions(editor.row).includes('edit')
+          (!editor.row || definition.actions(editor.row).includes('edit'))
         "
         type="button"
-        :disabled="blocked"
-        @click="openRow(editor.row, false)"
+        :disabled="
+          blocked ||
+          !!(editor.row && definition.disabledActions?.(editor.row).edit)
+        "
+        @click="
+          retainEditor || !editor.row
+            ? (editor = { ...editor, readOnly: false })
+            : openRow(editor.row, false)
+        "
       >
         编辑
       </VBtn>
@@ -950,7 +1280,7 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         color="error"
         variant="tonal"
         type="button"
-        :disabled="blocked"
+        :disabled="blocked || !!definition.disabledActions?.(editor.row).delete"
         @click="
           confirming = {
             row: editor.row,
@@ -961,10 +1291,18 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         >删除</VBtn
       >
       <VBtn
+        v-if="!editor.readOnly && !editor.creating && definition.adapter.rebase"
+        type="button"
+        variant="tonal"
+        :disabled="blocked || detailLoading || localPending"
+        @click="rebase"
+        >读取最新资料并保留输入</VBtn
+      >
+      <VBtn
         color=""
         variant="tonal"
         type="button"
-        :disabled="blocked"
+        :disabled="blocked || detailLoading"
         @click="cancel"
         >取消编辑</VBtn
       ><VBtn
@@ -972,11 +1310,13 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         variant="flat"
         type="button"
         v-if="!editor.readOnly"
-        :disabled="blocked || localPending || !permissions.write"
-        @click="write(editor.row ? 'save' : 'create', editor.row)"
+        :disabled="
+          blocked || detailLoading || localPending || !permissions.write
+        "
+        @click="write(editor.creating ? 'create' : 'save', editor.row)"
       >
         保存
       </VBtn>
-    </RecordDialog>
+    </RecordEditor>
   </section>
 </template>

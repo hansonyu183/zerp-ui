@@ -26,6 +26,7 @@ const props = defineProps<{
   label: string;
   parent?: ReferenceValue | null;
   multiple?: boolean;
+  hierarchical?: boolean;
   disabled?: boolean;
   descriptionId?: string;
   invalid?: boolean;
@@ -66,10 +67,12 @@ const selected = computed<readonly ReferenceValue[]>(() =>
       : [],
 );
 const resolved = shallowRef<readonly ReferenceValue[]>([]);
+const ancestry = ref<ReferenceValue[]>([]);
 const shown = computed(() =>
   selected.value.map((v) => ({
     ...resolved.value.find((r) => r.id === v.id),
     ...v,
+    label: v.label || resolved.value.find((r) => r.id === v.id)?.label || v.id,
   })),
 );
 let searchVersion = 0,
@@ -90,6 +93,9 @@ async function search(next = 1) {
       scope: props.scope,
       keyword: keyword.value,
       parent: props.parent,
+      ...(props.hierarchical
+        ? { ancestor: ancestry.value.at(-1) ?? null }
+        : {}),
       page: next,
       pageSize: 20,
     });
@@ -117,6 +123,13 @@ async function resolve() {
     if (active && version === resolveVersion) emit("pending", false);
   }
 }
+function browse(value?: ReferenceValue) {
+  if (props.disabled || busy.value) return;
+  if (value) ancestry.value.push(value);
+  else ancestry.value.pop();
+  keyword.value = "";
+  void search();
+}
 function choose(value: ReferenceValue) {
   if (props.disabled || value.selectable === false) return;
   emit(
@@ -143,7 +156,8 @@ watch(
     resolved.value = [];
     result.value = { items: [], total: 0 };
     page.value = 1;
-    void search();
+    ancestry.value = [];
+    if (!props.disabled) void search();
     void resolve();
   },
   { immediate: true },
@@ -262,6 +276,19 @@ onBeforeUnmount(() => {
             >
               <VProgressLinear :indeterminate="busy" :active="busy" />
             </div>
+            <div v-if="hierarchical" aria-label="引用层级">
+              <VBtn
+                type="button"
+                variant="text"
+                :disabled="disabled || busy || !ancestry.length"
+                @click="browse()"
+                >上一级</VBtn
+              >
+              <span>{{
+                ancestry.map((item) => item.label || item.id).join(" / ") ||
+                "全部"
+              }}</span>
+            </div>
             <VList :aria-label="`${label}候选`">
               <VListItem v-for="item in result.items" :key="item.id">
                 <VBtn
@@ -270,6 +297,15 @@ onBeforeUnmount(() => {
                   :disabled="disabled || item.selectable === false || busy"
                   @click="choose(item)"
                   >{{ item.label }}</VBtn
+                >
+                <VBtn
+                  v-if="hierarchical && item.hasChildren"
+                  type="button"
+                  variant="text"
+                  :disabled="disabled || busy"
+                  :aria-label="`浏览${item.label}下级`"
+                  @click="browse(item)"
+                  >下级</VBtn
                 >
               </VListItem>
             </VList>

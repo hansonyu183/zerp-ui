@@ -6,9 +6,9 @@ export default defineConfig({
   build: {
     assetsDir: "",
     lib: {
-      entry: "src/index.ts",
+      entry: { index: "src/index.ts", model: "src/model.ts" },
       formats: ["es"],
-      fileName: "index",
+      fileName: (_format, entryName) => `${entryName}.js`,
       cssFileName: "zerp-ui",
     },
     rolldownOptions: {

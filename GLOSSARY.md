@@ -16,3 +16,9 @@ _Avoid_: 将 Document/资料用作单据的统称。
 
 **领域区块（Domain Block）**：
 业务页面中表达一组相关业务内容的局部区域，例如单据表头、明细或金额汇总。术语与边界见 [#40](https://github.com/hansonyu183/zerp-ui/issues/40)。
+
+**业务类型（Business Type）**：
+对一类业务内容的字段、值结构及对象、集合和引用关系的统一描述。术语与边界见 [#108](https://github.com/hansonyu183/zerp-ui/issues/108)。
+
+**列表/表单投影（List/Form Projection）**：
+从业务类型中有序选取供列表或表单使用的字段，不另行定义同一字段的业务含义。术语与边界见 [#108](https://github.com/hansonyu183/zerp-ui/issues/108)。

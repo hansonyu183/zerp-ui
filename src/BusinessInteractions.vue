@@ -2,6 +2,7 @@
 import {
   VCheckbox,
   VTextField,
+  VSelect,
   VList,
   VListItem,
   VBtn,
@@ -65,6 +66,18 @@ onBeforeUnmount(() => {
         :required="item.required"
         hide-details
         @update:model-value="answer(item.id, $event === true)"
+      />
+      <VSelect
+        v-else-if="item.kind === 'input' && item.options"
+        :label="item.label"
+        :aria-label="item.label"
+        :items="item.options"
+        item-title="label"
+        item-value="value"
+        :model-value="String(answers[item.id] ?? '')"
+        :disabled="disabled"
+        :required="item.required"
+        @update:model-value="answer(item.id, String($event ?? ''))"
       />
       <VTextField
         v-else-if="item.kind === 'input'"
