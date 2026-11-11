@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import RecordDialog from "./RecordDialog.vue";
+import { useDisplay } from "vuetify";
 import FeedbackHost from "./FeedbackHost.vue";
 defineProps<{
   title: string;
@@ -7,6 +8,7 @@ defineProps<{
   returnFocus?: HTMLElement | null;
   inline?: boolean;
 }>();
+const { xs } = useDisplay();
 const emit = defineEmits<{
   close: [];
   feedback: [element: HTMLElement | null];
@@ -14,7 +16,7 @@ const emit = defineEmits<{
 </script>
 <template>
   <RecordDialog
-    v-if="!inline"
+    v-if="!inline || xs"
     :title="title"
     :blocked="blocked"
     :return-focus="returnFocus"

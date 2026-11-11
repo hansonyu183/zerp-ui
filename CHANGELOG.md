@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.26.2
+
+- 手机模块内嵌资料的查看及编辑使用弹窗，避免详情出现在长列表下方；桌面保留模块切换与独立草稿。
+- 增加公开页面的手机查看、获权编辑入口及关闭后再次查看回归。权限仍由消费者提供。
+
 ## 0.26.1
 
 - Keep module collection editors inline so switching collections preserves independent drafts and queries.

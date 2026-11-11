@@ -359,3 +359,44 @@ it("keeps eligible but disabled actions visible without dispatching a write", as
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(f.save).not.toHaveBeenCalled();
 });
+it("opens mobile module records in a dialog with the authorized edit entry", async () => {
+  const width = window.innerWidth;
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 390,
+  });
+  window.dispatchEvent(new Event("resize"));
+  try {
+    const f = fixture("mobile-record");
+    const record = defineBusinessPage({
+      definition: { ...f.definition, actions: () => ["view", "edit"] as const },
+      permissions,
+    });
+    host(
+      defineModulePage({
+        model: {
+          kind: "object",
+          name: "手机模块",
+          properties: { records: { kind: "collection", name: "资料" } },
+          form: { fields: ["records"] },
+        },
+        collections: { records: record },
+      }),
+    );
+    await flushPromises();
+    await click(document, "查看");
+    const dialog = document.querySelector(
+      '[role="dialog"][aria-label="查看资料"]',
+    );
+    expect(dialog, "手机详情必须在弹窗内").not.toBeNull();
+    await click(dialog!, "编辑");
+    expect(dialog!.querySelector('input[aria-label="名称"]')).not.toBeNull();
+    expect(f.save).not.toHaveBeenCalled();
+  } finally {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: width,
+    });
+    window.dispatchEvent(new Event("resize"));
+  }
+});

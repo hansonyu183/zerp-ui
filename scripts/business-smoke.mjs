@@ -103,4 +103,30 @@ export async function businessSmoke(page) {
   await expect(
     root.getByRole("article", { name: "记录 1", exact: true }),
   ).toContainText("保留父草稿");
+  await root.getByRole("button", { name: "查看", exact: true }).click();
+  const mobileDialog = page.getByRole("dialog", {
+    name: "查看资料",
+    exact: true,
+  });
+  await expect(mobileDialog).toBeVisible();
+  await expect(mobileDialog).toBeInViewport();
+  await mobileDialog.getByRole("button", { name: "编辑", exact: true }).click();
+  const mobileEditor = page.getByRole("dialog", {
+    name: "编辑资料",
+    exact: true,
+  });
+  await expect(
+    mobileEditor.getByRole("textbox", { name: "名称", exact: true }),
+  ).toHaveValue("保留父草稿");
+  await mobileEditor
+    .getByRole("button", { name: "取消编辑", exact: true })
+    .click();
+  await root.getByRole("button", { name: "查看", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "查看资料", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog", { name: "查看资料", exact: true })
+    .getByRole("button", { name: "取消编辑", exact: true })
+    .click();
 }
