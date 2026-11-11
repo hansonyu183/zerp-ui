@@ -253,9 +253,10 @@ function activateCell(
   )
     emit("cell", intent, row);
 }
+function displayRow(row: R, column: Column<R>) {
+  return props.labels?.(row)[column.key] ?? display(row, column);
+}
 function display(row: Partial<R>, column: Column<R>) {
-  const label = props.labels?.(row)[column.key];
-  if (label !== undefined) return label;
   const value = valueAt(row, column.key);
   return value === null || value === undefined
     ? "—"
@@ -469,7 +470,7 @@ function display(row: Partial<R>, column: Column<R>) {
                       :href="intent.href"
                       :aria-label="intent.label"
                       @click="activateCell($event, row, entry.column.key)"
-                      >{{ display(row, entry.column) }}</a
+                      >{{ displayRow(row, entry.column) }}</a
                     >
                     <VBtn
                       v-else-if="intent"
@@ -481,9 +482,11 @@ function display(row: Partial<R>, column: Column<R>) {
                       :disabled="disabled || intent.disabled"
                       @click="activateCell($event, row, entry.column.key)"
                     >
-                      {{ display(row, entry.column) }}
+                      {{ displayRow(row, entry.column) }}
                     </VBtn>
-                    <template v-else>{{ display(row, entry.column) }}</template>
+                    <template v-else>{{
+                      displayRow(row, entry.column)
+                    }}</template>
                   </template>
                 </template>
               </component>
