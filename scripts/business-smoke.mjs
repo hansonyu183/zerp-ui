@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test";
 export async function businessSmoke(page) {
+  await page.getByLabel("确认已保存", { exact: true }).check();
   await expect(
     page.getByRole("tab", { name: "相关字典", exact: true }),
   ).toBeVisible();
@@ -35,7 +36,6 @@ export async function businessSmoke(page) {
     .getByRole("textbox", { name: "名称", exact: true })
     .fill("更新联系人");
   await page.getByLabel("保存结果", { exact: true }).selectOption("unknown");
-  await page.getByLabel("确认已保存", { exact: true }).check();
   await child.getByRole("button", { name: "保存", exact: true }).click();
   // Nested fixed status text must not intercept the resource recovery button.
   await child
