@@ -276,10 +276,18 @@ it("loads normal module collections only when visited and keeps their model orde
   ]);
   expect(first.adapter.query).not.toHaveBeenCalled();
   expect(second.adapter.query).toHaveBeenCalledTimes(1);
+  await click(document, "编辑");
+  const editor = document.querySelector(".zerp-related-editor")!;
+  input(editor, "名称", "保留乙组草稿");
+  await flushPromises();
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
   await click(document, "甲组");
   expect(first.adapter.query).toHaveBeenCalledTimes(1);
   await click(document, "乙组");
   expect(second.adapter.query).toHaveBeenCalledTimes(1);
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="名称"]')!.value,
+  ).toBe("保留乙组草稿");
 });
 it("locates a rejected nested field in its owning tab and preserves the input", async () => {
   const f = fixture("validation");

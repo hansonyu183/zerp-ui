@@ -10,7 +10,7 @@ export async function businessSmoke(page) {
   ).toBeVisible();
   await root.getByRole("button", { name: "编辑", exact: true }).click();
   const parent = page
-    .getByRole("dialog", { name: "编辑资料", exact: true })
+    .getByRole("region", { name: "编辑资料", exact: true })
     .first();
   await parent
     .getByRole("textbox", { name: "名称", exact: true })
@@ -18,6 +18,11 @@ export async function businessSmoke(page) {
   await expect(
     parent.getByRole("tab", { name: "空内容", exact: true }),
   ).toHaveCount(0);
+  await page.getByRole("tab", { name: "分组", exact: true }).click();
+  await page.getByRole("tab", { name: "往来单位", exact: true }).click();
+  await expect(
+    parent.getByRole("textbox", { name: "名称", exact: true }),
+  ).toHaveValue("保留父草稿");
   await parent.getByRole("tab", { name: "联系信息", exact: true }).click();
   await parent.getByRole("textbox", { name: "手机", exact: true }).fill("456");
   await parent.getByRole("tab", { name: "属性", exact: true }).click();
@@ -64,7 +69,7 @@ export async function businessSmoke(page) {
   await picker.getByRole("button", { name: "子分类", exact: true }).click();
   await parent.getByRole("button", { name: "保存", exact: true }).click();
   await page
-    .getByRole("dialog", { name: "查看资料", exact: true })
+    .getByRole("region", { name: "查看资料", exact: true })
     .getByRole("button", { name: "取消编辑", exact: true })
     .click();
   await expect(
@@ -78,7 +83,7 @@ export async function businessSmoke(page) {
   await page.getByLabel("确认已保存", { exact: true }).check();
   await root.getByRole("button", { name: "编辑", exact: true }).click();
   await page
-    .getByRole("dialog", { name: "编辑资料", exact: true })
+    .getByRole("region", { name: "编辑资料", exact: true })
     .first()
     .getByRole("button", { name: "保存", exact: true })
     .click();
@@ -91,7 +96,7 @@ export async function businessSmoke(page) {
     .first()
     .click();
   await page
-    .getByRole("dialog", { name: "查看资料", exact: true })
+    .getByRole("region", { name: "查看资料", exact: true })
     .getByRole("button", { name: "取消编辑", exact: true })
     .click();
   await page.setViewportSize({ width: 390, height: 844 });

@@ -324,6 +324,7 @@ export function defineModulePage<T extends BusinessObject>(
             onSelect: value.onSelect,
             scope: context.scope,
             active: context.active,
+            embedded: true,
             discard: context.discardVersion,
             onProtection: context.protection,
           }),

@@ -2,6 +2,8 @@
 
 ## 0.26.1
 
+- Keep module collection editors inline so switching collections preserves independent drafts and queries.
+
 - Keep layered feedback messages from intercepting clicks on nested resource recovery controls; feedback buttons remain interactive.
 
 ## 0.26.0
