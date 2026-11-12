@@ -1,3 +1,7 @@
+## 0.31.1
+
+- Restore exact property-name precedence for dotted native fields while retaining 0.31 report/task and voucher/batch projections (#121). The standalone voucher consumer covers reading, editing and cancelling these fields.
+
 ## 0.31.0
 
 - Add model-derived report parameters, read-only result columns and task inputs (#118), reusing the existing query and operation lifecycles. Reference fields retain ID values and fixed models infer the consumer value types.
