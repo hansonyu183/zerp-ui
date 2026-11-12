@@ -44,13 +44,11 @@ export async function modelBusinessSmoke(page) {
 
   await visit("正式候选与附件");
   await button("编辑档案").click();
-  await page
-    .getByLabel("本地附件")
-    .setInputFiles({
-      name: "cancel.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("cancel local only"),
-    });
+  await page.getByLabel("本地附件").setInputFiles({
+    name: "cancel.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("cancel local only"),
+  });
   await closeEditor();
   assert.equal(
     await page.evaluate(() => localStorage.getItem("model-doc-original")),
@@ -66,13 +64,11 @@ export async function modelBusinessSmoke(page) {
     0,
   );
   await button("编辑档案").click();
-  await page
-    .getByLabel("本地附件")
-    .setInputFiles({
-      name: "stage.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("staged synthetic"),
-    });
+  await page.getByLabel("本地附件").setInputFiles({
+    name: "stage.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("staged synthetic"),
+  });
   await page.getByLabel("资料名称", { exact: true }).fill("合成候选内容");
   await button("提交档案").click();
   await page.getByText("合成暂存后业务校验失败", { exact: true }).waitFor();
@@ -166,6 +162,12 @@ export async function modelBusinessSmoke(page) {
   await button("核实原请求").click();
   await button("继续下一项").click();
   await button("停止剩余操作").click();
+  await page.waitForFunction(() =>
+    Object.entries(localStorage).some(
+      ([key, value]) =>
+        key.startsWith("model-batch:") && JSON.parse(value).completed,
+    ),
+  );
   const batch = await page.evaluate(
     () =>
       Object.entries(localStorage)
