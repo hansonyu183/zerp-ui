@@ -112,25 +112,22 @@ export function formSections(type: BusinessType) {
     (path) =>
       !["object", "collection"].includes(propertyAt(type, path)?.kind ?? ""),
   );
-  return [
-    ...(ordinary.length
-      ? [{ key: "$basic", name: "基本资料", fields: ordinary }]
-      : []),
-    ...fields
-      .filter((path) =>
-        ["object", "collection"].includes(propertyAt(type, path)?.kind ?? ""),
-      )
-      .map((path) => ({
-        key: path,
-        name: propertyAt(type, path)!.name,
-        fields: [path],
-      })),
-  ].filter((section) =>
-    section.fields.some((path) => {
+  const basic = ordinary.length
+    ? { key: "$basic", name: "基本资料", fields: ordinary }
+    : undefined;
+  return fields
+    .flatMap((path) => {
       const node = propertyAt(type, path);
-      return node?.kind !== "object" || !!node.form?.fields.length;
-    }),
-  );
+      if (["object", "collection"].includes(node?.kind ?? ""))
+        return [{ key: path, name: node!.name, fields: [path] }];
+      return path === ordinary[0] && basic ? [basic] : [];
+    })
+    .filter((section) =>
+      section.fields.some((path) => {
+        const node = propertyAt(type, path);
+        return node?.kind !== "object" || !!node.form?.fields.length;
+      }),
+    );
 }
 export function leafFields(
   type: BusinessType,
