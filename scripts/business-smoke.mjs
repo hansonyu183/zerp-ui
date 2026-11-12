@@ -15,6 +15,22 @@ export async function businessSmoke(page) {
   await parent
     .getByRole("textbox", { name: "名称", exact: true })
     .fill("保留父草稿");
+  const units = parent
+    .locator("fieldset")
+    .filter({ has: page.locator("legend").filter({ hasText: /^输入单位$/ }) });
+  await units.getByRole("button", { name: "新增", exact: true }).click();
+  await expect(
+    units.getByRole("textbox", { name: "换算比率", exact: true }),
+  ).toHaveValue("1");
+  await expect(
+    units.getByRole("textbox", { name: "单位排序", exact: true }),
+  ).toHaveValue("0");
+  await units
+    .getByRole("button", { name: "删除输入单位 1", exact: true })
+    .click();
+  await expect(
+    units.getByRole("textbox", { name: "换算比率", exact: true }),
+  ).toHaveCount(0);
   await expect(
     parent.getByRole("tab", { name: "空内容", exact: true }),
   ).toHaveCount(0);

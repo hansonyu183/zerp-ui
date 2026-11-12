@@ -14,6 +14,8 @@ export type BusinessType = {
     | "array"
     | "collection";
   name: string;
+  /** Applied only when a projected object-array row is newly created. */
+  initialValue?: string | number | boolean | null;
   max?: number | null;
   nullable?: boolean;
   readOnly?: boolean;
