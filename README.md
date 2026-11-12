@@ -59,11 +59,11 @@ const navigation: NavigationGroup[] = [
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.27.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.27.1) 下载 `zerp-ui-0.27.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.30.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.30.0) 下载 `zerp-ui-0.30.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.27.1.tgz
+pnpm add ./zerp-ui-0.30.0.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -344,3 +344,9 @@ const navigation = applicationNavigation(model, {
 账户表单使用 `defineBusinessAccountPage` 消费业务对象及约束，秘密输入为密码控件。权限等专用页面可组合 `projectBusinessFields` / `projectBusinessColumns` 与原运行时。`defineBusinessWorkbenchPage` 从四个具名分区的有序投影获取工作台标题与入口排列；传输绑定及资格由消费者维护。
 
 业务对象数组字段可声明标量 `initialValue`，仅用于新增行初始化，不给已有行补默认值；秘密、只读和所属集合不应用行初值。
+
+### 统一单据模型投影（0.30.0）
+
+`projectBusinessVoucherEditor` 从 BusinessObject 的 `header` 对象、`rows` 对象数组及有序投影生成专用单据编辑定义；字段、单位、精度、只读及嵌套行共用业务模型。消费者提供 rowKey、emptyRow、引用 Adapter，以及有限字段条件和嵌套新增初值，不传组件或传输路径。模型投影不执行领域事件或保存。
+
+`projectBusinessBatchEntries` 按办理项模型的有序 list 字段生成完整身份显示，原 key 与强类型 intent 原样交给现有批次运行时。未决和历史批次从既有持久端口恢复，不重建原清单或原请求。单据与批次合成独立消费者分别见 examples/voucher 和 examples/capabilities。

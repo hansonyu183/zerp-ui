@@ -1,3 +1,7 @@
+## 0.30.0
+
+- Add public BusinessType projection for dedicated voucher header/detail editors, nested row initial values and finite field conditions (#119). Existing operation/batch request identity and recovery lifecycle remain authoritative.
+
 # 0.29.1
 
 - 整合 #116 账户/工作台/偏好模型与 #117 数组初始化、表单分区顺序修复，独立固定发行。

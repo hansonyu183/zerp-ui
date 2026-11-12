@@ -4,6 +4,7 @@ import { expect, it, beforeEach, vi } from "vitest";
 import {
   AppPage,
   defineBatchPage,
+  projectBusinessBatchEntries,
   type BatchJournal,
   type OperationDefinition,
   type OperationPreview,
@@ -33,16 +34,24 @@ beforeEach(() => {
   });
 });
 const owner = { scope: "s", operator: "op", resource: "batch" };
-const entries = ["first", "second"].map((key) => ({
-  key,
-  label: key,
-  intent: {
-    owner,
-    identity: key,
-    action: "process" as const,
-    input: { value: key },
+const entries = projectBusinessBatchEntries(
+  {
+    kind: "object",
+    name: "办理项",
+    properties: { label: { kind: "text", name: "身份" } },
+    list: { fields: ["label"] },
   },
-}));
+  ["first", "second"].map((key) => ({
+    key,
+    value: { label: key },
+    intent: {
+      owner,
+      identity: key,
+      action: "process" as const,
+      input: { value: key },
+    },
+  })),
+);
 const definition: OperationDefinition<Model, string, number> = {
   protocol: "operation",
   persistence: {

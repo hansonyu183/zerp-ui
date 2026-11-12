@@ -1,6 +1,6 @@
 import { computed, h, toValue, type MaybeRefOrGetter } from "vue";
 import type { BusinessType, BusinessValue, BusinessObject } from "./model";
-import { formSections, propertyAt, setValueAt } from "./model";
+import { formSections, propertyAt, setValueAt, valueAt } from "./model";
 import type {
   AnyField,
   Column,
@@ -387,4 +387,108 @@ export function projectBusinessColumns<R extends object>(
         : {}),
     };
   }) as Column<R>[];
+}
+
+/** Native voucher semantics and row identity remain in the consumer. */
+export type BusinessVoucherInteraction = {
+  when?: AnyField["when"];
+  initial?: object;
+  children?: Readonly<Record<string, BusinessVoucherInteraction>>;
+};
+export function projectBusinessVoucherEditor<
+  H extends object,
+  R extends object,
+  C extends object = object,
+>(
+  model: BusinessObject,
+  options: {
+    rowKey: (row: R) => string;
+    emptyRow: () => R;
+    reference?: BusinessDefinition<
+      BusinessObject,
+      object,
+      object,
+      unknown
+    >["reference"];
+    interactions?: {
+      header?: Readonly<Record<string, BusinessVoucherInteraction>>;
+      rows?: Readonly<Record<string, BusinessVoucherInteraction>>;
+    };
+  },
+): Pick<
+  import("./voucher-editor").VoucherEditorDefinition<H, R, C>,
+  "headerFields" | "rowFields" | "columns" | "rowKey"
+> & { emptyRow: () => R } {
+  const header = model.properties.header;
+  const rows = model.properties.rows;
+  if (
+    header?.kind !== "object" ||
+    rows?.kind !== "array" ||
+    rows.element?.kind !== "object"
+  )
+    throw Error("单据模型必须定义表头和明细。");
+  function fields(
+    node: BusinessType,
+    interactions: Readonly<Record<string, BusinessVoucherInteraction>> = {},
+  ): AnyField[] {
+    return projectBusinessFields(node, options.reference).map((field) => {
+      const interaction = interactions[field.key];
+      if (!interaction) return field;
+      return {
+        ...field,
+        ...(interaction.when ? { when: interaction.when } : {}),
+        ...(field.type === "rows" && interaction.initial
+          ? {
+              empty: () => structuredClone(interaction.initial!),
+              fields: fields(
+                propertyAt(node, field.key)!.element!,
+                interaction.children,
+              ),
+            }
+          : {}),
+      };
+    });
+  }
+  return {
+    headerFields: fields(
+      header,
+      options.interactions?.header,
+    ) as unknown as Fields<H>,
+    rowFields: fields(
+      rows.element,
+      options.interactions?.rows,
+    ) as unknown as Fields<R>,
+    columns: projectBusinessColumns<R>(rows.element),
+    rowKey: options.rowKey,
+    emptyRow: options.emptyRow,
+  };
+}
+
+/** Project the immutable item identity before the existing batch runtime owns it. */
+export function projectBusinessBatchEntries<
+  T extends BusinessObject,
+  Intent extends {
+    owner: import("./operation").OperationOwner;
+    action: import("./operation").OperationAction;
+    identity: unknown;
+    input: unknown;
+  },
+>(
+  model: T,
+  entries: readonly { key: string; value: BusinessValue<T>; intent: Intent }[],
+): { key: string; label: string; intent: Intent }[] {
+  const paths = model.list?.fields;
+  if (!paths?.length) throw Error("批量办理项必须声明身份显示字段。");
+  for (const path of paths)
+    if (!propertyAt(model, path)) throw Error(`未定义字段：${path}`);
+  return entries.map((entry) => ({
+    key: entry.key,
+    intent: entry.intent,
+    label: paths
+      .map((path) => {
+        const value = valueAt(entry.value, path);
+        return value === null || value === undefined ? "" : String(value);
+      })
+      .join(" · "),
+  }));
 }

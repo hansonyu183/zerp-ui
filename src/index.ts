@@ -227,3 +227,8 @@ export {
   defineBusinessWorkbenchPage,
   defineBusinessWorkbenchPreferencesPage,
 } from "./workbench";
+
+export { projectBusinessVoucherEditor } from "./business";
+export type { BusinessVoucherInteraction } from "./business";
+
+export { projectBusinessBatchEntries } from "./business";
