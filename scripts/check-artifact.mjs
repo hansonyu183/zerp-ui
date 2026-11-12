@@ -77,6 +77,7 @@ export async function checkArtifact(tgz, expected) {
         "defineCrudPage",
         "defineBusinessPage",
         "defineModulePage",
+        "applicationNavigation",
         "defineDetailsPage",
         "defineDocument",
         "defineDocumentPage",
