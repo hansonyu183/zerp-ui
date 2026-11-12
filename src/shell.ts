@@ -20,6 +20,7 @@ export type LoadState =
 export type AccountIntent = "profile" | "change-password" | "sign-out";
 export type ShellAccount = Readonly<{
   label: string;
+  captions?: Readonly<Partial<Record<AccountIntent, string>>>;
   avatar?: Readonly<{ src: string; alt: string }>;
 }>;
 export type NavigationIcon =

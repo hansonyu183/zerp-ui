@@ -685,6 +685,7 @@ export function defineAccountPage<D extends object>(
     },
     (value, context) =>
       h(ControlledAccountForm<D>, {
+        title: value.title,
         scope: context.scope,
         kind: value.kind,
         instance: value.instance,
