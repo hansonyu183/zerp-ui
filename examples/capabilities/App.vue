@@ -11,6 +11,7 @@ import {
   defineTaskPage,
   projectTaskFields,
   defineBatchPage,
+  projectBusinessBatchEntries,
   defineCrud,
   defineCrudPage,
   type DraftCollaboration,
@@ -154,16 +155,24 @@ const batch = defineBatchPage({
   owner: batchOwner,
   definition: batchDefinition,
   persistence: batchStore,
-  entries: ["first", "second"].map((key) => ({
-    key,
-    label: key === "first" ? "第一项" : "第二项",
-    intent: {
-      owner: batchOwner,
-      identity: key,
-      action: "process" as const,
-      input: { value: key },
+  entries: projectBusinessBatchEntries(
+    {
+      kind: "object",
+      name: "办理项",
+      properties: { name: { kind: "text", name: "身份" } },
+      list: { fields: ["name"] },
     },
-  })),
+    ["first", "second"].map((key) => ({
+      key,
+      value: { name: key === "first" ? "第一项" : "第二项" },
+      intent: {
+        owner: batchOwner,
+        identity: key,
+        action: "process" as const,
+        input: { value: key },
+      },
+    })),
+  ),
   eligible: true,
   recoveryAllowed: true,
 });

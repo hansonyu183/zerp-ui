@@ -1,6 +1,7 @@
-## 0.30.0
+## 0.31.0
 
 - Add model-derived report parameters, read-only result columns and task inputs (#118), reusing the existing query and operation lifecycles. Reference fields retain ID values and fixed models infer the consumer value types.
+- Add public BusinessType projection for dedicated voucher header/detail editors, nested row initial values and finite field conditions (#119). Existing operation/batch request identity and recovery lifecycle remain authoritative.
 
 # 0.29.1
 

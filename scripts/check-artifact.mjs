@@ -84,6 +84,8 @@ export async function checkArtifact(tgz, expected) {
         "projectReportParameters",
         "projectReportColumns",
         "projectTaskFields",
+        "projectBusinessVoucherEditor",
+        "projectBusinessBatchEntries",
         "defineModulePage",
         "applicationNavigation",
         "defineDetailsPage",
