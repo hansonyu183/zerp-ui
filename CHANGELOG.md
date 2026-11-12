@@ -1,5 +1,12 @@
 ## 0.31.1
 
+## 0.32.0
+
+- Breaking: 唯一组件入口切换为只绑定 model 的 BusinessApplication；移除 AuthPage/AppPage、define…Page、旧定义工厂和投影装配接口，无兼容转发。
+- 纯 model 子入口提供响应式节点及所有固定业务操作族；保留必要业务事实和端口类型，内部复用现有草稿/写入/原请求引擎。
+- 全部消费者收口到 model 与 model-business；发行门禁对同一 tgz 验证两者的类型、构建、单实例和实际交互，并支持公开下载原包复验。
+- API/Session/Router/加密仍归消费者；本库合成证据不代表 oit-go/ZERP 已接入。正式发行证据见 #125。
+
 - Restore exact property-name precedence for dotted native fields while retaining 0.31 report/task and voucher/batch projections (#121). The standalone voucher consumer covers reading, editing and cancelling these fields.
 
 ## 0.31.0

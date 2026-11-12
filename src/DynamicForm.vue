@@ -24,7 +24,7 @@ import { groupFields } from "./details";
 import ReferencePicker from "./ReferencePicker.vue";
 import { validateFields, type FormValidationState } from "./validation";
 import { clone } from "./clone";
-import { valueAt, setValueAt } from "./model";
+import { valueAt, setValueAt } from "./business-type";
 import { equalValues } from "./editor-values";
 const props = defineProps<{
   fields: Fields<T>;

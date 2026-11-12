@@ -1,9 +1,13 @@
-import type { DetailFields, DetailGroup, AppPageHandle } from "../src/index";
+import type {
+  DetailFields,
+  DetailGroup,
+  AppPageHandle,
+} from "./fixtures/assembly";
 import type {
   Facts,
   Related,
   DetailsAdapter,
-} from "../examples/details/adapters";
+} from "./fixtures/details/adapters";
 const fields: DetailFields<Facts, Related> = [
   {
     key: "reference",
@@ -45,7 +49,7 @@ adapter.read({ scope: "one", id: 42 });
 void groups;
 void leave;
 
-import { domainBlocks, type FieldGroup } from "../src/index";
+import { domainBlocks, type FieldGroup } from "./fixtures/assembly";
 const fieldGroups: FieldGroup<{ name: string; count: number }>[] = [
   { key: "basic", label: "基本", fields: ["name", "count"] },
   // @ts-expect-error group keys must belong to the local value

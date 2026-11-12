@@ -2,14 +2,14 @@ import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import { DOMWrapper } from "@vue/test-utils";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it } from "vitest";
-import { AppPage, defineDetailsPage } from "../src/index";
+import { AppPage, defineDetailsPage } from "./fixtures/assembly";
 import { createRouter, createMemoryHistory } from "vue-router";
 import {
   defineConfiguration,
   defineVoucher,
   defineVoucherPage,
   type DetailsPage,
-} from "../src/index";
+} from "./fixtures/assembly";
 
 it("shows grouped facts and related intents through the complete page entrance", async () => {
   const related: string[] = [];
@@ -72,8 +72,8 @@ it("shows grouped facts and related intents through the complete page entrance",
   wrapper.unmount();
 });
 
-import { defineCrud, defineCrudPage, domainBlocks } from "../src/index";
-import type { EditProtection } from "../src/index";
+import { defineCrud, defineCrudPage, domainBlocks } from "./fixtures/assembly";
+import type { EditProtection } from "./fixtures/assembly";
 type Editable = { name: string; settings: { count: number } };
 function editablePage(
   write: () => Promise<{ status: "unknown" } | { status: "success" }>,
@@ -119,7 +119,7 @@ function editablePage(
     ],
   });
 }
-function mountPage(page: import("../src/index").PageDefinition) {
+function mountPage(page: import("./fixtures/assembly").PageDefinition) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: "/", component: { template: "<span />" } }],
@@ -215,7 +215,7 @@ it("keeps the current page and original write lock after an unknown save", async
   wrapper.unmount();
 });
 
-import { defineOperationPage, defineAccountPage } from "../src/index";
+import { defineOperationPage, defineAccountPage } from "./fixtures/assembly";
 import { reactive, ref } from "vue";
 import {
   synthetic,
@@ -224,12 +224,12 @@ import {
   type Identity,
   type SyntheticModel,
   type Baseline,
-} from "../examples/voucher/operation-adapter";
+} from "./fixtures/voucher/operation-adapter";
 import type {
   OperationIntent,
   OperationSettlement,
   OperationDefinition,
-} from "../src/index";
+} from "./fixtures/assembly";
 Object.defineProperty(navigator, "locks", {
   configurable: true,
   value: {
@@ -1033,7 +1033,7 @@ it.each(
 )(
   "renders and validates $mode fields consistently in a $kind domain block",
   async ({ kind, mode }) => {
-    const fields: import("../src/index").Fields<ModeValues> = [
+    const fields: import("./fixtures/assembly").Fields<ModeValues> = [
       {
         key: "createOnly",
         label: "仅创建字段",
@@ -1055,7 +1055,8 @@ it.each(
       items: [emptyValues()],
       sheet: { header: emptyValues(), rows: [] },
     });
-    const received: import("../src/index").Attempt<ModeDraft, string>[] = [];
+    const received: import("./fixtures/assembly").Attempt<ModeDraft, string>[] =
+      [];
     const definition = defineCrud<ModeDraft, {}, { id: string }, string>({
       resource: `mode-${kind}-${mode}`,
       title: "分组表单模式",
@@ -1379,8 +1380,8 @@ it.each([false, true])(
   "keeps cross-tab references and full create input in a field block=%s",
   async (block) => {
     type Local = {
-      parent: import("../src/index").ReferenceValue | null;
-      child: import("../src/index").ReferenceValue | null;
+      parent: import("./fixtures/assembly").ReferenceValue | null;
+      child: import("./fixtures/assembly").ReferenceValue | null;
       count: number;
       note: string;
     };
@@ -1392,7 +1393,7 @@ it.each([false, true])(
       note: "",
     });
     const received: Draft[] = [];
-    const adapter: import("../src/index").ReferenceAdapter = {
+    const adapter: import("./fixtures/assembly").ReferenceAdapter = {
       search: async () => ({
         items: [{ id: "new", label: "新父项" }],
         total: 1,
@@ -1400,7 +1401,7 @@ it.each([false, true])(
       resolve: async ({ ids }) =>
         ids.map((id) => ({ id, label: id === "old" ? "旧父项" : "旧子项" })),
     };
-    const fields: import("../src/index").Fields<Local> = [
+    const fields: import("./fixtures/assembly").Fields<Local> = [
       { key: "parent", label: "父项", type: "reference", adapter },
       {
         key: "child",
@@ -1412,7 +1413,7 @@ it.each([false, true])(
       { key: "count", label: "跨组数量", type: "integer" },
       { key: "note", label: "跨组备注", type: "text", required: true },
     ];
-    const groups: import("../src/index").FieldGroup<Local>[] = [
+    const groups: import("./fixtures/assembly").FieldGroup<Local>[] = [
       { key: "one", label: "首组", fields: ["parent", "count"] },
       { key: "two", label: "次组", fields: ["child", "note"] },
     ];
@@ -1506,7 +1507,7 @@ it.each([false, true])(
 );
 
 it("saves a configuration across tabs and resets its selection when reopened", async () => {
-  const { defineConfigurationPage } = await import("../src/index");
+  const { defineConfigurationPage } = await import("./fixtures/assembly");
   const saved: { name: string; note: string }[] = [];
   const definition = defineConfiguration<
     { name: string; note: string },
@@ -1575,7 +1576,7 @@ it("saves a configuration across tabs and resets its selection when reopened", a
 });
 
 it("edits configuration block rows immediately and saves only a valid complete draft", async () => {
-  const { defineConfigurationPage } = await import("../src/index");
+  const { defineConfigurationPage } = await import("./fixtures/assembly");
   type Draft = { items: { name: string; count: number | null }[] };
   const saved: Draft[] = [];
   const definition = defineConfiguration<Draft, {}, { id: string }, string>({

@@ -2,6 +2,8 @@
 
 正式规格见 [#47](https://github.com/hansonyu183/zerp-ui/issues/47)，承接 [#40](https://github.com/hansonyu183/zerp-ui/issues/40)。
 
+后续目标修订见 [ADR-0004](0004-reactive-business-model.md) 与 [#122](https://github.com/hansonyu183/zerp-ui/issues/122)：有限操作及原请求协议继续保留，消费者不再单独提供 TaskPage/BatchPage 等页面定义；节点结构及 operations 驱动内部运行时。本源码通过 #125 移除旧公开装配；历史发行契约不追溯改变。
+
 完整页面入口收窄后，消费者无法通过模板补齐成本处理、发布试运行、批量和打印输出。把这些操作伪装成保存或审核会混淆原请求语义；开放任意命令或组件又会失去布局与恢复的统一所有权。
 
 库提供有限的 TaskPage 和 BatchPage 内容定义，仍只通过 AuthPage/AppPage 呈现。TaskPage 的 process/publish/restore/validate/run/stop/import/preview/print/printed/not-printed 是固定交互动作，业务输入、资格、执行及权威证据通过强类型 Adapter 提供。扩展固定动作须修改库，不能由消费者注册字符串命令。

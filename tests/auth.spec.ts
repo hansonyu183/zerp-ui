@@ -1,7 +1,11 @@
 import { expect, it } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createVuetify } from "vuetify";
-import { AuthPage, createShellThemes, type AuthValues } from "../src/index";
+import {
+  AuthPage,
+  createShellThemes,
+  type AuthValues,
+} from "./fixtures/assembly";
 
 const brand = {
   home: "/",

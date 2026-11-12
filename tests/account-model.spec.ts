@@ -4,8 +4,8 @@ import {
   projectBusinessColumns,
   defineBusinessAccountPage,
   defineBusinessWorkbenchPage,
-} from "../src/index";
-import type { BusinessObject } from "../src/model";
+} from "./fixtures/assembly";
+import type { BusinessObject } from "../src/business-type";
 const model: BusinessObject = {
   kind: "object",
   name: "本人资料",
@@ -78,7 +78,7 @@ describe("account and workbench model consumers", () => {
 
 import { mount, flushPromises } from "@vue/test-utils";
 import { createMemoryHistory, createRouter } from "vue-router";
-import { AppPage } from "../src/index";
+import { AppPage } from "./fixtures/assembly";
 async function host(page: ReturnType<typeof defineBusinessWorkbenchPage>) {
   const router = createRouter({
     history: createMemoryHistory(),

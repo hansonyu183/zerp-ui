@@ -5,7 +5,7 @@ import {
   defineDocument,
   type DocumentSnapshot,
   type DocumentAdapter,
-} from "../src/index";
+} from "./fixtures/assembly";
 import DocumentView from "../src/DocumentView.vue";
 type D = { name: string };
 type I = { key: string; revision: string };
@@ -67,7 +67,7 @@ const click = async (w: ReturnType<typeof mount>, name: string) => {
   await flushPromises();
 };
 const start = async (
-  d: import("../src/index").DocumentDefinition<
+  d: import("./fixtures/assembly").DocumentDefinition<
     D,
     I,
     string,
@@ -161,7 +161,10 @@ it("blocks unknown staging through close/read/remount and requires matching stag
     async (
       _a: unknown,
     ): Promise<
-      import("../src/index").DocumentReconciliation<string, { receipt: string }>
+      import("./fixtures/assembly").DocumentReconciliation<
+        string,
+        { receipt: string }
+      >
     > => ({
       status: "applied",
       operation: "stage",
@@ -229,10 +232,10 @@ it("uses exact candidate identity for approval, locks unknown and retries succes
   const verify = vi.fn(
     async (
       a:
-        | import("../src/index").DocumentAttempt<D, I, string, string>
-        | import("../src/index").StageAttempt<I, string, string>,
+        | import("./fixtures/assembly").DocumentAttempt<D, I, string, string>
+        | import("./fixtures/assembly").StageAttempt<I, string, string>,
     ): Promise<
-      import("../src/index").DocumentReconciliation<
+      import("./fixtures/assembly").DocumentReconciliation<
         string,
         { revision: string }
       >
@@ -331,8 +334,8 @@ it("retains failed stage siblings, validates locally and permits retry after exa
     ...base,
     reconcile: async (
       a:
-        | import("../src/index").DocumentAttempt<D, I, string, string>
-        | import("../src/index").StageAttempt<I, string, string>,
+        | import("./fixtures/assembly").DocumentAttempt<D, I, string, string>
+        | import("./fixtures/assembly").StageAttempt<I, string, string>,
     ) => ({
       status: "not-applied" as const,
       operation: "stage" as const,
@@ -355,7 +358,7 @@ it("retains failed stage siblings, validates locally and permits retry after exa
 it("keeps unknown without evidence or a verifier and records late business results in the original scope", async () => {
   const d = definition(),
     w = await start(d),
-    outcome = deferred<import("../src/index").WriteResult>();
+    outcome = deferred<import("./fixtures/assembly").WriteResult>();
   vi.mocked(d.adapter.submit).mockReturnValueOnce(outcome.promise);
   await click(w, "编辑档案");
   await click(w, "提交档案");
@@ -457,7 +460,10 @@ it("ignores late verification after permission revocation and scope changes", as
   vi.mocked(base.adapter.submit).mockResolvedValueOnce({ status: "unknown" });
   const proof =
     deferred<
-      import("../src/index").DocumentReconciliation<string, { receipt: string }>
+      import("./fixtures/assembly").DocumentReconciliation<
+        string,
+        { receipt: string }
+      >
     >();
   const d = { ...base, reconcile: vi.fn(() => proof.promise) },
     w = await start(d);

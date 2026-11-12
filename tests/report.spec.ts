@@ -5,7 +5,7 @@ import {
   defineReport,
   projectReportParameters,
   projectReportColumns,
-} from "../src/index";
+} from "./fixtures/assembly";
 import DataList from "../src/DataList.vue";
 import ReportView from "../src/ReportView.vue";
 
@@ -224,7 +224,7 @@ it("exports validated current input with export-only eligibility and isolates a 
     });
     expect(download).toHaveBeenCalledTimes(1);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:synthetic");
-    const late = deferred<import("../src/index").ReportExport>();
+    const late = deferred<import("./fixtures/assembly").ReportExport>();
     exported.mockReturnValueOnce(late.promise);
     await click(w, "导出");
     expect(button(w, "导出").attributes("disabled")).toBeDefined();
@@ -672,7 +672,7 @@ it.each(["cancelled", "completed", "failed", "cleanup-unconfirmed"] as const)(
   },
 );
 it("clears revoked results on export and isolates late page and download responses from replacement results", async () => {
-  const { ReportUnavailable } = await import("../src/index");
+  const { ReportUnavailable } = await import("./fixtures/assembly");
   const d = fixedDefinition(),
     w = fixedStart(d);
   await submit(w);

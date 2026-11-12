@@ -25,7 +25,7 @@ import {
   type Attempt,
   type DraftCollaboration,
   type PrintDocument,
-} from "../src/index";
+} from "./fixtures/assembly";
 const owner = { scope: "s", operator: "op", resource: "processing" };
 type Model = {
   process: {
@@ -289,7 +289,10 @@ it("does not execute a CRUD write if durable reservation fails", async () => {
 });
 it("restores configuration requests and preserves authoritative identity through reconcile and refresh", async () => {
   const store = writeStore<
-    import("../src/index").ConfigurationAttempt<{ name: string }, string>,
+    import("./fixtures/assembly").ConfigurationAttempt<
+      { name: string },
+      string
+    >,
     { retain: boolean; identity?: string }
   >({
     attempt: {
@@ -659,7 +662,10 @@ it("retries saving a known terminal outcome without reconcile or re-executing bu
 });
 it("stores a reconciled configuration creation identity before an authoritative reread can fail", async () => {
   const store = writeStore<
-    import("../src/index").ConfigurationAttempt<{ name: string }, string>,
+    import("./fixtures/assembly").ConfigurationAttempt<
+      { name: string },
+      string
+    >,
     { retain: boolean; identity?: string }
   >({
     attempt: {
@@ -990,7 +996,10 @@ it.each(["crud", "configuration"] as const)(
   async (kind) => {
     for (const invalidation of ["session", "write", "read", "scope"] as const) {
       const store = writeStore<
-        import("../src/index").ConfigurationAttempt<{ name: string }, string>,
+        import("./fixtures/assembly").ConfigurationAttempt<
+          { name: string },
+          string
+        >,
         { retain: boolean; identity?: string }
       >();
       let release!: () => void;
@@ -1151,7 +1160,7 @@ it.each(["eligible", "recoveryAllowed"] as const)(
       expect(button(w, "建立批次").attributes("disabled")).toBeDefined();
       expect(
         await (
-          w.vm as unknown as import("../src/index").AppPageHandle
+          w.vm as unknown as import("./fixtures/assembly").AppPageHandle
         ).requestLeave(),
       ).toBe(true);
     }
@@ -1162,7 +1171,7 @@ it.each(["eligible", "recoveryAllowed"] as const)(
 
 it("keeps business feedback in a separate overlay host when messages are added, dismissed and removed", async () => {
   const op = operation();
-  let messages: import("../src/index").Interaction<never>[] = [];
+  let messages: import("./fixtures/assembly").Interaction<never>[] = [];
   const w = await start(
     defineTaskPage<{ value: string }, Model, string, number>({
       title: "固定反馈",

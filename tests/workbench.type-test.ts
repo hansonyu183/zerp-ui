@@ -2,7 +2,7 @@ import {
   defineWorkbenchPage,
   defineWorkbenchPreferencesPage,
   type WorkbenchPreferencesAdapter,
-} from "@zerp/ui";
+} from "./fixtures/assembly";
 type Key = { kind: "report" | "ds"; id: string };
 const adapter: WorkbenchPreferencesAdapter<Key> = {
   load: async () => [

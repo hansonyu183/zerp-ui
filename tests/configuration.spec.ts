@@ -8,7 +8,7 @@ import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import { defineConfiguration } from "../src/index";
+import { defineConfiguration } from "./fixtures/assembly";
 import ConfigurationView from "../src/ConfigurationView.vue";
 const definition = () =>
   defineConfiguration({
@@ -44,7 +44,7 @@ const click = async (w: ReturnType<typeof mount>, name: string) => {
   await flushPromises();
 };
 const start = async (
-  d: import("../src/index").ConfigurationDefinition<
+  d: import("./fixtures/assembly").ConfigurationDefinition<
     { name: string },
     {},
     { name: string; revision: string },
@@ -104,7 +104,7 @@ it("keeps unknown locked through close, reads and remount, and consumes only exa
   const base = definition(),
     verify = vi.fn(
       async (
-        a: import("../src/index").ConfigurationAttempt<
+        a: import("./fixtures/assembly").ConfigurationAttempt<
           { name: string },
           { key: string; revision: string }
         >,
@@ -156,7 +156,7 @@ it("leaves unknown without a verifier and allows retry only on confirmed not-app
     ...definition(),
     reconcile: vi.fn(
       async (
-        a: import("../src/index").ConfigurationAttempt<
+        a: import("./fixtures/assembly").ConfigurationAttempt<
           { name: string },
           { key: string; revision: string }
         >,
@@ -197,7 +197,7 @@ it("isolates late reads and preserves late write results in the original scope",
   read.resolve({ items: [{ name: "过时资料", revision: "old" }], total: 1 });
   await flushPromises();
   expect(w.text()).not.toContain("过时资料");
-  const write = deferred<import("../src/index").WriteResult>();
+  const write = deferred<import("./fixtures/assembly").WriteResult>();
   vi.mocked(d.adapter.save).mockReturnValueOnce(write.promise);
   await click(w, "编辑");
   await click(w, "保存");

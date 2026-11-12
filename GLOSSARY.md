@@ -22,3 +22,14 @@ _Avoid_: 将 Document/资料用作单据的统称。
 
 **列表/表单投影（List/Form Projection）**：
 从业务类型中有序选取供列表或表单使用的字段，不另行定义同一字段的业务含义。术语与边界见 [#108](https://github.com/hansonyu183/zerp-ui/issues/108)。
+
+## 统一业务模型
+
+**响应式业务模型**：
+同时表达业务对象层级、当前数据及可用业务操作的模型；其变化驱动统一界面的内容与交互。目标决定见 [#122](https://github.com/hansonyu183/zerp-ui/issues/122)。
+
+**业务操作**：
+业务对象在当前身份及状态下支持的固定行为，包含其执行与必要结果核对约定；与页面上的具体按钮区分。目标决定见 [#122](https://github.com/hansonyu183/zerp-ui/issues/122)。
+
+**写入边界**：
+一次业务提交共同保存、取消及核对的内容范围；所属关系本身不表示多个对象共同提交。目标决定见 [#122](https://github.com/hansonyu183/zerp-ui/issues/122)。

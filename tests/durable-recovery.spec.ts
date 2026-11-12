@@ -9,7 +9,7 @@ import {
   type OperationPreview,
   type OperationRequest,
   type OperationReceipt,
-} from "../src/index";
+} from "./fixtures/assembly";
 type Model = {
   process: {
     input: { value: string };

@@ -1,7 +1,7 @@
 import { mount, flushPromises } from "@vue/test-utils";
 import { it, expect, vi } from "vitest";
 import type { Component } from "vue";
-import { defineWorkflow, type WorkflowAdapter } from "../src/index";
+import { defineWorkflow, type WorkflowAdapter } from "./fixtures/assembly";
 import WorkflowView from "../src/WorkflowView.vue";
 const permissions = {
   read: true,
@@ -68,7 +68,7 @@ const click = async (w: ReturnType<typeof mount>, label: string) => {
   await flushPromises();
 };
 const start = async (
-  d: import("../src/index").WorkflowDefinition<
+  d: import("./fixtures/assembly").WorkflowDefinition<
     string,
     string,
     string,

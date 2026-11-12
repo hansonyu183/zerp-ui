@@ -7,7 +7,7 @@ import {
   VExpansionPanelText,
 } from "vuetify/components";
 import { computed, onBeforeUnmount } from "vue";
-import { valueAt } from "./model";
+import { valueAt } from "./business-type";
 import ReferencePicker from "./ReferencePicker.vue";
 import { factText, type FactField } from "./details";
 import type { ReferenceValue } from "./contracts";

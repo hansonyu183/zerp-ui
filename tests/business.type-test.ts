@@ -3,8 +3,12 @@ import {
   type BusinessDefinition,
   type Fields,
   type ReferenceAdapter,
-} from "../src/index";
-import type { BusinessInput, BusinessValue, BusinessType } from "../src/model";
+} from "./fixtures/assembly";
+import type {
+  BusinessInput,
+  BusinessValue,
+  BusinessType,
+} from "../src/business-type";
 const model = {
   kind: "object",
   name: "示例",

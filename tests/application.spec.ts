@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
-import { applicationNavigation } from "../src/index";
-import { applicationGroups, type ApplicationObject } from "../src/model";
+import { applicationNavigation } from "./fixtures/assembly";
+import {
+  applicationGroups,
+  type ApplicationObject,
+} from "../src/business-type";
 const model: ApplicationObject = {
   kind: "object",
   name: "合成应用",

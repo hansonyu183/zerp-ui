@@ -41,7 +41,7 @@ import DataList from "./DataList.vue";
 import type { RecordLink } from "./shell";
 import { equalValues, clearSecrets } from "./editor-values";
 import { clone, message } from "./clone";
-import { setValueAt, valueAt } from "./model";
+import { setValueAt, valueAt } from "./business-type";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
 import { writeRecovery } from "./write-recovery";

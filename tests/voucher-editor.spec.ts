@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 import {
   projectBusinessVoucherEditor,
   type VoucherEditorValue,
-} from "../src/index";
+} from "./fixtures/assembly";
 import VoucherEditor from "../src/VoucherEditor.vue";
 
 type Header = { supplier: string; date: string; "attr.code": string };

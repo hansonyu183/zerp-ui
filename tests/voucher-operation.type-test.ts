@@ -6,12 +6,12 @@ import type {
   OperationRequest,
   OperationJournal,
   OperationSettlement,
-} from "../src/index";
+} from "./fixtures/assembly";
 import type {
   SyntheticModel,
   Identity,
   Baseline,
-} from "../examples/voucher/operation-adapter";
+} from "./fixtures/voucher/operation-adapter";
 type OperationModel = Omit<SyntheticModel, "void"> & {
   void: {
     input: { reason: string };
@@ -176,7 +176,7 @@ const invalidCreate: OperationIntent<SyntheticModel, Identity, "create"> = {
 };
 void [settled, mismatchedSettlement, invalidCreate];
 
-declare const handle: import("../src/index").AppPageHandle;
+declare const handle: import("./fixtures/assembly").AppPageHandle;
 // @ts-expect-error Preparing is owned by the complete page, not a public VM.
 handle.prepare();
 const leaving: Promise<boolean> = handle.requestLeave();

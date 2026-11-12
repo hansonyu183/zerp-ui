@@ -15,7 +15,7 @@ assert.equal(
 );
 const sourceSHA = git("rev-parse", "HEAD");
 const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-assert.equal(pkg.version, "0.31.1");
+assert.equal(pkg.version, "0.32.0");
 const dir = join(root, ".scratch", "release", sourceSHA);
 await mkdir(dir, { recursive: true });
 const commands = [];
@@ -44,38 +44,12 @@ for (const script of ["typecheck", "lint", "format:check"])
   run("pnpm", [script]);
 if (artifactIndex < 0) run("pnpm", ["test"]);
 const slices = [
+  { issue: 123, name: "model", build: "build:model", flag: ["--model"] },
   {
-    issue: 108,
-    name: "business",
-    build: "build:business",
-    flag: ["--business"],
-  },
-  {
-    issue: 102,
-    name: "workbench",
-    build: "build:workbench",
-    flag: ["--workbench"],
-  },
-  { issue: 8, name: "direct", build: "build:example", flag: [] },
-  ...[
-    "configuration",
-    "report",
-    "document",
-    "voucher",
-    "workflow",
-    "shell",
-  ].map((name, index) => ({
-    issue: name === "shell" ? 104 : index + 9,
-    name,
-    build: `build:${name}`,
-    flag: [`--${name}`],
-  })),
-  { issue: 26, name: "details", build: "build:details", flag: ["--details"] },
-  {
-    issue: 47,
-    name: "capabilities",
-    build: "build:capabilities",
-    flag: ["--capabilities"],
+    issue: 124,
+    name: "model-business",
+    build: "build:model-business",
+    flag: ["--model-business"],
   },
 ];
 for (const slice of slices) run("pnpm", [slice.build]);

@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import { createShellThemes, defaultThemeChoice } from "../src/index";
+import { createShellThemes, defaultThemeChoice } from "./fixtures/assembly";
 it("provides all six official material themes with finite brand colors and MD3 light by default", () => {
   const result = createShellThemes({
     primary: "#123456",
@@ -25,7 +25,7 @@ it("provides all six official material themes with finite brand colors and MD3 l
 import { mount, flushPromises, config } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { createVuetify } from "vuetify";
-import { AppPage, defineDetailsPage } from "../src/index";
+import { AppPage, defineDetailsPage } from "./fixtures/assembly";
 it("renders consumer links, retries and controlled theme intents without owning navigation or theme state", async () => {
   const router = createRouter({
     history: createMemoryHistory(),

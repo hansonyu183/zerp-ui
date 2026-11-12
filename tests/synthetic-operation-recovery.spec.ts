@@ -1,8 +1,8 @@
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { beforeEach, expect, it, vi } from "vitest";
-import { AppPage, defineTaskPage } from "../src/index";
-import { operation, type Model } from "../examples/capabilities/adapters";
+import { AppPage, defineTaskPage } from "./fixtures/assembly";
+import { operation, type Model } from "./fixtures/capabilities/adapters";
 const owner = {
   scope: "fresh-session",
   operator: "operator",

@@ -9,7 +9,7 @@ import {
   type WorkbenchSnapshot,
   type WorkbenchPreference,
   type WorkbenchRequest,
-} from "../src/index";
+} from "./fixtures/assembly";
 const mounted: VueWrapper[] = [];
 afterEach(() => mounted.splice(0).forEach((w) => w.unmount()));
 async function start(page: PageDefinition) {

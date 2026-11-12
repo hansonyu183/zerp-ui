@@ -1,6 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
-import { type DetailGroup, type ReferenceValue } from "../src/index";
+import { type DetailGroup, type ReferenceValue } from "./fixtures/assembly";
 import RecordDetails from "../src/RecordDetails.vue";
 
 type Facts = {
@@ -79,7 +79,7 @@ it("shows grouped historical facts and emits only a typed local reference intent
 });
 
 it("expands recursive historical facts with an accessible keyboard control through AppPage", async () => {
-  const { AppPage, defineDetailsPage } = await import("../src/index");
+  const { AppPage, defineDetailsPage } = await import("./fixtures/assembly");
   const { createRouter, createMemoryHistory } = await import("vue-router");
   const router = createRouter({
     history: createMemoryHistory(),

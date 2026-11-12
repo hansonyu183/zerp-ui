@@ -1,5 +1,5 @@
 import type { AnyField } from "./contracts";
-import { valueAt, setValueAt } from "./model";
+import { valueAt, setValueAt } from "./business-type";
 
 function secretSlots(
   fields: readonly AnyField[],

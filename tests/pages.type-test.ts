@@ -5,7 +5,7 @@ import {
   defineCrud,
   domainBlocks,
   type PageDefinition,
-} from "@zerp/ui";
+} from "./fixtures/assembly";
 const details = {
   title: "事实",
   instance: "one",
@@ -109,7 +109,7 @@ import {
   type OperationDefinition,
   type OperationIntent,
   type OperationPreview,
-} from "@zerp/ui";
+} from "./fixtures/assembly";
 type OperationModel = {
   [K in OperationAction]: {
     input: { note: string };
@@ -154,12 +154,12 @@ defineOperationPage({
 });
 
 // Related reports admit finite content factories, not nested reports or arbitrary pages.
-declare const relatedReport: import("../src/index").ReportPageDefinition<
+declare const relatedReport: import("./fixtures/assembly").ReportPageDefinition<
   {},
   {},
   string,
   string
 >;
-declare const nestedReport: import("../src/index").PageDefinition<"report">;
+declare const nestedReport: import("./fixtures/assembly").PageDefinition<"report">;
 // @ts-expect-error A report cannot recursively become another report's modal.
 relatedReport.related = { page: nestedReport, onClose() {} };

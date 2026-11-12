@@ -13,7 +13,7 @@ import {
   defineConfiguration,
   type CrudDefinition,
   type ConfigurationDefinition,
-} from "../src/index";
+} from "./fixtures/assembly";
 import CrudView from "../src/CrudView.vue";
 import ConfigurationView from "../src/ConfigurationView.vue";
 import type { CrudViewHandle } from "../src/contracts";

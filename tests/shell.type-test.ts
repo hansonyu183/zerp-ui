@@ -6,7 +6,7 @@ import {
   type AuthMode,
   type AuthSubmit,
   type AuthValues,
-} from "../src/index";
+} from "./fixtures/assembly";
 createShellThemes({ primary: "#123456" });
 // @ts-expect-error no arbitrary Vuetify styling
 createShellThemes({ defaults: {} });

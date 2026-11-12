@@ -1,5 +1,5 @@
-import { applicationNavigation } from "../src/index";
-import type { ApplicationObject } from "../src/model";
+import { applicationNavigation } from "./fixtures/assembly";
+import type { ApplicationObject } from "../src/business-type";
 const model = {
   kind: "object",
   name: "合成应用",
