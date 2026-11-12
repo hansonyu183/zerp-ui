@@ -9,7 +9,9 @@ import { computed, provide, ref } from "vue";
 import { useRoute } from "vue-router";
 import {
   defineTaskPage,
+  projectTaskFields,
   defineBatchPage,
+  projectBusinessBatchEntries,
   defineCrud,
   defineCrudPage,
   type DraftCollaboration,
@@ -104,7 +106,12 @@ const task = defineTaskPage<{ value: string }, Model, string, number>({
   identity: "process-one",
   definition: taskDefinition,
   values: { value: "合成业务" },
-  fields: [{ key: "value", label: "内容", type: "text", required: true }],
+  fields: projectTaskFields({
+    kind: "object",
+    name: "处理条件",
+    properties: { value: { kind: "text", name: "内容", required: true } },
+    form: { fields: ["value"] },
+  }),
   actions: [
     "process",
     "validate",
@@ -148,16 +155,24 @@ const batch = defineBatchPage({
   owner: batchOwner,
   definition: batchDefinition,
   persistence: batchStore,
-  entries: ["first", "second"].map((key) => ({
-    key,
-    label: key === "first" ? "第一项" : "第二项",
-    intent: {
-      owner: batchOwner,
-      identity: key,
-      action: "process" as const,
-      input: { value: key },
+  entries: projectBusinessBatchEntries(
+    {
+      kind: "object",
+      name: "办理项",
+      properties: { name: { kind: "text", name: "身份" } },
+      list: { fields: ["name"] },
     },
-  })),
+    ["first", "second"].map((key) => ({
+      key,
+      value: { name: key === "first" ? "第一项" : "第二项" },
+      intent: {
+        owner: batchOwner,
+        identity: key,
+        action: "process" as const,
+        input: { value: key },
+      },
+    })),
+  ),
   eligible: true,
   recoveryAllowed: true,
 });

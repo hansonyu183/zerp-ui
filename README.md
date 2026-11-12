@@ -59,11 +59,11 @@ const navigation: NavigationGroup[] = [
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.26.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.26.1) 下载 `zerp-ui-0.26.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.31.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.31.1) 下载 `zerp-ui-0.31.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.26.1.tgz
+pnpm add ./zerp-ui-0.31.1.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。
@@ -316,3 +316,37 @@ Adapter 必须按捕获的身份/账套执行请求，遵守 signal 并拒绝失
 跨独立资源的业务联锁由消费者提供权威事实；库不会因联系人结果未知而自动禁止账款设置写入。业务页面在权威重读后保留详情及所属资源，避免父保存丢失子草稿。普通对象与独立资源按同一表单投影共用一组 Tab，`section`/`onSection` 同步所属分组，`onRecord` 通知已采用的记录身份；消费者负责将这些事实映射到 Router。可选 `initialize` 读取创建初值和前置身份，`prepare` 在保留原请求前冻结消费者前置身份；返回不代表业务写入。`rebase` 只重读并按业务规则合并本地输入，返回新基线。最终 create/save/delete 仍经过原 Adapter。`disabledActions` 提供已有资格但当前不能执行的动作及原因；`failure.field` 按稳定字段路径定位分组及输入，并保留草稿。创建成功及原请求核实为已应用时，Adapter 可返回权威 `identity`，以持久采用最终身份，避免刷新失败或重载后重发创建。
 
 [业务模块独立示例](examples/business)使用合成模型与 Adapter，覆盖嵌套列、五个模块 Tab、独立所属资源、树形引用、秘密值及原请求核实，不代表真实 OIT API 或生产验收。
+
+## 应用与模块导航
+
+`ApplicationObject`（`@zerp/ui/model`）沿用 object。properties 的稳定键注册具名模块引用，target 指向按需获取的模块；navigation.groups 用有序模块 ID 组织导航。应用不存放记录、Session 或 URL。空分组自动省略，重复、缺失和未投影模块引用报错。
+
+```ts
+import { applicationNavigation } from "@zerp/ui";
+import type { ApplicationObject } from "@zerp/ui/model";
+const model = {
+  kind: "object",
+  name: "业务应用",
+  properties: {
+    customers: { kind: "object", name: "客户", target: "customers" },
+  },
+  navigation: {
+    groups: [{ id: "masters", name: "基础资料", modules: ["customers"] }],
+  },
+} satisfies ApplicationObject;
+const navigation = applicationNavigation(model, {
+  customers: { to: "/customers" },
+});
+```
+
+将 navigation 传入现有 AppPage。路由绑定、服务端授权及按需模块加载由消费者提供；业务定义仍通过 defineModulePage/defineBusinessPage 消费，既有独立草稿、原请求核对及离开保护不变。0.26.x 消费者可继续使用原页面接口；本次只增加应用投影入口，不提供旧新模型 fallback。独立 shell 示例通过实际包入口演示应用导航。
+
+账户表单使用 `defineBusinessAccountPage` 消费业务对象及约束，秘密输入为密码控件。权限等专用页面可组合 `projectBusinessFields` / `projectBusinessColumns` 与原运行时。`defineBusinessWorkbenchPage` 从四个具名分区的有序投影获取工作台标题与入口排列；传输绑定及资格由消费者维护。
+
+业务对象数组字段可声明标量 `initialValue`，仅用于新增行初始化，不给已有行补默认值；秘密、只读和所属集合不应用行初值。
+
+### 统一单据模型投影（0.31.1）
+
+`projectBusinessVoucherEditor` 从 BusinessObject 的 `header` 对象、`rows` 对象数组及有序投影生成专用单据编辑定义；字段、单位、精度、只读及嵌套行共用业务模型。消费者提供 rowKey、emptyRow、引用 Adapter，以及有限字段条件和嵌套新增初值，不传组件或传输路径。模型投影不执行领域事件或保存。
+
+`projectBusinessBatchEntries` 按办理项模型的有序 list 字段生成完整身份显示，原 key 与强类型 intent 原样交给现有批次运行时。未决和历史批次从既有持久端口恢复，不重建原清单或原请求。单据与批次合成独立消费者分别见 examples/voucher 和 examples/capabilities。

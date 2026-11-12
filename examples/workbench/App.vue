@@ -2,8 +2,8 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import {
-  defineWorkbenchPage,
-  defineWorkbenchPreferencesPage,
+  defineBusinessWorkbenchPage,
+  defineBusinessWorkbenchPreferencesPage,
   type WorkbenchPreference,
 } from "@zerp/ui";
 import ExamplePage from "../shared/ExamplePage.vue";
@@ -19,8 +19,20 @@ const candidates = (): WorkbenchPreference<Key>[] =>
     name: "合成报表" + i,
     added: saved().includes(String(i)),
   }));
-const home = defineWorkbenchPage({
-  title: "工作台",
+const home = defineBusinessWorkbenchPage({
+  model: {
+    kind: "object",
+    name: "工作台",
+    properties: Object.fromEntries(
+      [
+        ["information", "重要信息"],
+        ["vouchers", "常用单据"],
+        ["reports", "常用报表"],
+        ["masters", "常用资料"],
+      ].map(([key, name]) => [key!, { kind: "collection", name: name! }]),
+    ),
+    form: { fields: ["information", "vouchers", "reports", "masters"] },
+  },
   instance: "synthetic-home",
   manageReportsTo: "/preferences",
   adapter: {
@@ -50,21 +62,34 @@ const home = defineWorkbenchPage({
     },
   },
 });
-const preferences = defineWorkbenchPreferencesPage<Key>({
-  title: "管理常用报表",
-  instance: "synthetic-preferences",
-  adapter: {
-    async load() {
-      return candidates();
+const preferences = defineBusinessWorkbenchPreferencesPage<Key>(
+  {
+    kind: "object",
+    name: "管理常用报表",
+    properties: {
+      name: { kind: "text", name: "名称" },
+      added: { kind: "boolean", name: "已添加" },
     },
-    async setAdded({ key, added }) {
-      const values = new Set(saved());
-      if (added) values.add(key.id);
-      else values.delete(key.id);
-      localStorage.setItem("synthetic-workbench", JSON.stringify([...values]));
+    form: { fields: ["name", "added"] },
+  },
+  {
+    instance: "synthetic-preferences",
+    adapter: {
+      async load() {
+        return candidates();
+      },
+      async setAdded({ key, added }) {
+        const values = new Set(saved());
+        if (added) values.add(key.id);
+        else values.delete(key.id);
+        localStorage.setItem(
+          "synthetic-workbench",
+          JSON.stringify([...values]),
+        );
+      },
     },
   },
-});
+);
 const page = computed(() =>
   route.path === "/preferences" ? preferences : home,
 );

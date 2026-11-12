@@ -1264,7 +1264,21 @@ async function voucherSmoke(page) {
     exact: true,
   });
   await page.getByLabel("单据演示", { exact: true }).selectOption("editor");
+  await expect(standalone.getByText("合成编号", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "编辑资料", exact: true }).click();
+  await expect(standalone.getByLabel("补充编号", { exact: true })).toHaveValue(
+    "合成编号",
+  );
+  await standalone.getByLabel("补充编号", { exact: true }).fill("未保存编号");
+  await expect(standalone.getByLabel("补充编号", { exact: true })).toHaveValue(
+    "未保存编号",
+  );
+  await button("取消编辑").click();
+  await expect(standalone.getByText("合成编号", { exact: true })).toBeVisible();
+  await button("编辑资料").click();
+  await expect(standalone.getByLabel("补充编号", { exact: true })).toHaveValue(
+    "合成编号",
+  );
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     const card = standalone.getByRole("article", {

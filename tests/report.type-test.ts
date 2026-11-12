@@ -255,3 +255,47 @@ const enabledParameters: ReportParameters<Parameters> = [
   },
 ];
 void enabledParameters;
+
+// Fixed model projections infer data types rather than accepting unrelated DTOs.
+import {
+  projectReportParameters,
+  projectTaskFields,
+  projectReportColumns,
+  type Fields,
+} from "../src/index";
+const inputModel = {
+  kind: "object",
+  name: "条件",
+  properties: {
+    amount: { kind: "decimal", name: "金额" },
+    useAmount: { kind: "boolean", name: "使用金额" },
+  },
+  form: { fields: ["amount"] },
+} as const;
+projectReportParameters(inputModel, {
+  interactions: {
+    amount: { enabledBy: { key: "useAmount", label: "使用金额" } },
+  },
+});
+projectReportParameters(inputModel, {
+  interactions: {
+    amount: {
+      enabledBy: {
+        // @ts-expect-error only boolean fields can enable parameters
+        key: "amount",
+        label: "错误",
+      },
+    },
+  },
+});
+const projectedInput = projectTaskFields(inputModel);
+// @ts-expect-error decimal controls carry strings, never JS numbers
+const wrongInput: Fields<{ amount: number }> = projectedInput;
+void wrongInput;
+const projectedColumns = projectReportColumns({
+  ...inputModel,
+  list: { fields: ["amount"] },
+});
+// @ts-expect-error result keys come from the fixed model
+const wrongColumns: ReportColumn<{ other: string }>[] = projectedColumns;
+void wrongColumns;

@@ -110,11 +110,12 @@ const selectedItem = computed(() =>
     .flatMap((group) => group.items)
     .find((item) => item.key === props.selectedNavigationKey),
 );
-const labels: Record<AccountIntent, string> = {
+const labels = computed<Record<AccountIntent, string>>(() => ({
   profile: "名称与头像",
   "change-password": "更改密码",
   "sign-out": "退出登录",
-};
+  ...props.account?.captions,
+}));
 const accountActions: readonly AccountIntent[] = [
   "profile",
   "change-password",

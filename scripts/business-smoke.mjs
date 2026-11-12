@@ -15,6 +15,22 @@ export async function businessSmoke(page) {
   await parent
     .getByRole("textbox", { name: "名称", exact: true })
     .fill("保留父草稿");
+  const units = parent
+    .locator("fieldset")
+    .filter({ has: page.locator("legend").filter({ hasText: /^输入单位$/ }) });
+  await units.getByRole("button", { name: "新增", exact: true }).click();
+  await expect(
+    units.getByRole("textbox", { name: "换算比率", exact: true }),
+  ).toHaveValue("1");
+  await expect(
+    units.getByRole("textbox", { name: "单位排序", exact: true }),
+  ).toHaveValue("0");
+  await units
+    .getByRole("button", { name: "删除输入单位 1", exact: true })
+    .click();
+  await expect(
+    units.getByRole("textbox", { name: "换算比率", exact: true }),
+  ).toHaveCount(0);
   await expect(
     parent.getByRole("tab", { name: "空内容", exact: true }),
   ).toHaveCount(0);
@@ -103,4 +119,30 @@ export async function businessSmoke(page) {
   await expect(
     root.getByRole("article", { name: "记录 1", exact: true }),
   ).toContainText("保留父草稿");
+  await root.getByRole("button", { name: "查看", exact: true }).click();
+  const mobileDialog = page.getByRole("dialog", {
+    name: "查看资料",
+    exact: true,
+  });
+  await expect(mobileDialog).toBeVisible();
+  await expect(mobileDialog).toBeInViewport();
+  await mobileDialog.getByRole("button", { name: "编辑", exact: true }).click();
+  const mobileEditor = page.getByRole("dialog", {
+    name: "编辑资料",
+    exact: true,
+  });
+  await expect(
+    mobileEditor.getByRole("textbox", { name: "名称", exact: true }),
+  ).toHaveValue("保留父草稿");
+  await mobileEditor
+    .getByRole("button", { name: "取消编辑", exact: true })
+    .click();
+  await root.getByRole("button", { name: "查看", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "查看资料", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog", { name: "查看资料", exact: true })
+    .getByRole("button", { name: "取消编辑", exact: true })
+    .click();
 }

@@ -3,22 +3,60 @@ import { ref } from "vue";
 import ExamplePage from "../shared/ExamplePage.vue";
 import {
   defineDetailsPage,
+  projectBusinessVoucherEditor,
   type VoucherEditorDefinition,
   type VoucherEditorValue,
 } from "@zerp/ui";
 
-type Header = { supplier: string; date: string };
+type Header = { supplier: string; date: string; "attr.code": string };
 type Formula = { material: string; amount: string };
 type Row = { id: string; name: string; quantity: string; formula: Formula[] };
 const definition: VoucherEditorDefinition<Header, Row, Formula> = {
-  headerFields: [
-    { key: "supplier", label: "供应商", type: "text" },
-    { key: "date", label: "单据日期", type: "date" },
-  ],
-  rowFields: [
-    { key: "name", label: "品名", type: "text" },
-    { key: "quantity", label: "数量", type: "decimal" },
-  ],
+  ...projectBusinessVoucherEditor<Header, Row, Formula>(
+    {
+      kind: "object",
+      name: "合成单据",
+      properties: {
+        header: {
+          kind: "object",
+          name: "表头",
+          properties: {
+            supplier: { kind: "text", name: "供应商" },
+            "attr.code": { kind: "text", name: "补充编号" },
+            date: { kind: "date", name: "单据日期" },
+          },
+          form: { fields: ["supplier", "date", "attr.code"] },
+        },
+        rows: {
+          kind: "array",
+          name: "明细",
+          element: {
+            kind: "object",
+            name: "明细",
+            properties: {
+              name: { kind: "text", name: "品名" },
+              quantity: {
+                kind: "decimal",
+                name: "数量",
+                numericText: "decimal",
+              },
+            },
+            form: { fields: ["name", "quantity"] },
+            list: { fields: ["name", "quantity"] },
+          },
+        },
+      },
+    },
+    {
+      rowKey: (row) => row.id,
+      emptyRow: () => ({
+        id: crypto.randomUUID(),
+        name: "",
+        quantity: "",
+        formula: [],
+      }),
+    },
+  ),
   columns: [
     { key: "name", label: "品名" },
     { key: "quantity", label: "数量", type: "decimal" },
@@ -43,7 +81,11 @@ const definition: VoucherEditorDefinition<Header, Row, Formula> = {
   }),
 };
 const value = ref<VoucherEditorValue<Header, Row>>({
-  header: { supplier: "合成供应商甲", date: "2026-10-20" },
+  header: {
+    supplier: "合成供应商甲",
+    date: "2026-10-20",
+    "attr.code": "合成编号",
+  },
   rows: [
     { id: "row-one", name: "合成商品甲", quantity: "0.0100", formula: [] },
   ],

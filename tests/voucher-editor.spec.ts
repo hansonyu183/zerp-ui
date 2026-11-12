@@ -3,13 +3,16 @@ import { DOMWrapper } from "@vue/test-utils";
 import { defineComponent, h, ref, type Component } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
-import { type VoucherEditorValue } from "../src/index";
+import {
+  projectBusinessVoucherEditor,
+  type VoucherEditorValue,
+} from "../src/index";
 import VoucherEditor from "../src/VoucherEditor.vue";
 
-type Header = { supplier: string; date: string };
+type Header = { supplier: string; date: string; "attr.code": string };
 type Row = { id: string; name: string; quantity: string };
 const initial: VoucherEditorValue<Header, Row> = {
-  header: { supplier: "合成供应商", date: "2026-10-20" },
+  header: { supplier: "合成供应商", date: "2026-10-20", "attr.code": "原值" },
   rows: [{ id: "one", name: "合成商品", quantity: "9007199254740993.0100" }],
 };
 function editor(mode: "read" | "edit" = "edit") {
@@ -21,20 +24,46 @@ function editor(mode: "read" | "edit" = "edit") {
           modelValue: value.value,
           scope: "synthetic",
           mode,
-          headerFields: [
-            { key: "supplier", label: "供应商", type: "text" },
-            { key: "date", label: "单据日期", type: "date" },
-          ],
-          rowFields: [
-            { key: "name", label: "品名", type: "text" },
-            { key: "quantity", label: "数量", type: "decimal" },
-          ],
-          columns: [
-            { key: "name", label: "品名" },
-            { key: "quantity", label: "数量", type: "decimal" },
-          ],
-          rowKey: (row: Row) => row.id,
-          emptyRow: () => ({ id: "two", name: "", quantity: "" }),
+          ...projectBusinessVoucherEditor<Header, Row>(
+            {
+              kind: "object",
+              name: "合成单据",
+              properties: {
+                header: {
+                  kind: "object",
+                  name: "表头",
+                  properties: {
+                    supplier: { kind: "text", name: "供应商" },
+                    "attr.code": { kind: "text", name: "补充编号" },
+                    date: { kind: "date", name: "单据日期" },
+                  },
+                  form: { fields: ["supplier", "date", "attr.code"] },
+                },
+                rows: {
+                  kind: "array",
+                  name: "明细",
+                  element: {
+                    kind: "object",
+                    name: "明细",
+                    properties: {
+                      name: { kind: "text", name: "品名" },
+                      quantity: {
+                        kind: "decimal",
+                        name: "数量",
+                        numericText: "decimal",
+                      },
+                    },
+                    form: { fields: ["name", "quantity"] },
+                    list: { fields: ["name", "quantity"] },
+                  },
+                },
+              },
+            },
+            {
+              rowKey: (row) => row.id,
+              emptyRow: () => ({ id: "two", name: "", quantity: "" }),
+            },
+          ),
           "onUpdate:modelValue": (next: VoucherEditorValue<Header, Row>) =>
             (value.value = next),
         }),
@@ -72,6 +101,9 @@ it("shows a voucher header and detail table and edits a row without changing dec
   expect(wrapper.find("table").text()).toContain("9007199254740993.0100");
   await wrapper.get('input[aria-label="供应商"]').setValue("合成供应商乙");
   expect(value.value.header.supplier).toBe("合成供应商乙");
+  await wrapper.get('input[aria-label="补充编号"]').setValue("新值");
+  expect(value.value.header["attr.code"]).toBe("新值");
+  expect(value.value.header).not.toHaveProperty("attr");
   await clickRow(wrapper, "编辑", 1);
   await wrapper.get('input[aria-label="品名"]').setValue("修改品名");
   await click(wrapper, "取消明细行");

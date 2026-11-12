@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, shallowRef, watch } from "vue";
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import {
   VBtn,
   VCard,
@@ -21,15 +21,24 @@ const props = defineProps<{
   scope: string;
   active: boolean;
 }>();
-const sections = [
-  { key: "vouchers", title: "常用单据", empty: "暂无常用单据" },
-  {
-    key: "reports",
-    title: "常用报表",
-    empty: "暂无常用报表，可添加常用报表。",
-  },
-  { key: "masters", title: "常用资料", empty: "暂无常用资料" },
-] as const;
+const sections = computed(
+  () =>
+    props.options.sections ??
+    ([
+      {
+        key: "information",
+        title: props.options.informationTitle ?? "重要信息",
+        empty: "暂无信息",
+      },
+      { key: "vouchers", title: "常用单据", empty: "暂无常用单据" },
+      {
+        key: "reports",
+        title: "常用报表",
+        empty: "暂无常用报表，可添加常用报表。",
+      },
+      { key: "masters", title: "常用资料", empty: "暂无常用资料" },
+    ] as const),
+);
 const data = shallowRef<WorkbenchSnapshot>();
 const expanded = ref({ vouchers: false, reports: false, masters: false });
 const busy = ref(false),
@@ -90,78 +99,76 @@ onBeforeUnmount(cancel);
       ></FeedbackRegion
     >
     <div class="zerp-workbench-grid">
-      <VCard
-        tag="section"
-        aria-label="重要信息"
-        class="zerp-workbench-information"
-      >
-        <VCardTitle tag="h2">重要信息</VCardTitle>
-        <VCardText>
-          <VList v-if="data?.information.length">
-            <VListItem v-for="item in data.information" :key="item.key">
-              <VListItemTitle>{{ item.text }}</VListItemTitle>
-            </VListItem>
-          </VList>
-          <p v-else>暂无信息</p>
-        </VCardText>
-      </VCard>
-      <VCard
-        v-for="section in sections"
-        :key="section.key"
-        tag="section"
-        :aria-label="section.title"
-      >
-        <VCardTitle tag="h2">{{ section.title }}</VCardTitle>
-        <VCardText>
-          <p v-if="data?.[section.key].description">
-            {{ data[section.key].description }}
-          </p>
-          <VList
-            v-if="data?.[section.key].items.length"
-            class="zerp-workbench-links"
-          >
-            <VListItem
-              v-for="item in expanded[section.key]
-                ? data[section.key].items
-                : data[section.key].items.slice(0, 12)"
-              :key="item.key"
-              :to="item.to"
-            >
-              <template v-if="item.icon" #prepend
-                ><VIcon
-                  ><span class="zerp-ui-icon">{{
-                    navigationGlyph(item.icon)
-                  }}</span></VIcon
-                ></template
-              >
-              <VListItemTitle>{{ item.name }}</VListItemTitle>
-            </VListItem>
-          </VList>
-          <p v-else>
-            {{
-              busy ? "正在读取，请稍候。" : error ? "读取失败" : section.empty
-            }}
-          </p>
-        </VCardText>
-        <VCardActions
-          v-if="
-            (data?.[section.key].items.length ?? 0) > 12 ||
-            (section.key === 'reports' && options.manageReportsTo)
-          "
+      <template v-for="section in sections" :key="section.key">
+        <VCard
+          v-if="section.key === 'information'"
+          tag="section"
+          :aria-label="section.title"
+          class="zerp-workbench-information"
         >
-          <VBtn
-            v-if="(data?.[section.key].items.length ?? 0) > 12"
-            :aria-expanded="expanded[section.key]"
-            @click="expanded[section.key] = !expanded[section.key]"
-            >{{ expanded[section.key] ? "收起" : "展开全部" }}</VBtn
+          <VCardTitle tag="h2">{{ section.title }}</VCardTitle>
+          <VCardText>
+            <VList v-if="data?.information.length">
+              <VListItem v-for="item in data.information" :key="item.key">
+                <VListItemTitle>{{ item.text }}</VListItemTitle>
+              </VListItem>
+            </VList>
+            <p v-else>暂无信息</p>
+          </VCardText>
+        </VCard>
+        <VCard v-else tag="section" :aria-label="section.title">
+          <VCardTitle tag="h2">{{ section.title }}</VCardTitle>
+          <VCardText>
+            <p v-if="data?.[section.key].description">
+              {{ data[section.key].description }}
+            </p>
+            <VList
+              v-if="data?.[section.key].items.length"
+              class="zerp-workbench-links"
+            >
+              <VListItem
+                v-for="item in expanded[section.key]
+                  ? data[section.key].items
+                  : data[section.key].items.slice(0, 12)"
+                :key="item.key"
+                :to="item.to"
+              >
+                <template v-if="item.icon" #prepend
+                  ><VIcon
+                    ><span class="zerp-ui-icon">{{
+                      navigationGlyph(item.icon)
+                    }}</span></VIcon
+                  ></template
+                >
+                <VListItemTitle>{{ item.name }}</VListItemTitle>
+              </VListItem>
+            </VList>
+            <p v-else>
+              {{
+                busy ? "正在读取，请稍候。" : error ? "读取失败" : section.empty
+              }}
+            </p>
+          </VCardText>
+          <VCardActions
+            v-if="
+              (data?.[section.key].items.length ?? 0) > 12 ||
+              (section.key === 'reports' && options.manageReportsTo)
+            "
           >
-          <VBtn
-            v-if="section.key === 'reports' && options.manageReportsTo"
-            :to="options.manageReportsTo"
-            >管理常用报表</VBtn
-          >
-        </VCardActions>
-      </VCard>
+            <VBtn
+              v-if="(data?.[section.key].items.length ?? 0) > 12"
+              :aria-expanded="expanded[section.key]"
+              @click="expanded[section.key] = !expanded[section.key]"
+              >{{ expanded[section.key] ? "收起" : "展开全部" }}</VBtn
+            >
+            <VBtn
+              v-if="section.key === 'reports' && options.manageReportsTo"
+              :to="options.manageReportsTo"
+              >管理常用报表</VBtn
+            >
+          </VCardActions>
+        </VCard>
+      </template>
     </div>
   </section>
 </template>

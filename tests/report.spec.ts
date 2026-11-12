@@ -1,7 +1,11 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";
-import { defineReport } from "../src/index";
+import {
+  defineReport,
+  projectReportParameters,
+  projectReportColumns,
+} from "../src/index";
 import DataList from "../src/DataList.vue";
 import ReportView from "../src/ReportView.vue";
 
@@ -11,11 +15,22 @@ const definition = () =>
     rowKey: (row: { amount: string }) => row.amount,
     resource: "synthetic-report",
     title: "合成报表",
-    parameters: [{ key: "keyword", type: "text", label: "关键字" }],
+    parameters: projectReportParameters({
+      kind: "object",
+      name: "条件",
+      properties: { keyword: { kind: "text", name: "关键字" } },
+      form: { fields: ["keyword"] },
+    }),
     initialParameters: () => ({ keyword: "初始" }),
-    columns: [
-      { key: "amount", label: "金额", type: "decimal", width: "12rem" },
-    ],
+    columns: projectReportColumns(
+      {
+        kind: "object",
+        name: "结果",
+        properties: { amount: { kind: "decimal", name: "金额", scale: 4 } },
+        list: { fields: ["amount"] },
+      },
+      { amount: { width: "12rem" } },
+    ),
     adapter: {
       query: vi.fn(
         async (_input: {

@@ -1,6 +1,6 @@
 import { computed, h, toValue, type MaybeRefOrGetter } from "vue";
 import type { BusinessType, BusinessValue, BusinessObject } from "./model";
-import { formSections, propertyAt } from "./model";
+import { formSections, propertyAt, setValueAt, valueAt } from "./model";
 import type {
   AnyField,
   Column,
@@ -11,6 +11,7 @@ import type {
 } from "./contracts";
 import {
   defineCrudPage,
+  defineAccountPage,
   snapshotPage,
   type CrudPage,
   type PageDefinition,
@@ -37,7 +38,21 @@ export type BusinessDefinition<
   reference?: (field: BusinessType, path: string) => ReferenceAdapter;
 };
 
-function projectedFields(
+function initialRow(type: BusinessType): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const path of type.form?.fields ?? []) {
+    const field = propertyAt(type, path);
+    if (!field || field.readOnly || field.secret || field.kind === "collection")
+      continue;
+    if (field.kind === "object") setValueAt(result, path, initialRow(field));
+    else if (field.kind === "array") setValueAt(result, path, []);
+    else if (field.initialValue !== undefined)
+      setValueAt(result, path, field.initialValue);
+  }
+  return result;
+}
+
+export function projectBusinessFields(
   model: BusinessType,
   reference: BusinessDefinition<
     BusinessObject,
@@ -62,7 +77,7 @@ function projectedFields(
     if (node.kind === "collection")
       throw Error(`请提供${node.name}的独立资源定义。`);
     if (node.kind === "object")
-      return projectedFields(
+      return projectBusinessFields(
         node,
         reference,
         key + ".",
@@ -120,8 +135,8 @@ function projectedFields(
           {
             ...common,
             type: "rows",
-            fields: projectedFields(node.element, reference),
-            empty: () => ({}),
+            fields: projectBusinessFields(node.element, reference),
+            empty: () => initialRow(node.element!),
           },
         ];
       return [
@@ -191,7 +206,7 @@ export function defineBusinessPage<
     const previous = definitions.get(current);
     if (previous) return previous;
     const fields = computed(() =>
-      projectedFields(
+      projectBusinessFields(
         current.model,
         current.reference,
         "",
@@ -213,20 +228,10 @@ export function defineBusinessPage<
       })),
     );
     const columns = computed(() =>
-      (current.model.list?.fields ?? []).map((path) => {
-        const field = propertyAt(current.model, path);
-        if (!field) throw Error(`未定义列表字段：${path}`);
-        return {
-          key: (current.rowValue ? current.rowValue + "." : "") + path,
-          label: field.name,
-          type:
-            field.kind === "boolean" ||
-            field.kind === "integer" ||
-            field.kind === "decimal"
-              ? field.kind
-              : "text",
-        };
-      }),
+      projectBusinessColumns<R>(current.model).map((column) => ({
+        ...column,
+        key: (current.rowValue ? current.rowValue + "." : "") + column.key,
+      })),
     );
     // Reflection turns a validated runtime model into the private rendering shape;
     // the public definition still pairs the exact model value, row and identity.
@@ -331,4 +336,159 @@ export function defineModulePage<T extends BusinessObject>(
       };
     },
   });
+}
+
+/** Project a standalone account form without creating a business collection. */
+export function defineBusinessAccountPage<T extends BusinessObject>(
+  model: MaybeRefOrGetter<T>,
+  source: PageSource<
+    Omit<
+      import("./pages").AccountPage<BusinessValue<NoInfer<T>>>,
+      "fields" | "title"
+    > & {
+      interactions?: Readonly<Record<string, Pick<AnyField, "when" | "mode">>>;
+    }
+  >,
+): PageDefinition {
+  return defineAccountPage(() => {
+    const value = toValue(source);
+    const fields = projectBusinessFields(toValue(model), undefined).map(
+      (field) => ({
+        ...field,
+        ...(field.type === "secret" ? { type: "password" as const } : {}),
+        ...value.interactions?.[field.key],
+      }),
+    ) as unknown as Fields<BusinessValue<T>>;
+    return { ...value, title: toValue(model).name, fields };
+  });
+}
+
+/** List columns share the exact same field names, enum choices and order. */
+export function projectBusinessColumns<R extends object>(
+  model: BusinessType,
+): Column<R>[] {
+  return (model.list?.fields ?? []).map((key) => {
+    const field = propertyAt(model, key);
+    if (!field) throw Error(`未定义列表字段：${key}`);
+    return {
+      key,
+      label: field.name,
+      ...(["boolean", "integer", "decimal"].includes(field.kind)
+        ? { type: field.kind }
+        : {}),
+      ...(field.kind === "enum"
+        ? {
+            type: "enum" as const,
+            options: (field.options ?? []).map((o) => ({
+              value: o.id,
+              label: o.name,
+            })),
+          }
+        : {}),
+    };
+  }) as Column<R>[];
+}
+
+/** Native voucher semantics and row identity remain in the consumer. */
+export type BusinessVoucherInteraction = {
+  when?: AnyField["when"];
+  initial?: object;
+  children?: Readonly<Record<string, BusinessVoucherInteraction>>;
+};
+export function projectBusinessVoucherEditor<
+  H extends object,
+  R extends object,
+  C extends object = object,
+>(
+  model: BusinessObject,
+  options: {
+    rowKey: (row: R) => string;
+    emptyRow: () => R;
+    reference?: BusinessDefinition<
+      BusinessObject,
+      object,
+      object,
+      unknown
+    >["reference"];
+    interactions?: {
+      header?: Readonly<Record<string, BusinessVoucherInteraction>>;
+      rows?: Readonly<Record<string, BusinessVoucherInteraction>>;
+    };
+  },
+): Pick<
+  import("./voucher-editor").VoucherEditorDefinition<H, R, C>,
+  "headerFields" | "rowFields" | "columns" | "rowKey"
+> & { emptyRow: () => R } {
+  const header = model.properties.header;
+  const rows = model.properties.rows;
+  if (
+    header?.kind !== "object" ||
+    rows?.kind !== "array" ||
+    rows.element?.kind !== "object"
+  )
+    throw Error("单据模型必须定义表头和明细。");
+  function fields(
+    node: BusinessType,
+    interactions: Readonly<Record<string, BusinessVoucherInteraction>> = {},
+  ): AnyField[] {
+    return projectBusinessFields(node, options.reference).map((field) => {
+      const interaction = interactions[field.key];
+      if (!interaction) return field;
+      return {
+        ...field,
+        ...(interaction.when ? { when: interaction.when } : {}),
+        ...(field.type === "rows" && interaction.initial
+          ? {
+              empty: () => structuredClone(interaction.initial!),
+              fields: fields(
+                propertyAt(node, field.key)!.element!,
+                interaction.children,
+              ),
+            }
+          : {}),
+      };
+    });
+  }
+  return {
+    headerFields: fields(
+      header,
+      options.interactions?.header,
+    ) as unknown as Fields<H>,
+    rowFields: fields(
+      rows.element,
+      options.interactions?.rows,
+    ) as unknown as Fields<R>,
+    columns: projectBusinessColumns<R>(rows.element),
+    rowKey: options.rowKey,
+    emptyRow: options.emptyRow,
+  };
+}
+
+/** Project the immutable item identity before the existing batch runtime owns it. */
+export function projectBusinessBatchEntries<
+  T extends BusinessObject,
+  Intent extends {
+    owner: import("./operation").OperationOwner;
+    action: import("./operation").OperationAction;
+    identity: unknown;
+    input: unknown;
+  },
+>(
+  model: T,
+  entries: readonly { key: string; value: BusinessValue<T>; intent: Intent }[],
+): { key: string; label: string; intent: Intent }[] {
+  const paths = model.list?.fields;
+  if (!paths?.length) throw Error("批量办理项必须声明身份显示字段。");
+  for (const path of paths)
+    if (!propertyAt(model, path)) throw Error(`未定义字段：${path}`);
+  return entries.map((entry) => ({
+    key: entry.key,
+    intent: entry.intent,
+    label: paths
+      .map((path) => {
+        const value = valueAt(entry.value, path);
+        return value === null || value === undefined ? "" : String(value);
+      })
+      .join(" · "),
+  }));
 }

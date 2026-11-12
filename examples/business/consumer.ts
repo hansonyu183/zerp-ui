@@ -32,6 +32,19 @@ export const sampleType = {
       },
       form: { fields: ["credential"] },
     },
+    units: {
+      kind: "array",
+      name: "输入单位",
+      element: {
+        kind: "object",
+        name: "单位",
+        properties: {
+          rate: { kind: "text", name: "换算比率", initialValue: "1" },
+          order: { kind: "integer", name: "单位排序", initialValue: 0 },
+        },
+        form: { fields: ["rate", "order"] },
+      },
+    },
     contacts: { kind: "collection", name: "联系人" },
     settings: {
       kind: "object",
@@ -52,6 +65,7 @@ export const sampleType = {
     fields: [
       "name",
       "category",
+      "units",
       "contact",
       "attributes",
       "contacts",

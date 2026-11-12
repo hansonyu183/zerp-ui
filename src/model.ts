@@ -14,6 +14,8 @@ export type BusinessType = {
     | "array"
     | "collection";
   name: string;
+  /** Applied only when a projected object-array row is newly created. */
+  initialValue?: string | number | boolean | null;
   max?: number | null;
   nullable?: boolean;
   readOnly?: boolean;
@@ -57,6 +59,8 @@ export function propertyAt(
   type: BusinessType,
   path: string,
 ): BusinessType | undefined {
+  if (type.properties && Object.hasOwn(type.properties, path))
+    return type.properties[path];
   return path
     .split(".")
     .reduce<BusinessType | undefined>(
@@ -110,25 +114,22 @@ export function formSections(type: BusinessType) {
     (path) =>
       !["object", "collection"].includes(propertyAt(type, path)?.kind ?? ""),
   );
-  return [
-    ...(ordinary.length
-      ? [{ key: "$basic", name: "基本资料", fields: ordinary }]
-      : []),
-    ...fields
-      .filter((path) =>
-        ["object", "collection"].includes(propertyAt(type, path)?.kind ?? ""),
-      )
-      .map((path) => ({
-        key: path,
-        name: propertyAt(type, path)!.name,
-        fields: [path],
-      })),
-  ].filter((section) =>
-    section.fields.some((path) => {
+  const basic = ordinary.length
+    ? { key: "$basic", name: "基本资料", fields: ordinary }
+    : undefined;
+  return fields
+    .flatMap((path) => {
       const node = propertyAt(type, path);
-      return node?.kind !== "object" || !!node.form?.fields.length;
-    }),
-  );
+      if (["object", "collection"].includes(node?.kind ?? ""))
+        return [{ key: path, name: node!.name, fields: [path] }];
+      return path === ordinary[0] && basic ? [basic] : [];
+    })
+    .filter((section) =>
+      section.fields.some((path) => {
+        const node = propertyAt(type, path);
+        return node?.kind !== "object" || !!node.form?.fields.length;
+      }),
+    );
 }
 export function leafFields(
   type: BusinessType,
@@ -180,4 +181,38 @@ export function writableType(type: BusinessType): BusinessType {
       ),
     },
   };
+}
+
+/** Application properties are module references, not loaded business records. */
+export type ApplicationObject = BusinessObject & {
+  navigation: {
+    groups: readonly {
+      id: string;
+      name: string;
+      ungrouped?: boolean;
+      modules: readonly string[];
+    }[];
+  };
+};
+export function applicationGroups(model: ApplicationObject) {
+  const groups = new Set<string>();
+  const modules = new Set<string>();
+  const result = model.navigation.groups.flatMap((group) => {
+    if (groups.has(group.id)) throw Error(`重复导航分组：${group.id}`);
+    groups.add(group.id);
+    const projected = group.modules.map((id) => {
+      if (modules.has(id)) throw Error(`重复模块引用：${id}`);
+      const module = Object.hasOwn(model.properties, id)
+        ? model.properties[id]
+        : undefined;
+      if (module?.kind !== "object" || !module.target)
+        throw Error(`未定义模块引用：${id}`);
+      modules.add(id);
+      return { id, name: module.name, target: module.target };
+    });
+    return projected.length ? [{ ...group, modules: projected }] : [];
+  });
+  for (const id of Object.keys(model.properties))
+    if (!modules.has(id)) throw Error(`模块未投影：${id}`);
+  return result;
 }

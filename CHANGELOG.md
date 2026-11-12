@@ -1,4 +1,43 @@
+## 0.31.1
+
+- Restore exact property-name precedence for dotted native fields while retaining 0.31 report/task and voucher/batch projections (#121). The standalone voucher consumer covers reading, editing and cancelling these fields.
+
+## 0.31.0
+
+- Add model-derived report parameters, read-only result columns and task inputs (#118), reusing the existing query and operation lifecycles. Reference fields retain ID values and fixed models infer the consumer value types.
+- Add public BusinessType projection for dedicated voucher header/detail editors, nested row initial values and finite field conditions (#119). Existing operation/batch request identity and recovery lifecycle remain authoritative.
+
+# 0.29.1
+
+- 整合 #116 账户/工作台/偏好模型与 #117 数组初始化、表单分区顺序修复，独立固定发行。
+
+## 0.29.0
+
+- 模型数组新增行的标量初值与分区顺序（#117）；集成完整账户/工作台及偏好模型（#116）。
+
+# 0.28.1
+
+- 常用报表偏好消费业务模型名称和字段；保持幂等设置及核对恢复运行时。对应 #116。
+
+# 0.28.0
+
+- 账户和工作台消费统一业务模型；公开字段与枚举列的有序投影。对应 #116。
+
 # Changelog
+
+## 0.27.1
+
+- 原请求恢复时无写入资格不显示保存动作，继续允许核对原请求；不改变原请求、权限或写入运行时。
+
+## 0.27.0
+
+- 新增 object 应用模块引用、有序导航投影及强类型传输绑定（#114）；复用现有 AppPage，无业务记录或路由进入模型。
+- 独立 shell 消费者改用应用投影，保留既有页面、窄屏与恢复交互。
+
+## 0.26.2
+
+- 手机模块内嵌资料的查看及编辑使用弹窗，避免详情出现在长列表下方；桌面保留模块切换与独立草稿。
+- 增加公开页面的手机查看、获权编辑入口及关闭后再次查看回归。权限仍由消费者提供。
 
 ## 0.26.1
 

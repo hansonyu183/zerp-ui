@@ -1,3 +1,4 @@
+import { ref } from "vue";
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { afterEach, expect, it, vi } from "vitest";
@@ -358,4 +359,162 @@ it("keeps eligible but disabled actions visible without dispatching a write", as
   await flushPromises();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   expect(f.save).not.toHaveBeenCalled();
+});
+it("opens mobile module records in a dialog with the authorized edit entry", async () => {
+  const width = window.innerWidth;
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 390,
+  });
+  window.dispatchEvent(new Event("resize"));
+  try {
+    const f = fixture("mobile-record");
+    const record = defineBusinessPage({
+      definition: { ...f.definition, actions: () => ["view", "edit"] as const },
+      permissions,
+    });
+    host(
+      defineModulePage({
+        model: {
+          kind: "object",
+          name: "手机模块",
+          properties: { records: { kind: "collection", name: "资料" } },
+          form: { fields: ["records"] },
+        },
+        collections: { records: record },
+      }),
+    );
+    await flushPromises();
+    await click(document, "查看");
+    const dialog = document.querySelector(
+      '[role="dialog"][aria-label="查看资料"]',
+    );
+    expect(dialog, "手机详情必须在弹窗内").not.toBeNull();
+    await click(dialog!, "编辑");
+    expect(dialog!.querySelector('input[aria-label="名称"]')).not.toBeNull();
+    expect(f.save).not.toHaveBeenCalled();
+  } finally {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: width,
+    });
+    window.dispatchEvent(new Event("resize"));
+  }
+});
+
+it("hides write actions while an original request is recovered without write qualification", async () => {
+  const f = fixture("read-only-recovery", true),
+    allowed = ref(true);
+  const definition = {
+    ...f.definition,
+    reconcile: async (attempt: Attempt<Data, string>) => ({
+      status: "not-applied" as const,
+      attemptId: attempt.id,
+      evidence: "original receipt",
+    }),
+  };
+  host(
+    defineBusinessPage(() => ({
+      definition,
+      permissions: { ...permissions, write: allowed.value },
+    })),
+  );
+  await flushPromises();
+  await click(document, "编辑");
+  await click(document.querySelector('[role="dialog"]')!, "保存");
+  allowed.value = false;
+  await flushPromises();
+  expect(
+    Array.from(document.querySelectorAll("button")).some(
+      (button) => button.textContent?.trim() === "保存",
+    ),
+  ).toBe(false);
+  await click(document, "核实本次请求");
+  expect(f.save).toHaveBeenCalledTimes(1);
+});
+
+it("initializes only new object-array rows and keeps cancellation and existing values intact", async () => {
+  const save = vi.fn(async (_attempt: unknown) => ({
+    status: "success" as const,
+  }));
+  const rowModel = {
+    kind: "object",
+    name: "合成产品",
+    properties: {
+      name: { kind: "text", name: "名称" },
+      units: {
+        kind: "array",
+        name: "单位",
+        element: {
+          kind: "object",
+          name: "单位",
+          properties: {
+            rate: { kind: "text", name: "比率", initialValue: "1" },
+            order: { kind: "integer", name: "排序", initialValue: 0 },
+            optional: { kind: "text", name: "备注", initialValue: null },
+            secret: {
+              kind: "text",
+              name: "秘密",
+              secret: true,
+              initialValue: "must-not-copy",
+            },
+          },
+          form: { fields: ["rate", "order", "optional", "secret"] },
+        },
+      },
+    },
+    form: { fields: ["name", "units"] },
+    list: { fields: ["name"] },
+  } as const satisfies BusinessObject;
+  const wrapper = host(
+    defineBusinessPage({
+      definition: {
+        resource: "initial-rows",
+        title: "合成产品",
+        model: rowModel,
+        filters: [],
+        initialFilters: () => ({}),
+        identity: () => "one",
+        actions: () => ["edit"] as const,
+        adapter: {
+          query: async () => ({ items: [{ name: "已有产品" }], total: 1 }),
+          get: async () => ({
+            values: { name: "已有产品", units: [{ rate: "7", order: 5 }] },
+            identity: "one",
+          }),
+          empty: () => ({ name: "", units: [] }),
+          create: save,
+          save,
+        },
+      },
+      permissions,
+    }),
+  );
+  await flushPromises();
+  await click(wrapper.element, "编辑");
+  input(document, "名称", "更新产品");
+  await flushPromises();
+  await click(
+    [...document.querySelectorAll("fieldset")].find(
+      (e) => e.querySelector("legend")?.textContent === "单位",
+    )!,
+    "新增",
+  );
+  expect(
+    document
+      .querySelector<HTMLElement>('section[aria-label="单位 2"]')!
+      .querySelector<HTMLInputElement>('input[aria-label="比率"]')!.value,
+  ).toBe("1");
+  expect(
+    document
+      .querySelector<HTMLElement>('section[aria-label="单位 2"]')!
+      .querySelector<HTMLInputElement>('input[aria-label="排序"]')!.value,
+  ).toBe("0");
+  expect(document.body.textContent).not.toContain("must-not-copy");
+  await click(document, "删除单位 2");
+  await click(document, "保存");
+  expect(save).toHaveBeenCalledOnce();
+  expect(save.mock.calls[0]?.[0]).toMatchObject({
+    input: { units: [{ rate: "7", order: 5 }] },
+  });
 });
