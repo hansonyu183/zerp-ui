@@ -452,6 +452,7 @@ onBeforeUnmount(() => emit("pending", false));
               <ReferencePicker
                 v-if="field.type === 'reference' || field.type === 'references'"
                 :adapter="field.adapter"
+                :disabled-reason="field.disabledReason"
                 :parent="referenceStates[field.key]?.parent"
                 :model-value="reference(field)"
                 :hierarchical="field.hierarchical"

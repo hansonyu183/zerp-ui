@@ -8,6 +8,11 @@ import {
   object,
   collection,
   text,
+  array,
+  secret,
+  reference,
+  type ModelNode,
+  type ApplicationNode,
   decimal,
   boolean,
   messages,
@@ -125,19 +130,7 @@ async function fixture(
   const model = reactive(
     application("合成应用", { customers, notifications: messages() }, settings),
   );
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [{ path: "/:pathMatch(.*)*", component: { template: "<span />" } }],
-  });
-  await router.push("/customers");
-  await router.isReady();
-  const wrapper = mount(BusinessApplication, {
-    attachTo: document.body,
-    props: { model },
-    global: { plugins: [router] },
-  });
-  mounted.push(wrapper);
-  await flushPromises();
+  const wrapper = await mountApplication(model);
   return { wrapper, model, run, row, reconcile, update, settings, childRun };
 }
 it("binds only a model and preserves zero/false and exact decimal on a customer update", async () => {
@@ -333,4 +326,272 @@ it("retains an unknown lock across component removal without a persistence port"
   expect(first.run).toHaveBeenCalledOnce();
   await click("核实本次请求");
   expect(first.reconcile).toHaveBeenCalledOnce();
+});
+
+async function mountApplication(model: ApplicationNode) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/:pathMatch(.*)*", component: { template: "<span />" } }],
+  });
+  await router.push("/customers");
+  const wrapper = mount(BusinessApplication, {
+    attachTo: document.body,
+    props: { model },
+    global: { plugins: [router] },
+  });
+  mounted.push(wrapper);
+  await flushPromises();
+  return wrapper;
+}
+async function renderNode(
+  node: ModelNode,
+  extra: Partial<ModelApplicationOptions> = {},
+) {
+  const settings = reactive({
+    owner: { ledger: "demo", operator: "u", generation: "1" },
+    brand: {
+      productName: "合成",
+      enterpriseName: "合成",
+      home: "/",
+      mark: { kind: "text" as const, text: "例" },
+    },
+    navigation: {
+      current: { node },
+      href: () => "/customers",
+      visit: vi.fn(),
+      guard: () => () => {},
+    } as ModelNavigation,
+    ...extra,
+  });
+  await mountApplication(
+    reactive(application("合成应用", { records: node }, settings)),
+  );
+  return settings;
+}
+it("reads an off-page deep-link identity through the element get and retains its write boundary", async () => {
+  const get = vi.fn(async ({ identity }: { identity: { id: string } }) => ({
+    value: { id: identity.id, name: "页外详情" },
+    identity,
+    concurrency: "2",
+  }));
+  const run = vi.fn(
+    async (
+      _request: ModelRequest<{ name: string | null }, { id: string }>,
+    ) => ({ status: "success" as const }),
+  );
+  const element = () =>
+    object(
+      "客户",
+      { id: text("编号", { readOnly: true, value: "" }), name: text("名称") },
+      {
+        identity: ["id"] as const,
+        operations: {
+          get: { run: (context) => get(context) },
+          update: { run: (request) => run(request) },
+        },
+      },
+    );
+  const customers = collection("客户", element, {
+    operations: {
+      query: {
+        async run() {
+          return { items: [], total: 0 };
+        },
+      },
+    },
+  });
+  const settings = await renderNode(customers);
+  settings.navigation.current = {
+    node: customers,
+    identity: { id: "off-page" },
+  };
+  await flushPromises();
+  expect(get).toHaveBeenCalled();
+  expect(document.body.textContent).toContain("页外详情");
+  await click("编辑");
+  await input("名称", "页外修改");
+  await click("保存");
+  expect(run.mock.calls[0]?.[0]).toMatchObject({
+    identity: { id: "off-page" },
+    concurrency: "2",
+    input: { name: "页外修改" },
+  });
+});
+it("does not call disabled reference operations and presents their business reason", async () => {
+  const search = vi.fn(async () => ({ items: [], total: 0 }));
+  const resolve = vi.fn(async () => []);
+  const node = object(
+    "设置",
+    {
+      category: reference("分类", {
+        value: "old",
+        operations: {
+          search: { disabledReason: "分类搜索已停用", run: search },
+          resolve: { disabledReason: "分类解析已停用", run: resolve },
+        },
+      }),
+    },
+    {
+      operations: {
+        update: {
+          async run() {
+            return { status: "success" };
+          },
+        },
+      },
+    },
+  );
+  await renderNode(node);
+  await click("编辑");
+  expect(search).not.toHaveBeenCalled();
+  expect(resolve).not.toHaveBeenCalled();
+  expect(document.body.textContent).toContain("分类搜索已停用");
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="分类"]')
+      ?.disabled,
+  ).toBe(true);
+});
+it("discards a query response after its operation is withdrawn", async () => {
+  let release!: (value: {
+    items: ReturnType<typeof element>[];
+    total: number;
+  }) => void;
+  const pending = new Promise<{
+    items: ReturnType<typeof element>[];
+    total: number;
+  }>((resolve) => {
+    release = resolve;
+  });
+  const element = () =>
+    object(
+      "客户",
+      {
+        id: text("编号", { value: "x", readOnly: true }),
+        name: text("名称", { value: "过期记录" }),
+      },
+      {
+        identity: ["id"],
+        operations: {
+          update: {
+            async run() {
+              return { status: "success" };
+            },
+          },
+        },
+      },
+    );
+  const query = reactive({
+    disabledReason: "",
+    run: async () => await pending,
+  });
+  await renderNode(collection("客户", element, { operations: { query } }));
+  query.disabledReason = "查询已撤销";
+  release({ items: [element()], total: 1 });
+  await flushPromises();
+  expect(document.body.textContent).not.toContain("过期记录");
+});
+it("discards a detail response after the get operation changes", async () => {
+  let release!: (value: {
+    value: { id: string; name: string };
+    identity: { id: string };
+    concurrency: string;
+  }) => void;
+  const pending = new Promise<{
+    value: { id: string; name: string };
+    identity: { id: string };
+    concurrency: string;
+  }>((resolve) => {
+    release = resolve;
+  });
+  const get = reactive({ run: async () => await pending });
+  const element = () =>
+    object(
+      "客户",
+      {
+        id: text("编号", { value: "x", readOnly: true }),
+        name: text("名称", { value: "当前记录" }),
+      },
+      { identity: ["id"], operations: { get } },
+    );
+  const row = element();
+  await renderNode(
+    collection("客户", element, {
+      operations: {
+        query: {
+          async run() {
+            return { items: [row], total: 1 };
+          },
+        },
+      },
+    }),
+  );
+  await click("查看");
+  get.run = async () => ({
+    value: { id: "x", name: "新读取" },
+    identity: { id: "x" },
+    concurrency: "3",
+  });
+  release({
+    value: { id: "x", name: "过期详情" },
+    identity: { id: "x" },
+    concurrency: "2",
+  });
+  await flushPromises();
+  expect(document.body.textContent).not.toContain("过期详情");
+  expect(row.name.value).toBe("当前记录");
+});
+it("clears nested read secrets and rejects unencrypted durable originals before reservation", async () => {
+  const run = vi.fn(async () => ({ status: "success" as const }));
+  const save = vi.fn(async () => {});
+  const node = object(
+    "设置",
+    {
+      credentials: array(
+        "凭证行",
+        () =>
+          object("凭证", {
+            token: secret("令牌", { value: "must-not-adopt" }),
+          }),
+        [
+          object("凭证", {
+            token: secret("令牌", { value: "must-not-adopt" }),
+          }),
+        ],
+      ),
+    },
+    { operations: { update: { run } } },
+  );
+  await renderNode(node, {
+    persistence: {
+      async pending() {
+        return [];
+      },
+      async load() {
+        return null;
+      },
+      save,
+      async complete() {},
+    },
+  });
+  await click("编辑");
+  expect(document.querySelector('input[type="password"]')).toBeNull();
+  const select = document.querySelector<HTMLInputElement>(
+    'input[aria-label="令牌"]',
+  )!;
+  select.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+  );
+  await flushPromises();
+  const change = [
+    ...document.querySelectorAll<HTMLElement>(".v-list-item"),
+  ].find((el) => el.textContent?.trim() === "修改")!;
+  change.click();
+  await flushPromises();
+  await input("新的令牌", "nested-secret");
+  await click("保存");
+  expect(save).not.toHaveBeenCalled();
+  expect(run).not.toHaveBeenCalled();
+  expect(document.body.textContent).toContain(
+    "秘密输入需要消费者加密的原请求存储",
+  );
 });

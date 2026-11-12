@@ -288,6 +288,17 @@ function customerNode(
       concurrency: String(revision),
       list: ["id", "name", "creditLimit", "enabled"],
       operations: {
+        get: {
+          async run({ identity }) {
+            const value = records.get(identity.id);
+            if (!value) throw Error("客户不存在。");
+            return {
+              value: { id: identity.id, ...value },
+              identity,
+              concurrency: String(revision),
+            };
+          },
+        },
         update: {
           get disabledReason() {
             return customerFacts.disabledReason;
@@ -581,25 +592,36 @@ const routeNodes: [string, ModelNode][] = [
 ];
 options.navigation = {
   current: null,
-  href(node) {
-    return (
+  href(node, identity) {
+    const path =
       "/" +
       (routeNodes.find(([, target]) => toRaw(target) === toRaw(node))?.[0] ??
-        "customers")
-    );
+        "customers");
+    return identity === undefined
+      ? path
+      : `${path}?record=${encodeURIComponent(JSON.stringify(identity))}`;
   },
-  visit(node) {
-    void router.push(options.navigation.href(node));
+  visit(node, identity) {
+    void router.push(options.navigation.href(node, identity));
   },
   guard(check) {
     return router.beforeEach(async () => await check());
   },
 };
 watch(
-  () => router.currentRoute.value.path,
-  (path) => {
+  () => router.currentRoute.value.fullPath,
+  () => {
+    const { path, query } = router.currentRoute.value;
+    let identity: unknown;
+    try {
+      identity =
+        typeof query.record === "string" ? JSON.parse(query.record) : undefined;
+    } catch {
+      identity = undefined;
+    }
     options.navigation.current = {
       node: routeNodes.find(([key]) => path === "/" + key)?.[1] ?? customers,
+      identity,
     };
   },
   { immediate: true },

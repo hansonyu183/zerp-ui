@@ -639,7 +639,12 @@ export function collection<
   options: NoPresentation & {
     items?: N[];
     operations?: {
-      query?: ModelRead<ModelValue<Q>, Page<N>, null, NodeAncestors<N>> & {
+      query?: ModelRead<
+        ModelValue<Q>,
+        Page<NoInfer<N>>,
+        null,
+        NodeAncestors<N>
+      > & {
         input?: Q;
       };
       create?: ModelCreate<N>;

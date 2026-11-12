@@ -39,7 +39,7 @@ import { formFacts, groupFields } from "./details";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
 import type { RecordLink } from "./shell";
-import { equalValues } from "./editor-values";
+import { equalValues, clearSecrets } from "./editor-values";
 import { clone, message } from "./clone";
 import { setValueAt, valueAt } from "./model";
 import { validate } from "./validation";
@@ -350,8 +350,7 @@ async function query(next = 1, submit = false) {
 }
 function adoptValues(value: D): D {
   const result = clone(value);
-  for (const field of props.definition.fields as readonly AnyField[])
-    if (field.type === "secret") setValueAt(result, field.key, undefined);
+  clearSecrets(props.definition.fields as readonly AnyField[], result);
   return result;
 }
 async function rebase() {

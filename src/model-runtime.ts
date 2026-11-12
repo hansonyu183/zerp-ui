@@ -25,7 +25,7 @@ import type {
   CrudAction,
 } from "./contracts";
 import { clone } from "./clone";
-import { equalValues } from "./editor-values";
+import { equalValues, containsSecrets } from "./editor-values";
 import { writeLock } from "./write-lock";
 
 type Values = Record<string, unknown>;
@@ -304,13 +304,17 @@ export function createModelRuntime(
       };
       if (meta.kind === "reference") {
         const operations = fieldMeta.operations as ReferenceOperations;
-        const invoke = (
+        const invoke = async (
           op: "search" | "resolve",
           input: unknown,
           page = 1,
           pageSize = 20,
-        ) =>
-          operations[op].run({
+        ) => {
+          const operation = operations[op],
+            run = operation.run,
+            owner = ownerKey(options().owner);
+          if (operation.disabledReason) throw Error(operation.disabledReason);
+          const result = await run({
             owner: clone(options().owner),
             identity: null,
             signal: new AbortController().signal,
@@ -319,11 +323,22 @@ export function createModelRuntime(
             page,
             pageSize,
           });
+          if (
+            ownerKey(options().owner) !== owner ||
+            fieldMeta.operations !== operations ||
+            operations[op] !== operation ||
+            operation.run !== run ||
+            operation.disabledReason
+          )
+            throw Error("引用读取已失效。");
+          return result;
+        };
         return [
           {
             ...common,
             type: "reference",
             valueMode: "id",
+            disabledReason: operations.search.disabledReason,
             adapter: {
               search: ({ keyword, ancestor, page, pageSize }) =>
                 invoke(
@@ -397,15 +412,17 @@ export function createModelRuntime(
       reactive(sample.value) as RuntimeObject,
     );
     let requestController = new AbortController();
+    let detailGeneration = 0;
     const currentNode = () => getNode();
+    const detached = new WeakMap<ModelNode, Map<string, RuntimeObject>>();
     const rowNode = (id?: ModelIdentity): RuntimeObject | undefined => {
       if (!id) return selection.value;
       const node = currentNode();
       if (!node) return undefined;
       return collection
-        ? asCollection(node).items.find(
+        ? (asCollection(node).items.find(
             (row) => keyOf(identity(row).value) === keyOf(id.value),
-          )
+          ) ?? detached.get(node)?.get(keyOf(id.value)))
         : asObject(node);
     };
     const qualify = (node: RuntimeObject) => ({
@@ -548,17 +565,19 @@ export function createModelRuntime(
       object
     >["adapter"] = {
       async query({ filters, page, pageSize, scope }) {
+        detailGeneration++;
         requestController.abort();
         requestController = new AbortController();
         const controller = requestController,
           node = currentNode(),
-          query = collectionOperations()?.query;
+          query = collectionOperations()?.query,
+          run = query?.run;
         if (!node) return { items: [], total: 0 };
         if (query?.disabledReason) throw Error(query.disabledReason);
         let result: Page<RuntimeObject>;
         if (collection) {
           if (!query) return { items: [], total: 0 };
-          result = (await query.run({
+          result = (await run!({
             ...context(
               { value: null, ancestors, concurrency: null },
               controller.signal,
@@ -571,6 +590,9 @@ export function createModelRuntime(
         if (
           controller.signal.aborted ||
           currentNode() !== node ||
+          collectionOperations()?.query !== query ||
+          query?.run !== run ||
+          !!query?.disabledReason ||
           ownerKey(options().owner) !== scope
         )
           throw Error("读取已失效。");
@@ -607,14 +629,34 @@ export function createModelRuntime(
         return flat(selection.value);
       },
       async get({ identity: id, scope }) {
-        const node = rowNode(id);
+        const generation = ++detailGeneration;
+        let node = rowNode(id);
+        if (!node && collection && currentNode()) {
+          const candidate = reactive(
+            asCollection(currentNode()!)[nodeMetadata].element(),
+          ) as RuntimeObject;
+          if (!candidate[nodeMetadata].operations.get)
+            throw Error("记录已不可读取。");
+          adopt(candidate, id.value);
+          if (keyOf(identity(candidate).value) !== keyOf(id.value))
+            throw Error("记录身份无效。");
+          const records =
+            detached.get(currentNode()!) ?? new Map<string, RuntimeObject>();
+          records.set(keyOf(id.value), candidate);
+          detached.set(currentNode()!, records);
+          node = candidate;
+        }
         if (!node) throw Error("记录已不可读取。");
         selection.value = node;
-        const get = node[nodeMetadata].operations.get;
+        const get = node[nodeMetadata].operations.get,
+          run = get?.run,
+          controller = requestController,
+          source = currentNode();
+        if (get?.disabledReason) throw Error(get.disabledReason);
         const snapshot =
           get && !get.disabledReason
-            ? ((await get.run({
-                ...context(id, requestController.signal),
+            ? ((await run!({
+                ...context(id, controller.signal),
                 input: undefined,
                 page: 1,
                 pageSize: 20,
@@ -622,11 +664,18 @@ export function createModelRuntime(
             : null;
         if (
           ownerKey(options().owner) !== scope ||
-          !currentNode() ||
+          currentNode() !== source ||
+          generation !== detailGeneration ||
+          controller.signal.aborted ||
+          node[nodeMetadata].operations.get !== get ||
+          get?.run !== run ||
+          !!get?.disabledReason ||
           rowNode(id) !== node
         )
           throw Error("读取已失效。");
         if (snapshot) {
+          if (keyOf(snapshot.identity) !== keyOf(id.value))
+            throw Error("读取结果身份不匹配。");
           adopt(node, snapshot.value);
           node[nodeMetadata].concurrency = snapshot.concurrency;
         }
@@ -654,11 +703,9 @@ export function createModelRuntime(
           attempt.input &&
           options().persistence &&
           options().persistence?.secrets !== "encrypted" &&
-          fields(rowNode(attempt.identity) ?? sample.value).some(
-            (field) =>
-              field.type === "secret" &&
-              typeof attempt.input?.[field.key] === "string" &&
-              attempt.input[field.key] !== "",
+          containsSecrets(
+            fields(rowNode(attempt.identity) ?? sample.value),
+            attempt.input,
           )
         )
           throw Error("秘密输入需要消费者加密的原请求存储。");

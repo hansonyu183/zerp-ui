@@ -33,6 +33,14 @@ export async function modelSmoke(page) {
     .waitFor();
   assert.ok((await page.locator("body").innerText()).includes("合成修改客户"));
   await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+  const deepLink = new URL("/customers", page.url());
+  deepLink.searchParams.set("record", JSON.stringify({ id: "a" }));
+  await page.goto(deepLink.href);
+  await page.getByRole("region", { name: "查看资料", exact: true }).waitFor();
+  await page.reload();
+  await page.getByRole("region", { name: "查看资料", exact: true }).waitFor();
+  assert.ok((await page.locator("body").innerText()).includes("合成修改客户"));
+  await page.getByRole("button", { name: "取消编辑", exact: true }).click();
   await page
     .getByRole("link", { name: "配置与工作台偏好", exact: true })
     .click();

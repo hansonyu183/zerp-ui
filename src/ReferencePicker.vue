@@ -28,9 +28,11 @@ const props = defineProps<{
   multiple?: boolean;
   hierarchical?: boolean;
   disabled?: boolean;
+  disabledReason?: string;
   descriptionId?: string;
   invalid?: boolean;
 }>();
+const disabled = computed(() => props.disabled || !!props.disabledReason);
 const emit = defineEmits<{
   "update:modelValue": [
     value: ReferenceValue | readonly ReferenceValue[] | null,
@@ -45,7 +47,7 @@ const summary = computed(() =>
     : (shown.value[0]?.label ?? ""),
 );
 watch(
-  () => props.disabled,
+  () => disabled.value,
   (disabled) => {
     if (disabled) open.value = false;
   },
@@ -124,14 +126,14 @@ async function resolve() {
   }
 }
 function browse(value?: ReferenceValue) {
-  if (props.disabled || busy.value) return;
+  if (disabled.value || busy.value) return;
   if (value) ancestry.value.push(value);
   else ancestry.value.pop();
   keyword.value = "";
   void search();
 }
 function choose(value: ReferenceValue) {
-  if (props.disabled || value.selectable === false) return;
+  if (disabled.value || value.selectable === false) return;
   emit(
     "update:modelValue",
     props.multiple
@@ -141,7 +143,7 @@ function choose(value: ReferenceValue) {
   if (!props.multiple) open.value = false;
 }
 function remove(id: string) {
-  if (!props.disabled)
+  if (!disabled.value)
     emit(
       "update:modelValue",
       props.multiple ? selected.value.filter((v) => v.id !== id) : null,
@@ -157,7 +159,7 @@ watch(
     result.value = { items: [], total: 0 };
     page.value = 1;
     ancestry.value = [];
-    if (!props.disabled) void search();
+    if (!disabled.value) void search();
     void resolve();
   },
   { immediate: true },
@@ -195,7 +197,8 @@ onBeforeUnmount(() => {
           :error="invalid || !!error"
           :aria-invalid="invalid || error ? 'true' : undefined"
           :aria-describedby="descriptionId"
-          hide-details
+          :messages="disabledReason"
+          :hide-details="!disabledReason"
           density="compact"
           append-inner-icon="mdi-menu-down"
           role="combobox"

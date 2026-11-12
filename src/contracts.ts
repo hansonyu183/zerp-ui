@@ -54,6 +54,7 @@ export type AnyField = Common<string> &
     | {
         type: "reference";
         adapter: ReferenceAdapter;
+        disabledReason?: string;
         parentKey?: string;
         valueMode?: "id";
         hierarchical?: boolean;
@@ -61,6 +62,7 @@ export type AnyField = Common<string> &
     | {
         type: "references";
         adapter: ReferenceAdapter;
+        disabledReason?: string;
         parentKey?: string;
         valueMode?: "id";
         hierarchical?: boolean;
