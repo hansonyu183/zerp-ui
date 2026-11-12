@@ -1,6 +1,6 @@
 import { computed, h, toValue, type MaybeRefOrGetter } from "vue";
 import type { BusinessType, BusinessValue, BusinessObject } from "./model";
-import { formSections, propertyAt } from "./model";
+import { formSections, propertyAt, setValueAt } from "./model";
 import type {
   AnyField,
   Column,
@@ -37,6 +37,20 @@ export type BusinessDefinition<
   rowValue?: Extract<keyof R, string>;
   reference?: (field: BusinessType, path: string) => ReferenceAdapter;
 };
+
+function initialRow(type: BusinessType): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const path of type.form?.fields ?? []) {
+    const field = propertyAt(type, path);
+    if (!field || field.readOnly || field.secret || field.kind === "collection")
+      continue;
+    if (field.kind === "object") setValueAt(result, path, initialRow(field));
+    else if (field.kind === "array") setValueAt(result, path, []);
+    else if (field.initialValue !== undefined)
+      setValueAt(result, path, field.initialValue);
+  }
+  return result;
+}
 
 export function projectBusinessFields(
   model: BusinessType,
@@ -122,7 +136,7 @@ export function projectBusinessFields(
             ...common,
             type: "rows",
             fields: projectBusinessFields(node.element, reference),
-            empty: () => ({}),
+            empty: () => initialRow(node.element!),
           },
         ];
       return [

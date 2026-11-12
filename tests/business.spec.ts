@@ -432,3 +432,89 @@ it("hides write actions while an original request is recovered without write qua
   await click(document, "核实本次请求");
   expect(f.save).toHaveBeenCalledTimes(1);
 });
+
+it("initializes only new object-array rows and keeps cancellation and existing values intact", async () => {
+  const save = vi.fn(async (_attempt: unknown) => ({
+    status: "success" as const,
+  }));
+  const rowModel = {
+    kind: "object",
+    name: "合成产品",
+    properties: {
+      name: { kind: "text", name: "名称" },
+      units: {
+        kind: "array",
+        name: "单位",
+        element: {
+          kind: "object",
+          name: "单位",
+          properties: {
+            rate: { kind: "text", name: "比率", initialValue: "1" },
+            order: { kind: "integer", name: "排序", initialValue: 0 },
+            optional: { kind: "text", name: "备注", initialValue: null },
+            secret: {
+              kind: "text",
+              name: "秘密",
+              secret: true,
+              initialValue: "must-not-copy",
+            },
+          },
+          form: { fields: ["rate", "order", "optional", "secret"] },
+        },
+      },
+    },
+    form: { fields: ["name", "units"] },
+    list: { fields: ["name"] },
+  } as const satisfies BusinessObject;
+  const wrapper = host(
+    defineBusinessPage({
+      definition: {
+        resource: "initial-rows",
+        title: "合成产品",
+        model: rowModel,
+        filters: [],
+        initialFilters: () => ({}),
+        identity: () => "one",
+        actions: () => ["edit"] as const,
+        adapter: {
+          query: async () => ({ items: [{ name: "已有产品" }], total: 1 }),
+          get: async () => ({
+            values: { name: "已有产品", units: [{ rate: "7", order: 5 }] },
+            identity: "one",
+          }),
+          empty: () => ({ name: "", units: [] }),
+          create: save,
+          save,
+        },
+      },
+      permissions,
+    }),
+  );
+  await flushPromises();
+  await click(wrapper.element, "编辑");
+  input(document, "名称", "更新产品");
+  await flushPromises();
+  await click(
+    [...document.querySelectorAll("fieldset")].find(
+      (e) => e.querySelector("legend")?.textContent === "单位",
+    )!,
+    "新增",
+  );
+  expect(
+    document
+      .querySelector<HTMLElement>('section[aria-label="单位 2"]')!
+      .querySelector<HTMLInputElement>('input[aria-label="比率"]')!.value,
+  ).toBe("1");
+  expect(
+    document
+      .querySelector<HTMLElement>('section[aria-label="单位 2"]')!
+      .querySelector<HTMLInputElement>('input[aria-label="排序"]')!.value,
+  ).toBe("0");
+  expect(document.body.textContent).not.toContain("must-not-copy");
+  await click(document, "删除单位 2");
+  await click(document, "保存");
+  expect(save).toHaveBeenCalledOnce();
+  expect(save.mock.calls[0]?.[0]).toMatchObject({
+    input: { units: [{ rate: "7", order: 5 }] },
+  });
+});
