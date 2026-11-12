@@ -4,9 +4,12 @@ import ExamplePage from "../shared/ExamplePage.vue";
 import {
   defineReportPage,
   defineReport,
+  projectReportParameters,
+  projectReportColumns,
   ReportUnavailable,
   type ReportSnapshot,
   type ReportColumn,
+  type BusinessObject,
   type ReportPresentation,
   type ReportDrill,
   type ReportCancellation,
@@ -140,16 +143,35 @@ const definition = defineReport<Parameters, Row, ResultId, string, Target>({
   kind: "fixed",
   resource: "synthetic-fixed",
   title: "合成报表 · 固定结果",
-  parameters: [{ key: "keyword", label: "固定关键字", type: "text" }],
+  parameters: projectReportParameters({
+    kind: "object",
+    name: "条件",
+    properties: { keyword: { kind: "text", name: "固定关键字" } },
+    form: { fields: ["keyword"] },
+  }),
   initialParameters: () => ({ keyword: "" }),
   describeParameters: ({ keyword }) => keyword || "全部",
   rowKey: (row) => row.id,
-  columns: [
-    { key: "record", label: "关联单号", width: "28rem" },
-    { key: "amount", label: "精确金额", type: "decimal", width: "25rem" },
-    { key: "related", label: "关联记录", width: "20rem" },
-    { key: "audit", label: "审计原值", width: "20rem" },
-  ],
+  columns: projectReportColumns(
+    {
+      kind: "object",
+      name: "结果",
+      readOnly: true,
+      properties: {
+        record: { kind: "text", name: "关联单号" },
+        amount: { kind: "decimal", name: "精确金额", scale: 4 },
+        related: { kind: "text", name: "关联记录" },
+        audit: { kind: "text", name: "审计原值" },
+      },
+      list: { fields: ["record", "amount", "related", "audit"] },
+    } satisfies BusinessObject,
+    {
+      record: { width: "28rem" },
+      amount: { width: "25rem" },
+      related: { width: "20rem" },
+      audit: { width: "20rem" },
+    },
+  ),
   cell: (row, key) =>
     key === "record"
       ? {

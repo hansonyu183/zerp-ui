@@ -1,3 +1,7 @@
+## 0.30.0
+
+- Add model-derived report parameters, read-only result columns and task inputs (#118), reusing the existing query and operation lifecycles. Reference fields retain ID values and fixed models infer the consumer value types.
+
 # 0.29.1
 
 - 整合 #116 账户/工作台/偏好模型与 #117 数组初始化、表单分区顺序修复，独立固定发行。

@@ -227,3 +227,8 @@ export {
   defineBusinessWorkbenchPage,
   defineBusinessWorkbenchPreferencesPage,
 } from "./workbench";
+export {
+  projectReportParameters,
+  projectReportColumns,
+  projectTaskFields,
+} from "./business-report";

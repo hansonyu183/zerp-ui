@@ -9,6 +9,7 @@ import { computed, provide, ref } from "vue";
 import { useRoute } from "vue-router";
 import {
   defineTaskPage,
+  projectTaskFields,
   defineBatchPage,
   defineCrud,
   defineCrudPage,
@@ -104,7 +105,12 @@ const task = defineTaskPage<{ value: string }, Model, string, number>({
   identity: "process-one",
   definition: taskDefinition,
   values: { value: "合成业务" },
-  fields: [{ key: "value", label: "内容", type: "text", required: true }],
+  fields: projectTaskFields({
+    kind: "object",
+    name: "处理条件",
+    properties: { value: { kind: "text", name: "内容", required: true } },
+    form: { fields: ["value"] },
+  }),
   actions: [
     "process",
     "validate",
