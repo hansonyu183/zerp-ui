@@ -11,6 +11,7 @@ import type {
 } from "./contracts";
 import {
   defineCrudPage,
+  defineAccountPage,
   snapshotPage,
   type CrudPage,
   type PageDefinition,
@@ -37,7 +38,7 @@ export type BusinessDefinition<
   reference?: (field: BusinessType, path: string) => ReferenceAdapter;
 };
 
-function projectedFields(
+export function projectBusinessFields(
   model: BusinessType,
   reference: BusinessDefinition<
     BusinessObject,
@@ -62,7 +63,7 @@ function projectedFields(
     if (node.kind === "collection")
       throw Error(`请提供${node.name}的独立资源定义。`);
     if (node.kind === "object")
-      return projectedFields(
+      return projectBusinessFields(
         node,
         reference,
         key + ".",
@@ -120,7 +121,7 @@ function projectedFields(
           {
             ...common,
             type: "rows",
-            fields: projectedFields(node.element, reference),
+            fields: projectBusinessFields(node.element, reference),
             empty: () => ({}),
           },
         ];
@@ -191,7 +192,7 @@ export function defineBusinessPage<
     const previous = definitions.get(current);
     if (previous) return previous;
     const fields = computed(() =>
-      projectedFields(
+      projectBusinessFields(
         current.model,
         current.reference,
         "",
@@ -213,20 +214,10 @@ export function defineBusinessPage<
       })),
     );
     const columns = computed(() =>
-      (current.model.list?.fields ?? []).map((path) => {
-        const field = propertyAt(current.model, path);
-        if (!field) throw Error(`未定义列表字段：${path}`);
-        return {
-          key: (current.rowValue ? current.rowValue + "." : "") + path,
-          label: field.name,
-          type:
-            field.kind === "boolean" ||
-            field.kind === "integer" ||
-            field.kind === "decimal"
-              ? field.kind
-              : "text",
-        };
-      }),
+      projectBusinessColumns<R>(current.model).map((column) => ({
+        ...column,
+        key: (current.rowValue ? current.rowValue + "." : "") + column.key,
+      })),
     );
     // Reflection turns a validated runtime model into the private rendering shape;
     // the public definition still pairs the exact model value, row and identity.
@@ -331,4 +322,55 @@ export function defineModulePage<T extends BusinessObject>(
       };
     },
   });
+}
+
+/** Project a standalone account form without creating a business collection. */
+export function defineBusinessAccountPage<T extends BusinessObject>(
+  model: MaybeRefOrGetter<T>,
+  source: PageSource<
+    Omit<
+      import("./pages").AccountPage<BusinessValue<NoInfer<T>>>,
+      "fields" | "title"
+    > & {
+      interactions?: Readonly<Record<string, Pick<AnyField, "when" | "mode">>>;
+    }
+  >,
+): PageDefinition {
+  return defineAccountPage(() => {
+    const value = toValue(source);
+    const fields = projectBusinessFields(toValue(model), undefined).map(
+      (field) => ({
+        ...field,
+        ...(field.type === "secret" ? { type: "password" as const } : {}),
+        ...value.interactions?.[field.key],
+      }),
+    ) as unknown as Fields<BusinessValue<T>>;
+    return { ...value, title: toValue(model).name, fields };
+  });
+}
+
+/** List columns share the exact same field names, enum choices and order. */
+export function projectBusinessColumns<R extends object>(
+  model: BusinessType,
+): Column<R>[] {
+  return (model.list?.fields ?? []).map((key) => {
+    const field = propertyAt(model, key);
+    if (!field) throw Error(`未定义列表字段：${key}`);
+    return {
+      key,
+      label: field.name,
+      ...(["boolean", "integer", "decimal"].includes(field.kind)
+        ? { type: field.kind }
+        : {}),
+      ...(field.kind === "enum"
+        ? {
+            type: "enum" as const,
+            options: (field.options ?? []).map((o) => ({
+              value: o.id,
+              label: o.name,
+            })),
+          }
+        : {}),
+    };
+  }) as Column<R>[];
 }

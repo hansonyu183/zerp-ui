@@ -26,6 +26,12 @@ export type WorkbenchPage = {
   instance: string | number;
   adapter: WorkbenchAdapter;
   manageReportsTo?: RouteLocationRaw;
+  sections?: readonly {
+    key: "vouchers" | "reports" | "masters" | "information";
+    title: string;
+    empty: string;
+  }[];
+  informationTitle?: string;
 };
 export type WorkbenchPreference<K> = Readonly<{
   /** Stable UI identity; distinct domain kinds must use distinct IDs. */
@@ -46,3 +52,36 @@ export type WorkbenchPreferencesPage<K> = {
   instance: string | number;
   adapter: WorkbenchPreferencesAdapter<K>;
 };
+
+import { defineWorkbenchPage, type PageDefinition } from "./pages";
+import type { BusinessObject } from "./model";
+/** Workbench sections retain their business shape and use the model's order. */
+export function defineBusinessWorkbenchPage(
+  options: Omit<WorkbenchPage, "title" | "sections" | "informationTitle"> & {
+    model: BusinessObject;
+  },
+): PageDefinition {
+  const { model } = options;
+  const keys = model.form?.fields ?? [];
+  if (
+    keys.length !== 4 ||
+    new Set(keys).size !== 4 ||
+    !["vouchers", "reports", "masters", "information"].every(
+      (key) => keys.includes(key) && model.properties[key],
+    )
+  )
+    throw Error("工作台分区定义不完整。");
+  return defineWorkbenchPage({
+    ...options,
+    title: model.name,
+    informationTitle: model.properties.information!.name,
+    sections: keys.map((path) => {
+      const key = path as "vouchers" | "reports" | "masters" | "information";
+      return {
+        key,
+        title: model.properties[key]!.name,
+        empty: `暂无${model.properties[key]!.name}`,
+      };
+    }),
+  });
+}

@@ -340,3 +340,5 @@ const navigation = applicationNavigation(model, {
 ```
 
 将 navigation 传入现有 AppPage。路由绑定、服务端授权及按需模块加载由消费者提供；业务定义仍通过 defineModulePage/defineBusinessPage 消费，既有独立草稿、原请求核对及离开保护不变。0.26.x 消费者可继续使用原页面接口；本次只增加应用投影入口，不提供旧新模型 fallback。独立 shell 示例通过实际包入口演示应用导航。
+
+账户表单使用 `defineBusinessAccountPage` 消费业务对象及约束，秘密输入为密码控件。权限等专用页面可组合 `projectBusinessFields` / `projectBusinessColumns` 与原运行时。`defineBusinessWorkbenchPage` 从四个具名分区的有序投影获取工作台标题与入口排列；传输绑定及资格由消费者维护。

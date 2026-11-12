@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, provide, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import {
   applicationNavigation,
-  defineAccountPage,
+  defineBusinessAccountPage,
   defineDetailsPage,
   AuthPage,
   defaultThemeChoice,
@@ -193,57 +193,76 @@ onUnmounted(() => {
 const profileValues = ref({ name: "演示账户", avatar: "" });
 const passwordValues = ref({ password: "" });
 const accountRevision = ref(0);
-const profilePage = defineAccountPage(() => ({
-  kind: "profile",
-  instance: accountRevision.value,
-  title: "名称与头像",
-  values: profileValues.value,
-  fields: [
-    { key: "name", label: "显示名称", type: "text", required: true },
-    { key: "avatar", label: "头像地址", type: "text" },
-  ],
-  submitLabel: "确认账户修改",
-  cancelLabel: "取消账户修改",
-  onChange: (value: typeof profileValues.value) =>
-    (profileValues.value = value),
-  submit: async (value: typeof profileValues.value) => {
-    name.value = value.name;
-    shell.name.value = value.name;
-    shell.avatar.value = value.avatar
-      ? { src: value.avatar, alt: "合成账户头像" }
-      : undefined;
-    accountRevision.value++;
-    await nextTick();
-    shell.override.value = undefined;
-  },
-  onCancel: async () => {
-    await nextTick();
-    shell.override.value = undefined;
-  },
-}));
-const passwordPage = defineAccountPage(() => ({
-  kind: "change-password",
-  instance: accountRevision.value,
-  title: "更改密码",
-  values: passwordValues.value,
-  fields: [
-    { key: "password", label: "新密码", type: "password", required: true },
-  ],
-  submitLabel: "确认账户修改",
-  cancelLabel: "取消账户修改",
-  onChange: (value: typeof passwordValues.value) =>
-    (passwordValues.value = value),
-  submit: async () => {
-    accountRevision.value++;
-    passwordValues.value = { password: "" };
-    await nextTick();
-    shell.override.value = undefined;
-  },
-  onCancel: async () => {
-    await nextTick();
-    shell.override.value = undefined;
-  },
-}));
+const profilePage = defineBusinessAccountPage(
+  {
+    kind: "object",
+    name: "名称与头像",
+    properties: {
+      name: { kind: "text", name: "显示名称", required: true },
+      avatar: { kind: "text", name: "头像地址" },
+    },
+    form: { fields: ["name", "avatar"] },
+  } as const,
+  () => ({
+    kind: "profile",
+    instance: accountRevision.value,
+
+    values: profileValues.value,
+
+    submitLabel: "确认账户修改",
+    cancelLabel: "取消账户修改",
+    onChange: (value) =>
+      (profileValues.value = {
+        name: value.name ?? "",
+        avatar: value.avatar ?? "",
+      }),
+    submit: async (value) => {
+      name.value = value.name ?? "";
+      shell.name.value = value.name ?? "";
+      shell.avatar.value = value.avatar
+        ? { src: value.avatar, alt: "合成账户头像" }
+        : undefined;
+      accountRevision.value++;
+      await nextTick();
+      shell.override.value = undefined;
+    },
+    onCancel: async () => {
+      await nextTick();
+      shell.override.value = undefined;
+    },
+  }),
+);
+const passwordPage = defineBusinessAccountPage(
+  {
+    kind: "object",
+    name: "更改密码",
+    properties: {
+      password: { kind: "text", name: "新密码", secret: true, required: true },
+    },
+    form: { fields: ["password"] },
+  } as const,
+  () => ({
+    kind: "change-password",
+    instance: accountRevision.value,
+
+    values: passwordValues.value,
+
+    submitLabel: "确认账户修改",
+    cancelLabel: "取消账户修改",
+    onChange: (value) =>
+      (passwordValues.value = { password: value.password ?? "" }),
+    submit: async () => {
+      accountRevision.value++;
+      passwordValues.value = { password: "" };
+      await nextTick();
+      shell.override.value = undefined;
+    },
+    onCancel: async () => {
+      await nextTick();
+      shell.override.value = undefined;
+    },
+  }),
+);
 function accountAction(action: AccountIntent) {
   if (action === "sign-out") {
     localStorage.setItem("example-account", "signed-out");
