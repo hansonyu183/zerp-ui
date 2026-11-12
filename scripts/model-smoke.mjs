@@ -1,3 +1,4 @@
+import { expect } from "@playwright/test";
 import assert from "node:assert/strict";
 export async function modelSmoke(page) {
   await page
@@ -89,4 +90,88 @@ export async function modelSmoke(page) {
     await page.getByRole("button", { name: "登录", exact: true }).count(),
     0,
   );
+  // Account and workbench remain model nodes, reached through library-owned UI.
+  await page
+    .getByRole("button", { name: "账户：演示账户", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "名称与头像", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "名称与头像", exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: "编辑", exact: true }).click();
+  await page.getByLabel("账户名称", { exact: true }).fill("合成新账户");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+  await page
+    .getByRole("button", { name: "账户：合成新账户", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "更改密码", exact: true }).click();
+  await page.getByLabel("当前密码", { exact: true }).fill("synthetic-old");
+  await page.getByLabel("新密码", { exact: true }).fill("synthetic-new");
+  await page.getByLabel("确认密码", { exact: true }).fill("synthetic-new");
+  await page.getByRole("button", { name: "更改密码", exact: true }).click();
+  await page.getByRole("link", { name: "工作台与偏好", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "工作台与偏好", exact: true })
+    .waitFor();
+  await page.getByLabel("工作台搜索", { exact: true }).fill("客户");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "编辑", exact: true }).click();
+  await page.getByLabel("加入工作台", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+  await page.getByRole("link", { name: "合成场景", exact: true }).click();
+  await page.getByRole("button", { name: "编辑", exact: true }).click();
+  await page.getByLabel("模拟未知结果", { exact: true }).uncheck();
+  await page.getByLabel("撤销客户编辑权限", { exact: true }).check();
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+  await page.getByText("合成业务资格已更新", { exact: true }).waitFor();
+  await page.getByRole("link", { name: "客户", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "编辑", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("link", { name: "合成场景", exact: true }).click();
+  await page.getByRole("button", { name: "编辑", exact: true }).click();
+  await page.getByLabel("撤销客户编辑权限", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+  await page.getByRole("link", { name: "客户", exact: true }).click();
+  await page.getByRole("button", { name: "编辑", exact: true }).click();
+  await page.getByLabel("客户名称", { exact: true }).fill("合成字段错误");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page
+    .getByRole("alert", { name: "错误提示", exact: true })
+    .getByText("请修改合成名称", { exact: true })
+    .waitFor();
+  assert.equal(
+    await page.getByLabel("客户名称", { exact: true }).inputValue(),
+    "合成字段错误",
+  );
+  await page.getByRole("button", { name: "取消编辑", exact: true }).click();
+  if (
+    await page
+      .getByRole("button", { name: "放弃本地修改", exact: true })
+      .isVisible()
+  )
+    await page
+      .getByRole("button", { name: "放弃本地修改", exact: true })
+      .click();
+  await page
+    .getByRole("button", { name: "账户：合成新账户", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "退出登录", exact: true }).click();
+  await page.getByRole("button", { name: "登录", exact: true }).waitFor();
+  return {
+    synthetic: true,
+    paths: [
+      "login/ledger/session-restore",
+      "customer/nested-independent-save/deep-link",
+      "configuration/workbench-preference",
+      "unknown/reload/reconcile",
+      "account/password/sign-out",
+      "reactive-qualification/notification/field-feedback",
+    ],
+  };
 }

@@ -1,3 +1,5 @@
+> 0.32.0 迁移说明：以下表格保留历史 Material/能力验收依据；旧页面装配仅作私有深模块回归，当前公开入口为 BusinessApplication。当前同一 tgz 的消费者与实际门禁见 package.json、README 和 #125；历史脚本名称不作为当前可执行命令。打印 PDF/位图/二维码及旋转检查已迁入 model-business 消费者。
+
 # Material 对照矩阵
 
 正式规格与状态以 [#49](https://github.com/hansonyu183/zerp-ui/issues/49) 及 [#53](https://github.com/hansonyu183/zerp-ui/issues/53) 为准。本表映射库拥有的表面、状态、实现依据和实际验证入口，不维护第二套工单状态。实现基线保持 Vue 3.5.40、Vuetify 4.1.5、Router 5.2.0；没有升级依赖或扩大公开接口。消费者、Adapter、账户、资格、回执、附件和存储均为合成资料，不构成真实 ZERP API/E2E 或生产接入证据。

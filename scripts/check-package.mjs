@@ -306,14 +306,10 @@ try {
   const report = {
     sourceBase,
     commands,
-    ...(modelBusinessMode
-      ? {
-          scenarios: {
-            installed: installedScenarioEvidence,
-            built: builtScenarioEvidence,
-          },
-        }
-      : {}),
+    scenarios: {
+      installed: installedScenarioEvidence,
+      built: builtScenarioEvidence,
+    },
     sha256: createHash("sha256")
       .update(await readFile(tgz))
       .digest("hex"),

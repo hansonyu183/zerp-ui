@@ -1,5 +1,6 @@
+import { printOutputSmoke, rotatedPdfSmoke } from "./print-smoke.mjs";
 import assert from "node:assert/strict";
-export async function modelBusinessSmoke(page) {
+export async function modelBusinessSmoke(page, evidence) {
   const button = (name) => page.getByRole("button", { name, exact: true });
   const closeEditor = async () => {
     await button("关闭编辑").click();
@@ -193,7 +194,8 @@ export async function modelBusinessSmoke(page) {
   await button("准备打印").click();
   await button("确认打印").click();
   const frame = page.frameLocator('iframe[title="打印预览"]');
-  await frame.getByText("Synthetic model printing", { exact: true }).waitFor();
+  await frame.getByText("合成打印输出", { exact: true }).waitFor();
+  await printOutputSmoke(page, evidence);
   await page.waitForFunction(
     () =>
       !Array.from(document.querySelectorAll("button")).find(
@@ -213,6 +215,7 @@ export async function modelBusinessSmoke(page) {
   await page.reload();
   assert.ok(await button("打开打印窗口").isDisabled());
   assert.equal(await page.evaluate(() => window.__modelPrinted ?? 0), 0);
+  await rotatedPdfSmoke(page, evidence);
   return {
     synthetic: true,
     paths: [
@@ -222,7 +225,7 @@ export async function modelBusinessSmoke(page) {
       "voucher-row-cancel/row-confirm/child-cancel/child-confirm/exact-decimal",
       "voucher-to-workflow/exact-instance-node-revision-action",
       "batch-freeze/unknown-block/reload/reconcile/stop-unsent",
-      "finite-preview/print-invocation/printed-confirmation/reload-no-reprint",
+      "finite-preview/actual-pdf/qr-decoding/four-rotations/print-invocation/printed-confirmation/reload-no-reprint",
     ],
     printInvocation:
       "stubbed at the browser print boundary; no physical print count claimed",

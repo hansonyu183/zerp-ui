@@ -18,6 +18,7 @@ import {
   type ModelApplicationOptions,
   type ModelRequest,
   type ModelContext,
+  type ModelWriteResult,
 } from "@zerp/ui/model";
 import type { WriteJournal, Attempt } from "@zerp/ui";
 
@@ -57,7 +58,7 @@ const options = reactive<ModelApplicationOptions>({
   },
   navigation: {} as ModelNavigation,
 });
-const notifications = messages();
+const notifications = reactive(messages());
 const records = reactive(
   new Map<string, CustomerInput>(
     JSON.parse(localStorage.getItem(storageKey + "records") ?? "null") ?? [
@@ -122,6 +123,14 @@ const controls = object(
           scenario.unknown = request.input.unknown === true;
           scenario.confirmed = request.input.confirmed === true;
           scenario.withdrawn = request.input.withdrawn === true;
+          notifications.items = [
+            {
+              id: "scenario",
+              level: "warning",
+              text: "合成业务资格已更新",
+              target: customers,
+            },
+          ];
           controls.unknown.value = scenario.unknown;
           controls.confirmed.value = scenario.confirmed;
           controls.withdrawn.value = scenario.withdrawn;
@@ -173,6 +182,7 @@ watch(
   (value) => {
     customerFacts.disabledReason = value ? "当前业务资格已撤销" : "";
   },
+  { immediate: true },
 );
 function customerNode(
   id = "",
@@ -303,7 +313,21 @@ function customerNode(
           get disabledReason() {
             return customerFacts.disabledReason;
           },
-          async run(request) {
+          async run(
+            request,
+          ): Promise<
+            ModelWriteResult<
+              CustomerInput & { id: string | null },
+              CustomerIdentity,
+              CustomerInput
+            >
+          > {
+            if (request.input.name === "合成字段错误")
+              return {
+                status: "failure",
+                message: "合成业务校验失败",
+                fields: [{ field: "name" as const, message: "请修改合成名称" }],
+              };
             scenario.writes++;
             records.set(request.identity.id!, request.input as CustomerInput);
             revision++;

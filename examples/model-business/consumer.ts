@@ -1,3 +1,4 @@
+import { printDocument, rotationDocument } from "./print-fixture";
 import { reactive, watch, toRaw } from "vue";
 import { router } from "./router";
 import {
@@ -574,28 +575,12 @@ const printStore: ModelOperationPersistence<PM, Id, string> = {
   },
 };
 const printingFacts = reactive({
-  document: {
-    id: "synthetic-print",
-    title: "合成有限图文",
-    width: 100,
-    height: 60,
-    pages: [
-      {
-        key: "one",
-        items: [
-          {
-            key: "text",
-            kind: "text" as const,
-            x: 5,
-            y: 5,
-            width: 90,
-            height: 15,
-            text: "Synthetic model printing",
-          },
-        ],
-      },
-    ],
-  },
+  document: (() => {
+    const value = new URLSearchParams(location.search).get("rotation");
+    return value !== null && ["0", "90", "180", "270"].includes(value)
+      ? rotationDocument(Number(value) as 0 | 90 | 180 | 270)
+      : printDocument;
+  })(),
   state: "preview" as "preview" | "opened" | "printed" | "not-printed",
 });
 const previewAction = operation<
