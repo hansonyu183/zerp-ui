@@ -223,4 +223,7 @@ export {
   projectBusinessColumns,
   defineBusinessAccountPage,
 } from "./business";
-export { defineBusinessWorkbenchPage } from "./workbench";
+export {
+  defineBusinessWorkbenchPage,
+  defineBusinessWorkbenchPreferencesPage,
+} from "./workbench";
