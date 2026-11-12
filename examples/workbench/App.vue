@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import {
   defineBusinessWorkbenchPage,
-  defineWorkbenchPreferencesPage,
+  defineBusinessWorkbenchPreferencesPage,
   type WorkbenchPreference,
 } from "@zerp/ui";
 import ExamplePage from "../shared/ExamplePage.vue";
@@ -62,21 +62,34 @@ const home = defineBusinessWorkbenchPage({
     },
   },
 });
-const preferences = defineWorkbenchPreferencesPage<Key>({
-  title: "管理常用报表",
-  instance: "synthetic-preferences",
-  adapter: {
-    async load() {
-      return candidates();
+const preferences = defineBusinessWorkbenchPreferencesPage<Key>(
+  {
+    kind: "object",
+    name: "管理常用报表",
+    properties: {
+      name: { kind: "text", name: "名称" },
+      added: { kind: "boolean", name: "已添加" },
     },
-    async setAdded({ key, added }) {
-      const values = new Set(saved());
-      if (added) values.add(key.id);
-      else values.delete(key.id);
-      localStorage.setItem("synthetic-workbench", JSON.stringify([...values]));
+    form: { fields: ["name", "added"] },
+  },
+  {
+    instance: "synthetic-preferences",
+    adapter: {
+      async load() {
+        return candidates();
+      },
+      async setAdded({ key, added }) {
+        const values = new Set(saved());
+        if (added) values.add(key.id);
+        else values.delete(key.id);
+        localStorage.setItem(
+          "synthetic-workbench",
+          JSON.stringify([...values]),
+        );
+      },
     },
   },
-});
+);
 const page = computed(() =>
   route.path === "/preferences" ? preferences : home,
 );

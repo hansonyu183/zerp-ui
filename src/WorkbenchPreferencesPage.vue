@@ -174,7 +174,11 @@ onBeforeUnmount(cancel);
       </Feedback>
     </FeedbackRegion>
     <form class="zerp-workbench-search" @submit.prevent="reload">
-      <VTextField v-model="search" label="名称" hide-details />
+      <VTextField
+        v-model="search"
+        :label="options.nameLabel ?? '名称'"
+        hide-details
+      />
       <VBtn type="submit" :disabled="busy">{{
         pending ? "核对结果" : "刷新"
       }}</VBtn>
