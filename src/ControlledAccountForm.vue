@@ -13,6 +13,7 @@ import FeedbackRegion from "./FeedbackRegion.vue";
 const props = withDefaults(
   defineProps<{
     scope: string;
+    title?: string;
     instance?: string | number;
     kind: "profile" | "change-password";
     values: D;
@@ -124,7 +125,7 @@ function cancel() {
 <template>
   <form
     class="zerp-ui"
-    :aria-label="kind === 'profile' ? '名称与头像' : '更改密码'"
+    :aria-label="title ?? (kind === 'profile' ? '名称与头像' : '更改密码')"
     @submit.prevent="submit"
   >
     <FeedbackRegion>

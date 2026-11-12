@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import {
-  defineWorkbenchPage,
+  defineBusinessWorkbenchPage,
   defineWorkbenchPreferencesPage,
   type WorkbenchPreference,
 } from "@zerp/ui";
@@ -19,8 +19,20 @@ const candidates = (): WorkbenchPreference<Key>[] =>
     name: "合成报表" + i,
     added: saved().includes(String(i)),
   }));
-const home = defineWorkbenchPage({
-  title: "工作台",
+const home = defineBusinessWorkbenchPage({
+  model: {
+    kind: "object",
+    name: "工作台",
+    properties: Object.fromEntries(
+      [
+        ["information", "重要信息"],
+        ["vouchers", "常用单据"],
+        ["reports", "常用报表"],
+        ["masters", "常用资料"],
+      ].map(([key, name]) => [key!, { kind: "collection", name: name! }]),
+    ),
+    form: { fields: ["information", "vouchers", "reports", "masters"] },
+  },
   instance: "synthetic-home",
   manageReportsTo: "/preferences",
   adapter: {
