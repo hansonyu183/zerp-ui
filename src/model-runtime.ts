@@ -1,3 +1,14 @@
+import { modelWorkflowPage } from "./model-workflow-runtime";
+import { modelWorkflow } from "./model-workflow";
+import { modelSubmissionPage } from "./model-submission-runtime";
+import { modelSubmission } from "./model-submission";
+import { modelBatch } from "./model-batch";
+import { modelBatchPage } from "./model-batch-runtime";
+import { modelQueryPage } from "./model-query-runtime";
+import { h } from "vue";
+import ModelOperations from "./ModelOperations.vue";
+import { modelOperation } from "./model-operation";
+import { snapshotPage } from "./pages";
 import { modelBinding } from "./model-binding";
 import { computed, toRaw, reactive, shallowRef, shallowReactive } from "vue";
 import { nodeMetadata } from "./model-node";
@@ -13,6 +24,7 @@ import type {
   ModelEvidence,
   ModelContext,
   ModelCalculation,
+  ModelLocalIntent,
   ReferenceOperations,
   ValueNode,
 } from "./reactive-model";
@@ -207,7 +219,7 @@ function unflat(
     }),
   );
 }
-function flattenValue(
+export function flattenValue(
   node: ModelNode,
   value: unknown,
   prefix: readonly string[] = [],
@@ -221,7 +233,14 @@ function flattenValue(
           ? Reflect.get(value, key)
           : undefined;
     if (isObject(child)) flattenValue(child, next, path, target);
-    else target[JSON.stringify(path)] = clone(next);
+    else if (child[nodeMetadata].kind === "array" && Array.isArray(next)) {
+      const element = (
+        child as unknown as { [nodeMetadata]: { element: ModelNode } }
+      )[nodeMetadata].element;
+      target[JSON.stringify(path)] = next.map((value) =>
+        isObject(element) ? flattenValue(element, value) : clone(value),
+      );
+    } else target[JSON.stringify(path)] = clone(next);
   }
   return target;
 }
@@ -744,6 +763,7 @@ export function createModelRuntime(
     const projectedFilters = computed(() =>
       queryInput() ? fields(queryInput()!) : [],
     );
+    let interactionTargets = new Map<string, ModelLocalIntent>();
     let collaborationCache: CrudDefinition<
       Values,
       Values,
@@ -855,6 +875,37 @@ export function createModelRuntime(
             if (!operation || operation.disabledReason)
               return { value: input.value };
             const admittedOwner = ownerKey(options().owner);
+            const target =
+              typeof input.target === "string"
+                ? interactionTargets.get(input.target)
+                : undefined;
+            if (input.event === "action" && target) {
+              if (target.kind === "related") {
+                options().navigation.visit(target.node, target.identity);
+              } else {
+                const download = await target.read({
+                  owner: clone(options().owner!),
+                  signal: input.signal,
+                });
+                if (
+                  !input.signal.aborted &&
+                  ownerKey(options().owner) === admittedOwner &&
+                  node === selection.value
+                ) {
+                  const url = URL.createObjectURL(download.content),
+                    anchor = document.createElement("a");
+                  try {
+                    anchor.href = url;
+                    anchor.download = download.filename;
+                    anchor.click();
+                  } finally {
+                    URL.revokeObjectURL(url);
+                  }
+                }
+              }
+              return { value: input.value };
+            }
+
             const result = await operation.run({
               ...context(qualify(node), input.signal),
               input: unflat(node, input.value, true),
@@ -872,9 +923,32 @@ export function createModelRuntime(
               operation.disabledReason
             )
               return { value: input.value };
+            interactionTargets = new Map();
+            const register = (target: ModelLocalIntent) => {
+              const key = crypto.randomUUID();
+              interactionTargets.set(key, target);
+              return key;
+            };
+            const interactions = result.interactions?.map((item) => {
+              if (item.kind === "menu" || item.kind === "tree")
+                return {
+                  ...item,
+                  items: item.items.map((entry) => ({
+                    ...entry,
+                    target: register(entry.target),
+                    children: entry.children?.map((child) => ({
+                      ...child,
+                      target: register(child.target),
+                    })),
+                  })),
+                };
+              if (item.kind === "related" || item.kind === "download")
+                return { ...item, target: register(item.target) };
+              return item;
+            });
             return {
               value: { ...input.value, ...flattenValue(node, result.value) },
-              interactions: result.interactions,
+              interactions,
             };
           },
         });
@@ -957,7 +1031,7 @@ export function createModelRuntime(
       write: !!currentNode(),
       reconcile: !!currentNode(),
     }));
-    const page: PageDefinition = defineCrudPage(() => ({
+    const crudPage: PageDefinition = defineCrudPage(() => ({
       definition,
       permissions: permissions.value,
       initialRow:
@@ -1003,7 +1077,10 @@ export function createModelRuntime(
       related: (id: ModelIdentity) => {
         const row = rowNode(id);
         if (!row || id.value === null) return [];
-        return members(row)
+        const ownOperations = Object.values(row[nodeMetadata].operations).some(
+          (op) => op && modelOperation in op,
+        );
+        const related = members(row)
           .filter(([, child]) => independent(child))
           .map(([key, child]) => ({
             key,
@@ -1018,8 +1095,82 @@ export function createModelRuntime(
               [...ancestors, id.value],
             ).page,
           }));
+        return ownOperations
+          ? [
+              {
+                key: "$operations",
+                label: "业务办理",
+                page: resolve(
+                  () => rowNode(id),
+                  [...path, "$operations"],
+                  ancestors,
+                ).page,
+              },
+              ...related,
+            ]
+          : related;
       },
     }));
+    const hasOperations = () =>
+      !collection &&
+      Object.values(
+        asObject(currentNode() ?? first)[nodeMetadata].operations,
+      ).some((op) => op && modelOperation in op);
+    const fixedQuery =
+      collection && "page" in (collectionOperations()?.query ?? {});
+    const opFacts = asObject(first)[nodeMetadata].operations;
+    const page: PageDefinition =
+      modelWorkflow in opFacts
+        ? modelWorkflowPage(
+            currentNode,
+            () => source(),
+            runtime,
+            path,
+            ancestors,
+          )
+        : modelSubmission in opFacts
+          ? modelSubmissionPage(
+              currentNode,
+              () => source(),
+              runtime,
+              path,
+              ancestors,
+            )
+          : modelBatch in opFacts
+            ? modelBatchPage(currentNode, () => source(), path, ancestors)
+            : fixedQuery
+              ? modelQueryPage(
+                  currentNode,
+                  () => source(),
+                  runtime,
+                  path,
+                  ancestors,
+                )
+              : hasOperations()
+                ? {
+                    kind: "task",
+                    title: first[nodeMetadata].name,
+                    [snapshotPage]: () => ({
+                      title:
+                        currentNode()?.[nodeMetadata].name ??
+                        first[nodeMetadata].name,
+                      definition: adapter,
+                      record: resource,
+                      security: ownerKey(options().owner),
+                      render: (context) =>
+                        h(ModelOperations, {
+                          node: () =>
+                            currentNode() as RuntimeObject | undefined,
+                          application: () => source(),
+                          runtime,
+                          path,
+                          ancestors,
+                          discardVersion: context.discardVersion,
+                          onProtection: context.protection,
+                        }),
+                    }),
+                  }
+                : crudPage;
     return {
       path,
       node: currentNode,
@@ -1065,6 +1216,7 @@ export function createModelRuntime(
       ),
     resolve,
     fields,
+    flatten: flattenValue,
     flat,
     unflat,
     stop: () => {
@@ -1102,6 +1254,7 @@ export type ModelRuntime = {
     prefix?: readonly string[],
     inheritedReadonly?: boolean,
   ): AnyField[];
+  flatten: typeof flattenValue;
   flat: typeof flat;
   unflat: typeof unflat;
   stop(): void;

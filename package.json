@@ -75,7 +75,10 @@
     "dev:model": "vite examples/model --host 127.0.0.1",
     "build:model": "vite build examples/model",
     "check:model": "pnpm build && pnpm build:model && node scripts/check-package.mjs --model",
-    "test:model": "vitest run tests/reactive-model.spec.ts tests/public-api.spec.ts"
+    "test:model": "vitest run tests/reactive-model.spec.ts tests/public-api.spec.ts",
+    "dev:model-business": "vite examples/model-business --host 127.0.0.1",
+    "build:model-business": "vite build examples/model-business",
+    "check:model-business": "pnpm build && pnpm build:model-business && node scripts/check-package.mjs --model-business"
   },
   "devDependencies": {
     "@napi-rs/canvas": "1.1.0",

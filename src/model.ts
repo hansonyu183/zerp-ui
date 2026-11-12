@@ -257,4 +257,29 @@ export type {
   ModelPendingRequest,
   ModelFieldPath,
   ModelCalculation,
+  ModelLocalIntent,
 } from "./reactive-model";
+
+export { operation } from "./model-operation";
+export type { ModelOperation, ModelActionModel } from "./model-operation";
+export type {
+  OperationModel,
+  OperationPreview,
+  OperationRequest,
+  OperationIntent,
+  OperationReceipt,
+  OperationSettlement,
+  OperationJournal,
+  OperationPersistence,
+} from "./operation";
+export type { PrintDocument, PrintItem } from "./printing";
+
+export type { ModelQuery } from "./model-query";
+
+export { documentOperations, voucherOperations } from "./model-submission";
+
+export { batchOperations } from "./model-batch";
+export type { ModelBatchOperation } from "./model-batch";
+export type { BatchEntry, BatchJournal, BatchPersistence } from "./batch";
+
+export { workflowOperations } from "./model-workflow";

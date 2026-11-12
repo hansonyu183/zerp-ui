@@ -1,3 +1,8 @@
+import type { WorkflowOperations } from "./model-workflow";
+import type { BatchOperations } from "./model-batch";
+import type { SubmissionOperations } from "./model-submission";
+import type { ModelQuery } from "./model-query";
+import type { ModelBusinessActions } from "./model-operation";
 import { nodeMetadata } from "./model-node";
 import type { Page, ReferenceValue } from "./contracts";
 import type { Brand, ThemeChoice } from "./shell";
@@ -80,6 +85,15 @@ export type ModelWrite<
   ): Promise<ModelWriteResult<V, I, Input>>;
   reconcile?(request: ModelRequest<Input, I, P>): Promise<ModelEvidence<V, I>>;
 };
+export type ModelLocalIntent =
+  | { kind: "related"; node: ModelNode; identity?: unknown }
+  | {
+      kind: "download";
+      read(context: {
+        owner: ModelOwner;
+        signal: AbortSignal;
+      }): Promise<{ content: Blob; filename: string }>;
+    };
 export type ModelCalculation<V, I, P extends readonly unknown[]> = {
   disabledReason?: string;
   run(
@@ -88,7 +102,10 @@ export type ModelCalculation<V, I, P extends readonly unknown[]> = {
       event: "initialize" | "change" | "answer" | "action";
       answers: InteractionAnswers;
     },
-  ): Promise<{ value: V; interactions?: readonly Interaction[] }>;
+  ): Promise<{
+    value: V;
+    interactions?: readonly Interaction<ModelLocalIntent>[];
+  }>;
 };
 export type ModelRead<
   I,
@@ -203,7 +220,12 @@ export type ModelInput<N> = N extends {
 type Identity<S extends ModelMembers, K extends readonly (keyof S)[]> = {
   [F in K[number]]: NonNullable<ModelValue<S[F]>>;
 };
-export type ObjectOperations<V, I, Input, P extends readonly unknown[]> = {
+export type ObjectOperations<
+  V,
+  I,
+  Input,
+  P extends readonly unknown[],
+> = ModelBusinessActions<I> & {
   get?: ModelRead<void, ModelSnapshot<V, I>, I, P>;
   update?: ModelWrite<V, I, Input, P>;
   delete?: ModelWrite<V, I, void, P>;
@@ -304,9 +326,11 @@ export type CollectionNode<N extends ObjectShape = ObjectShape> = {
     element: () => N;
     independent: true;
     operations: {
-      query?: ModelRead<object, Page<N>> & { input?: ObjectShape };
+      query?:
+        | (ModelRead<object, Page<N>> & { input?: ObjectShape })
+        | ModelQuery<N, ObjectShape>;
       create?: ModelCreate<N>;
-      export?: ModelRead<object, void>;
+      export?: ModelRead<object, void | { content: Blob; filename: string }>;
     };
   };
 };
@@ -539,6 +563,11 @@ type IndependentOperations<
     | { delete: ModelWrite<V, I, void, P> }
     | { enable: ModelWrite<V, I, void, P> }
     | { disable: ModelWrite<V, I, void, P> }
+    | {
+        [A in keyof ModelBusinessActions<I>]-?: Required<
+          Pick<ModelBusinessActions<I>, A>
+        >;
+      }[keyof ModelBusinessActions<I>]
   );
 export function object<
   const S extends ModelMembers,
@@ -577,6 +606,25 @@ export function object<
       >;
   },
 ): ObjectNode<S, Identity<S, K>, P, false>;
+export function object<const S extends ModelMembers>(
+  name: string,
+  children: S,
+  options: NoPresentation & {
+    operations: SubmissionOperations | BatchOperations | WorkflowOperations;
+  },
+): S & {
+  readonly [nodeMetadata]: {
+    kind: "object";
+    name: string;
+    children: S;
+    identity: readonly [];
+    identityValue?: {};
+    parentIdentities?: readonly [];
+    concurrency: null;
+    independent: true;
+    operations: SubmissionOperations | BatchOperations | WorkflowOperations;
+  };
+};
 export function object<
   const S extends ModelMembers,
   const K extends readonly Extract<keyof S, string>[] = readonly [],
@@ -590,16 +638,16 @@ export function object<
     readOnly?: boolean;
     form?: readonly Extract<keyof S, string>[];
     list?: readonly Extract<keyof S, string>[];
-    operations?: ObjectOperations<
-      ModelValue<ObjectNode<S>>,
-      Identity<S, K>,
-      ModelInput<ObjectNode<S>>,
-      P
-    > &
-      SessionOperations<ModelInput<ObjectNode<S>>>;
+    operations?: unknown;
   } = {},
 ): ObjectNode<S, Identity<S, K>, P> {
-  const operations = options.operations ?? {};
+  const operations = (options.operations ?? {}) as ObjectOperations<
+    ModelValue<ObjectNode<S>>,
+    Identity<S, K>,
+    ModelInput<ObjectNode<S>>,
+    P
+  > &
+    SessionOperations<ModelInput<ObjectNode<S>>>;
   return Object.assign({}, children, {
     [nodeMetadata]: {
       kind: "object" as const,
@@ -616,14 +664,38 @@ export function object<
         return options.readOnly;
       },
       get operations() {
-        return options.operations ?? operations;
+        return (options.operations ?? operations) as typeof operations;
       },
       independent: !!(
+        Reflect.ownKeys(operations).some((key) => typeof key === "symbol") ||
         operations.get ||
         operations.update ||
         operations.delete ||
         operations.enable ||
-        operations.disable
+        operations.disable ||
+        Object.keys(operations).some((key) =>
+          [
+            "send",
+            "withdraw",
+            "approve",
+            "unapprove",
+            "complete",
+            "uncomplete",
+            "void",
+            "unvoid",
+            "process",
+            "publish",
+            "restore",
+            "validate",
+            "run",
+            "stop",
+            "import",
+            "preview",
+            "print",
+            "printed",
+            "not-printed",
+          ].includes(key),
+        )
       ),
       form: options.form,
       list: options.list,
@@ -639,16 +711,23 @@ export function collection<
   options: NoPresentation & {
     items?: N[];
     operations?: {
-      query?: ModelRead<
+      query?:
+        | (ModelRead<
+            ModelValue<Q>,
+            Page<NoInfer<N>>,
+            null,
+            NodeAncestors<N>
+          > & {
+            input?: Q;
+          })
+        | ModelQuery<NoInfer<N>, Q>;
+      create?: ModelCreate<N>;
+      export?: ModelRead<
         ModelValue<Q>,
-        Page<NoInfer<N>>,
+        void | { content: Blob; filename: string },
         null,
         NodeAncestors<N>
-      > & {
-        input?: Q;
-      };
-      create?: ModelCreate<N>;
-      export?: ModelRead<ModelValue<Q>, void, null, NodeAncestors<N>>;
+      >;
     };
   } = {},
 ): CollectionNode<N> {

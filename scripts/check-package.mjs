@@ -1,5 +1,7 @@
+import { modelBusinessSmoke } from "./model-business-smoke.mjs";
+const modelBusinessMode = process.argv.includes("--model-business");
 import { modelSmoke } from "./model-smoke.mjs";
-const modelMode = process.argv.includes("--model");
+const modelMode = process.argv.includes("--model") || modelBusinessMode;
 import { businessSmoke } from "./business-smoke.mjs";
 const businessMode = process.argv.includes("--business");
 import { workbenchSmoke } from "./workbench-smoke.mjs";
@@ -125,7 +127,9 @@ await cp(
   join(
     root,
     modelMode
-      ? "examples/model"
+      ? modelBusinessMode
+        ? "examples/model-business"
+        : "examples/model"
       : businessMode
         ? "examples/business"
         : workbenchMode
@@ -227,7 +231,9 @@ const fixture = await readFile(
   join(
     root,
     modelMode
-      ? "tests/reactive-model.type-test.ts"
+      ? modelBusinessMode
+        ? "tests/model-processing.type-test.ts"
+        : "tests/reactive-model.type-test.ts"
       : businessMode
         ? "tests/business.type-test.ts"
         : workbenchMode
@@ -386,7 +392,9 @@ try {
   observe(page);
   await page.goto(`http://127.0.0.1:${address.port}`);
   const smoke = modelMode
-    ? modelSmoke
+    ? modelBusinessMode
+      ? modelBusinessSmoke
+      : modelSmoke
     : businessMode
       ? businessSmoke
       : workbenchMode
@@ -425,7 +433,9 @@ try {
     directory: join(printEvidenceRoot, "installed-tgz"),
   });
   const exampleName = modelMode
-    ? "model"
+    ? modelBusinessMode
+      ? "model-business"
+      : "model"
     : businessMode
       ? "business"
       : workbenchMode
