@@ -427,7 +427,7 @@ try {
       .update(await readFile(tgz))
       .digest("hex"),
   };
-  await smoke(page, {
+  const installedScenarioEvidence = await smoke(page, {
     ...printEvidence,
     mode: "installed-tgz",
     directory: join(printEvidenceRoot, "installed-tgz"),
@@ -463,6 +463,7 @@ try {
     configFile: join(exampleRoot, "vite.config.ts"),
     preview: { host: "127.0.0.1", port: 0, strictPort: false },
   });
+  let builtScenarioEvidence;
   try {
     const localAddress = exampleServer.httpServer.address();
     assert.ok(localAddress && typeof localAddress !== "string");
@@ -470,7 +471,7 @@ try {
     const examplePage = await exampleContext.newPage();
     observe(examplePage);
     await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
-    await smoke(examplePage, {
+    builtScenarioEvidence = await smoke(examplePage, {
       ...printEvidence,
       mode: "built-example",
       directory: join(printEvidenceRoot, "built-example"),
@@ -493,6 +494,14 @@ try {
   const report = {
     sourceBase,
     commands,
+    ...(modelBusinessMode
+      ? {
+          scenarios: {
+            installed: installedScenarioEvidence,
+            built: builtScenarioEvidence,
+          },
+        }
+      : {}),
     sha256: createHash("sha256")
       .update(await readFile(tgz))
       .digest("hex"),
@@ -512,46 +521,50 @@ try {
       "public exports",
       "single Vue/Vuetify/Router host resolution and npm installation tree",
       "no failed browser assets",
-      ...(modelMode
+      ...(modelBusinessMode
         ? [
-            "model-only authentication/customer/nested boundaries/original-request recovery",
+            "model-only query/export/drill, exact process recovery, attachment cancellation/stage reuse, voucher row/child confirm and cancel, workflow original identity, frozen batch reload and stop, finite printing confirmation and no automatic reprint",
           ]
-        : workbenchMode
+        : modelMode
           ? [
-              "four simultaneous workbench sections, twelve-item expansion, normal/new-tab links, typed preference search/add/remove/reload and responsive layout in both consumer contexts",
+              "model-only authentication/customer/nested boundaries/original-request recovery",
             ]
-          : detailsMode
+          : workbenchMode
             ? [
-                "grouped raw facts, historical references, read-only child keyboard inspection, local draft leave confirmation, write locks, authentication cleanup and host beforeunload cleanup in both consumer contexts",
+                "four simultaneous workbench sections, twelve-item expansion, normal/new-tab links, typed preference search/add/remove/reload and responsive layout in both consumer contexts",
               ]
-            : shellMode
+            : detailsMode
               ? [
-                  "auth flows, app themes/defaults, all six view consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
+                  "grouped raw facts, historical references, read-only child keyboard inspection, local draft leave confirmation, write locks, authentication cleanup and host beforeunload cleanup in both consumer contexts",
                 ]
-              : workflowMode
+              : shellMode
                 ? [
-                    "workflow node/target eligibility, exact audit reconciliation, voucher/runtime consumer routing and refresh-only retry in both contexts",
+                    "auth flows, app themes/defaults, all six view consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
                   ]
-                : voucherMode
+                : workflowMode
                   ? [
-                      "voucher header/detail/child dialog, local and outer draft cancellation, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
+                      "workflow node/target eligibility, exact audit reconciliation, voucher/runtime consumer routing and refresh-only retry in both contexts",
                     ]
-                  : documentMode
+                  : voucherMode
                     ? [
-                        "document official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
+                        "voucher header/detail/child dialog, local and outer draft cancellation, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
                       ]
-                    : reportMode
+                    : documentMode
                       ? [
-                          "report dynamic columns, finite presentation/groups, isolated adopted context, retained valid reads, authority expiry, restore and cancellation; parameter total/hasMore and typed DTO examples",
+                          "document official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
                         ]
-                      : configuration
+                      : reportMode
                         ? [
-                            "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                            "report dynamic columns, finite presentation/groups, isolated adopted context, retained valid reads, authority expiry, restore and cancellation; parameter total/hasMore and typed DTO examples",
                           ]
-                        : [
-                            "browser create/edit and 20 examples",
-                            "phone record cards retain field labels, exact selection and row operations; desktop tables restored",
-                          ]),
+                        : configuration
+                          ? [
+                              "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                            ]
+                          : [
+                              "browser create/edit and 20 examples",
+                              "phone record cards retain field labels, exact selection and row operations; desktop tables restored",
+                            ]),
     ],
     exitCode: 0,
   };

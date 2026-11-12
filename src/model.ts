@@ -261,7 +261,15 @@ export type {
 } from "./reactive-model";
 
 export { operation } from "./model-operation";
-export type { ModelOperation, ModelActionModel } from "./model-operation";
+export type {
+  ModelOperation,
+  ModelActionModel,
+  ModelOperationIntent,
+  ModelOperationRequest,
+  ModelOperationJournal,
+  ModelOperationPersistence,
+  ModelOperationSettlement,
+} from "./model-operation";
 export type {
   OperationModel,
   OperationPreview,

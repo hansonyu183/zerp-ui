@@ -18,6 +18,8 @@
     SE = never
   "
 >
+import { modelSubmissionBinding } from "./model-submission-binding";
+import { modelVoucherBinding } from "./model-voucher-binding";
 import type { EditProtection } from "./edit-guard";
 import type { DomainBlock } from "./domain-blocks";
 import { computed, shallowRef, watch } from "vue";
@@ -60,6 +62,8 @@ function fromDocument(s: DocumentSnapshot<D, Identity, S, O, H>): Snapshot {
 const vouchers = computed(() => {
   const a = props.definition.adapter;
   return {
+    createDisabledReason: props.definition[modelVoucherBinding]?.create(),
+    cloneDisabledReason: props.definition[modelVoucherBinding]?.clone(),
     list: a.list,
     get: async (input: { scope: string; identity: Identity }) => {
       const result = await a.get(input);
@@ -86,6 +90,7 @@ const vouchers = computed(() => {
 });
 const bridge = computed<SubmissionDefinition<D, Identity, S, O, H, A, E>>(
   () => ({
+    [modelSubmissionBinding]: props.definition[modelSubmissionBinding],
     resource: props.definition.resource,
     title: props.definition.title,
     fields: props.definition.fields,

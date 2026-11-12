@@ -1,3 +1,6 @@
+import { shallowRef } from "vue";
+import { modelReportBinding } from "./model-report-binding";
+import { modelOperation } from "./model-operation";
 import { defineReportPage, type PageDefinition } from "./pages";
 import type {
   ReportDefinition,
@@ -64,12 +67,13 @@ export function modelQueryPage(
     page: ReportPage<RuntimeObject, string>,
   ): ReportPage<Values, string> {
     const keys = page.items.map(rowKey);
+    targets.clear();
+    epoch++;
     if (new Set(keys).size !== keys.length) throw Error("集合记录身份重复。");
     return {
       ...page,
       items: page.items.map((row) => ({
         ...runtime.flat(row),
-        $node: row,
         $key: rowKey(row),
       })),
       presentation: page.presentation && {
@@ -103,7 +107,10 @@ export function modelQueryPage(
       ),
     };
   }
-  async function read<T>(work: (q: Query) => Promise<T>): Promise<T> {
+  async function read<T>(
+    work: (q: Query) => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const q = query(),
       node = current(),
       admittedOwner = JSON.stringify(owner());
@@ -114,23 +121,39 @@ export function modelQueryPage(
       q !== query() ||
       node !== current() ||
       q.disabledReason ||
+      signal?.aborted ||
       JSON.stringify(owner()) !== admittedOwner
     )
       throw Error("读取已失效。");
     return result;
   }
   let applied: Values = {};
+  let epoch = 0;
+  const targets = new Map<
+    string,
+    { node: ModelNode; identity?: unknown; page?: PageDefinition<"task"> }
+  >();
+  const related = shallowRef<PageDefinition<"task">>();
   const definition: Extract<
-    ReportDefinition<
-      Values,
-      Values,
-      string,
-      string,
-      { node: ModelNode; identity?: unknown }
-    >,
+    ReportDefinition<Values, Values, string, string, string>,
     { kind: "fixed" }
   > = {
     kind: "fixed",
+    [modelReportBinding]: {
+      get collaboration() {
+        return query()?.input
+          ? runtime.resolve(
+              () => query()?.input,
+              [...path, "$query"],
+              ancestors,
+            ).definition.collaboration
+          : undefined;
+      },
+      row: (row) => {
+        const node = current()?.items.find((node) => rowKey(node) === row.$key);
+        return node ? { ...runtime.flat(node), $key: row.$key } : undefined;
+      },
+    },
     resource,
     get title() {
       return current()?.[nodeMetadata].name ?? first[nodeMetadata].name;
@@ -154,18 +177,21 @@ export function modelQueryPage(
     rowKey: (row) => row.$key as string,
     adapter: {
       query: async (context) => {
-        const response = await read((q) =>
-          q.run({
-            owner: clone(owner() as ModelOwner),
-            identity: null,
-            ancestors: clone(ancestors),
-            signal: context.signal,
-            input: (q.input
-              ? runtime.unflat(q.input, context.parameters, false)
-              : {}) as never,
-            page: context.page,
-            pageSize: context.pageSize,
-          }),
+        const response = await read(
+          (q) =>
+            q.run({
+              owner: clone(owner() as ModelOwner),
+              identity: null,
+              ancestors: clone(ancestors),
+              signal: context.signal,
+              input: (q.input
+                ? runtime.unflat(q.input, context.parameters, false)
+                : {}) as never,
+              page: context.page,
+              pageSize: context.pageSize,
+              requestId: context.requestId,
+            }),
+          context.signal,
         );
         applied = clone(context.parameters);
         current()!.items = response.items as RuntimeObject[];
@@ -177,11 +203,12 @@ export function modelQueryPage(
         };
       },
       page: async (context) => {
-        const response = await read((q) => q.page(context));
+        const response = await read((q) => q.page(context), context.signal);
         current()!.items = response.items as RuntimeObject[];
         return result(response as unknown as ReportPage<RuntimeObject, string>);
       },
-      revalidate: (context) => read((q) => q.revalidate(context)),
+      revalidate: (context) =>
+        read((q) => q.revalidate(context), context.signal),
       get cancel() {
         return query()?.cancel
           ? (context: { scope: string; requestId: string }) =>
@@ -219,14 +246,35 @@ export function modelQueryPage(
     },
     cell: (row, key) => {
       const field = JSON.parse(key) as string[];
+      const node = current()?.items.find((node) => rowKey(node) === row.$key);
       const target =
-        field.length === 1
-          ? query()?.drill?.(row.$node as ObjectShape, field[0])
+        field.length === 1 && node
+          ? query()?.drill?.(node as ObjectShape, field[0])
           : undefined;
+      if (
+        !target &&
+        node &&
+        Object.values(node[nodeMetadata].operations).some(
+          (op) => op && modelOperation in op,
+        )
+      ) {
+        const token = `${epoch}:${String(row.$key)}:operation`;
+        targets.set(token, {
+          node,
+          page: runtime.resolve(
+            () => current()?.items.find((node) => rowKey(node) === row.$key),
+            [...path, "$operations", String(row.$key)],
+            ancestors,
+          ).page as PageDefinition<"task">,
+        });
+        return { kind: "detail", target: token, label: "业务办理" };
+      }
+      const token = `${epoch}:${String(row.$key)}:${key}`;
+      if (target) targets.set(token, target);
       return target
         ? {
             kind: "record",
-            target,
+            target: token,
             label: "打开业务",
             href: application()[nodeMetadata].options.navigation.href(
               target.node,
@@ -238,16 +286,35 @@ export function modelQueryPage(
   };
   return defineReportPage(() => ({
     definition,
+    onParameters: (value) => {
+      if (query()?.input)
+        runtime.adopt(
+          query()!.input!,
+          runtime.unflat(query()!.input!, value, false),
+        );
+    },
+    related: related.value
+      ? {
+          page: related.value,
+          onClose: () => {
+            related.value = undefined;
+          },
+        }
+      : undefined,
     permissions: {
       query: !!query() && !query()?.disabledReason && !!owner(),
       export:
         !!current()?.[nodeMetadata].operations.export &&
         !current()?.[nodeMetadata].operations.export?.disabledReason,
     },
-    onDrill: (drill) =>
-      application()[nodeMetadata].options.navigation.visit(
-        drill.cell.target.node,
-        drill.cell.target.identity,
-      ),
+    onDrill: (drill) => {
+      const target = targets.get(drill.cell.target);
+      if (target?.page) related.value = target.page;
+      else if (target)
+        application()[nodeMetadata].options.navigation.visit(
+          target.node,
+          target.identity,
+        );
+    },
   }));
 }

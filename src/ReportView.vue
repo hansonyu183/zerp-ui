@@ -9,6 +9,8 @@
     T = never
   "
 >
+import DraftCollaborationView from "./DraftCollaboration.vue";
+import { modelReportBinding } from "./model-report-binding";
 import { VBtn, VDialog, VCard, VCardText } from "vuetify/components";
 import Feedback from "./Feedback.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
@@ -73,7 +75,8 @@ const page = ref(1),
   loading = ref(false),
   pageLoading = ref(false),
   exporting = ref(false),
-  pending = ref(false);
+  pending = ref(false),
+  calculating = ref(false);
 const error = ref(""),
   exportError = ref(""),
   notice = ref(""),
@@ -125,6 +128,19 @@ const displayDefinition = computed(() =>
 const resultCell = computed(() =>
   adopted.value.kind === "fixed" ? adopted.value.cell : undefined,
 );
+const displayedResult = computed(() => {
+  const value = result.value,
+    binding = displayDefinition.value[modelReportBinding];
+  return value && binding
+    ? {
+        ...value,
+        items: value.items.flatMap((row) => {
+          const current = binding.row(row);
+          return current ? [current] : [];
+        }),
+      }
+    : value;
+});
 function message(caught: unknown) {
   return caught instanceof Error && caught.message
     ? caught.message
@@ -148,7 +164,8 @@ function parameters() {
     input.value,
     "edit",
   );
-  if (pending.value || invalid) throw new Error(invalid ?? "请完成参数输入。");
+  if (pending.value || calculating.value || invalid)
+    throw new Error(invalid ?? "请完成参数输入。");
   return clone(input.value);
 }
 const changedParameters = computed(
@@ -504,7 +521,7 @@ function drill(cell: ReportCell<T>, row: R) {
     !currentResult() ||
     !fixed.value ||
     cell.disabled ||
-    !result.value?.items.includes(row)
+    !displayedResult.value?.items.includes(row)
   )
     return;
   snapshot();
@@ -608,6 +625,7 @@ function reset() {
   adopted.value = props.definition;
   loading.value = false;
   pending.value = false;
+  calculating.value = false;
   checking.value = false;
   cancelling.value = false;
   job.value = undefined;
@@ -711,13 +729,23 @@ watch(
         @update:model-value="updateInput"
         @pending="pending = $event"
       />
+      <DraftCollaborationView
+        v-if="definition[modelReportBinding]?.collaboration"
+        :adapter="definition[modelReportBinding]!.collaboration!"
+        :model-value="input"
+        :scope="scope"
+        :instance="formGeneration"
+        :disabled="!enabled || !permissions.query"
+        @update:model-value="updateInput"
+        @pending="calculating = $event"
+      />
       <div class="zerp-filter-actions">
         <VBtn
           color=""
           variant="tonal"
           v-if="canQuery"
           type="submit"
-          :disabled="pending || cancelling || checking"
+          :disabled="pending || calculating || cancelling || checking"
         >
           查询
         </VBtn>
@@ -735,7 +763,7 @@ watch(
           导出
         </VBtn>
         <VBtn
-          v-if="canQuery && result && usable"
+          v-if="canQuery && displayedResult && usable"
           type="button"
           variant="text"
           @click="queryInfo = true"
@@ -843,7 +871,7 @@ watch(
       <Feedback :message="notice" />
     </FeedbackRegion>
     <div
-      v-if="canQuery && result && usable"
+      v-if="canQuery && displayedResult && usable"
       ref="scroll"
       class="zerp-report-scroll"
       @scroll="capturePosition"
@@ -852,7 +880,7 @@ watch(
     >
       <DataList
         :columns="displayDefinition.columns"
-        :result="result"
+        :result="displayedResult"
         :row-key="displayDefinition.rowKey"
         :page="page"
         :page-size="pageSize"
@@ -860,7 +888,7 @@ watch(
         :disabled="!usable"
         :wide="true"
         :summary="fixed?.summary"
-        :presentation="result.presentation"
+        :presentation="displayedResult.presentation"
         :cell="resultCell"
         @cell="drill"
         @page="changePage"

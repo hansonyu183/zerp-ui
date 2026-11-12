@@ -18,7 +18,7 @@ import type { EditProtection } from "./edit-guard";
 import type { ModelRuntime, RuntimeObject } from "./model-runtime";
 import type { ApplicationNode, ObjectShape } from "./reactive-model";
 import type { ModelOperation } from "./model-operation";
-import { equalValues } from "./editor-values";
+import { containsSecrets, equalValues } from "./editor-values";
 import { clone } from "./clone";
 import { validateFields } from "./validation";
 import type { Fields } from "./contracts";
@@ -29,6 +29,7 @@ const props = defineProps<{
   path: readonly string[];
   ancestors: readonly unknown[];
   discardVersion: number;
+  requestLeave(): Promise<boolean>;
 }>();
 const emit = defineEmits<{ protection: [value: EditProtection] }>();
 type Action = {
@@ -52,7 +53,7 @@ type Action = {
     OperationModel,
     unknown,
     unknown
-  >["persistence"];
+  >["persistence"] & { secrets?: "encrypted" };
 } & Omit<
   OperationDefinition<OperationModel, unknown, unknown>["adapter"],
   "execute"
@@ -117,7 +118,7 @@ watch(
   },
 );
 const fields = computed(() =>
-  admitted.value
+  props.node() && admitted.value
     ? (props.runtime.fields(admitted.value.input) as unknown as Fields<
         Record<string, unknown>
       >)
@@ -133,6 +134,15 @@ const eligible = computed(
     !calculating.value &&
     validateFields(fields.value, draft.value).valid,
 );
+const originalIdentity = clone(
+  Object.fromEntries(
+    (props.node()?.[nodeMetadata].identity ?? []).map((key) => [
+      key,
+      (props.node() as unknown as Record<string, { value: unknown }>)[key]
+        ?.value,
+    ]),
+  ),
+);
 const owner = computed(() => {
   const owner = props.application()[nodeMetadata].options.owner ?? {
     ledger: "",
@@ -142,17 +152,7 @@ const owner = computed(() => {
   return {
     scope: JSON.stringify(owner),
     operator: owner.operator,
-    resource: JSON.stringify([
-      props.path,
-      props.ancestors,
-      props
-        .node()
-        ?.[nodeMetadata].identity.map(
-          (key) =>
-            (props.node() as unknown as Record<string, { value: unknown }>)[key]
-              ?.value,
-        ),
-    ]),
+    resource: JSON.stringify([props.path, props.ancestors, originalIdentity]),
   };
 });
 const identity = computed(() =>
@@ -212,11 +212,32 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
     prepare: async (intent) => {
       const op = protocol(intent.action),
         run = op.run;
+      if (
+        containsSecrets(
+          props.runtime.fields(op.input),
+          props.runtime.flatten(op.input, intent.input),
+        ) &&
+        !("secrets" in op.persistence && op.persistence.secrets === "encrypted")
+      )
+        throw Error("秘密输入需要消费者加密的原请求存储。");
       const request = await op.prepare(intent);
+      if (
+        !("ancestors" in request) ||
+        !equalValues(
+          request.ancestors,
+          (intent as unknown as { ancestors: unknown }).ancestors,
+        )
+      )
+        throw Error("准备结果改变了祖先身份。");
       preparedRuns.set(request.requestId, run);
       return request;
     },
     acceptsPreparation: (intent, prepared) =>
+      "ancestors" in prepared &&
+      equalValues(
+        prepared.ancestors,
+        (intent as unknown as { ancestors: unknown }).ancestors,
+      ) &&
       protocol(intent.action).acceptsPreparation(intent, prepared),
     execute: (request) => {
       const op = protocol(request.action);
@@ -227,7 +248,10 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
         ) ||
         op.disabledReason ||
         op.run !== preparedRuns.get(request.requestId) ||
-        request.owner.scope !== owner.value.scope
+        request.owner.scope !== owner.value.scope ||
+        !equalValues(request.identity, identity.value) ||
+        !("ancestors" in request) ||
+        !equalValues(request.ancestors, props.ancestors)
       )
         throw Error("操作已撤销。");
       return op.run(request);
@@ -240,16 +264,41 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
       protocol(request.action).accepts(request, receipt),
   },
 };
-const intent = computed<OperationIntent<OperationModel, unknown>>(() => ({
+const intent = computed<
+  OperationIntent<OperationModel, unknown> & {
+    readonly ancestors: readonly unknown[];
+  }
+>(() => ({
   action: selected.value!,
   owner: owner.value,
   identity: clone(identity.value),
+  ancestors: clone(props.ancestors),
   input: props.runtime.unflat(admitted.value!.input, draft.value, true),
 }));
-function choose(action: OperationAction) {
-  if (locked.value) return;
+async function choose(action: OperationAction) {
+  if (
+    locked.value ||
+    action === selected.value ||
+    !(await props.requestLeave())
+  )
+    return;
   selected.value = action;
   admitted.value = selectedOperation.value;
+}
+function settled(
+  value: import("./operation").OperationSettlement<
+    OperationModel,
+    unknown,
+    unknown
+  >,
+) {
+  if (
+    value.receipt.status === "applied" &&
+    value.request.action === selected.value &&
+    equalValues(value.request.identity, identity.value) &&
+    equalValues(value.request.input, intent.value.input)
+  )
+    baseline.value = clone(draft.value);
 }
 watch(
   () => ({
@@ -309,6 +358,7 @@ watch(
         :eligible="eligible"
         :recovery-allowed="!!application()[nodeMetadata].options.owner"
         @protection="protection = $event"
+        @settled="settled"
       />
       <PrintPreview
         v-if="admitted.printing"

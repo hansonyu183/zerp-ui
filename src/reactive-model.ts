@@ -119,6 +119,7 @@ export type ModelRead<
       input: ReadonlyValue<I>;
       page: number;
       pageSize: number;
+      requestId?: string;
     },
   ): Promise<O>;
 };
@@ -225,14 +226,14 @@ export type ObjectOperations<
   I,
   Input,
   P extends readonly unknown[],
-> = ModelBusinessActions<I> & {
+> = ModelBusinessActions<I, P> & {
   get?: ModelRead<void, ModelSnapshot<V, I>, I, P>;
   update?: ModelWrite<V, I, Input, P>;
   delete?: ModelWrite<V, I, void, P>;
   enable?: ModelWrite<V, I, void, P>;
   disable?: ModelWrite<V, I, void, P>;
-  initialize?: ModelCalculation<Input, I, P>;
-  calculate?: ModelCalculation<Input, I, P>;
+  initialize?: ModelCalculation<V, I, P>;
+  calculate?: ModelCalculation<V, I, P>;
 };
 export type AuthenticationOperation =
   "signIn" | "restoreSession" | "signOut" | "changePassword";
@@ -325,13 +326,18 @@ export type CollectionNode<N extends ObjectShape = ObjectShape> = {
     name: string;
     element: () => N;
     independent: true;
-    operations: {
-      query?:
-        | (ModelRead<object, Page<N>> & { input?: ObjectShape })
-        | ModelQuery<N, ObjectShape>;
-      create?: ModelCreate<N>;
-      export?: ModelRead<object, void | { content: Blob; filename: string }>;
-    };
+    operations:
+      | {
+          query?:
+            | (ModelRead<object, Page<N>> & { input?: ObjectShape })
+            | ModelQuery<N, ObjectShape>;
+          create?: ModelCreate<N>;
+          export?: ModelRead<
+            object,
+            void | { content: Blob; filename: string }
+          >;
+        }
+      | BatchOperations<NodeIdentity<N>, NodeAncestors<N>>;
   };
 };
 export type ArrayNode<E extends ModelNode = ModelNode> = {
@@ -564,10 +570,10 @@ type IndependentOperations<
     | { enable: ModelWrite<V, I, void, P> }
     | { disable: ModelWrite<V, I, void, P> }
     | {
-        [A in keyof ModelBusinessActions<I>]-?: Required<
-          Pick<ModelBusinessActions<I>, A>
+        [A in keyof ModelBusinessActions<I, P>]-?: Required<
+          Pick<ModelBusinessActions<I, P>, A>
         >;
-      }[keyof ModelBusinessActions<I>]
+      }[keyof ModelBusinessActions<I, P>]
   );
 export function object<
   const S extends ModelMembers,
@@ -610,7 +616,7 @@ export function object<const S extends ModelMembers>(
   name: string,
   children: S,
   options: NoPresentation & {
-    operations: SubmissionOperations | BatchOperations | WorkflowOperations;
+    operations: SubmissionOperations | WorkflowOperations;
   },
 ): S & {
   readonly [nodeMetadata]: {
@@ -622,7 +628,7 @@ export function object<const S extends ModelMembers>(
     parentIdentities?: readonly [];
     concurrency: null;
     independent: true;
-    operations: SubmissionOperations | BatchOperations | WorkflowOperations;
+    operations: SubmissionOperations | WorkflowOperations;
   };
 };
 export function object<
@@ -710,25 +716,27 @@ export function collection<
   element: () => N & (keyof NodeIdentity<N> extends never ? never : unknown),
   options: NoPresentation & {
     items?: N[];
-    operations?: {
-      query?:
-        | (ModelRead<
+    operations?:
+      | {
+          query?:
+            | (ModelRead<
+                ModelValue<Q>,
+                Page<NoInfer<N>>,
+                null,
+                NodeAncestors<N>
+              > & {
+                input?: Q;
+              })
+            | ModelQuery<NoInfer<N>, Q>;
+          create?: ModelCreate<N>;
+          export?: ModelRead<
             ModelValue<Q>,
-            Page<NoInfer<N>>,
+            void | { content: Blob; filename: string },
             null,
             NodeAncestors<N>
-          > & {
-            input?: Q;
-          })
-        | ModelQuery<NoInfer<N>, Q>;
-      create?: ModelCreate<N>;
-      export?: ModelRead<
-        ModelValue<Q>,
-        void | { content: Blob; filename: string },
-        null,
-        NodeAncestors<N>
-      >;
-    };
+          >;
+        }
+      | BatchOperations<NodeIdentity<N>, NodeAncestors<N>>;
   } = {},
 ): CollectionNode<N> {
   return {

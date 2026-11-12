@@ -130,7 +130,7 @@ export function modelValue(node: ModelNode, writable = false): unknown {
     );
   return (node as ValueNode).value;
 }
-function adopt(node: ModelNode, value: unknown) {
+export function adopt(node: ModelNode, value: unknown) {
   if (isObject(node)) {
     for (const [key, child] of members(node))
       if (
@@ -166,6 +166,28 @@ function identity(node: RuntimeObject): ModelIdentity {
     concurrency: meta.concurrency,
   };
 }
+const rowKeys = new WeakMap<object, string>();
+function rowKey(node: ModelNode, value?: unknown): string {
+  const meta = asObject(node)[nodeMetadata];
+  const identity = meta.identity.map((key) =>
+    value && typeof value === "object"
+      ? Reflect.get(value, key)
+      : (node as unknown as Record<string, ValueNode>)[key]?.value,
+  );
+  if (
+    identity.length &&
+    identity.every(
+      (value) => value !== undefined && value !== null && value !== "",
+    )
+  )
+    return JSON.stringify(identity);
+  let key = rowKeys.get(toRaw(node));
+  if (!key) {
+    key = crypto.randomUUID();
+    rowKeys.set(toRaw(node), key);
+  }
+  return key;
+}
 function flat(
   node: ModelNode,
   prefix: readonly string[] = [],
@@ -178,7 +200,11 @@ function flat(
     else if (child[nodeMetadata].kind === "array")
       target[JSON.stringify(path)] = (
         child as unknown as { items: ModelNode[] }
-      ).items.map((item) => (isObject(item) ? flat(item) : modelValue(item)));
+      ).items.map((item) =>
+        isObject(item)
+          ? { ...flat(item), $modelRowKey: rowKey(item) }
+          : modelValue(item),
+      );
     else target[JSON.stringify(path)] = clone(modelValue(child));
   }
   return target;
@@ -238,7 +264,14 @@ export function flattenValue(
         child as unknown as { [nodeMetadata]: { element: ModelNode } }
       )[nodeMetadata].element;
       target[JSON.stringify(path)] = next.map((value) =>
-        isObject(element) ? flattenValue(element, value) : clone(value),
+        isObject(element)
+          ? {
+              ...flattenValue(element, value),
+              $modelRowKey: asObject(element)[nodeMetadata].identity.length
+                ? rowKey(element, value)
+                : crypto.randomUUID(),
+            }
+          : clone(value),
       );
     } else target[JSON.stringify(path)] = clone(next);
   }
@@ -383,7 +416,10 @@ export function createModelRuntime(
             ...common,
             type: "rows",
             fields: fields(array[nodeMetadata].element),
-            empty: () => flat(array[nodeMetadata].create()),
+            empty: () => {
+              const row = array[nodeMetadata].create();
+              return { ...flat(row), $modelRowKey: rowKey(row) };
+            },
           },
         ];
       }
@@ -908,7 +944,7 @@ export function createModelRuntime(
 
             const result = await operation.run({
               ...context(qualify(node), input.signal),
-              input: unflat(node, input.value, true),
+              input: unflat(node, input.value, false),
               event: input.event,
               answers: input.answers,
             });
@@ -1116,61 +1152,133 @@ export function createModelRuntime(
       Object.values(
         asObject(currentNode() ?? first)[nodeMetadata].operations,
       ).some((op) => op && modelOperation in op);
-    const fixedQuery =
-      collection && "page" in (collectionOperations()?.query ?? {});
-    const opFacts = asObject(first)[nodeMetadata].operations;
-    const page: PageDefinition =
-      modelWorkflow in opFacts
-        ? modelWorkflowPage(
-            currentNode,
-            () => source(),
+    const operationProtection =
+      shallowRef<import("./edit-guard").EditProtection>();
+    let operationProtectionOwner = "";
+    const operationDefinition = {};
+    const operationPage: PageDefinition<"task"> = {
+      kind: "task",
+      title: first[nodeMetadata].name,
+      [snapshotPage]: () => ({
+        title: currentNode()?.[nodeMetadata].name ?? first[nodeMetadata].name,
+        definition: operationDefinition,
+        record: [
+          resource,
+          currentNode() ? identity(asObject(currentNode()!)).value : null,
+        ],
+        security: ownerKey(options().owner),
+        render: (context) =>
+          h(ModelOperations, {
+            node: () => currentNode() as RuntimeObject | undefined,
+            application: () => source(),
             runtime,
             path,
             ancestors,
-          )
-        : modelSubmission in opFacts
-          ? modelSubmissionPage(
-              currentNode,
-              () => source(),
-              runtime,
-              path,
-              ancestors,
-            )
-          : modelBatch in opFacts
-            ? modelBatchPage(currentNode, () => source(), path, ancestors)
-            : fixedQuery
-              ? modelQueryPage(
+            discardVersion: context.discardVersion,
+            requestLeave: context.requestLeave,
+            onProtection: (value) => {
+              operationProtectionOwner = context.scope;
+              operationProtection.value = value;
+              context.protection(value);
+            },
+          }),
+      }),
+    };
+    const projections = new Map<
+      symbol | string,
+      { node: ModelNode | undefined; metadata: unknown; page: PageDefinition }
+    >();
+    let lastProjection: PageDefinition | undefined;
+    function projection(): PageDefinition {
+      if (
+        lastProjection &&
+        operationProtectionOwner === ownerKey(options().owner) &&
+        operationProtection.value &&
+        ["pending", "unknown", "seal", "refresh"].includes(
+          operationProtection.value.writeState,
+        )
+      )
+        return lastProjection;
+      const facts = currentNode()
+        ? asObject(currentNode()!)[nodeMetadata].operations
+        : undefined;
+      const kind =
+        facts && modelWorkflow in facts
+          ? modelWorkflow
+          : facts && modelSubmission in facts
+            ? modelSubmission
+            : facts && modelBatch in facts
+              ? modelBatch
+              : collection && "page" in (collectionOperations()?.query ?? {})
+                ? "query"
+                : hasOperations()
+                  ? modelOperation
+                  : undefined;
+      if (!kind) return lastProjection ?? crudPage;
+      const metadata =
+        typeof kind === "symbol"
+          ? Reflect.get(facts!, kind)
+          : collectionOperations()?.query;
+      const cached = projections.get(kind);
+      let result =
+        cached && cached.node === currentNode() && cached.metadata === metadata
+          ? cached.page
+          : undefined;
+      const protect = (value: import("./edit-guard").EditProtection) => {
+        operationProtectionOwner = ownerKey(options().owner);
+        operationProtection.value = value;
+      };
+      if (!result) {
+        result =
+          kind === modelWorkflow
+            ? modelWorkflowPage(
+                currentNode,
+                () => source(),
+                runtime,
+                path,
+                ancestors,
+                protect,
+              )
+            : kind === modelSubmission
+              ? modelSubmissionPage(
                   currentNode,
                   () => source(),
                   runtime,
                   path,
                   ancestors,
+                  protect,
                 )
-              : hasOperations()
-                ? {
-                    kind: "task",
-                    title: first[nodeMetadata].name,
-                    [snapshotPage]: () => ({
-                      title:
-                        currentNode()?.[nodeMetadata].name ??
-                        first[nodeMetadata].name,
-                      definition: adapter,
-                      record: resource,
-                      security: ownerKey(options().owner),
-                      render: (context) =>
-                        h(ModelOperations, {
-                          node: () =>
-                            currentNode() as RuntimeObject | undefined,
-                          application: () => source(),
-                          runtime,
-                          path,
-                          ancestors,
-                          discardVersion: context.discardVersion,
-                          onProtection: context.protection,
-                        }),
-                    }),
-                  }
-                : crudPage;
+              : kind === modelBatch
+                ? modelBatchPage(
+                    currentNode,
+                    () => source(),
+                    path,
+                    ancestors,
+                    protect,
+                  )
+                : kind === "query"
+                  ? modelQueryPage(
+                      currentNode,
+                      () => source(),
+                      runtime,
+                      path,
+                      ancestors,
+                    )
+                  : operationPage;
+        projections.set(kind, { node: currentNode(), metadata, page: result });
+      }
+      lastProjection = result;
+      return result;
+    }
+    const page: PageDefinition = {
+      get kind() {
+        return projection().kind;
+      },
+      get title() {
+        return projection().title;
+      },
+      [snapshotPage]: () => projection()[snapshotPage](),
+    };
     return {
       path,
       node: currentNode,
@@ -1191,7 +1299,10 @@ export function createModelRuntime(
       definition,
       pending: () =>
         writeLock(adapter, resource, ownerKey(options().owner)).phase !==
-        "idle",
+          "idle" ||
+        (operationProtectionOwner === ownerKey(options().owner) &&
+          !!operationProtection.value &&
+          operationProtection.value.writeState !== "idle"),
       stop: () => requestController.abort(),
     };
   }
@@ -1217,6 +1328,7 @@ export function createModelRuntime(
     resolve,
     fields,
     flatten: flattenValue,
+    adopt,
     flat,
     unflat,
     stop: () => {
@@ -1255,6 +1367,7 @@ export type ModelRuntime = {
     inheritedReadonly?: boolean,
   ): AnyField[];
   flatten: typeof flattenValue;
+  adopt: typeof adopt;
   flat: typeof flat;
   unflat: typeof unflat;
   stop(): void;

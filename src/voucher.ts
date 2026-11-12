@@ -1,3 +1,11 @@
+import {
+  modelSubmissionBinding,
+  type ModelSubmissionBinding,
+} from "./model-submission-binding";
+import {
+  modelVoucherBinding,
+  type ModelVoucherBinding,
+} from "./model-voucher-binding";
 import type { DeepReadonly } from "vue";
 import type { Column, Fields, Page } from "./contracts";
 import type {
@@ -76,6 +84,8 @@ export type VoucherDefinition<
   A extends object,
   E = never,
 > = {
+  [modelSubmissionBinding]?: ModelSubmissionBinding<D>;
+  [modelVoucherBinding]?: ModelVoucherBinding;
   protocol: "submission";
   resource: string;
   title: string;

@@ -1,3 +1,7 @@
+import {
+  modelReportBinding,
+  type ModelReportBinding,
+} from "./model-report-binding";
 import { validDate } from "./validation";
 import type { Column, Fields, Page } from "./contracts";
 
@@ -157,6 +161,7 @@ type ReportBase<
   R extends object,
   K extends string | number,
 > = {
+  [modelReportBinding]?: ModelReportBinding<R, P>;
   resource: string;
   title: string;
   parameters: ReportParameters<P>;

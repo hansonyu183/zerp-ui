@@ -1,3 +1,4 @@
+import type { EditProtection } from "./edit-guard";
 import { shallowRef } from "vue";
 import { defineWorkflowPage } from "./pages";
 import { modelWorkflow } from "./model-workflow";
@@ -50,12 +51,15 @@ export function modelWorkflowPage(
   runtime: ModelRuntime,
   path: readonly string[],
   ancestors: readonly unknown[],
+  onProtection?: (value: EditProtection) => void,
 ) {
   const initial = (source() as RuntimeObject)[nodeMetadata]
     .operations as unknown as Ports;
-  const current = () =>
-    (source() as RuntimeObject | undefined)?.[nodeMetadata]
+  const current = () => {
+    const candidate = (source() as RuntimeObject | undefined)?.[nodeMetadata]
       .operations as unknown as Ports | undefined;
+    return candidate && modelWorkflow in candidate ? candidate : undefined;
+  };
   const scope = () => JSON.stringify(application()[nodeMetadata].options.owner);
   const instance =
     shallowRef<WorkflowInstance<unknown, unknown, unknown, unknown, unknown>>();
@@ -81,12 +85,10 @@ export function modelWorkflowPage(
       return source()?.[nodeMetadata].name ?? "流程";
     },
     get auditColumns() {
-      return runtime
-        .fields(initial[modelWorkflow].audit)
-        .map((field) => ({
-          key: field.key,
-          label: field.label,
-        })) as readonly Column<Value>[];
+      return runtime.fields(initial[modelWorkflow].audit).map((field) => ({
+        key: field.key,
+        label: field.label,
+      })) as readonly Column<Value>[];
     },
     adapter: {
       list: (input) => read("query", (ports) => ports.query.run(input)),
@@ -129,6 +131,7 @@ export function modelWorkflowPage(
   };
   return defineWorkflowPage(() => ({
     definition,
+    onProtection,
     permissions: {
       read: allowed("query") && allowed("get"),
       audit: allowed("audit"),

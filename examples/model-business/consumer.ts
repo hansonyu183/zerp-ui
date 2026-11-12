@@ -14,8 +14,9 @@ import {
   workflowOperations,
   type ModelNavigation,
   type ModelActionModel,
-  type OperationJournal,
-  type OperationPersistence,
+  type ModelOperationJournal,
+  type ModelOperationPersistence,
+  type BatchEntry,
   type BatchJournal,
   type BatchPersistence,
 } from "@zerp/ui/model";
@@ -35,28 +36,28 @@ const json = <T>(key: string): T | null => {
   const value = localStorage.getItem(key);
   return value ? (JSON.parse(value) as T) : null;
 };
-const persist: OperationPersistence<M, Id, string> = {
+const persist: ModelOperationPersistence<M, Id, string> = {
   async load(owner) {
-    return json<OperationJournal<M, Id, string>>(
+    return json<ModelOperationJournal<M, Id, string>>(
       `model-operation:${JSON.stringify(owner)}`,
     );
   },
   async save(journal, expectedId) {
     const key = `model-operation:${JSON.stringify(journal.request.owner)}`;
-    const old = json<OperationJournal<M, Id, string>>(key);
+    const old = json<ModelOperationJournal<M, Id, string>>(key);
     if ((old && !old.completed ? old.request.requestId : null) !== expectedId)
       throw Error("原请求 CAS 冲突");
     localStorage.setItem(key, JSON.stringify(journal));
   },
   async remove(owner, expectedId) {
     const key = `model-operation:${JSON.stringify(owner)}`,
-      old = json<OperationJournal<M, Id, string>>(key);
+      old = json<ModelOperationJournal<M, Id, string>>(key);
     if (!old || old.request.requestId !== expectedId)
       throw Error("完成 CAS 冲突");
     localStorage.setItem(key, JSON.stringify({ ...old, completed: true }));
   },
 };
-const receipt = (request: OperationJournal<M, Id, string>["request"]) => ({
+const receipt = (request: ModelOperationJournal<M, Id, string>["request"]) => ({
   status: "applied" as const,
   owner: request.owner,
   action: request.action,
@@ -222,36 +223,47 @@ const batchStore: BatchPersistence<M, Id, string> = {
     );
   },
   async save(journal, expectedId) {
-    const key = `model-batch:${JSON.stringify(journal.owner)}`,
-      old = json<BatchJournal<M, Id, string>>(key);
-    if ((old?.id ?? null) !== expectedId) throw Error("批次 CAS 冲突");
-    localStorage.setItem(key, JSON.stringify(journal));
+    const key = `model-batch:${JSON.stringify(journal.owner)}`;
+    await navigator.locks.request(key, async () => {
+      const old = json<BatchJournal<M, Id, string>>(key);
+      if ((old?.id ?? null) !== expectedId) throw Error("批次 CAS 冲突");
+      localStorage.setItem(key, JSON.stringify(journal));
+    });
   },
 };
-const batches = object(
-  "批量办理",
-  {},
-  {
-    operations: batchOperations<M, Id, string>({
-      ...protocol,
-      journal: batchStore,
-      entries: ["one", "two"].map((id) => ({
-        key: id,
-        label: `合成项目 ${id}`,
+const batchItem = (id: string) =>
+  object(
+    "批次项目",
+    {
+      id: text("项目身份", { value: id }),
+      note: text("项目说明", { value: `项目 ${id}` }),
+    },
+    { identity: ["id"] },
+  );
+const batches = collection("批量办理", () => batchItem(""), {
+  items: [batchItem("one"), batchItem("two")],
+  operations: batchOperations<M, Id, string>({
+    ...protocol,
+    journal: batchStore,
+    get entries(): readonly BatchEntry<M, Id>[] {
+      return batches.items.map((row) => ({
+        key: row.id.value!,
+        label: `合成项目 ${row.id.value}`,
         intent: {
           owner: {
             scope: JSON.stringify(owner),
             operator: owner.operator,
             resource: JSON.stringify([["batches"], []]),
           },
-          identity: { id },
+          identity: { id: row.id.value! },
           action: "process",
-          input: { note: `项目 ${id}` },
+          input: { note: row.note.value },
         },
-      })),
-    }),
-  },
-);
+      }));
+    },
+  }),
+});
+
 const content = () =>
   object("版本内容", {
     title: text("资料名称", { value: "合成版本" }),
@@ -295,69 +307,77 @@ let documentArchive: DocumentArchive<
 > = { official: snapshot, candidate: null, history: [], audit: [] };
 const candidate = content(),
   official = content();
-const documents = object(
-  "正式候选与附件",
-  { official, candidate, history: array("精确历史", content) },
-  {
-    operations: documentOperations<
-      typeof candidate,
-      string,
-      string,
-      string,
-      string,
-      typeof audit,
-      { id: string }
-    >(candidate, audit, {
-      get: {
-        async run() {
-          return structuredClone(documentArchive);
-        },
+const versions = { official, candidate, history: array("精确历史", content) };
+const documents = object("正式候选与附件", versions, {
+  operations: documentOperations<
+    typeof candidate,
+    string,
+    string,
+    string,
+    string,
+    typeof audit,
+    { id: string }
+  >(versions, audit, {
+    get: {
+      async run() {
+        return structuredClone(documentArchive);
       },
-      submit: {
-        async run(attempt) {
+    },
+    submit: {
+      async run(attempt) {
+        localStorage.setItem("model-doc-original", JSON.stringify(attempt));
+        const count = Number(localStorage.getItem("model-doc-submits") ?? "0");
+        localStorage.setItem("model-doc-submits", String(count + 1));
+        if (!count)
+          return {
+            status: "failure" as const,
+            message: "合成暂存后业务校验失败",
+          };
+        documentArchive = {
+          ...documentArchive,
+          candidate: {
+            ...snapshot,
+            label: "候选 v2",
+            state: "v2",
+            values: attempt.input,
+            attachments: attempt.attachments.map((handle) => ({
+              label: handle,
+              handle,
+            })),
+          },
+        };
+        return { status: "success" };
+      },
+    },
+    approve: {
+      async run() {
+        if (documentArchive.candidate) {
           documentArchive = {
             ...documentArchive,
-            candidate: {
-              ...snapshot,
-              label: "候选 v2",
-              state: "v2",
-              values: attempt.input,
-              attachments: attempt.attachments.map((handle) => ({
-                label: handle,
-                handle,
-              })),
-            },
+            official: documentArchive.candidate,
+            candidate: null,
+            history: documentArchive.official ? [documentArchive.official] : [],
           };
-          return { status: "success" };
-        },
+        }
+        return { status: "success" };
       },
-      approve: {
-        async run() {
-          if (documentArchive.candidate) {
-            documentArchive = {
-              ...documentArchive,
-              official: documentArchive.candidate,
-              candidate: null,
-              history: documentArchive.official
-                ? [documentArchive.official]
-                : [],
-            };
-          }
-          return { status: "success" };
-        },
+    },
+    stage: {
+      validate: () => undefined,
+      async stage(attempt) {
+        const key = `model-stage:${attempt.fileId}`;
+        localStorage.setItem(
+          key,
+          String(Number(localStorage.getItem(key) ?? "0") + 1),
+        );
+        return { status: "success", handle: `staged-${attempt.fileId}` };
       },
-      stage: {
-        validate: () => undefined,
-        async stage(attempt) {
-          return { status: "success", handle: `staged-${attempt.fileId}` };
-        },
-        async read({ handle }) {
-          return { content: new Blob([handle]), filename: "synthetic.txt" };
-        },
+      async read({ handle }) {
+        return { content: new Blob([handle]), filename: "synthetic.txt" };
       },
-    }),
-  },
-);
+    },
+  }),
+});
 let voucherArchive: VoucherArchive<
   Content,
   string,
@@ -446,6 +466,10 @@ const vouchers = object(
       },
       submit: {
         async run(attempt) {
+          localStorage.setItem(
+            "model-voucher-original",
+            JSON.stringify(attempt),
+          );
           voucherArchive = {
             ...voucherArchive,
             current: {
@@ -528,22 +552,22 @@ const printInput = object("打印参数", {
 });
 type PrintAction = "preview" | "print" | "printed" | "not-printed";
 type PM = ModelActionModel<PrintAction, typeof printInput, { digest: string }>;
-const printStore: OperationPersistence<PM, Id, string> = {
+const printStore: ModelOperationPersistence<PM, Id, string> = {
   async load(owner) {
-    return json<OperationJournal<PM, Id, string>>(
+    return json<ModelOperationJournal<PM, Id, string>>(
       `model-print:${JSON.stringify(owner)}`,
     );
   },
   async save(journal, expectedId) {
     const key = `model-print:${JSON.stringify(journal.request.owner)}`,
-      old = json<OperationJournal<PM, Id, string>>(key);
+      old = json<ModelOperationJournal<PM, Id, string>>(key);
     if ((old && !old.completed ? old.request.requestId : null) !== expectedId)
       throw Error("打印 CAS 冲突");
     localStorage.setItem(key, JSON.stringify(journal));
   },
   async remove(owner, expectedId) {
     const key = `model-print:${JSON.stringify(owner)}`,
-      old = json<OperationJournal<PM, Id, string>>(key);
+      old = json<ModelOperationJournal<PM, Id, string>>(key);
     if (!old || old.request.requestId !== expectedId)
       throw Error("打印完成 CAS 冲突");
     localStorage.setItem(key, JSON.stringify({ ...old, completed: true }));

@@ -1,6 +1,11 @@
-import type { ObjectShape, ModelValue } from "./reactive-model";
+import type { ObjectShape, ModelValue, ArrayNode } from "./reactive-model";
 import type { DocumentAdapter, DocumentDefinition } from "./document";
 import type { VoucherAdapter, VoucherDefinition } from "./voucher";
+export type ModelVersions<N extends ObjectShape> = {
+  official: N;
+  candidate: N;
+  history: ArrayNode<N>;
+};
 export const modelSubmission: unique symbol = Symbol("zerp.model.submission");
 type Read<F> = { disabledReason?: string; run: F };
 type DocumentPorts<
@@ -48,6 +53,7 @@ export type SubmissionOperations = {
   readonly [modelSubmission]: {
     protocol: "document" | "voucher";
     content: ObjectShape;
+    versions?: ModelVersions<ObjectShape>;
     audit: ObjectShape;
   };
 };
@@ -60,12 +66,17 @@ export function documentOperations<
   A extends ObjectShape,
   E = never,
 >(
-  content: N,
+  versions: ModelVersions<N>,
   audit: A,
   operations: DocumentPorts<N, I, S, O, H, A, E>,
 ): typeof operations & SubmissionOperations {
   return Object.assign(operations, {
-    [modelSubmission]: { protocol: "document" as const, content, audit },
+    [modelSubmission]: {
+      protocol: "document" as const,
+      content: versions.candidate,
+      versions,
+      audit,
+    },
   });
 }
 type VoucherPorts<

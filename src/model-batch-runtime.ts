@@ -1,3 +1,5 @@
+import { clone } from "./clone";
+import type { EditProtection } from "./edit-guard";
 import { defineBatchPage } from "./pages";
 import { modelBatch, type ModelBatchOperation } from "./model-batch";
 import { nodeMetadata } from "./model-node";
@@ -9,13 +11,21 @@ export function modelBatchPage(
   application: () => ApplicationNode,
   path: readonly string[],
   ancestors: readonly unknown[],
+  onProtection?: (value: EditProtection) => void,
 ) {
-  type Operation = ModelBatchOperation<OperationModel, unknown, unknown>;
+  type Operation = ModelBatchOperation<
+    OperationModel,
+    unknown,
+    unknown,
+    readonly unknown[]
+  >;
   const first = (source() as RuntimeObject)[nodeMetadata]
-    .operations as unknown as { [modelBatch]: true; executeBatch: Operation };
-  const current = () =>
-    (source() as RuntimeObject | undefined)?.[nodeMetadata]
+    .operations as unknown as { [modelBatch]: object; executeBatch: Operation };
+  const current = () => {
+    const candidate = (source() as RuntimeObject | undefined)?.[nodeMetadata]
       .operations as unknown as { executeBatch: Operation } | undefined;
+    return candidate && modelBatch in candidate ? candidate : undefined;
+  };
   const admitted = first.executeBatch;
   const eligible = () =>
     !!source() &&
@@ -24,12 +34,29 @@ export function modelBatchPage(
     !!application()[nodeMetadata].options.owner;
   const definition: OperationDefinition<OperationModel, unknown, unknown> = {
     protocol: "operation",
-    persistence: admitted.persistence,
+    persistence: admitted.persistence as unknown as OperationDefinition<
+      OperationModel,
+      unknown,
+      unknown
+    >["persistence"],
     adapter: {
-      ...admitted,
+      ...(admitted as unknown as OperationDefinition<
+        OperationModel,
+        unknown,
+        unknown
+      >["adapter"]),
+      prepare: (intent) =>
+        admitted.prepare({ ...intent, ancestors: clone(ancestors) }),
+      acceptsPreparation: (intent, prepared) =>
+        "ancestors" in prepared &&
+        JSON.stringify(prepared.ancestors) === JSON.stringify(ancestors) &&
+        admitted.acceptsPreparation(
+          { ...intent, ancestors },
+          prepared as Parameters<typeof admitted.acceptsPreparation>[1],
+        ),
       execute: (request) => {
         if (!eligible()) throw Error("批量资格已撤销。");
-        return admitted.run(request);
+        return admitted.run(request as Parameters<typeof admitted.run>[0]);
       },
     },
   };
@@ -43,6 +70,7 @@ export function modelBatchPage(
         resource: JSON.stringify([path, ancestors]),
       },
       definition,
+      onProtection,
       entries: current()?.executeBatch.entries ?? [],
       persistence: admitted.journal,
       eligible: eligible(),
