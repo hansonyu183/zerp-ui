@@ -59,11 +59,11 @@ const navigation: NavigationGroup[] = [
 
 0.15.0 统一紧凑筛选与业务表单布局、引用选择浮层和不占位的字段校验。消费者仍只声明内容与 Adapter；不提供列数、栅格或 CSS 配置。
 
-从 [ui-v0.30.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.30.0) 下载 `zerp-ui-0.30.0.tgz` 与 `SHA256SUMS`，校验后安装原文件：
+从 [ui-v0.30.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.30.1) 下载 `zerp-ui-0.30.1.tgz` 与 `SHA256SUMS`，校验后安装原文件：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.30.0.tgz
+pnpm add ./zerp-ui-0.30.1.tgz
 ```
 
 宿主仅保留一套 Vue、Vuetify、Router。当前验证基线为 Vue 3.5.40、Vuetify 4.1.5、Vue Router 5.2.0；peer 范围见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，将 `createShellThemes()` 传给宿主唯一的 `createVuetify`。图标字体随包分发，无公司私有依赖。

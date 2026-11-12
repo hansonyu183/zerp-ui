@@ -59,6 +59,8 @@ export function propertyAt(
   type: BusinessType,
   path: string,
 ): BusinessType | undefined {
+  if (type.properties && Object.hasOwn(type.properties, path))
+    return type.properties[path];
   return path
     .split(".")
     .reduce<BusinessType | undefined>(

@@ -1,3 +1,7 @@
+## 0.30.1
+
+- Resolve explicitly declared literal field names containing dots before nested paths, matching existing value reads and updates. Native voucher extension identifiers retain their original identity (#119).
+
 ## 0.30.0
 
 - Add public BusinessType projection for dedicated voucher header/detail editors, nested row initial values and finite field conditions (#119). Existing operation/batch request identity and recovery lifecycle remain authoritative.
