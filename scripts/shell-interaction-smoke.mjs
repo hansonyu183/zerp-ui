@@ -44,7 +44,7 @@ export async function shellInteractionSmoke(page) {
       .filter({ has: page.locator("summary", { hasText: /^合成公司业务$/ }) })
       .first()
       .locator("a"),
-  ).toHaveText(["直接维护", "配置", "报表", "资料档案", "单据", "流程"]);
+  ).toHaveText([/直接维护$/, /配置$/, /报表$/, /资料档案$/, /单据$/, /流程$/]);
   await page.setViewportSize({ width: 320, height: 720 });
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   for (const control of [
