@@ -75,14 +75,30 @@ export async function checkArtifact(tgz, expected) {
       if (pureModules.has(path)) return;
       pureModules.add(path);
       const source = await readFile(path, "utf8");
-      assert.ok(
-        !/\b(?:window|document|localStorage)\b|\.css["']/.test(source),
-        "The model must run without a browser",
+      // Protocol strings such as "document" are facts, not DOM identifiers.
+      const scanner = ts.createScanner(
+        ts.ScriptTarget.Latest,
+        true,
+        ts.LanguageVariant.Standard,
+        source,
       );
+      for (
+        let token = scanner.scan();
+        token !== ts.SyntaxKind.EndOfFileToken;
+        token = scanner.scan()
+      ) {
+        assert.ok(
+          token !== ts.SyntaxKind.Identifier ||
+            !["window", "document", "localStorage"].includes(
+              scanner.getTokenText(),
+            ),
+          "The model must run without a browser",
+        );
+      }
       for (const { fileName } of ts.preProcessFile(source, true, true)
         .importedFiles) {
         assert.ok(
-          fileName.startsWith("./"),
+          fileName.startsWith("./") && fileName.endsWith(".js"),
           "The public model must not load dependencies",
         );
         const target = resolve(dirname(path), fileName);
