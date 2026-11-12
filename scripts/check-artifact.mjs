@@ -81,6 +81,8 @@ export async function checkArtifact(tgz, expected) {
         "defineBusinessWorkbenchPreferencesPage",
         "projectBusinessFields",
         "projectBusinessColumns",
+        "projectBusinessVoucherEditor",
+        "projectBusinessBatchEntries",
         "defineModulePage",
         "applicationNavigation",
         "defineDetailsPage",
