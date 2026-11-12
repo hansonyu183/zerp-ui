@@ -181,3 +181,37 @@ export function writableType(type: BusinessType): BusinessType {
     },
   };
 }
+
+/** Application properties are module references, not loaded business records. */
+export type ApplicationObject = BusinessObject & {
+  navigation: {
+    groups: readonly {
+      id: string;
+      name: string;
+      ungrouped?: boolean;
+      modules: readonly string[];
+    }[];
+  };
+};
+export function applicationGroups(model: ApplicationObject) {
+  const groups = new Set<string>();
+  const modules = new Set<string>();
+  const result = model.navigation.groups.flatMap((group) => {
+    if (groups.has(group.id)) throw Error(`重复导航分组：${group.id}`);
+    groups.add(group.id);
+    const projected = group.modules.map((id) => {
+      if (modules.has(id)) throw Error(`重复模块引用：${id}`);
+      const module = Object.hasOwn(model.properties, id)
+        ? model.properties[id]
+        : undefined;
+      if (module?.kind !== "object" || !module.target)
+        throw Error(`未定义模块引用：${id}`);
+      modules.add(id);
+      return { id, name: module.name, target: module.target };
+    });
+    return projected.length ? [{ ...group, modules: projected }] : [];
+  });
+  for (const id of Object.keys(model.properties))
+    if (!modules.has(id)) throw Error(`模块未投影：${id}`);
+  return result;
+}

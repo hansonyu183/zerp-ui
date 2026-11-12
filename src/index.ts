@@ -214,3 +214,6 @@ export type {
   ModuleEntry,
   ModuleDefinition,
 } from "./business";
+
+export { applicationNavigation } from "./application";
+export type { ApplicationObject } from "./model";

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, provide, nextTick } from "vue";
 import { useRoute } from "vue-router";
 import {
+  applicationNavigation,
   defineAccountPage,
   defineDetailsPage,
   AuthPage,
@@ -34,17 +35,42 @@ const entries = [
 const current = computed(
   () => entries.find(([key]) => route.path === `/${key}`) ?? entries[5],
 );
-const navigation: NavigationGroup[] = [
-  {
-    key: "synthetic",
-    caption: "合成公司业务",
-    items: entries.map(([key, caption]) => ({
-      key,
-      caption,
-      to: `/${key}`,
-      icon: key === "report" ? "report" : "catalog",
-    })),
+const application = {
+  kind: "object" as const,
+  name: "演示应用",
+  properties: Object.fromEntries(
+    entries.map(([id, name]) => [
+      id,
+      {
+        kind: "object" as const,
+        name,
+        target: id,
+      },
+    ]),
+  ),
+  navigation: {
+    groups: [
+      {
+        id: "synthetic",
+        name: "合成公司业务",
+        modules: entries.map(([id]) => id),
+      },
+    ],
   },
+};
+const navigation: NavigationGroup[] = [
+  ...applicationNavigation(
+    application,
+    Object.fromEntries(
+      entries.map(([id]) => [
+        id,
+        {
+          to: `/${id}`,
+          icon: id === "report" ? ("report" as const) : ("catalog" as const),
+        },
+      ]),
+    ),
+  ),
   {
     key: "query-catalogs",
     caption: "同路径资料",
