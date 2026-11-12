@@ -1,3 +1,4 @@
+import { modelBinding, type ModelCrudBinding } from "./model-binding";
 import type { WritePersistence } from "./write-recovery";
 import type { DraftCollaboration } from "./collaboration";
 export type Page<T> = { items: readonly T[] } & (
@@ -212,6 +213,7 @@ export type CrudDefinition<
   I,
   E = never,
 > = {
+  [modelBinding]?: ModelCrudBinding<D, R, I>;
   resource: string;
   title: string;
   initialSort?: ListSort;

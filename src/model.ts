@@ -216,3 +216,45 @@ export function applicationGroups(model: ApplicationObject) {
     if (!modules.has(id)) throw Error(`模块未投影：${id}`);
   return result;
 }
+
+export {
+  application,
+  object,
+  collection,
+  array,
+  reference,
+  text,
+  longText,
+  integer,
+  decimal,
+  boolean,
+  date,
+  datetime,
+  secret,
+  enumeration,
+  messages,
+} from "./reactive-model";
+export type {
+  ModelOwner,
+  ModelRequest,
+  ModelSnapshot,
+  ModelWriteResult,
+  ModelEvidence,
+  ModelWrite,
+  ModelRead,
+  ModelContext,
+  ModelValue,
+  ModelInput,
+  ObjectNode,
+  CollectionNode,
+  ApplicationNode,
+  ValueNode,
+  ModelNode,
+  ModelNavigation,
+  ModelApplicationOptions,
+  ModelIdentity,
+  ModelPersistence,
+  ModelPendingRequest,
+  ModelFieldPath,
+  ModelCalculation,
+} from "./reactive-model";

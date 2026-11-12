@@ -237,3 +237,5 @@ export { projectBusinessVoucherEditor } from "./business";
 export type { BusinessVoucherInteraction } from "./business";
 
 export { projectBusinessBatchEntries } from "./business";
+
+export { default as BusinessApplication } from "./BusinessApplication.vue";

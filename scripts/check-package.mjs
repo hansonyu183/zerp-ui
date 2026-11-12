@@ -1,3 +1,5 @@
+import { modelSmoke } from "./model-smoke.mjs";
+const modelMode = process.argv.includes("--model");
 import { businessSmoke } from "./business-smoke.mjs";
 const businessMode = process.argv.includes("--business");
 import { workbenchSmoke } from "./workbench-smoke.mjs";
@@ -49,7 +51,24 @@ const sourceBase = execFileSync("git", ["rev-parse", "HEAD"], {
 const commands = [];
 const run = (cmd, args, cwd = root) => {
   try {
-    execFileSync(cmd, args, { cwd, encoding: "utf8", maxBuffer: 32 << 20 });
+    execFileSync(cmd, args, {
+      cwd,
+      encoding: "utf8",
+      maxBuffer: 32 << 20,
+      env:
+        cmd === "npm" && args[0] === "install"
+          ? {
+              ...process.env,
+              HTTP_PROXY: "",
+              HTTPS_PROXY: "",
+              ALL_PROXY: "",
+              http_proxy: "",
+              https_proxy: "",
+              all_proxy: "",
+              NO_PROXY: "*",
+            }
+          : process.env,
+    });
   } catch (error) {
     if (error.stdout) process.stderr.write(error.stdout);
     if (error.stderr) process.stderr.write(error.stderr);
@@ -105,27 +124,29 @@ await writeFile(
 await cp(
   join(
     root,
-    businessMode
-      ? "examples/business"
-      : workbenchMode
-        ? "examples/workbench"
-        : capabilitiesMode
-          ? "examples/capabilities"
-          : detailsMode
-            ? "examples/details"
-            : shellMode
-              ? "examples/shell"
-              : workflowMode
-                ? "examples/workflow"
-                : voucherMode
-                  ? "examples/voucher"
-                  : documentMode
-                    ? "examples/document"
-                    : reportMode
-                      ? "examples/report"
-                      : configuration
-                        ? "examples/configuration"
-                        : "examples/direct",
+    modelMode
+      ? "examples/model"
+      : businessMode
+        ? "examples/business"
+        : workbenchMode
+          ? "examples/workbench"
+          : capabilitiesMode
+            ? "examples/capabilities"
+            : detailsMode
+              ? "examples/details"
+              : shellMode
+                ? "examples/shell"
+                : workflowMode
+                  ? "examples/workflow"
+                  : voucherMode
+                    ? "examples/voucher"
+                    : documentMode
+                      ? "examples/document"
+                      : reportMode
+                        ? "examples/report"
+                        : configuration
+                          ? "examples/configuration"
+                          : "examples/direct",
   ),
   consumer,
   {
@@ -205,27 +226,29 @@ await writeFile(
 const fixture = await readFile(
   join(
     root,
-    businessMode
-      ? "tests/business.type-test.ts"
-      : workbenchMode
-        ? "tests/workbench.type-test.ts"
-        : capabilitiesMode
-          ? "tests/capabilities.type-test.ts"
-          : detailsMode
-            ? "tests/details.type-test.ts"
-            : shellMode
-              ? "tests/shell.type-test.ts"
-              : workflowMode
-                ? "tests/workflow.type-test.ts"
-                : voucherMode
-                  ? "tests/voucher.type-test.ts"
-                  : documentMode
-                    ? "tests/document.type-test.ts"
-                    : reportMode
-                      ? "tests/report.type-test.ts"
-                      : configuration
-                        ? "tests/configuration.type-test.ts"
-                        : "tests/contracts.type-test.ts",
+    modelMode
+      ? "tests/reactive-model.type-test.ts"
+      : businessMode
+        ? "tests/business.type-test.ts"
+        : workbenchMode
+          ? "tests/workbench.type-test.ts"
+          : capabilitiesMode
+            ? "tests/capabilities.type-test.ts"
+            : detailsMode
+              ? "tests/details.type-test.ts"
+              : shellMode
+                ? "tests/shell.type-test.ts"
+                : workflowMode
+                  ? "tests/workflow.type-test.ts"
+                  : voucherMode
+                    ? "tests/voucher.type-test.ts"
+                    : documentMode
+                      ? "tests/document.type-test.ts"
+                      : reportMode
+                        ? "tests/report.type-test.ts"
+                        : configuration
+                          ? "tests/configuration.type-test.ts"
+                          : "tests/contracts.type-test.ts",
   ),
   "utf8",
 );
@@ -262,7 +285,7 @@ for (const name of ["vue", "vuetify", "vue-router", "@zerp/ui/style.css"])
     require.resolve(name).startsWith(join(consumer, "node_modules")),
     `${name} escaped independent install tree`,
   );
-if (businessMode) {
+if (businessMode || modelMode) {
   run(
     process.execPath,
     [
@@ -362,27 +385,29 @@ try {
   };
   observe(page);
   await page.goto(`http://127.0.0.1:${address.port}`);
-  const smoke = businessMode
-    ? businessSmoke
-    : workbenchMode
-      ? workbenchSmoke
-      : capabilitiesMode
-        ? capabilitiesSmoke
-        : detailsMode
-          ? detailsSmoke
-          : shellMode
-            ? shellSmoke
-            : workflowMode
-              ? workflowSmoke
-              : voucherMode
-                ? voucherSmoke
-                : documentMode
-                  ? documentSmoke
-                  : reportMode
-                    ? reportSmoke
-                    : configuration
-                      ? configurationSmoke
-                      : directSmoke;
+  const smoke = modelMode
+    ? modelSmoke
+    : businessMode
+      ? businessSmoke
+      : workbenchMode
+        ? workbenchSmoke
+        : capabilitiesMode
+          ? capabilitiesSmoke
+          : detailsMode
+            ? detailsSmoke
+            : shellMode
+              ? shellSmoke
+              : workflowMode
+                ? workflowSmoke
+                : voucherMode
+                  ? voucherSmoke
+                  : documentMode
+                    ? documentSmoke
+                    : reportMode
+                      ? reportSmoke
+                      : configuration
+                        ? configurationSmoke
+                        : directSmoke;
   const printEvidenceRoot = join(
     root,
     ".scratch/print-output",
@@ -399,27 +424,29 @@ try {
     mode: "installed-tgz",
     directory: join(printEvidenceRoot, "installed-tgz"),
   });
-  const exampleName = businessMode
-    ? "business"
-    : workbenchMode
-      ? "workbench"
-      : capabilitiesMode
-        ? "capabilities"
-        : detailsMode
-          ? "details"
-          : shellMode
-            ? "shell"
-            : workflowMode
-              ? "workflow"
-              : voucherMode
-                ? "voucher"
-                : documentMode
-                  ? "document"
-                  : reportMode
-                    ? "report"
-                    : configuration
-                      ? "configuration"
-                      : "direct";
+  const exampleName = modelMode
+    ? "model"
+    : businessMode
+      ? "business"
+      : workbenchMode
+        ? "workbench"
+        : capabilitiesMode
+          ? "capabilities"
+          : detailsMode
+            ? "details"
+            : shellMode
+              ? "shell"
+              : workflowMode
+                ? "workflow"
+                : voucherMode
+                  ? "voucher"
+                  : documentMode
+                    ? "document"
+                    : reportMode
+                      ? "report"
+                      : configuration
+                        ? "configuration"
+                        : "direct";
   const exampleRoot = join(root, "examples", exampleName);
   const exampleServer = await preview({
     root: exampleRoot,
@@ -475,42 +502,46 @@ try {
       "public exports",
       "single Vue/Vuetify/Router host resolution and npm installation tree",
       "no failed browser assets",
-      ...(workbenchMode
+      ...(modelMode
         ? [
-            "four simultaneous workbench sections, twelve-item expansion, normal/new-tab links, typed preference search/add/remove/reload and responsive layout in both consumer contexts",
+            "model-only authentication/customer/nested boundaries/original-request recovery",
           ]
-        : detailsMode
+        : workbenchMode
           ? [
-              "grouped raw facts, historical references, read-only child keyboard inspection, local draft leave confirmation, write locks, authentication cleanup and host beforeunload cleanup in both consumer contexts",
+              "four simultaneous workbench sections, twelve-item expansion, normal/new-tab links, typed preference search/add/remove/reload and responsive layout in both consumer contexts",
             ]
-          : shellMode
+          : detailsMode
             ? [
-                "auth flows, app themes/defaults, all six view consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
+                "grouped raw facts, historical references, read-only child keyboard inspection, local draft leave confirmation, write locks, authentication cleanup and host beforeunload cleanup in both consumer contexts",
               ]
-            : workflowMode
+            : shellMode
               ? [
-                  "workflow node/target eligibility, exact audit reconciliation, voucher/runtime consumer routing and refresh-only retry in both contexts",
+                  "auth flows, app themes/defaults, all six view consumers, navigation links/new tab, retries, account and responsive navigation in both contexts",
                 ]
-              : voucherMode
+              : workflowMode
                 ? [
-                    "voucher header/detail/child dialog, local and outer draft cancellation, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
+                    "workflow node/target eligibility, exact audit reconciliation, voucher/runtime consumer routing and refresh-only retry in both contexts",
                   ]
-                : documentMode
+                : voucherMode
                   ? [
-                      "document official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
+                      "voucher header/detail/child dialog, local and outer draft cancellation, source adoption, attachments, independent script identity, approvals/history and exact reconciliation in both consumer contexts",
                     ]
-                  : reportMode
+                  : documentMode
                     ? [
-                        "report dynamic columns, finite presentation/groups, isolated adopted context, retained valid reads, authority expiry, restore and cancellation; parameter total/hasMore and typed DTO examples",
+                        "document official/candidate/history/audit, local blocks, stage/read/submit/approve, exact reconciliation and refresh-only retry in both consumer contexts",
                       ]
-                    : configuration
+                    : reportMode
                       ? [
-                          "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                          "report dynamic columns, finite presentation/groups, isolated adopted context, retained valid reads, authority expiry, restore and cancellation; parameter total/hasMore and typed DTO examples",
                         ]
-                      : [
-                          "browser create/edit and 20 examples",
-                          "phone record cards retain field labels, exact selection and row operations; desktop tables restored",
-                        ]),
+                      : configuration
+                        ? [
+                            "configuration read/edit/save, conflict, exact reconciliation, refresh-only retry, three examples",
+                          ]
+                        : [
+                            "browser create/edit and 20 examples",
+                            "phone record cards retain field labels, exact selection and row operations; desktop tables restored",
+                          ]),
     ],
     exitCode: 0,
   };
