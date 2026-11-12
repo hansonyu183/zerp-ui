@@ -1,3 +1,7 @@
+import {
+  modelSubmissionBinding,
+  type ModelSubmissionBinding,
+} from "./model-submission-binding";
 import type { Fields, Column, WriteResult } from "./contracts";
 export type DocumentAction = "approve" | "enable" | "disable";
 export type DocumentSnapshot<D, I, S, O, H> = {
@@ -97,6 +101,7 @@ export type DocumentDefinition<
   A extends object,
   E = never,
 > = {
+  [modelSubmissionBinding]?: ModelSubmissionBinding<D>;
   resource: string;
   title: string;
   fields: Fields<D>;

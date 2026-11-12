@@ -3,7 +3,7 @@ import {
   type DocumentAdapter,
   type StageAttempt,
   type DocumentAttempt,
-} from "../src/index";
+} from "./fixtures/assembly";
 type D = { name: string; enabled: boolean };
 type I = { submission: string; revision: string };
 type Owner = { archive: string };

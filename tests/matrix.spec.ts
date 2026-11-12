@@ -8,7 +8,7 @@ import type { Component } from "vue";
 import { mount, flushPromises, DOMWrapper } from "@vue/test-utils";
 import { it, expect, afterEach } from "vitest";
 import CrudView from "../src/CrudView.vue";
-import { exampleDefinition, resourceCases } from "../examples/direct/matrix";
+import { exampleDefinition, resourceCases } from "./fixtures/direct/matrix";
 const mounted: ReturnType<typeof mount>[] = [];
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount();

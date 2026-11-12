@@ -1,7 +1,11 @@
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { afterEach, expect, it, vi } from "vitest";
-import { AppPage, defineConfigurationPage, domainBlocks } from "../src/index";
+import {
+  AppPage,
+  defineConfigurationPage,
+  domainBlocks,
+} from "./fixtures/assembly";
 import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 type Draft = {
   first: { name: string };

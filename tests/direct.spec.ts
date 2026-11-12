@@ -8,7 +8,7 @@ import { hostAndDialogButtons } from "./host-and-dialog-buttons";
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { describe, it, expect, vi } from "vitest";
-import { defineCrud } from "../src/index";
+import { defineCrud } from "./fixtures/assembly";
 import CrudView from "../src/CrudView.vue";
 const definition = () =>
   defineCrud({
@@ -86,8 +86,10 @@ const permissions = { query: true, create: true, write: true, reconcile: true };
 const start = async (
   d: Omit<ReturnType<typeof definition>, "reconcile"> & {
     reconcile?: (
-      a: import("../src/index").Attempt<{ name: string }, string>,
-    ) => Promise<import("../src/index").ReconcileResult<unknown, string>>;
+      a: import("./fixtures/assembly").Attempt<{ name: string }, string>,
+    ) => Promise<
+      import("./fixtures/assembly").ReconcileResult<unknown, string>
+    >;
   },
   scope = "a",
 ) => {
@@ -151,7 +153,7 @@ it("keeps explicit failures retryable without losing the draft", async () => {
 it("isolates old scope reads and records late unknown writes in the original scope", async () => {
   const d = definition(),
     w = await start(d),
-    pending = deferred<import("../src/index").WriteResult>();
+    pending = deferred<import("./fixtures/assembly").WriteResult>();
   vi.mocked(d.adapter.save).mockReturnValueOnce(pending.promise);
   await click(w, "编辑");
   await click(w, "保存");
@@ -169,7 +171,9 @@ it("isolates old scope reads and records late unknown writes in the original sco
 it("ignores an out-of-order query after changing scope", async () => {
   const d = definition(),
     pending =
-      deferred<import("../src/index").Page<{ id: string; name: string }>>();
+      deferred<
+        import("./fixtures/assembly").Page<{ id: string; name: string }>
+      >();
   vi.mocked(d.adapter.query).mockReturnValueOnce(pending.promise);
   const w = await start(d);
   await w.setProps({ scope: "b" });
@@ -183,7 +187,9 @@ it("ignores an out-of-order query after changing scope", async () => {
 it("requires evidence for the exact original attempt to reconcile", async () => {
   const base = definition(),
     reconcile = vi.fn(
-      async (a: import("../src/index").Attempt<{ name: string }, string>) => ({
+      async (
+        a: import("./fixtures/assembly").Attempt<{ name: string }, string>,
+      ) => ({
         status: "applied" as const,
         attemptId: "wrong",
         evidence: { id: a.id },

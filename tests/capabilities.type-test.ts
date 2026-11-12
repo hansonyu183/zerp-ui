@@ -10,7 +10,7 @@ import {
   type WritePersistence,
   type Attempt,
   type TaskPage,
-} from "../src/index";
+} from "./fixtures/assembly";
 type Model = {
   process: {
     input: { quantity: string };
@@ -166,7 +166,7 @@ const badFont: PrintDocument = {
 void [badRotation, badFont];
 
 // Complex drafts keep nested field/value types and collaboration on the public contract.
-import { domainBlocks, type Fields } from "../src/index";
+import { domainBlocks, type Fields } from "./fixtures/assembly";
 type ComplexValues = {
   profile: { count: number; amount: string };
   rows: { ratio: string }[];

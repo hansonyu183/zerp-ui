@@ -3,6 +3,7 @@
   lang="ts"
   generic="D extends object, F extends object, R extends object, I, E = never"
 >
+import { modelBinding } from "./model-binding";
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import { VDefaultsProvider, VBtn, VCard, VDialog } from "vuetify/components";
 import RecordEditor from "./RecordEditor.vue";
@@ -38,9 +39,9 @@ import { formFacts, groupFields } from "./details";
 import DynamicForm from "./DynamicForm.vue";
 import DataList from "./DataList.vue";
 import type { RecordLink } from "./shell";
-import { equalValues } from "./editor-values";
+import { equalValues, clearSecrets } from "./editor-values";
 import { clone, message } from "./clone";
-import { setValueAt, valueAt } from "./model";
+import { setValueAt, valueAt } from "./business-type";
 import { validate } from "./validation";
 import { writeLock } from "./write-lock";
 import { writeRecovery } from "./write-recovery";
@@ -208,8 +209,68 @@ let version = 0,
   editVersion = 0,
   active = true;
 const current = (v: number) => active && v === version;
+const displayedResult = computed<Page<R>>(() => {
+  const binding = props.definition[modelBinding];
+  return binding
+    ? {
+        ...result.value,
+        items: result.value.items.flatMap((row) => {
+          const current = binding.row(row);
+          return current ? [current] : [];
+        }),
+      }
+    : result.value;
+});
+watch(
+  () => {
+    const identity = editor.value?.identity;
+    return identity !== undefined && props.definition[modelBinding]?.ready()
+      ? props.definition[modelBinding]?.detail(identity)
+      : undefined;
+  },
+  (value) => {
+    if (
+      !props.definition[modelBinding] ||
+      !editor.value ||
+      editor.value.identity === undefined
+    )
+      return;
+    if (!value) {
+      editor.value = null;
+      initial.value = null;
+      editVersion++;
+      return;
+    }
+    if (editor.value.readOnly && lock.value.phase === "idle") {
+      if (!equalValues(editor.value.values, value))
+        editor.value = { ...editor.value, values: adoptValues(value) };
+      if (!equalValues(initial.value, value))
+        initial.value = adoptValues(value);
+    } else {
+      // Revoked fields disappear immediately, without overwriting retained draft values.
+      const keys = new Set(Object.keys(value));
+      const prune = (data: D) =>
+        Object.fromEntries(
+          Object.entries(data).filter(([key]) => keys.has(key)),
+        ) as D;
+      const pruned = prune(editor.value.values);
+      if (!equalValues(editor.value.values, pruned))
+        editor.value = { ...editor.value, values: pruned };
+      if (initial.value) {
+        const baseline = prune(initial.value);
+        if (!equalValues(initial.value, baseline)) initial.value = baseline;
+      }
+    }
+  },
+  { deep: true },
+);
+
 async function query(next = 1, submit = false) {
-  if (!props.permissions.query) return;
+  if (
+    !props.permissions.query ||
+    props.definition[modelBinding]?.disabled("query")
+  )
+    return;
   if (submit) {
     if (filterPending.value) return;
     const invalid = validate(
@@ -289,8 +350,7 @@ async function query(next = 1, submit = false) {
 }
 function adoptValues(value: D): D {
   const result = clone(value);
-  for (const field of props.definition.fields as readonly AnyField[])
-    if (field.type === "secret") setValueAt(result, field.key, undefined);
+  clearSecrets(props.definition.fields as readonly AnyField[], result);
   return result;
 }
 async function rebase() {
@@ -445,6 +505,11 @@ async function cancel(): Promise<boolean> {
   )
     return false;
   if (!current(v) || e !== editVersion || blocked.value) return false;
+  if (initial.value)
+    props.definition[modelBinding]?.draft(
+      initial.value,
+      editor.value?.identity,
+    );
   editor.value = null;
   initial.value = null;
   formPending.value = false;
@@ -531,12 +596,15 @@ const bindings = computed(() => {
           )
         )
           fieldIssue.value = undefined;
+        props.definition[modelBinding]?.draft(values, editor.value?.identity);
         editor.value = { ...editor.value!, values: clone(values) };
       }
     },
     calculated: (values: D) => {
-      if (live() && !blocked.value && props.permissions.query)
+      if (live() && !blocked.value && props.permissions.query) {
+        props.definition[modelBinding]?.draft(values, editor.value?.identity);
         editor.value = { ...editor.value!, values: clone(values) };
+      }
     },
     pending: (value: boolean) => {
       if (live()) formPending.value = value;
@@ -597,7 +665,17 @@ async function write(operation: Attempt<D, I>["operation"], row?: R) {
       ])
   )
     return;
-  if (operation === "create" && !props.permissions.create) return;
+  if (
+    operation === "create" &&
+    (!props.permissions.create ||
+      props.definition[modelBinding]?.disabled("create"))
+  )
+    return;
+  if (
+    operation === "save" &&
+    props.definition[modelBinding]?.disabled("save", editor.value?.identity)
+  )
+    return;
   if (
     row &&
     !props.definition
@@ -852,7 +930,7 @@ function listAction(action: ListAction, row: R) {
     blocked.value ||
     editor.value ||
     detailLoading.value ||
-    !result.value.items.includes(row) ||
+    !displayedResult.value.items.includes(row) ||
     !actions(row).includes(action)
   )
     return;
@@ -950,6 +1028,11 @@ watch(
   () => props.discardVersion,
   () => {
     if (lock.value.phase === "idle") {
+      if (initial.value)
+        props.definition[modelBinding]?.draft(
+          initial.value,
+          editor.value?.identity,
+        );
       editor.value = null;
       initial.value = null;
       formPending.value = false;
@@ -966,6 +1049,11 @@ watch(
   { immediate: true },
 );
 onBeforeUnmount(() => {
+  if (lock.value.phase === "idle" && initial.value)
+    props.definition[modelBinding]?.draft(
+      initial.value,
+      editor.value?.identity,
+    );
   active = false;
   editor.value = null;
   initial.value = null;
@@ -1011,7 +1099,12 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         color=""
         variant="tonal"
         type="submit"
-        :disabled="loading || filterPending"
+        :disabled="
+          loading ||
+          filterPending ||
+          !!definition[modelBinding]?.disabled('query')
+        "
+        :title="definition[modelBinding]?.disabled('query')"
         >查询</VBtn
       >
     </form>
@@ -1083,7 +1176,13 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       v-if="permissions.create && permissions.write"
       aria-label="新增"
       type="button"
-      :disabled="blocked || !!editor || detailLoading"
+      :disabled="
+        blocked ||
+        !!editor ||
+        detailLoading ||
+        !!definition[modelBinding]?.disabled('create')
+      "
+      :title="definition[modelBinding]?.disabled('create')"
       @click="begin()"
     >
       <span class="zerp-ui-icon" aria-hidden="true">&#xf0415;</span>新增
@@ -1120,12 +1219,12 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
             : undefined
       "
       @cell="(_cell, row) => openRow(row, true)"
-      :result="result"
+      :result="displayedResult"
       :page="page"
       :page-size="20"
       :loading="loading"
       :actions="actions"
-      :row-key="rowKey"
+      :row-key="rowKey ?? definition[modelBinding]?.key"
       :selected-keys="selectedKeys"
       @update:selected-keys="selectRows"
       :disabled="blocked || !!editor || detailLoading"
@@ -1311,7 +1410,20 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         type="button"
         v-if="!editor.readOnly && permissions.write"
         :disabled="
-          blocked || detailLoading || localPending || !permissions.write
+          blocked ||
+          detailLoading ||
+          localPending ||
+          !permissions.write ||
+          !!definition[modelBinding]?.disabled(
+            editor.creating ? 'create' : 'save',
+            editor.identity,
+          )
+        "
+        :title="
+          definition[modelBinding]?.disabled(
+            editor.creating ? 'create' : 'save',
+            editor.identity,
+          )
         "
         @click="write(editor.creating ? 'create' : 'save', editor.row)"
       >

@@ -1,4 +1,4 @@
-import { defineBusinessAccountPage } from "../src/index";
+import { defineBusinessAccountPage } from "./fixtures/assembly";
 const model = {
   kind: "object",
   name: "密码",

@@ -2,6 +2,8 @@
 
 正式规格见 [#40](https://github.com/hansonyu183/zerp-ui/issues/40)。本记录保留架构取舍，不维护实施状态。
 
+后续目标修订见 [ADR-0004](0004-reactive-business-model.md) 与 [#122](https://github.com/hansonyu183/zerp-ui/issues/122)：消费者页面定义及 AuthPage/AppPage 公开入口将收敛为单一响应式模型入口。下文布局所有权和固定布局约束继续有效；本源码通过 #123–#125 实施模型入口；正式发行证据见 #125，历史发行契约不追溯改变。
+
 为保持完整业务页面的统一交互与呈现，页面布局及领域区块内部布局均由 `@zerp/ui` 持有。消费者提供页面类型、数据、Adapter、字段、分组、顺序及业务事实；库决定标题、工具栏、筛选、列表、详情、编辑区域以及区块内部的排布、栅格、间距、折叠和响应式布局。Router 与页面选择仍归消费者。
 
 本决定收窄[实施规格 #7](https://github.com/hansonyu183/zerp-ui/issues/7)、[组件层级 #16](https://github.com/hansonyu183/zerp-ui/issues/16)及[后续设计 #32](https://github.com/hansonyu183/zerp-ui/issues/32)中的消费者布局扩展边界。主内容入口收窄为明确类型的页面；领域区块由库提供，消费者通过有限内容定义表达需求。取舍是消费者需要通过库增加所需区块，换取库对完整页面及局部排版的一致控制。

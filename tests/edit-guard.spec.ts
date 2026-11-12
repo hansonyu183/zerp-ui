@@ -3,7 +3,7 @@ import { DOMWrapper } from "@vue/test-utils";
 import { defineComponent, h, ref } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
-import { type EditWriteState } from "../src/index";
+import { type EditWriteState } from "./fixtures/assembly";
 import EditGuard from "../src/EditGuard.vue";
 import type { EditGuardHandle } from "../src/edit-guard";
 function host() {

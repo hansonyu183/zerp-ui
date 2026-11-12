@@ -10,7 +10,7 @@ import {
   type AppPageHandle,
   type BusinessObject,
   type PageDefinition,
-} from "../src/index";
+} from "./fixtures/assembly";
 const model = {
   kind: "object",
   name: "合成资料",

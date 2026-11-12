@@ -1,0 +1,205 @@
+import {
+  application,
+  object,
+  collection,
+  text,
+  boolean,
+  decimal,
+  type ModelInput,
+  type ModelWrite,
+} from "../src/model";
+const customer = () =>
+  object(
+    "客户",
+    {
+      id: text("编号", { readOnly: true }),
+      name: text("名称"),
+      enabled: boolean("启用"),
+      credit: decimal("额度"),
+    },
+    {
+      identity: ["id"],
+      operations: {
+        update: {
+          async run(request) {
+            const id: string | null = request.identity.id;
+            const credit: string | null = request.input.credit;
+            void [id, credit];
+            return { status: "success" };
+          },
+        },
+      },
+    },
+  );
+const customers = collection("客户", customer, {
+  operations: {
+    query: {
+      async run() {
+        return { items: [customer()], total: 1 };
+      },
+    },
+  },
+});
+object(
+  "错误操作",
+  {},
+  {
+    operations: {
+      // @ts-expect-error unknown operations are forbidden
+      erase: {
+        async run() {
+          return { status: "success" };
+        },
+      },
+    },
+  },
+);
+collection("错误层级", customer, {
+  operations: {
+    // @ts-expect-error update is a record operation
+    update: {
+      async run() {
+        return { status: "success" };
+      },
+    },
+  },
+});
+object(
+  "错误模板",
+  {},
+  {
+    // @ts-expect-error no templates
+    template: "<div />",
+  },
+);
+// @ts-expect-error field identity must exist
+object("错误身份", { id: text("编号") }, { identity: ["missing"] });
+type Input = ModelInput<ReturnType<typeof customer>>;
+const input: Input = { name: "合成", enabled: false, credit: "0.00" };
+const update: ModelWrite<{ name: string }, { id: string }> = {
+  // @ts-expect-error wrong result value
+  async run() {
+    return {
+      status: "success",
+      snapshot: { value: { name: 1 }, identity: { id: "a" }, concurrency: "1" },
+    };
+  },
+};
+void [application, customers, input, update];
+
+const readonlyInput: Input = {
+  // @ts-expect-error read-only fields cannot enter input
+  id: "a",
+  name: "n",
+  enabled: false,
+  credit: "0",
+};
+void readonlyInput;
+
+const query = object("条件", { search: text("搜索") });
+collection("精确查询输入", customer, {
+  operations: {
+    query: {
+      input: query,
+      async run(context) {
+        const search: string | null = context.input.search;
+        // @ts-expect-error input comes from this operation's input node
+        void context.input.password;
+        void search;
+        return { items: [], total: 0 };
+      },
+    },
+  },
+});
+const wrongEvidence: ModelWrite<{ name: string }, { id: string }> = {
+  async run() {
+    return { status: "unknown" };
+  },
+  // @ts-expect-error evidence must carry the matching record and identity
+  async reconcile(request) {
+    return {
+      status: "applied",
+      requestId: request.requestId,
+      evidence: { value: { name: "n" }, identity: { id: 1 }, concurrency: "1" },
+    };
+  },
+};
+const invalidField: import("../src/model").ModelWriteResult<
+  { name: string },
+  { id: string }
+> = {
+  status: "failure",
+  message: "校验",
+  // @ts-expect-error errors cannot address unrelated fields
+  fields: [{ field: "password", message: "校验" }],
+};
+collection("新增最终身份", customer, {
+  operations: {
+    create: {
+      // @ts-expect-error successful create requires authoritative final identity and concurrency
+      async run() {
+        return { status: "success" };
+      },
+    },
+  },
+});
+const isolated = object(
+  "独立只读对象",
+  { value: text("值") },
+  {
+    operations: {
+      get: {
+        async run() {
+          return { value: { value: "x" }, identity: {}, concurrency: "1" };
+        },
+      },
+    },
+  },
+);
+const parent = object("父", {
+  name: text("名称"),
+  children: customers,
+  isolated,
+});
+type ParentInput = ModelInput<typeof parent>;
+const parentInput: ParentInput = { name: "n" };
+// @ts-expect-error independent children do not enter a parent submission
+const mixedInput: ParentInput = { name: "n", children: [] };
+void [wrongEvidence, invalidField, parentInput, mixedInput];
+
+const foreignContact = () =>
+  object(
+    "联系人",
+    { id: text("编号", { readOnly: true }), name: text("姓名") },
+    {
+      identity: ["id"],
+      operations: {
+        update: {
+          async run(
+            _request: import("../src/model").ModelRequest<
+              { name: string | null },
+              { id: string | null },
+              readonly [{ foreign: string }]
+            >,
+          ) {
+            return { status: "success" };
+          },
+        },
+      },
+    },
+  );
+const foreignChildren = {
+  id: text("编号"),
+  contacts: collection("所属联系人", foreignContact),
+};
+// @ts-expect-error nested contact ancestor must be this parent's actual identity
+object("错误祖先配对", foreignChildren, {
+  identity: ["id"],
+  operations: {
+    update: {
+      async run() {
+        return { status: "success" };
+      },
+    },
+  },
+});

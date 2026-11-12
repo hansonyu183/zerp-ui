@@ -6,7 +6,7 @@ import {
   defineVoucher,
   type VoucherSnapshot,
   type VoucherAdapter,
-} from "../src/index";
+} from "./fixtures/assembly";
 import VoucherView from "../src/VoucherSubmission.vue";
 type D = { name: string; amount: string };
 type Snap = VoucherSnapshot<
@@ -95,7 +95,7 @@ const click = async (w: ReturnType<typeof mount>, name: string) => {
   await flushPromises();
 };
 const start = async (
-  d: import("../src/index").VoucherDefinition<
+  d: import("./fixtures/assembly").VoucherDefinition<
     D,
     string,
     string,
@@ -157,7 +157,7 @@ it("creates and clones detached drafts, preserves voucher/revision/submission an
   w.unmount();
 });
 it("keeps script saves and voucher submissions independently identified and blocks unknown across close/remount", async () => {
-  const { defineConfiguration } = await import("../src/index");
+  const { defineConfiguration } = await import("./fixtures/assembly");
   const d = definition();
   const script = defineConfiguration({
     resource: "script",
@@ -210,7 +210,10 @@ it("requires original business evidence; reading, closing and successful-refresh
     async (
       _a: unknown,
     ): Promise<
-      import("../src/index").VoucherReconciliation<string, { receipt: string }>
+      import("./fixtures/assembly").VoucherReconciliation<
+        string,
+        { receipt: string }
+      >
     > => ({
       status: "applied",
       operation: "business",

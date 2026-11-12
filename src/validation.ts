@@ -1,6 +1,6 @@
 import { fieldEnabled, type FormField } from "./form-field";
 import type { AnyField, Fields } from "./contracts";
-import { valueAt } from "./model";
+import { valueAt } from "./business-type";
 export type FieldValidationIssue<T extends object> = Readonly<{
   key: Extract<keyof T, string>;
   message: string;

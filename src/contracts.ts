@@ -1,3 +1,4 @@
+import { modelBinding, type ModelCrudBinding } from "./model-binding";
 import type { WritePersistence } from "./write-recovery";
 import type { DraftCollaboration } from "./collaboration";
 export type Page<T> = { items: readonly T[] } & (
@@ -53,6 +54,7 @@ export type AnyField = Common<string> &
     | {
         type: "reference";
         adapter: ReferenceAdapter;
+        disabledReason?: string;
         parentKey?: string;
         valueMode?: "id";
         hierarchical?: boolean;
@@ -60,6 +62,7 @@ export type AnyField = Common<string> &
     | {
         type: "references";
         adapter: ReferenceAdapter;
+        disabledReason?: string;
         parentKey?: string;
         valueMode?: "id";
         hierarchical?: boolean;
@@ -212,6 +215,7 @@ export type CrudDefinition<
   I,
   E = never,
 > = {
+  [modelBinding]?: ModelCrudBinding<D, R, I>;
   resource: string;
   title: string;
   initialSort?: ListSort;

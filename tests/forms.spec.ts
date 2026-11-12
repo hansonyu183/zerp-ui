@@ -7,7 +7,7 @@ import {
   type Fields,
   type ReferenceValue,
   type ReferenceAdapter,
-} from "../src/index";
+} from "./fixtures/assembly";
 import DynamicForm from "../src/DynamicForm.vue";
 import ReferencePicker from "../src/ReferencePicker.vue";
 const click = async (

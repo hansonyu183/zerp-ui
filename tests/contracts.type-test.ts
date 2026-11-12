@@ -1,4 +1,4 @@
-import { defineCrud, type Fields, type CrudAdapter } from "../src/index";
+import { defineCrud, type Fields, type CrudAdapter } from "./fixtures/assembly";
 type Draft = {
   name: string;
   enabled: boolean;
@@ -67,7 +67,7 @@ import {
   validateFields,
   type FormValidationState,
   type EditProtection,
-} from "../src/index";
+} from "./fixtures/assembly";
 const validated = validateFields<Draft>(good, {
   name: "",
   enabled: false,

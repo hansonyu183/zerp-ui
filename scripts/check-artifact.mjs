@@ -63,60 +63,50 @@ export async function checkArtifact(tgz, expected) {
     assert.deepEqual(
       publicNames.sort(),
       [
-        "AppPage",
-        "AuthPage",
+        "BusinessApplication",
         "ReportUnavailable",
         "createShellThemes",
         "defaultThemeChoice",
-        "defineAccountPage",
-        "defineTaskPage",
-        "defineBatchPage",
-        "defineConfiguration",
-        "defineConfigurationPage",
-        "defineCrud",
-        "defineCrudPage",
-        "defineBusinessPage",
-        "defineBusinessAccountPage",
-        "defineBusinessWorkbenchPage",
-        "defineBusinessWorkbenchPreferencesPage",
-        "projectBusinessFields",
-        "projectBusinessColumns",
-        "projectReportParameters",
-        "projectReportColumns",
-        "projectTaskFields",
-        "projectBusinessVoucherEditor",
-        "projectBusinessBatchEntries",
-        "defineModulePage",
-        "applicationNavigation",
-        "defineDetailsPage",
-        "defineDocument",
-        "defineDocumentPage",
-        "defineReport",
-        "defineReportPage",
-        "defineVoucher",
-        "defineOperation",
-        "defineOperationPage",
-        "defineVoucherPage",
-        "defineWorkflow",
-        "defineWorkflowPage",
-        "defineWorkbenchPage",
-        "defineWorkbenchPreferencesPage",
-        "domainBlocks",
-        "validateFields",
-        "operationLabels",
       ].sort(),
-      "Only the two complete components and finite non-component APIs may be exported",
+      "Only the model application and necessary host APIs may be exported",
     );
-    const modelSource = await readFile(join(root, "dist/model.js"), "utf8");
-    assert.equal(
-      ts.preProcessFile(modelSource, true, true).importedFiles.length,
-      0,
-      "The public model must not load UI code or dependencies",
-    );
-    assert.ok(
-      !/\b(?:window|document|localStorage)\b|\.css["']/.test(modelSource),
-      "The model must run without a browser",
-    );
+    const pureModules = new Set();
+    async function checkPure(path) {
+      if (pureModules.has(path)) return;
+      pureModules.add(path);
+      const source = await readFile(path, "utf8");
+      // Protocol strings such as "document" are facts, not DOM identifiers.
+      const scanner = ts.createScanner(
+        ts.ScriptTarget.Latest,
+        true,
+        ts.LanguageVariant.Standard,
+        source,
+      );
+      for (
+        let token = scanner.scan();
+        token !== ts.SyntaxKind.EndOfFileToken;
+        token = scanner.scan()
+      ) {
+        assert.ok(
+          token !== ts.SyntaxKind.Identifier ||
+            !["window", "document", "localStorage"].includes(
+              scanner.getTokenText(),
+            ),
+          "The model must run without a browser",
+        );
+      }
+      for (const { fileName } of ts.preProcessFile(source, true, true)
+        .importedFiles) {
+        assert.ok(
+          fileName.startsWith("./") && fileName.endsWith(".js"),
+          "The public model must not load dependencies",
+        );
+        const target = resolve(dirname(path), fileName);
+        assert.ok(target.startsWith(`${root}/dist/`));
+        await checkPure(target);
+      }
+    }
+    await checkPure(join(root, "dist/model.js"));
     const dependencies = { ...pkg.dependencies, ...pkg.peerDependencies };
     const imports = new Set();
     for (const file of files.filter((file) => /\.(?:js|d\.ts)$/.test(file))) {

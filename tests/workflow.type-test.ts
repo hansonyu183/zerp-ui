@@ -2,7 +2,7 @@ import {
   defineWorkflow,
   type WorkflowAttempt,
   type WorkflowAdapter,
-} from "../src/index";
+} from "./fixtures/assembly";
 type Attempt = WorkflowAttempt<
   { id: string },
   string,

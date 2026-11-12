@@ -4,7 +4,7 @@ import {
   type VoucherAttempt,
   type VoucherIdentity,
   type VoucherStageAttempt,
-} from "../src/index";
+} from "./fixtures/assembly";
 type D = { name: string; amount: string; enabled: boolean };
 type Submission = { id: string; payload: { amount: string } };
 type Identity = VoucherIdentity<{ id: string }, string, Submission>;

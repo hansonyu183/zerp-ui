@@ -9,7 +9,7 @@
   "
 >
 import Feedback from "./Feedback.vue";
-import { valueAt } from "./model";
+import { valueAt } from "./business-type";
 import FeedbackRegion from "./FeedbackRegion.vue";
 import { VBtn, VCard, VCheckboxBtn, VTable } from "vuetify/components";
 import { computed } from "vue";

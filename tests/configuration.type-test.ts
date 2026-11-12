@@ -1,4 +1,7 @@
-import { defineConfiguration, type ConfigurationAdapter } from "../src/index";
+import {
+  defineConfiguration,
+  type ConfigurationAdapter,
+} from "./fixtures/assembly";
 type Draft = { name: string; enabled: boolean };
 type Identity = { key: string; revision: string };
 const adapter: ConfigurationAdapter<Draft, {}, Draft, Identity> = {
@@ -35,13 +38,13 @@ defineConfiguration<Draft, {}, Draft, number>({
   // @ts-expect-error identity is not interchangeable with a numeric id
   adapter,
 });
-const snapshot: import("../src/index").ConfigurationDraft<
+const snapshot: import("./fixtures/assembly").ConfigurationDraft<
   { nested: { label: string } },
   Identity
 > = { values: { nested: { label: "snapshot" } } };
 // @ts-expect-error draft snapshots are deeply readonly facts
 snapshot.values.nested.label = "consumer must not own writes";
-declare const entrance: import("../src/index").AppPageHandle;
+declare const entrance: import("./fixtures/assembly").AppPageHandle;
 const leave: Promise<boolean> = entrance.requestLeave();
 // @ts-expect-error Complete pages expose no arbitrary runtime command.
 entrance.execute("save");

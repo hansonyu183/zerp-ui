@@ -8,13 +8,13 @@ import {
   type BatchJournal,
   type OperationDefinition,
   type OperationPreview,
-} from "../src/index";
-import { AppPage as InstalledAppPage } from "@zerp/ui";
-import { migrationPage } from "../examples/capabilities/migration-consumer";
+} from "./fixtures/assembly";
+import { AppPage as InternalAppPage } from "./fixtures/assembly";
+import { migrationPage } from "./fixtures/capabilities/migration-consumer";
 import {
   legacyBatch,
   migrationOwner,
-} from "../examples/capabilities/migration-fixtures";
+} from "./fixtures/capabilities/migration-fixtures";
 type Model = {
   process: {
     input: { value: string };
@@ -225,7 +225,7 @@ async function migrated(kind: "batch" | "single", source?: string) {
     history: createMemoryHistory(),
     routes: [{ path: "/", component: { template: "<span/>" } }],
   });
-  const w = mount(InstalledAppPage, {
+  const w = mount(InternalAppPage, {
     props: {
       page: migrationPage(kind, source),
       scope: migrationOwner.scope,

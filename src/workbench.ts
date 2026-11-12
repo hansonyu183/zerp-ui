@@ -59,7 +59,7 @@ import {
   defineWorkbenchPreferencesPage,
   type PageDefinition,
 } from "./pages";
-import type { BusinessObject } from "./model";
+import type { BusinessObject } from "./business-type";
 /** Workbench sections retain their business shape and use the model's order. */
 export function defineBusinessWorkbenchPage(
   options: Omit<WorkbenchPage, "title" | "sections" | "informationTitle"> & {

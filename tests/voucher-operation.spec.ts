@@ -9,8 +9,8 @@ import {
   type Scenario,
   type Store,
   type SyntheticRequest,
-} from "../examples/voucher/operation-adapter";
-import type { OperationIntent } from "../src/index";
+} from "./fixtures/voucher/operation-adapter";
+import type { OperationIntent } from "./fixtures/assembly";
 import type { OperationHandle } from "../src/operation";
 // Web Locks is the browser concurrency seam; real cross-page behavior is exercised in the installed consumer.
 Object.defineProperty(navigator, "locks", {

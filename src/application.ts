@@ -1,4 +1,4 @@
-import { applicationGroups, type ApplicationObject } from "./model";
+import { applicationGroups, type ApplicationObject } from "./business-type";
 import type { NavigationGroup } from "./shell";
 
 /** Consumer-owned transport bindings; the business model contains no routes. */

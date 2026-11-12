@@ -1,6 +1,10 @@
 import { computed, h, toValue, type MaybeRefOrGetter } from "vue";
-import type { BusinessType, BusinessValue, BusinessObject } from "./model";
-import { formSections, propertyAt, setValueAt, valueAt } from "./model";
+import type {
+  BusinessType,
+  BusinessValue,
+  BusinessObject,
+} from "./business-type";
+import { formSections, propertyAt, setValueAt, valueAt } from "./business-type";
 import type {
   AnyField,
   Column,

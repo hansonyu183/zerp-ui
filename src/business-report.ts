@@ -1,5 +1,9 @@
-import type { BusinessType, BusinessObject, BusinessValue } from "./model";
-import { propertyAt } from "./model";
+import type {
+  BusinessType,
+  BusinessObject,
+  BusinessValue,
+} from "./business-type";
+import { propertyAt } from "./business-type";
 import { projectBusinessFields, projectBusinessColumns } from "./business";
 import type { AnyField, Fields, ReferenceAdapter } from "./contracts";
 import type { ReportParameters, ReportColumn } from "./report";

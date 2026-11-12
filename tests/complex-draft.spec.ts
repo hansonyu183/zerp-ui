@@ -6,14 +6,18 @@ import {
 } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { afterEach, expect, it, vi } from "vitest";
-import { AppPage, type AppPageHandle, type DraftCollaboration } from "@zerp/ui";
+import {
+  AppPage,
+  type AppPageHandle,
+  type DraftCollaboration,
+} from "./fixtures/assembly";
 import {
   createComplexDraft,
   complexCollaboration,
   type ComplexDraft,
-} from "../examples/capabilities/complex-draft";
+} from "./fixtures/capabilities/complex-draft";
 import { hostAndDialogButtons } from "./host-and-dialog-buttons";
-vi.mock("@zerp/ui", async () => await import("../src/index"));
+vi.mock("./fixtures/assembly", async () => await import("./fixtures/assembly"));
 // These scenarios mount nested record dialogs and full complex field editors.
 vi.setConfig({ testTimeout: 60_000 });
 const mounted: VueWrapper[] = [];

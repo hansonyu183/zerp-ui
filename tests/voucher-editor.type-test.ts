@@ -1,4 +1,4 @@
-import type { VoucherEditorDefinition } from "../src/index";
+import type { VoucherEditorDefinition } from "./fixtures/assembly";
 
 type Header = { date: string };
 type Child = { amount: string };

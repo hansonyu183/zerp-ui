@@ -3,7 +3,7 @@ import {
   type ReportAdapter,
   type ReportParameters,
   type ReportColumn,
-} from "../src/index";
+} from "./fixtures/assembly";
 type Parameters = {
   period: string[];
   minimum: string;
@@ -75,7 +75,7 @@ import type {
   FixedReportAdapter,
   ReportDrill,
   ReportSnapshot,
-} from "../src/index";
+} from "./fixtures/assembly";
 type ResultId = { readonly result: string };
 type RowId = `row:${string}`;
 type Target = { readonly voucher: string };
@@ -174,7 +174,7 @@ import type {
   ReportAppearance,
   ReportPresentation,
   ListAction,
-} from "../src/index";
+} from "./fixtures/assembly";
 const presentation: ReportPresentation<Row, RowId> = {
   rows: [
     {
@@ -262,7 +262,7 @@ import {
   projectTaskFields,
   projectReportColumns,
   type Fields,
-} from "../src/index";
+} from "./fixtures/assembly";
 const inputModel = {
   kind: "object",
   name: "条件",

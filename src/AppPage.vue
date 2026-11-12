@@ -2,6 +2,7 @@
 defineOptions({ inheritAttrs: false });
 defineSlots<{}>();
 import FeedbackHost from "./FeedbackHost.vue";
+import ModelNotices from "./ModelNotices.vue";
 import { navigationSections } from "./navigation-sections";
 import PageContentHost from "./PageContentHost.vue";
 import type { PageDefinition, AppPageHandle } from "./pages";
@@ -172,6 +173,7 @@ function navigated(event: MouseEvent) {
         @keydown="escapeNavigation"
       >
         <FeedbackHost>
+          <ModelNotices />
           <VAppBar name="app-bar" :order="0" :height="xs ? 56 : 48">
             <div class="zerp-shell-toolbar">
               <VBtn

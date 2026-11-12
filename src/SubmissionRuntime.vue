@@ -3,6 +3,7 @@
   lang="ts"
   generic="D extends object, I, S, O, H, A extends object, E = never"
 >
+import { modelSubmissionBinding } from "./model-submission-binding";
 import { VBtn, VCard, VFileInput } from "vuetify/components";
 import { equalValues } from "./editor-values";
 import type { EditProtection } from "./edit-guard";
@@ -201,7 +202,10 @@ function prepare(operation: "create" | "clone") {
     disabled.value ||
     loading.value ||
     editor.value ||
-    !props.definition.vouchers
+    !props.definition.vouchers ||
+    (operation === "create"
+      ? props.definition.vouchers.createDisabledReason
+      : props.definition.vouchers.cloneDisabledReason)
   )
     return;
   try {
@@ -451,7 +455,9 @@ async function submit() {
   > = {
     ...base(draft.source),
     operation: "submit",
-    input: clone(draft.values),
+    input:
+      props.definition[modelSubmissionBinding]?.input(clone(draft.values)) ??
+      clone(draft.values),
     attachments: [
       ...draft.source.attachments.map((a) => clone(a.handle)),
       ...target.context!.files.map((f) => clone(f.staged!.handle)),
@@ -722,7 +728,10 @@ onBeforeUnmount(() => {
         color=""
         variant="tonal"
         v-if="vouchers.empty && permissions.write"
-        :disabled="disabled || loading || editor"
+        :disabled="
+          disabled || loading || editor || !!vouchers.createDisabledReason
+        "
+        :title="vouchers.createDisabledReason"
         @click="prepare('create')"
       >
         新增
@@ -807,7 +816,8 @@ onBeforeUnmount(() => {
             permissions.write &&
             !editor
           "
-          :disabled="disabled || loading"
+          :disabled="disabled || loading || !!vouchers.cloneDisabledReason"
+          :title="vouchers.cloneDisabledReason"
           @click="prepare('clone')"
         >
           克隆

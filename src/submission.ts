@@ -18,6 +18,8 @@ export type SubmissionDefinition<
   adapter: Omit<DocumentAdapter<D, I, S, O, H, A>, "query"> &
     Partial<Pick<DocumentAdapter<D, I, S, O, H, A>, "query">>;
   vouchers?: {
+    createDisabledReason?: string;
+    cloneDisabledReason?: string;
     list(input: {
       scope: string;
       page: number;

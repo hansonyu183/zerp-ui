@@ -59,10 +59,131 @@ export type RemovedHandles = [
   EditGuardHandle,
 ];
 
-import { AppPage, AuthPage } from "@zerp/ui";
-declare const applicationSlots: InstanceType<typeof AppPage>["$slots"];
-// @ts-expect-error AppPage has no consumer content slot.
-applicationSlots.default();
-declare const authenticationSlots: InstanceType<typeof AuthPage>["$slots"];
-// @ts-expect-error AuthPage has no consumer content slot.
-authenticationSlots.default();
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { AppPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { AuthPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineCrud } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineConfiguration } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineReport } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineDocument } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineVoucher } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineWorkflow } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineOperation } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineCrudPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineConfigurationPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineReportPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineDocumentPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineVoucherPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineWorkflowPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineOperationPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineAccountPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineDetailsPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineTaskPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineBatchPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineWorkbenchPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineWorkbenchPreferencesPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineBusinessPage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { defineModulePage } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { applicationNavigation } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { projectBusinessFields } from "@zerp/ui";
+
+// @ts-expect-error Retired assembly APIs have no public compatibility export.
+import { domainBlocks } from "@zerp/ui";
+
+import { BusinessApplication } from "@zerp/ui";
+declare const slots: InstanceType<typeof BusinessApplication>["$slots"];
+// @ts-expect-error The model application owns its content.
+slots.default();
+
+void [
+  CrudView,
+  ConfigurationView,
+  ReportView,
+  DocumentView,
+  VoucherView,
+  WorkflowView,
+  DynamicForm,
+  ReferencePicker,
+  DataList,
+  RecordDetails,
+  EditGuard,
+  VoucherEditor,
+  configurationBlock,
+  AppPage,
+  AuthPage,
+  defineCrud,
+  defineConfiguration,
+  defineReport,
+  defineDocument,
+  defineVoucher,
+  defineWorkflow,
+  defineOperation,
+  defineCrudPage,
+  defineConfigurationPage,
+  defineReportPage,
+  defineDocumentPage,
+  defineVoucherPage,
+  defineWorkflowPage,
+  defineOperationPage,
+  defineAccountPage,
+  defineDetailsPage,
+  defineTaskPage,
+  defineBatchPage,
+  defineWorkbenchPage,
+  defineWorkbenchPreferencesPage,
+  defineBusinessPage,
+  defineModulePage,
+  applicationNavigation,
+  projectBusinessFields,
+  domainBlocks,
+];
