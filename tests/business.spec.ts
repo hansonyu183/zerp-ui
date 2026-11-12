@@ -1,3 +1,4 @@
+import { ref } from "vue";
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { afterEach, expect, it, vi } from "vitest";
@@ -399,4 +400,35 @@ it("opens mobile module records in a dialog with the authorized edit entry", asy
     });
     window.dispatchEvent(new Event("resize"));
   }
+});
+
+it("hides write actions while an original request is recovered without write qualification", async () => {
+  const f = fixture("read-only-recovery", true),
+    allowed = ref(true);
+  const definition = {
+    ...f.definition,
+    reconcile: async (attempt: Attempt<Data, string>) => ({
+      status: "not-applied" as const,
+      attemptId: attempt.id,
+      evidence: "original receipt",
+    }),
+  };
+  host(
+    defineBusinessPage(() => ({
+      definition,
+      permissions: { ...permissions, write: allowed.value },
+    })),
+  );
+  await flushPromises();
+  await click(document, "编辑");
+  await click(document.querySelector('[role="dialog"]')!, "保存");
+  allowed.value = false;
+  await flushPromises();
+  expect(
+    Array.from(document.querySelectorAll("button")).some(
+      (button) => button.textContent?.trim() === "保存",
+    ),
+  ).toBe(false);
+  await click(document, "核实本次请求");
+  expect(f.save).toHaveBeenCalledTimes(1);
 });

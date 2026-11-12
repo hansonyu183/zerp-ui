@@ -1309,7 +1309,7 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
         color="primary"
         variant="flat"
         type="button"
-        v-if="!editor.readOnly"
+        v-if="!editor.readOnly && permissions.write"
         :disabled="
           blocked || detailLoading || localPending || !permissions.write
         "
