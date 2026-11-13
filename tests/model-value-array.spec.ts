@@ -503,7 +503,7 @@ it("rejects a stale opaque row at save preparation instead of adopting a writabl
   field.value = "未采用修改";
   field.dispatchEvent(new Event("input", { bubbles: true }));
   await flushPromises();
-  target.units = units();
+  Reflect.set(target, "units", units());
   await flushPromises();
   await click("保存");
   expect(run).not.toHaveBeenCalled();
