@@ -4,13 +4,13 @@
 
 ## 固定版本安装
 
-本源码为 **0.40.1**，修复初始记录深链读取竞争及报表条件计算与结果反馈循环；正式交付状态、确切 SHA 和工件摘要以 [#145](https://github.com/hansonyu183/zerp-ui/issues/145) 的验收记录为准。历史发行保持，OIT 接入使用 #145 正式交付并核对摘要的固定包。
+本源码为 **0.40.2**，修复固定报表数组条件在引用解析时反复重建字段投影导致的递归更新；正式交付状态、确切 SHA 和工件摘要以 [#145](https://github.com/hansonyu183/zerp-ui/issues/145) 的验收记录为准。历史发行保持，OIT 接入使用 #145 正式交付并核对摘要的固定包。
 
-从 [ui-v0.40.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.40.1) 下载 `zerp-ui-0.40.1.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+从 [ui-v0.40.2 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.40.2) 下载 `zerp-ui-0.40.2.tgz` 和 `SHA256SUMS`，核对原文件后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.40.1.tgz
+pnpm add ./zerp-ui-0.40.2.tgz
 ```
 
 宿主仅初始化一套 Vue、Vuetify、Router；peer 范围和 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化宿主唯一的 `createVuetify`。图标字体随包分发。

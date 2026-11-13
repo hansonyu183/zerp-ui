@@ -1,5 +1,5 @@
 import { modelQueryFeedback } from "./model-query-feedback";
-import { shallowRef } from "vue";
+import { computed, shallowRef } from "vue";
 import {
   modelReportAdoption,
   modelReportBinding,
@@ -57,6 +57,9 @@ export function modelQueryPage(
   const query = () => current()?.[nodeMetadata].operations.query;
   const owner = () => application()[nodeMetadata].options.owner;
   const resource = JSON.stringify([path, ancestors]);
+  const parameters = computed(() =>
+    query()?.input ? runtime.fields(query()!.input!) : [],
+  );
   const fields = (sample = (current() ?? first)[nodeMetadata].element()) => {
     return runtime
       .fields(sample, [], false, "list")
@@ -207,9 +210,7 @@ export function modelQueryPage(
       return current()?.[nodeMetadata].name ?? first[nodeMetadata].name;
     },
     get parameters() {
-      return (query()?.input
-        ? runtime.fields(query()!.input!)
-        : []) as unknown as typeof definition.parameters;
+      return parameters.value as unknown as typeof definition.parameters;
     },
     initialParameters: () =>
       query()?.input ? runtime.flat(query()!.input!) : {},

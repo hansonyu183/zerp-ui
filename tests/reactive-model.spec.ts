@@ -2004,6 +2004,72 @@ it("renders feedback returned by the adopted fixed query", async () => {
   expect(document.body.textContent).toContain("本次查询业务提示");
 });
 
+it("keeps fixed-report reference-array conditions stable while candidates resolve", async () => {
+  const resolve = vi.fn(
+    async ({ input }: { input: { ids: readonly string[] } }) =>
+      input.ids.map((id) => ({ id, label: "合成仓库 " + id })),
+  );
+  const warehouse = () =>
+    reference("仓库", {
+      value: "W1",
+      operations: {
+        search: {
+          async run() {
+            return { items: [], total: 0 };
+          },
+        },
+        resolve: { run: resolve },
+      },
+    });
+  const parameters = object("条件", {
+    warehouses: array("仓库范围", warehouse, [warehouse()]),
+  });
+  const row = () =>
+    object(
+      "结果",
+      { id: text("编号", { value: "one", readOnly: true }) },
+      { identity: ["id"] },
+    );
+  const run = vi.fn(
+    async (_context: {
+      input: { warehouses: readonly (string | null)[] };
+    }) => ({
+      id: "q1",
+      items: [row()],
+      total: 1,
+      context: "",
+      summary: { caption: "", values: {} },
+    }),
+  );
+  await renderNode(
+    collection("合成库存", row, {
+      operations: {
+        query: {
+          input: parameters,
+          run,
+          async page() {
+            return { items: [row()], total: 1 };
+          },
+          async revalidate() {
+            return { status: "valid" };
+          },
+        },
+      },
+    }),
+  );
+  await flushPromises();
+  const query = [
+    ...document.querySelectorAll<HTMLButtonElement>("button"),
+  ].find((button) => button.textContent?.trim() === "查询")!;
+  expect(query.disabled).toBe(false);
+  expect(resolve.mock.calls.length).toBeLessThan(4);
+  await click("查询");
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(run.mock.calls[0]![0]).toMatchObject({
+    input: { warehouses: ["W1"] },
+  });
+});
+
 it("settles parameter calculations alongside query feedback and recalculates actual edits", async () => {
   const calculate = vi.fn(
     async ({ input }: { input: { term: string | null } }) => {
