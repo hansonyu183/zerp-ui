@@ -34,7 +34,10 @@ async function click(label: string) {
   button!.click();
   await flushPromises();
 }
-async function fixture(withPrompt = false) {
+async function fixture(
+  withPrompt = false,
+  initialize?: () => Promise<{ value: { note: string } }>,
+) {
   const input = object(
     "处理输入",
     {
@@ -42,6 +45,7 @@ async function fixture(withPrompt = false) {
     },
     {
       operations: {
+        ...(initialize ? { initialize: { run: initialize } } : {}),
         calculate: {
           async run({ input }) {
             return {
@@ -209,6 +213,45 @@ async function fixture(withPrompt = false) {
     journal: () => journal,
   };
 }
+it("initializes operation inputs once after journal loading and keeps the original locked on reload", async () => {
+  const initialize = vi.fn(async () => ({
+    value: { note: "从业务读取的说明" },
+  }));
+  const f = await fixture(false, initialize);
+  expect(initialize).toHaveBeenCalledTimes(1);
+  const note = document.querySelector<HTMLInputElement>(
+    'input[aria-label="说明"]',
+  )!;
+  expect(note.value).toBe("从业务读取的说明");
+  note.value = "用户修改";
+  note.dispatchEvent(new Event("input", { bubbles: true }));
+  await flushPromises();
+  expect(initialize).toHaveBeenCalledTimes(1);
+  await click("准备执行处理");
+  await click("确认执行处理");
+  expect(f.journal()!.request.input.note).toBe("用户修改");
+  await f.reload();
+  expect(initialize).toHaveBeenCalledTimes(1);
+  expect(f.run).toHaveBeenCalledTimes(1);
+  await click("核实原请求");
+  expect(f.reconcile.mock.calls[0]![0].input.note).toBe("用户修改");
+  expect(f.run).toHaveBeenCalledTimes(1);
+});
+
+it("retries a failed first input initialization before accepting ordinary changes", async () => {
+  const initialize = vi
+    .fn()
+    .mockRejectedValueOnce(Error("读取办理参数失败"))
+    .mockResolvedValue({ value: { note: "重读后的说明" } });
+  await fixture(false, initialize);
+  expect(document.body.textContent).toContain("读取办理参数失败");
+  expect(initialize).toHaveBeenCalledTimes(1);
+  await click("重试业务计算");
+  expect(initialize).toHaveBeenCalledTimes(2);
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="说明"]')?.value,
+  ).toBe("重读后的说明");
+});
 it("confirms an authoritative preview and reconciles the original unknown request without resending", async () => {
   const f = await fixture();
   expect(

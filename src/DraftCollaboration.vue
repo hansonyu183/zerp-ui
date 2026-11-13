@@ -27,7 +27,8 @@ const items = shallowRef<readonly Interaction<T>[]>([]),
   answers = shallowRef<InteractionAnswers>({}),
   error = ref("");
 const calculating = ref(false);
-let generation = 0,
+let initialized = false,
+  generation = 0,
   controller: AbortController | undefined,
   adopted: D | undefined,
   alive = true;
@@ -35,6 +36,7 @@ async function run(
   event: "initialize" | "change" | "answer" | "action",
   target?: T,
 ) {
+  if (!initialized) event = "initialize";
   controller?.abort();
   const epoch = ++generation;
   controller = new AbortController();
@@ -66,6 +68,7 @@ async function run(
       !equalValues(baseline, props.modelValue)
     )
       return;
+    initialized = true;
     calculating.value = false;
     const previous = items.value;
     items.value = clone(result.interactions ?? []);
@@ -110,6 +113,7 @@ watch(
     items.value = [];
     answers.value = {};
     adopted = undefined;
+    initialized = false;
     if (!props.disabled) void run("initialize");
   },
   { immediate: true, flush: "sync" },
