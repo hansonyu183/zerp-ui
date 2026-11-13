@@ -1140,3 +1140,73 @@ it.each(["withdraw", "replace"] as const)(
     expect(save.disabled).toBe(false);
   },
 );
+
+it("retains value-array rows when a calculated draft is saved and reread", async () => {
+  let calculations = 0;
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "success" as const,
+  }));
+  const node = object(
+    "客户",
+    {
+      name: text("名称", { value: "原名" }),
+      rows: array("行", () => object("明细", { label: text("内容") }), [
+        object("明细", { label: text("内容", { value: "必须保留" }) }),
+      ]),
+    },
+    {
+      operations: {
+        update: { run },
+        calculate: {
+          async run({ input }) {
+            if (++calculations > 12) throw Error("业务计算未能稳定");
+            return {
+              value: input,
+              interactions: [
+                {
+                  kind: "menu",
+                  id: "menu",
+                  label: "菜单",
+                  items: [
+                    {
+                      key: "calculate",
+                      label: "整理",
+                      target: {
+                        kind: "calculate",
+                        async run({ input }) {
+                          return {
+                            value: {
+                              ...input,
+                              name: "计算名称",
+                              rows: [
+                                ...input.rows,
+                                { label: "新增一" },
+                                { label: "新增二" },
+                              ],
+                            },
+                          };
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            };
+          },
+        },
+      },
+    },
+  );
+  await renderNode(node);
+  await click("编辑");
+  await click("整理");
+  await click("保存");
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(run.mock.calls[0]![0]).toMatchObject({
+    input: {
+      name: "计算名称",
+      rows: [{ label: "必须保留" }, { label: "新增一" }, { label: "新增二" }],
+    },
+  });
+  expect(document.body.textContent).not.toContain("业务计算未能稳定");
+});

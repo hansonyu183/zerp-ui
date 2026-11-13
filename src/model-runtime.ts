@@ -288,17 +288,21 @@ export function flattenValue(
       const element = (
         child as unknown as { [nodeMetadata]: { element: ModelNode } }
       )[nodeMetadata].element;
-      target[JSON.stringify(path)] = next.map((value) =>
+      const rows = (child as unknown as { items: ModelNode[] }).items;
+      target[JSON.stringify(path)] = next.map((value, index) =>
         isObject(element)
           ? {
-              ...flattenValue(element, value),
-              $modelRowKey: asObject(element)[nodeMetadata].identity.length
-                ? rowKey(element, value)
-                : crypto.randomUUID(),
+              ...flattenValue(rows[index] ?? element, value),
+              $modelRowKey:
+                rows[index] || asObject(element)[nodeMetadata].identity.length
+                  ? rowKey(rows[index] ?? element, value)
+                  : crypto.randomUUID(),
             }
           : {
               [JSON.stringify(["$value"])]: clone(value),
-              $modelRowKey: crypto.randomUUID(),
+              $modelRowKey: rows[index]
+                ? rowKey(rows[index])
+                : crypto.randomUUID(),
             },
       );
     } else target[JSON.stringify(path)] = clone(next);
