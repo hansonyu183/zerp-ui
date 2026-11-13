@@ -235,8 +235,7 @@ export type ObjectOperations<
   initialize?: ModelCalculation<V, I, P>;
   calculate?: ModelCalculation<V, I, P>;
 };
-export type AuthenticationOperation =
-  "signIn" | "restoreSession" | "signOut" | "changePassword";
+export type AuthenticationOperation = "signIn" | "restoreSession" | "signOut";
 export type SessionResult = { status: "success" | "failure"; message?: string };
 export type SessionOperations<V> = Partial<
   Record<
@@ -347,6 +346,7 @@ export type ArrayNode<E extends ModelNode = ModelNode> = {
     name: string;
     element: E;
     create: () => E;
+    options: { readOnly?: boolean };
   };
 };
 export type MessageNode = {
@@ -681,6 +681,7 @@ export function object<
         operations.disable ||
         Object.keys(operations).some((key) =>
           [
+            "changePassword",
             "send",
             "withdraw",
             "approve",
@@ -752,15 +753,25 @@ export function collection<
     },
   } as CollectionNode<N>;
 }
-export function array<E extends ModelNode>(
+export function array<
+  E extends ModelNode,
+  const O extends { readOnly?: boolean } = {},
+>(
   name: string,
   create: () => E,
   items: E[] = [],
-): ArrayNode<E> {
+  options?: O,
+): ArrayNode<E> & { readonly [nodeMetadata]: { options: O } } {
   return {
     items,
-    [nodeMetadata]: { kind: "array", name, element: create(), create },
-  };
+    [nodeMetadata]: {
+      kind: "array",
+      name,
+      element: create(),
+      create,
+      options: options ?? ({} as O),
+    },
+  } as ArrayNode<E> & { readonly [nodeMetadata]: { options: O } };
 }
 export function messages(items: MessageNode["items"] = []): MessageNode {
   return { items, [nodeMetadata]: { kind: "messages", name: "通知" } };

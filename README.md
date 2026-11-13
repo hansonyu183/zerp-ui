@@ -4,13 +4,13 @@
 
 ## 固定版本安装
 
-本源码为 **0.32.0**，破坏性切换为模型入口。正式交付状态、确切 SHA 和工件摘要以 #125 的验收记录为准；发布前当前已发行版本仍是 [0.31.1](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.31.1)，其旧页面契约不会被覆盖。
+本源码为 **0.33.0**，修复改密原请求恢复与标量值数组；正式交付状态、确切 SHA 和工件摘要以 [#128](https://github.com/hansonyu183/zerp-ui/issues/128) 的验收记录为准。0.32.0 的历史发行保持，后续 OIT 接入使用 #128 正式交付并核对摘要的固定包。
 
-0.32.0 正式发布后，从 [ui-v0.32.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.32.0) 下载 `zerp-ui-0.32.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+从 [ui-v0.33.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.33.0) 下载 `zerp-ui-0.33.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.32.0.tgz
+pnpm add ./zerp-ui-0.33.0.tgz
 ```
 
 宿主仅初始化一套 Vue、Vuetify、Router；peer 范围和 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化宿主唯一的 `createVuetify`。图标字体随包分发。
@@ -33,6 +33,8 @@ import { model } from "./consumer";
 
 API、DTO、业务规则、权限计算、Session、Router、存储加密和证据解码仍归消费者。模型的 navigation 端口在应用生命周期内保持稳定，由消费者 Router 注册库的离页保护。操作存在性、disabledReason 和 readOnly 表达权威资格；响应式更新不会自动执行写入。库统一处理消息及持续恢复入口，关闭通知、普通查询或恢复权限不会解除未知结果锁。
 
+`changePassword` 使用 `operation("changePassword", input, protocol)`，提供强类型 prepare/run/reconcile/seal/refresh、精确证据及加密耐久 CAS 端口，复用既有原请求引擎；0.32.0 的成功/失败简写已删除。强制改密也提供同一确认、未知锁和恢复入口。秘密值不会进入办理预览或错误通知；业务 API、证据和加密实现仍由消费者提供。值数组可直接包含标量或引用，库内编辑投影不会改变回调收到的原始数组形状；数组只读通过工厂第四参数 `{ readOnly: true }` 表达。
+
 ## 独立消费者与验证
 
 | 消费者                                              | 覆盖能力                                                                                          |
@@ -44,7 +46,7 @@ API、DTO、业务规则、权限计算、Session、Router、存储加密和证�
 
 正式发行在干净确切源码提交上运行 `check:release`：类型、lint、格式、完整单元测试、全部示例构建，只 pack 一次，再让每个全新独立消费者安装同一 tgz，核对公开类型、声明、样式/字体、唯一宿主实例并实际操作。工件和逐命令退出码位于 `.scratch/release/<SHA>/evidence.json`。从正式发行下载原包后运行 `node scripts/check-release.mjs --tgz <下载包>`，逐字节核对原先工件摘要并再次验证消费者；不会重新打包冒充同一工件。
 
-示例仅用合成数据和模型回调。浏览器本地存储模拟耐久业务事实；物理打印计数、真实 oit-go/ZERP API/E2E 和生产部署均不在这些库证据内。模型正式发行后，oit-go 接入由原生阻塞于 #125 的 [#126](https://github.com/hansonyu183/zerp-ui/issues/126) 承担；不提前修改消费者。暂停的纯 API 驱动方案 #106 不恢复。在线示例站可能仍使用历史发行，状态见 [示例站说明](docs/demo-site.md)。
+示例仅用合成数据和模型回调。浏览器本地存储模拟耐久业务事实；物理打印计数、真实 oit-go/ZERP API/E2E 和生产部署均不在这些库证据内。模型正式发行后，oit-go 接入由在 #125 交付后启动、现阻塞于 #128 的 [#126](https://github.com/hansonyu183/zerp-ui/issues/126) 承担；不提前修改消费者。暂停的纯 API 驱动方案 #106 不恢复。在线示例站可能仍使用历史发行，状态见 [示例站说明](docs/demo-site.md)。
 
 ## 本机运行数据
 

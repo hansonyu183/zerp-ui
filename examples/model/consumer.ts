@@ -1,5 +1,6 @@
 import { reactive, watch, toRaw } from "vue";
 import { router } from "./router";
+import { passwordNode } from "./password";
 import {
   application,
   object,
@@ -494,26 +495,7 @@ const session = object(
     },
   },
 );
-const password = object(
-  "更改密码",
-  {
-    current: secret("当前密码", { required: true }),
-    next: secret("新密码", { required: true }),
-    confirmation: secret("确认密码", { required: true }),
-  },
-  {
-    operations: {
-      changePassword: {
-        async run({ input }) {
-          if (!input.next || input.next !== input.confirmation)
-            return { status: "failure", message: "请确认新密码。" };
-          options.forcePasswordChange = false;
-          return { status: "success" };
-        },
-      },
-    },
-  },
-);
+const password = passwordNode(options);
 const profile = object(
   "名称与头像",
   { name: text("账户名称", { value: "演示账户" }) },

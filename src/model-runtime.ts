@@ -8,6 +8,12 @@ import { modelQueryPage } from "./model-query-runtime";
 import { h } from "vue";
 import ModelOperations from "./ModelOperations.vue";
 import { modelOperation } from "./model-operation";
+import { modelOperationPersistence } from "./model-operation-persistence";
+import {
+  sameOperationOwner,
+  type OperationModel,
+  type OperationPersistence,
+} from "./operation";
 import { snapshotPage } from "./pages";
 import { modelBinding } from "./model-binding";
 import { computed, toRaw, reactive, shallowRef, shallowReactive } from "vue";
@@ -111,6 +117,18 @@ export function members(node: ModelNode): [string, ModelNode][] {
       )
     : [];
 }
+export function modelEntries(
+  node: ModelNode,
+  path: string[] = [],
+): { node: ModelNode; path: string[] }[] {
+  return members(node).flatMap(([key, child]) => [
+    { node: child, path: [...path, key] },
+    ...(child[nodeMetadata].kind === "object" &&
+    !(child as RuntimeObject)[nodeMetadata].independent
+      ? modelEntries(child, [...path, key])
+      : []),
+  ]);
+}
 export function modelValue(node: ModelNode, writable = false): unknown {
   const meta = node[nodeMetadata];
   if (isObject(node) || meta.kind === "application")
@@ -169,7 +187,7 @@ function identity(node: RuntimeObject): ModelIdentity {
 const rowKeys = new WeakMap<object, string>();
 function rowKey(node: ModelNode, value?: unknown): string {
   const meta = asObject(node)[nodeMetadata];
-  const identity = meta.identity.map((key) =>
+  const identity = (meta.identity ?? []).map((key) =>
     value && typeof value === "object"
       ? Reflect.get(value, key)
       : (node as unknown as Record<string, ValueNode>)[key]?.value,
@@ -193,6 +211,8 @@ function flat(
   prefix: readonly string[] = [],
   target: Values = {},
 ): Values {
+  if (!isObject(node) && node[nodeMetadata].kind !== "application")
+    return { [JSON.stringify(["$value"])]: clone(modelValue(node)) };
   for (const [key, child] of members(node)) {
     if (independent(child)) continue;
     const path = [...prefix, key];
@@ -200,11 +220,7 @@ function flat(
     else if (child[nodeMetadata].kind === "array")
       target[JSON.stringify(path)] = (
         child as unknown as { items: ModelNode[] }
-      ).items.map((item) =>
-        isObject(item)
-          ? { ...flat(item), $modelRowKey: rowKey(item) }
-          : modelValue(item),
-      );
+      ).items.map((item) => ({ ...flat(item), $modelRowKey: rowKey(item) }));
     else target[JSON.stringify(path)] = clone(modelValue(child));
   }
   return target;
@@ -237,8 +253,12 @@ function unflat(
           key,
           isObject(child)
             ? unflat(child, value, writable, path)
-            : arrayElement && isObject(arrayElement) && Array.isArray(input)
-              ? input.map((row) => unflat(arrayElement, row, writable))
+            : arrayElement && Array.isArray(input)
+              ? input.map((row) =>
+                  isObject(arrayElement)
+                    ? unflat(arrayElement, row, writable)
+                    : row[JSON.stringify(["$value"])],
+                )
               : input,
         ],
       ];
@@ -271,7 +291,10 @@ export function flattenValue(
                 ? rowKey(element, value)
                 : crypto.randomUUID(),
             }
-          : clone(value),
+          : {
+              [JSON.stringify(["$value"])]: clone(value),
+              $modelRowKey: crypto.randomUUID(),
+            },
       );
     } else target[JSON.stringify(path)] = clone(next);
   }
@@ -311,10 +334,37 @@ export function createModelRuntime(
     const owner = options().owner,
       persistence = options().persistence;
     pendingRequests.value = [];
-    if (!owner || !persistence) return;
-    const requested = ownerKey(owner);
-    const pending = await persistence.pending(clone(owner));
-    if (ownerKey(options().owner) === requested)
+    if (!owner) return;
+    const requested = ownerKey(owner),
+      root = source();
+    const pending = persistence
+      ? [...(await persistence.pending(clone(owner)))]
+      : [];
+    for (const { node, path } of modelEntries(root)) {
+      if (!isObject(node)) continue;
+      const op = Reflect.get(
+        asObject(node)[nodeMetadata].operations,
+        "changePassword",
+      ) as
+        | {
+            persistence: OperationPersistence<OperationModel, unknown, unknown>;
+          }
+        | undefined;
+      if (!op || !(modelOperation in op)) continue;
+      const operationOwner = {
+        scope: requested,
+        operator: owner.operator,
+        resource: JSON.stringify([path, [], identity(asObject(node)).value]),
+      };
+      const journal = await modelOperationPersistence(op.persistence).load(
+        operationOwner,
+      );
+      if (journal && !sameOperationOwner(journal.request.owner, operationOwner))
+        throw Error("原请求归属不匹配，请保留证据。");
+      if (journal && !journal.completed)
+        pending.push({ node: path, ancestors: [] });
+    }
+    if (ownerKey(options().owner) === requested && source() === root)
       pendingRequests.value = pending;
   }
 
@@ -334,9 +384,13 @@ export function createModelRuntime(
     inheritedReadonly = false,
   ): AnyField[] {
     const form = isObject(node) ? asObject(node)[nodeMetadata].form : undefined;
+    const entries: [string, ModelNode][] =
+      isObject(node) || node[nodeMetadata].kind === "application"
+        ? members(node)
+        : [["$value", node]];
     const ordered = form
-      ? form.flatMap((key) => members(node).filter(([name]) => name === key))
-      : members(node);
+      ? form.flatMap((key) => entries.filter(([name]) => name === key))
+      : entries;
     return ordered.flatMap(([key, child]): AnyField[] => {
       if (independent(child)) return [];
       const path = [...prefix, key],

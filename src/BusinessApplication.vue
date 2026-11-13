@@ -19,6 +19,7 @@ import { nodeMetadata } from "./model-node";
 import {
   createModelRuntime,
   members,
+  modelEntries,
   ownerKey,
   type RuntimeObject,
 } from "./model-runtime";
@@ -52,19 +53,7 @@ const options = computed(() => props.model[nodeMetadata].options);
 const scope = computed(() => ownerKey(options.value.owner));
 const generation = ref(0);
 let controller = new AbortController();
-function walk(
-  node: ModelNode,
-  path: string[] = [],
-): { node: ModelNode; path: string[] }[] {
-  return members(node).flatMap(([key, child]) => [
-    { node: child, path: [...path, key] },
-    ...(child[nodeMetadata].kind === "object" &&
-    !(child as RuntimeObject)[nodeMetadata].independent
-      ? walk(child, [...path, key])
-      : []),
-  ]);
-}
-const entries = computed(() => walk(props.model));
+const entries = computed(() => modelEntries(props.model));
 function sessionOperation(
   node: ModelNode,
   action: keyof SessionOperations<object>,
@@ -81,7 +70,14 @@ const signIn = computed(() =>
   entries.value.find(({ node }) => sessionOperation(node, "signIn")),
 );
 const password = computed(() =>
-  entries.value.find(({ node }) => sessionOperation(node, "changePassword")),
+  entries.value.find(
+    ({ node }) =>
+      node[nodeMetadata].kind === "object" &&
+      !!Reflect.get(
+        (node as RuntimeObject)[nodeMetadata].operations,
+        "changePassword",
+      ),
+  ),
 );
 const navigationEntries = computed(() =>
   entries.value.filter(({ node }) => {
@@ -100,18 +96,9 @@ const selected = computed(() =>
       ) ?? navigationEntries.value[0]),
 );
 const authentication = computed(() =>
-  !options.value.owner
-    ? signIn.value
-    : options.value.forcePasswordChange
-      ? password.value
-      : selected.value &&
-          sessionOperation(selected.value.node, "changePassword")
-        ? selected.value
-        : undefined,
+  !options.value.owner ? signIn.value : undefined,
 );
-const authAction = computed(() =>
-  options.value.owner ? ("changePassword" as const) : ("signIn" as const),
-);
+const authAction = "signIn" as const;
 const authFields = computed(() =>
   authentication.value
     ? (runtime
@@ -164,14 +151,6 @@ async function runSession(
           ? ""
           : redact(result.message ?? "操作成功。");
       draft.value = {};
-      if (
-        action === "changePassword" &&
-        !options.value.forcePasswordChange &&
-        navigationEntries.value[0]
-      ) {
-        busy.value = false;
-        options.value.navigation.visit(navigationEntries.value[0].node);
-      }
     }
   } catch (cause) {
     if (version === generation.value) error.value = redact(message(cause));
@@ -182,7 +161,7 @@ async function runSession(
 function submit() {
   if (authentication.value && !invalidAuth.value)
     void runSession(
-      authAction.value,
+      authAction,
       authentication.value.node,
       runtime.unflat(authentication.value.node, draft.value, true),
     );
@@ -364,7 +343,7 @@ provide(modelNoticesKey, {
   visit: (node, identity) => options.value.navigation.visit(node, identity),
 });
 watch(
-  scope,
+  [() => props.model, scope],
   () => {
     void runtime.restoreManifest().catch((cause) => {
       error.value = message(cause);
@@ -421,7 +400,7 @@ onBeforeUnmount(() => {
             invalidAuth ||
             !!sessionOperation(authentication.node, authAction)?.disabledReason
           "
-          >{{ authAction === "signIn" ? "登录" : "更改密码" }}</VBtn
+          >登录</VBtn
         >
       </form>
       <p v-else>会话不可用。</p>

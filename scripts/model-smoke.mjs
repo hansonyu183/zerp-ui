@@ -109,7 +109,24 @@ export async function modelSmoke(page) {
   await page.getByLabel("当前密码", { exact: true }).fill("synthetic-old");
   await page.getByLabel("新密码", { exact: true }).fill("synthetic-new");
   await page.getByLabel("确认密码", { exact: true }).fill("synthetic-new");
-  await page.getByRole("button", { name: "更改密码", exact: true }).click();
+  await page.getByRole("button", { name: "准备更改密码", exact: true }).click();
+  await page.getByRole("button", { name: "确认更改密码", exact: true }).click();
+  await page.getByRole("button", { name: "核实原请求", exact: true }).waitFor();
+  const encryptedPasswordJournals = await page.evaluate(() =>
+    Object.entries(localStorage).filter(([key]) =>
+      key.startsWith("zerp-model-password:"),
+    ),
+  );
+  assert.ok(encryptedPasswordJournals.length > 0);
+  assert.ok(
+    encryptedPasswordJournals.every(
+      ([, value]) =>
+        !value.includes("synthetic-old") && !value.includes("synthetic-new"),
+    ),
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "核实原请求", exact: true }).click();
+  await expect(page.getByLabel("新密码", { exact: true })).toHaveValue("");
   await page.getByRole("link", { name: "工作台与偏好", exact: true }).click();
   await page
     .getByRole("heading", { name: "工作台与偏好", exact: true })
@@ -159,7 +176,7 @@ export async function modelSmoke(page) {
       .getByRole("button", { name: "放弃本地修改", exact: true })
       .click();
   await page
-    .getByRole("button", { name: "账户：合成新账户", exact: true })
+    .getByRole("button", { name: "账户：演示账户", exact: true })
     .click();
   await page.getByRole("menuitem", { name: "退出登录", exact: true }).click();
   await page.getByRole("button", { name: "登录", exact: true }).waitFor();

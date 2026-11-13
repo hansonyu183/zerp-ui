@@ -2,6 +2,7 @@ import {
   object,
   text,
   decimal,
+  secret,
   operation,
   type ModelOperation,
 } from "../src/model";
@@ -142,4 +143,39 @@ collection(
   () => object("项目", { number: text("编号") }, { identity: ["number"] }),
   // @ts-expect-error Batch proposals must use the collection element's identity.
   { operations: batch },
+);
+
+const passwordInput = object("密码", {
+  current: secret("当前密码"),
+  next: secret("新密码"),
+});
+declare const passwordProtocol: ModelOperation<
+  "changePassword",
+  typeof passwordInput,
+  {},
+  string,
+  { digest: string }
+>;
+object(
+  "密码",
+  {},
+  {
+    operations: {
+      changePassword: operation(
+        "changePassword",
+        passwordInput,
+        passwordProtocol,
+      ),
+    },
+  },
+);
+// @ts-expect-error Password changes require the original-request operation protocol.
+object(
+  "密码",
+  {},
+  {
+    operations: {
+      changePassword: { run: async () => ({ status: "success" }) },
+    },
+  },
 );

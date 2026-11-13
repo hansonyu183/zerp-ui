@@ -1,5 +1,6 @@
 import {
   application,
+  array,
   object,
   collection,
   text,
@@ -203,3 +204,15 @@ object("错误祖先配对", foreignChildren, {
     },
   },
 });
+
+const arrayValues = object("值数组", {
+  tags: array("标签", () => text("标签值")),
+  shared: array("共享标签", () => text("标签值"), [], { readOnly: true }),
+});
+const writableArrays: ModelInput<typeof arrayValues> = { tags: ["A"] };
+const forbiddenArrays: ModelInput<typeof arrayValues> = {
+  tags: [],
+  // @ts-expect-error Read-only arrays are not part of parent writes.
+  shared: ["A"],
+};
+void [writableArrays, forbiddenArrays];

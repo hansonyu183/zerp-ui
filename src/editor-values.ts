@@ -17,8 +17,25 @@ function secretSlots(
     }
   }
 }
-export function clearSecrets(fields: readonly AnyField[], values: object) {
-  secretSlots(fields, values, (row, key) => setValueAt(row, key, undefined));
+export function clearSecrets(
+  fields: readonly AnyField[],
+  values: object,
+  cleared: undefined | "" = undefined,
+) {
+  secretSlots(fields, values, (row, key) => setValueAt(row, key, cleared));
+}
+export function redactSecrets(
+  fields: readonly AnyField[],
+  values: object,
+  text: string,
+): string {
+  secretSlots(fields, values, (row, key) => {
+    const value = valueAt(row, key);
+    if (typeof value === "string" && value)
+      for (const form of new Set([JSON.stringify(value).slice(1, -1), value]))
+        text = text.replaceAll(form, "[已隐藏]");
+  });
+  return text;
 }
 export function containsSecrets(
   fields: readonly AnyField[],
