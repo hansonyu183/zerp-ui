@@ -1,6 +1,7 @@
 // Shared finite operation protocol (#24, #47). Business facts and durable storage belong to consumers.
 export const operationLabels = {
   changePassword: "更改密码",
+  reconcile: "核对原请求",
   create: "创建",
   edit: "保存修改",
   delete: "删除",

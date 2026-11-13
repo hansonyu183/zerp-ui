@@ -4,6 +4,7 @@ import type { SubmissionOperations } from "./model-submission";
 import type { ModelQuery } from "./model-query";
 import type { ModelBusinessActions } from "./model-operation";
 import { nodeMetadata } from "./model-node";
+import { operationLabels } from "./operation";
 import type { Page, ReferenceValue } from "./contracts";
 import type { Brand, ThemeChoice } from "./shell";
 import type { WritePersistence, WriteOwner } from "./write-recovery";
@@ -680,28 +681,7 @@ export function object<
         operations.enable ||
         operations.disable ||
         Object.keys(operations).some((key) =>
-          [
-            "changePassword",
-            "send",
-            "withdraw",
-            "approve",
-            "unapprove",
-            "complete",
-            "uncomplete",
-            "void",
-            "unvoid",
-            "process",
-            "publish",
-            "restore",
-            "validate",
-            "run",
-            "stop",
-            "import",
-            "preview",
-            "print",
-            "printed",
-            "not-printed",
-          ].includes(key),
+          Object.hasOwn(operationLabels, key),
         )
       ),
       form: options.form,

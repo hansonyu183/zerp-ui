@@ -278,7 +278,7 @@ it("isolates active notifications across owner generations", async () => {
   ];
   await flushPromises();
   expect(document.body.textContent).toContain("旧会话通知");
-  settings.owner.generation = "2";
+  settings.owner = { ledger: "demo", operator: "u", generation: "2" };
   await flushPromises();
   expect(document.body.textContent).not.toContain("旧会话通知");
   model.notifications.items = [
@@ -594,4 +594,275 @@ it("clears nested read secrets and rejects unencrypted durable originals before 
   expect(document.body.textContent).toContain(
     "秘密输入需要消费者加密的原请求存储",
   );
+});
+
+it("freezes the actual new element concurrency baseline in a create request", async () => {
+  let sequence = 0;
+  const element = () =>
+    object(
+      "客户",
+      {
+        id: text("编号", { readOnly: true, value: "" }),
+        name: text("名称"),
+      },
+      { identity: ["id"], concurrency: `dependencies-${++sequence}` },
+    );
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "success" as const,
+    snapshot: {
+      value: { id: "created", name: "新增" },
+      identity: { id: "created" },
+      concurrency: "saved",
+    },
+  }));
+  const records = collection("客户", element, {
+    operations: {
+      query: {
+        async run() {
+          return { items: [], total: 0 };
+        },
+      },
+      create: { run },
+    },
+  });
+  await renderNode(records);
+  await click("新增");
+  const actualBaseline = `dependencies-${sequence}`;
+  await input("名称", "新增");
+  await click("保存");
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(run.mock.calls[0]![0]).toMatchObject({
+    identity: null,
+    concurrency: actualBaseline,
+    input: { name: "新增" },
+  });
+});
+
+it("rechecks new element dependencies after durable reservation", async () => {
+  const baseline = reactive({
+    concurrency: "before",
+    identity: ["id"] as const,
+  });
+  const element = () =>
+    object(
+      "客户",
+      { id: text("编号", { readOnly: true }), name: text("名称") },
+      baseline,
+    );
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "unknown" as const,
+  }));
+  const records = collection("客户", element, {
+    operations: {
+      query: {
+        async run() {
+          return { items: [], total: 0 };
+        },
+      },
+      create: { run },
+    },
+  });
+  let saved: unknown;
+  await renderNode(records, {
+    persistence: {
+      async pending() {
+        return [];
+      },
+      async load() {
+        return (saved as never) ?? null;
+      },
+      async save(journal) {
+        saved = structuredClone(journal);
+        baseline.concurrency = "after";
+      },
+      async complete() {},
+    },
+  });
+  await click("新增");
+  await input("名称", "新增");
+  await click("保存");
+  expect(run).not.toHaveBeenCalled();
+  expect(saved).toMatchObject({
+    attempt: { identity: { concurrency: "before" } },
+  });
+  expect(document.body.textContent).toContain("并发基线已变化");
+});
+
+it("downloads a collection export artifact and releases its object URL", async () => {
+  const content = new Blob(["synthetic export"], { type: "text/csv" });
+  const createURL = vi.fn(() => "blob:synthetic");
+  const revokeURL = vi.fn();
+  const originalURL = URL;
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static createObjectURL = createURL;
+      static revokeObjectURL = revokeURL;
+    },
+  );
+  const downloaded: { href: string; filename: string }[] = [];
+  const clickAnchor = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(function (this: HTMLAnchorElement) {
+      downloaded.push({ href: this.href, filename: this.download });
+    });
+  try {
+    const records = collection(
+      "客户",
+      () => object("客户", { id: text("编号") }, { identity: ["id"] }),
+      {
+        operations: {
+          query: {
+            async run() {
+              return { items: [], total: 0 };
+            },
+          },
+          export: {
+            async run() {
+              return { content, filename: "synthetic.csv" };
+            },
+          },
+        },
+      },
+    );
+    await renderNode(records);
+    await click("导出");
+    expect(createURL).toHaveBeenCalledWith(content);
+    expect(downloaded).toEqual([
+      { href: "blob:synthetic", filename: "synthetic.csv" },
+    ]);
+    expect(revokeURL).toHaveBeenCalledWith("blob:synthetic");
+  } finally {
+    clickAnchor.mockRestore();
+    vi.stubGlobal("URL", originalURL);
+  }
+});
+
+it.each([
+  "owner",
+  "operation",
+  "callback",
+  "qualification",
+  "node",
+  "query",
+] as const)("discards a late export after %s changes", async (change) => {
+  let release!: (value: { content: Blob; filename: string }) => void;
+  const pending = new Promise<{ content: Blob; filename: string }>(
+    (resolve) => {
+      release = resolve;
+    },
+  );
+  const exportOp = reactive({ disabledReason: "", run: async () => pending });
+  const operations = reactive({
+    query: {
+      async run() {
+        return { items: [], total: 0 };
+      },
+    },
+    export: exportOp,
+  });
+  const records = collection(
+    "客户",
+    () => object("客户", { id: text("编号") }, { identity: ["id"] }),
+    { operations },
+  );
+  const settings = await renderNode(records);
+  const createURL = vi.fn(() => "blob:stale");
+  const originalURL = URL;
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static createObjectURL = createURL;
+    },
+  );
+  try {
+    await click("导出");
+    if (change === "owner")
+      settings.owner = { ledger: "demo", operator: "u", generation: "2" };
+    if (change === "operation")
+      operations.export = {
+        disabledReason: "",
+        async run() {
+          return pending;
+        },
+      };
+    if (change === "callback") exportOp.run = async () => pending;
+    if (change === "qualification") exportOp.disabledReason = "导出撤权";
+    if (change === "node")
+      settings.navigation.current = {
+        node: object("其它", { value: text("值") }),
+      };
+    if (change === "query") await click("查询");
+    await flushPromises();
+    release({ content: new Blob(["stale"]), filename: "stale.csv" });
+    await flushPromises();
+    expect(createURL).not.toHaveBeenCalled();
+  } finally {
+    vi.stubGlobal("URL", originalURL);
+  }
+});
+
+it("recovers a create using its original input and dependencies without sending it again", async () => {
+  const baseline = reactive({
+    concurrency: "original-dependencies",
+    identity: ["id"] as const,
+  });
+  const element = () =>
+    object(
+      "客户",
+      { id: text("编号", { readOnly: true }), name: text("名称") },
+      baseline,
+    );
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "unknown" as const,
+  }));
+  const reconcile = vi.fn(async (request: { requestId: string }) => ({
+    status: "not-applied" as const,
+    requestId: request.requestId,
+    evidence: {
+      value: { id: "uncreated", name: "" },
+      identity: { id: "uncreated" },
+      concurrency: "sealed",
+    },
+  }));
+  const records = collection("客户", element, {
+    operations: {
+      query: {
+        async run() {
+          return { items: [], total: 0 };
+        },
+      },
+      create: { run, reconcile },
+    },
+  });
+  let saved: unknown;
+  const persistence: NonNullable<ModelApplicationOptions["persistence"]> = {
+    async pending() {
+      return [];
+    },
+    async load() {
+      return (saved as never) ?? null;
+    },
+    async save(journal) {
+      saved = structuredClone(journal);
+    },
+    async complete() {},
+  };
+  await renderNode(records, { persistence });
+  await click("新增");
+  await input("名称", "冻结的新客户");
+  await click("保存");
+  const original = structuredClone(run.mock.calls[0]![0]);
+  mounted.pop()!.unmount();
+  document.body.innerHTML = "";
+  baseline.concurrency = "later-dependencies";
+  await renderNode(records, { persistence });
+  await click("核实本次请求");
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(reconcile.mock.calls[0]![0]).toEqual(original);
+  expect(original).toMatchObject({
+    identity: null,
+    input: { name: "冻结的新客户" },
+    concurrency: "original-dependencies",
+  });
 });
