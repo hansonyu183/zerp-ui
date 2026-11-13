@@ -1747,3 +1747,114 @@ it("exports the currently adopted fixed result with its original query input", a
     input: { search: "unsubmitted" },
   });
 });
+
+it("updates fixed-query columns on a page and on an empty page", async () => {
+  let mode = "first";
+  const element = () =>
+    object(
+      "分页记录",
+      {
+        id: text("编号", { value: mode }),
+        ...(mode === "first"
+          ? { first: text("首列", { value: "首内容" }) }
+          : mode === "second"
+            ? { second: text("次列", { value: "次内容" }) }
+            : { empty: text("空页列") }),
+      },
+      { identity: ["id"], readOnly: true },
+    );
+  const records = collection("动态分页", element, {
+    operations: {
+      query: {
+        async run() {
+          return {
+            id: "pages",
+            items: [element()],
+            total: 100,
+            context: "合成",
+            summary: { caption: "合计", values: {} },
+          };
+        },
+        async page({ page }) {
+          mode = page === 2 ? "second" : "empty";
+          return { items: page === 2 ? [element()] : [], total: 100 };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+    },
+  });
+  await renderNode(records);
+  await click("查询");
+  await click("下一页");
+  expect(document.querySelector("table")?.textContent).toContain("次列");
+  expect(document.querySelector("table")?.textContent).not.toContain("首列");
+  await click("下一页");
+  expect(document.querySelector("table")?.textContent).toContain("空页列");
+  expect(document.querySelector("table")?.textContent).not.toContain("次列");
+});
+
+it("keeps the adopted rows and export input when a later query fails result validation", async () => {
+  let query = 0;
+  const exported: unknown[] = [];
+  const filters = object("条件", {
+    search: text("关键词", { value: "original" }),
+  });
+  const element = (name = "original-row") =>
+    object(
+      "记录",
+      {
+        id: text("编号", { value: "row" }),
+        name: text("名称", { value: name }),
+      },
+      { identity: ["id"] },
+    );
+  const records = collection("原结果", element, {
+    operations: {
+      query: {
+        input: filters,
+        async run() {
+          query++;
+          return {
+            id: "result-" + query,
+            items: [element(query === 1 ? "original-row" : "rejected-row")],
+            total: 1,
+            context: "合成",
+            summary: {
+              caption: "合计",
+              values: query === 1 ? {} : { wrong: "invalid" },
+            },
+          };
+        },
+        async page() {
+          return { items: [], total: 0 };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+      export: {
+        async run(context) {
+          exported.push(context);
+          throw Error("合成下载中止");
+        },
+      },
+    },
+  });
+  await renderNode(records);
+  await click("查询");
+  await input("关键词", "rejected-input");
+  await click("查询");
+  await click("导出");
+  expect(exported[0]).toMatchObject({
+    resultId: "result-1",
+    input: { search: "original" },
+  });
+  expect(document.querySelector("table")?.textContent).toContain(
+    "original-row",
+  );
+  expect(document.querySelector("table")?.textContent).not.toContain(
+    "rejected-row",
+  );
+});

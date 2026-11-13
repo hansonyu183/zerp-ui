@@ -1,5 +1,6 @@
 import {
   modelReportBinding,
+  modelReportAdoption,
   type ModelReportBinding,
 } from "./model-report-binding";
 import { validDate } from "./validation";
@@ -106,6 +107,7 @@ export type ReportPage<
   R,
   K extends string | number = string | number,
 > = Page<R> & {
+  [modelReportAdoption]?: () => void;
   /** Absolute epoch milliseconds supplied by the authority; the library has no TTL. */
   expiresAt?: number;
   presentation?: ReportPresentation<R, K>;
@@ -148,8 +150,10 @@ export type FixedReportAdapter<
   >;
   page: (
     input: ReportResultRequest<I> & { page: number; pageSize: number },
-  ) => Promise<ReportPage<R, K>>;
-  export?: (input: ReportResultRequest<I>) => Promise<ReportExport>;
+  ) => Promise<ReportPage<R, K> & { columns?: readonly ReportColumn<R>[] }>;
+  export?: (
+    input: ReportResultRequest<I> & { parameters: P },
+  ) => Promise<ReportExport>;
   revalidate: (input: ReportResultRequest<I>) => Promise<ReportValidity>;
   cancel?: (input: {
     scope: string;

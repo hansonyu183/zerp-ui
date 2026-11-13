@@ -10,7 +10,10 @@
   "
 >
 import DraftCollaborationView from "./DraftCollaboration.vue";
-import { modelReportBinding } from "./model-report-binding";
+import {
+  modelReportAdoption,
+  modelReportBinding,
+} from "./model-report-binding";
 import { VBtn, VDialog, VCard, VCardText } from "vuetify/components";
 import Feedback from "./Feedback.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
@@ -334,6 +337,7 @@ async function runQuery(values: P, target: number, paging: boolean) {
     }
     if (current !== generation) return;
     validateResult(d, value, metadata);
+    value[modelReportAdoption]?.();
     invalidateResultReads();
     result.value = clone(value);
     fixed.value = metadata;
@@ -389,10 +393,13 @@ async function runFixedPage(target: number) {
       signal: pageController.signal,
     });
     if (owner !== resultGeneration || current !== pageGeneration) return;
+    if (value.columns) d.columns = clone(value.columns);
     validateResult(d, value, fixed.value);
+    value[modelReportAdoption]?.();
     const expiresAt = value.expiresAt ?? fixed.value?.expiresAt;
     checkExpiry(expiresAt);
     fixed.value = { ...fixed.value!, expiresAt };
+    adopted.value = d;
     result.value = clone(value);
     scheduleExpiry();
     page.value = target;
@@ -472,6 +479,7 @@ async function download() {
         ? await d.adapter.export?.({
             scope: props.scope,
             resultId: clone(fixed.value!.id),
+            parameters: clone(applied.value!),
             signal: exportController.signal,
           })
         : await d.adapter.export?.({
