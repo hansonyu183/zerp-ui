@@ -34,10 +34,37 @@ async function click(label: string) {
   button!.click();
   await flushPromises();
 }
-async function fixture() {
-  const input = object("处理输入", {
-    note: text("说明", { value: "原始说明" }),
-  });
+async function fixture(withPrompt = false) {
+  const input = object(
+    "处理输入",
+    {
+      note: text("说明", { value: "原始说明" }),
+    },
+    {
+      operations: {
+        calculate: {
+          async run({ input }) {
+            return {
+              value: input,
+              interactions: withPrompt
+                ? [
+                    {
+                      kind: "confirm" as const,
+                      id: "business-check",
+                      label:
+                        input.note === "changed"
+                          ? "确认变更依据"
+                          : "确认业务依据",
+                      required: true,
+                    },
+                  ]
+                : [],
+            };
+          },
+        },
+      },
+    },
+  );
   type M = ModelActionModel<"process", typeof input, { digest: string }>;
   let journal: ModelOperationJournal<
     M,
@@ -365,4 +392,52 @@ it("offers a fixed reconcile operation on a read-only historical original withou
     request: { requestId: "verification-1" },
     receipt: { evidence: { originalId: "historical-original" } },
   });
+});
+
+it("freezes accepted script answers in a fixed operation and keeps them on reload", async () => {
+  const f = await fixture(true);
+  const checkbox = document.querySelector<HTMLInputElement>(
+    'input[aria-label="确认业务依据"]',
+  );
+  expect(checkbox).toBeTruthy();
+  checkbox!.click();
+  await flushPromises();
+  const note = document.querySelector<HTMLInputElement>(
+    'input[aria-label="说明"]',
+  )!;
+  note.value = "changed";
+  note.dispatchEvent(new Event("input", { bubbles: true }));
+  await flushPromises();
+  const changed = document.querySelector<HTMLInputElement>(
+    'input[aria-label="确认变更依据"]',
+  )!;
+  expect(changed.checked).toBe(false);
+  const prepare = [
+    ...document.querySelectorAll<HTMLButtonElement>("button"),
+  ].find((button) => button.textContent?.trim() === "准备执行处理")!;
+  expect(prepare.disabled).toBe(true);
+  changed.click();
+  await flushPromises();
+  await click("准备执行处理");
+  await click("确认执行处理");
+  expect(f.journal()!.request.answers).toEqual({ "business-check": true });
+  await f.reload();
+  await click("核实原请求");
+  expect(f.reconcile.mock.calls[0]![0].answers).toEqual({
+    "business-check": true,
+  });
+  expect(f.run).toHaveBeenCalledTimes(1);
+});
+
+it("rejects a preparation that changes the accepted answers", async () => {
+  const f = await fixture();
+  const prepare = f.action.prepare;
+  f.action.prepare = async (intent) => ({
+    ...(await prepare(intent)),
+    answers: { invented: true },
+  });
+  await click("准备执行处理");
+  expect(document.body.textContent).toContain("准备结果改变了问题回答");
+  expect(f.journal()).toBeNull();
+  expect(f.run).not.toHaveBeenCalled();
 });

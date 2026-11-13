@@ -366,6 +366,7 @@ export function createModelRuntime(
     definition: CrudDefinition<Values, Values, Values, ModelIdentity, object>;
     pending(): boolean;
     requestLeave(): Promise<boolean>;
+    answers(): import("./collaboration").InteractionAnswers;
     displayedIdentity(): ModelIdentity | undefined;
     records(): RuntimeObject[];
     stop(): void;
@@ -1600,6 +1601,7 @@ export function createModelRuntime(
       page,
       definition,
       requestLeave: () => requestLeave(),
+      answers: () => clone(draftAnswers.get(toRaw(selection.value)) ?? {}),
       displayedIdentity: () => displayed,
       records: () => {
         const node = currentNode();
@@ -1721,6 +1723,7 @@ export type ModelRuntime = {
     page: PageDefinition;
     definition: CrudDefinition<Values, Values, Values, ModelIdentity, object>;
     pending(): boolean;
+    answers(): import("./collaboration").InteractionAnswers;
     stop(): void;
   };
   fields(

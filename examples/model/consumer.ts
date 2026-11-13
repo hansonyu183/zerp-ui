@@ -688,6 +688,57 @@ const dynamicResults = collection("动态账簿", dynamicRecord, {
           items: reportRevision === 1 ? [dynamicRecord()] : [],
           total: reportRevision === 1 ? 1 : 0,
           context: "合成账簿",
+          interactions: [
+            {
+              kind: "download" as const,
+              id: "query-file",
+              label: "下载查询说明",
+              target: {
+                kind: "download" as const,
+                async read() {
+                  return {
+                    content: new Blob(["合成查询说明"], { type: "text/plain" }),
+                    filename: "query-note.txt",
+                  };
+                },
+              },
+            },
+            {
+              kind: "message" as const,
+              id: "adopted-query",
+              message: "本次查询已采用业务提示",
+            },
+            {
+              kind: "menu" as const,
+              id: "result-tools",
+              label: "结果操作",
+              items: [
+                {
+                  key: "inspect",
+                  label: "核对查询结果",
+                  target: {
+                    kind: "calculate" as const,
+                    async run({
+                      input,
+                    }: {
+                      input: Readonly<Record<string, unknown>>;
+                    }) {
+                      return {
+                        value: input,
+                        interactions: [
+                          {
+                            kind: "message" as const,
+                            id: "checked-query",
+                            message: "已核对本次查询结果",
+                          },
+                        ],
+                      };
+                    },
+                  },
+                },
+              ],
+            },
+          ],
           summary: { caption: "合计", values: {} },
         };
       },

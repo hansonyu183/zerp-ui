@@ -1,3 +1,4 @@
+import type { InteractionAnswers } from "./collaboration";
 import type { OperationModel } from "./operation";
 import type { BatchEntry, BatchPersistence } from "./batch";
 import type {
@@ -5,6 +6,12 @@ import type {
   ModelOperationPersistence,
 } from "./model-operation";
 export const modelBatch: unique symbol = Symbol("zerp.model.batch");
+export type ModelBatchEntry<M extends OperationModel, I> = Omit<
+  BatchEntry<M, I>,
+  "intent"
+> & {
+  intent: BatchEntry<M, I>["intent"] & { readonly answers: InteractionAnswers };
+};
 export type ModelBatchOperation<
   M extends OperationModel,
   I,
@@ -13,7 +20,7 @@ export type ModelBatchOperation<
 > = {
   disabledReason?: string;
   /** A fresh authoritative proposal is frozen by the runtime only on explicit start. */
-  entries: readonly BatchEntry<M, I>[];
+  entries: readonly ModelBatchEntry<M, I>[];
   persistence: ModelOperationPersistence<M, I, B, P>;
   journal: BatchPersistence<M, I, B>;
 } & ModelOperationCallbacks<M, I, B, P>;

@@ -27,10 +27,17 @@ export async function modelBusinessSmoke(page, evidence) {
     .getByRole("link", { name: "打开业务", exact: true })
     .first()
     .click();
+  await page.getByLabel("已核对办理依据", { exact: true }).check();
   await button("准备执行处理").click();
   await page.getByText("权威处理预览", { exact: true }).waitFor();
   await button("确认执行处理").click();
   await button("核实原请求").waitFor();
+  const originalAnswers = await page.evaluate(() =>
+    Object.entries(localStorage)
+      .filter(([key]) => key.startsWith("model-operation:"))
+      .map(([, value]) => JSON.parse(value).request.answers),
+  );
+  assert.deepEqual(originalAnswers, [{ "business-basis": true }]);
   await page.reload();
   await button("核实原请求").click();
   await button("准备执行处理").waitFor();
@@ -177,6 +184,10 @@ export async function modelBusinessSmoke(page, evidence) {
   );
   assert.ok(batch.completed);
   assert.ok(batch.entries[0].settlement);
+  assert.deepEqual(batch.entries[0].intent.answers, { "batch-check": true });
+  assert.deepEqual(batch.entries[0].settlement.request.answers, {
+    "batch-check": true,
+  });
   assert.ok(batch.entries[1].skipped);
   assert.deepEqual(
     await page.evaluate(() =>

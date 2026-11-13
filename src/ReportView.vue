@@ -10,6 +10,8 @@
   "
 >
 import DraftCollaborationView from "./DraftCollaboration.vue";
+import { modelReportFeedback } from "./model-report-binding";
+import type { DraftCollaboration } from "./collaboration";
 import {
   modelReportAdoption,
   modelReportBinding,
@@ -79,7 +81,8 @@ const page = ref(1),
   pageLoading = ref(false),
   exporting = ref(false),
   pending = ref(false),
-  calculating = ref(false);
+  calculating = ref(false),
+  feedbackPending = ref(false);
 const error = ref(""),
   exportError = ref(""),
   notice = ref(""),
@@ -234,6 +237,13 @@ function scheduleExpiry() {
     Math.max(0, Math.min(expiresAt - Date.now(), 2147483647)),
   );
 }
+watch(
+  () => (valid.value ? result.value?.[modelReportFeedback] : undefined),
+  () => {
+    feedbackPending.value = false;
+  },
+  { flush: "sync" },
+);
 function clearResult() {
   clearTimeout(expiryTimer);
   expiryTimer = undefined;
@@ -339,7 +349,10 @@ async function runQuery(values: P, target: number, paging: boolean) {
     validateResult(d, value, metadata);
     value[modelReportAdoption]?.();
     invalidateResultReads();
-    result.value = clone(value);
+    result.value = {
+      ...clone(value),
+      [modelReportFeedback]: value[modelReportFeedback],
+    };
     fixed.value = metadata;
     adopted.value = d;
     applied.value = clone(values);
@@ -403,7 +416,10 @@ async function runFixedPage(target: number) {
     value[modelReportAdoption]?.();
     fixed.value = next;
     adopted.value = d;
-    result.value = clone(value);
+    result.value = {
+      ...clone(value),
+      [modelReportFeedback]: value[modelReportFeedback],
+    };
     scheduleExpiry();
     page.value = target;
     applied.value = values;
@@ -750,13 +766,28 @@ watch(
         @update:model-value="updateInput"
         @pending="calculating = $event"
       />
+      <DraftCollaborationView
+        v-if="valid && result?.[modelReportFeedback]"
+        :adapter="
+          result[modelReportFeedback]!
+            .collaboration as unknown as DraftCollaboration<P, string>
+        "
+        :model-value="input"
+        :scope="scope"
+        :instance="String(fixed?.id ?? formGeneration)"
+        :disabled="!enabled || !permissions.query"
+        @update:model-value="updateInput"
+        @pending="feedbackPending = $event"
+      />
       <div class="zerp-filter-actions">
         <VBtn
           color=""
           variant="tonal"
           v-if="canQuery"
           type="submit"
-          :disabled="pending || calculating || cancelling || checking"
+          :disabled="
+            pending || calculating || feedbackPending || cancelling || checking
+          "
         >
           查询
         </VBtn>

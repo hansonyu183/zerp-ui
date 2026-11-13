@@ -1,3 +1,4 @@
+import type { InteractionAnswers } from "./collaboration";
 import type { ObjectShape, ModelInput, ReadonlyValue } from "./reactive-model";
 import type {
   OperationAction,
@@ -17,18 +18,27 @@ export type ModelOperationIntent<
   M extends OperationModel,
   I,
   P extends readonly unknown[] = readonly [],
-> = OperationIntent<M, I> & { readonly ancestors: ReadonlyValue<P> };
+> = OperationIntent<M, I> & {
+  readonly ancestors: ReadonlyValue<P>;
+  readonly answers: InteractionAnswers;
+};
 export type ModelOperationRequest<
   M extends OperationModel,
   I,
   B,
   P extends readonly unknown[] = readonly [],
-> = OperationRequest<M, I, B> & { readonly ancestors: ReadonlyValue<P> };
+> = OperationRequest<M, I, B> & {
+  readonly ancestors: ReadonlyValue<P>;
+  readonly answers: InteractionAnswers;
+};
 type WithAncestors<T, P extends readonly unknown[]> = T extends {
   request: infer R;
 }
   ? Omit<T, "request"> & {
-      readonly request: R & { readonly ancestors: ReadonlyValue<P> };
+      readonly request: R & {
+        readonly ancestors: ReadonlyValue<P>;
+        readonly answers: InteractionAnswers;
+      };
     }
   : never;
 export type ModelOperationJournal<

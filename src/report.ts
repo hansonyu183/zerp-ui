@@ -1,4 +1,8 @@
 import {
+  modelReportFeedback,
+  type ModelReportFeedback,
+} from "./model-report-binding";
+import {
   modelReportBinding,
   modelReportAdoption,
   type ModelReportBinding,
@@ -108,6 +112,7 @@ export type ReportPage<
   K extends string | number = string | number,
 > = Page<R> & {
   [modelReportAdoption]?: () => void;
+  [modelReportFeedback]?: ModelReportFeedback;
   /** Absolute epoch milliseconds supplied by the authority; the library has no TTL. */
   expiresAt?: number;
   presentation?: ReportPresentation<R, K>;

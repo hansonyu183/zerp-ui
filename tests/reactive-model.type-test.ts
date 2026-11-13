@@ -342,3 +342,51 @@ const invalidPageSummary: FixedPageSummary = {
 };
 void pageSummary;
 void invalidPageSummary;
+
+const queryFilters = object("查询条件", { keyword: text("关键词") });
+type QueryFeedback = NonNullable<
+  Awaited<
+    ReturnType<
+      ModelQuery<ReturnType<typeof customer>, typeof queryFilters>["run"]
+    >
+  >["interactions"]
+>;
+const queryFeedback: QueryFeedback = [
+  {
+    kind: "menu",
+    id: "query-tools",
+    label: "查询工具",
+    items: [
+      {
+        key: "calculate",
+        label: "计算",
+        target: {
+          kind: "calculate",
+          async run(context) {
+            const keyword: string | null = context.input.keyword;
+            const answer: string | boolean | undefined = context.answers.check;
+            // @ts-expect-error Query-local calculations have the exact query input.
+            void context.input.other;
+            return {
+              value: { keyword },
+              interactions: [
+                { kind: "message", id: "answer", message: String(answer) },
+              ],
+            };
+          },
+        },
+      },
+    ],
+  },
+];
+const invalidQueryFeedback: QueryFeedback = [
+  {
+    kind: "related",
+    id: "invalid",
+    label: "错误目标",
+    // @ts-expect-error Result interactions do not accept arbitrary URL/string commands.
+    target: "/write-anything",
+  },
+];
+void queryFeedback;
+void invalidQueryFeedback;

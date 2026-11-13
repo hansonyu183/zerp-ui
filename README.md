@@ -4,13 +4,13 @@
 
 ## 固定版本安装
 
-本源码为 **0.38.0**，补齐固定查询的动态模型投影、枚举名称及冻结结果导出类型；正式交付状态、确切 SHA 和工件摘要以 [#138](https://github.com/hansonyu183/zerp-ui/issues/138) 的验收记录为准。历史发行保持，后续 OIT 接入使用 #138 正式交付并核对摘要的固定包。
+本源码为 **0.39.0**，冻结固定办理的脚本回答，并随已采用固定查询呈现业务交互；正式交付状态、确切 SHA 和工件摘要以 [#140](https://github.com/hansonyu183/zerp-ui/issues/140) 的验收记录为准。历史发行保持，后续 OIT 接入使用 #140 正式交付并核对摘要的固定包。
 
-从 [ui-v0.38.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.38.0) 下载 `zerp-ui-0.38.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+从 [ui-v0.39.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.39.0) 下载 `zerp-ui-0.39.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.38.0.tgz
+pnpm add ./zerp-ui-0.39.0.tgz
 ```
 
 宿主仅初始化一套 Vue、Vuetify、Router；peer 范围和 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化宿主唯一的 `createVuetify`。图标字体随包分发。
@@ -46,7 +46,7 @@ API、DTO、业务规则、权限计算、Session、Router、存储加密和证�
 
 正式发行在干净确切源码提交上运行 `check:release`：类型、lint、格式、完整单元测试、全部示例构建，只 pack 一次，再让每个全新独立消费者安装同一 tgz，核对公开类型、声明、样式/字体、唯一宿主实例并实际操作。工件和逐命令退出码位于 `.scratch/release/<SHA>/evidence.json`。从正式发行下载原包后运行 `node scripts/check-release.mjs --tgz <下载包>`，逐字节核对原先工件摘要并再次验证消费者；不会重新打包冒充同一工件。
 
-示例仅用合成数据和模型回调。浏览器本地存储模拟耐久业务事实；物理打印计数、真实 oit-go/ZERP API/E2E 和生产部署均不在这些库证据内。模型正式发行后，oit-go 接入由在 #125 交付后启动、现阻塞于 #128 的 [#126](https://github.com/hansonyu183/zerp-ui/issues/126) 承担；不提前修改消费者。暂停的纯 API 驱动方案 #106 不恢复。在线示例站可能仍使用历史发行，状态见 [示例站说明](docs/demo-site.md)。
+示例仅用合成数据和模型回调。浏览器本地存储模拟耐久业务事实；物理打印计数、真实 oit-go/ZERP API/E2E 和生产部署均不在这些库证据内。模型正式发行后，oit-go 接入由在 #125 交付后启动、现阻塞于 #140 的 [#126](https://github.com/hansonyu183/zerp-ui/issues/126) 承担；不提前修改消费者。暂停的纯 API 驱动方案 #106 不恢复。在线示例站可能仍使用历史发行，状态见 [示例站说明](docs/demo-site.md)。
 
 ## 本机运行数据
 
@@ -57,3 +57,7 @@ API、DTO、业务规则、权限计算、Session、Router、存储加密和证�
 Router 的 `navigation.current` 使用实际模型节点和业务身份。指向集合内独立子节点时，库定位并保留所属父记录；记录查看链接保留真实 href，可刷新及在新标签打开。消费者在 `guard` 的 Router 回调中把下一目标 `{ node, identity }` 传给 `check`，使库区分同一父记录内的区块切换与真正离开；无法解析的目的地传 `null`，执行完整离开保护。
 
 列表 `list` 与表单 `form` 分别选择同一模型的内容。例如 `form: ["values"]` 可仅编辑业务字段，`list: ["id", ["values", "name"], "values.name"]` 则按顺序显示编号、嵌套名称及字面含点键；秘密字段和独立子集合不进入父列表。未指定列表时显示本层普通字段。投影不改变业务值和写入边界。
+
+固定 `operation` 的 `intent.answers`、`request.answers` 与普通写入一致，由库冻结已接受的问题回答；消费者将其绑定到同一业务原请求。模型批次使用 `ModelBatchEntry`，每项 `intent.answers` 必须明确提供，运行时不会为缺失回答补默认值。
+
+固定 `ModelQuery` 的 query/page 结果可返回强类型 `interactions`。提示、问题、菜单/树、关联和下载只随有效结果采用；局部 `calculate` 目标收到本查询的参数和回答，可返回参数及新的有限交互，不执行最终业务写入。失败或迟到的查询不替换现有交互，结果失效后旧目标不可用。
