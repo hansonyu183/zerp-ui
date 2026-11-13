@@ -1396,53 +1396,73 @@ it.each(["root", "child", "embedded-child"] as const)(
   "keeps an external A to B record navigation at its target: %s",
   async (kind) => {
     let check: Parameters<ModelNavigation["guard"]>[0] | undefined;
-    const row = (id: string) =>
-      object(
-        "记录",
-        {
-          id: text("编号", { value: id, readOnly: true }),
-          name: text("名称", { value: "记录" + id }),
-        },
-        {
-          identity: ["id"],
-          operations: {
-            update: {
-              async run() {
-                return { status: "success" };
+    function recordCollection<P extends readonly unknown[]>() {
+      const row = (id: string) =>
+        object(
+          "记录",
+          {
+            id: text("编号", { value: id, readOnly: true }),
+            name: text("名称", { value: "记录" + id }),
+          },
+          {
+            identity: ["id"],
+            operations: {
+              update: {
+                async run(
+                  _request: ModelRequest<
+                    { name: string | null },
+                    { id: string },
+                    P
+                  >,
+                ) {
+                  return { status: "success" };
+                },
               },
             },
           },
-        },
-      );
-    const records = collection("记录", () => row(""), {
-      operations: {
-        query: {
-          async run() {
-            return { items: [row("A"), row("B")], total: 2 };
-          },
-        },
-      },
-    });
-    const parentRow = object(
-      "父记录",
-      {
-        id: text("父编号", { value: "p", readOnly: true }),
-        name: text("父名称", { value: "父资料" }),
-        ...(kind === "embedded-child"
-          ? { details: object("内嵌业务", { records }) }
-          : { records }),
-      },
-      {
-        identity: ["id"],
+        );
+      return collection("记录", () => row(""), {
         operations: {
-          update: {
+          query: {
             async run() {
-              return { status: "success" };
+              return { items: [row("A"), row("B")], total: 2 };
             },
           },
         },
+      });
+    }
+    const rootRecords = recordCollection<readonly []>();
+    const childRecords = recordCollection<readonly [{ id: string }]>();
+    const records = kind === "root" ? rootRecords : childRecords;
+    const parentFields = {
+      id: text("父编号", { value: "p", readOnly: true }),
+      name: text("父名称", { value: "父资料" }),
+    };
+    const parentOperations = {
+      identity: ["id"] as const,
+      operations: {
+        update: {
+          async run() {
+            return { status: "success" as const };
+          },
+        },
       },
-    );
+    };
+    const parentRow =
+      kind === "embedded-child"
+        ? object(
+            "父记录",
+            {
+              ...parentFields,
+              details: object("内嵌业务", { records: childRecords }),
+            },
+            parentOperations,
+          )
+        : object(
+            "父记录",
+            { ...parentFields, records: childRecords },
+            parentOperations,
+          );
     const parents = collection("父记录", () => parentRow, {
       operations: {
         query: {
