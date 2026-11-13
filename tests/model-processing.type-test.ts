@@ -179,3 +179,14 @@ object(
     },
   },
 );
+
+const fixedAnswers: Readonly<Record<string, string | boolean>> = (
+  null as unknown as Parameters<typeof process.prepare>[0]
+).answers;
+void fixedAnswers;
+declare const fixedRequest: Parameters<typeof process.run>[0];
+// @ts-expect-error Answers are immutable original-request evidence.
+fixedRequest.answers.check = true;
+// @ts-expect-error Answer values remain finite business answers.
+const invalidAnswer: typeof fixedRequest.answers = { check: 12 };
+void invalidAnswer;

@@ -342,12 +342,20 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
 const intent = computed<
   OperationIntent<OperationModel, unknown> & {
     readonly ancestors: readonly unknown[];
+    readonly answers: import("./collaboration").InteractionAnswers;
   }
 >(() => ({
   action: selected.value!,
   owner: owner.value,
   identity: clone(identity.value),
   ancestors: clone(props.ancestors),
+  answers: props.runtime
+    .resolve(
+      () => admitted.value!.input,
+      [...props.path, "$input", selected.value!],
+      [...props.ancestors, identity.value],
+    )
+    .answers(),
   input: props.runtime.unflat(admitted.value!.input, draft.value, true),
 }));
 async function choose(action: OperationAction) {

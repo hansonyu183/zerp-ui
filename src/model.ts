@@ -70,7 +70,7 @@ export type { ModelQuery } from "./model-query";
 export { documentOperations, voucherOperations } from "./model-submission";
 
 export { batchOperations } from "./model-batch";
-export type { ModelBatchOperation } from "./model-batch";
+export type { ModelBatchOperation, ModelBatchEntry } from "./model-batch";
 export type { BatchEntry, BatchJournal, BatchPersistence } from "./batch";
 
 export { workflowOperations } from "./model-workflow";

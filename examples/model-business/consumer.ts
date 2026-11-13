@@ -17,7 +17,7 @@ import {
   type ModelActionModel,
   type ModelOperationJournal,
   type ModelOperationPersistence,
-  type BatchEntry,
+  type ModelBatchEntry,
   type BatchJournal,
   type BatchPersistence,
 } from "@zerp/ui/model";
@@ -28,9 +28,30 @@ import type {
 } from "@zerp/ui";
 // Everything in this file is synthetic. No company API, credentials or production data.
 const owner = { ledger: "synthetic", operator: "demo", generation: "1" };
-const input = object("办理输入", {
-  note: text("处理说明", { value: "合成原始输入", required: true }),
-});
+const input = object(
+  "办理输入",
+  {
+    note: text("处理说明", { value: "合成原始输入", required: true }),
+  },
+  {
+    operations: {
+      calculate: {
+        async run({ input }) {
+          return {
+            value: input,
+            interactions: [
+              {
+                kind: "confirm" as const,
+                id: "business-basis",
+                label: "已核对办理依据",
+              },
+            ],
+          };
+        },
+      },
+    },
+  },
+);
 type M = ModelActionModel<"process", typeof input, { digest: string }>;
 type Id = { id: string };
 const json = <T>(key: string): T | null => {
@@ -96,7 +117,13 @@ const protocol = {
             rows: [
               {
                 key: "one",
-                fields: [{ label: "说明", value: intent.input.note }],
+                fields: [
+                  { label: "说明", value: intent.input.note },
+                  {
+                    label: "办理依据",
+                    value: intent.answers["business-basis"] === true,
+                  },
+                ],
               },
             ],
           },
@@ -246,7 +273,7 @@ const batches = collection("批量办理", () => batchItem(""), {
   operations: batchOperations<M, Id, string>({
     ...protocol,
     journal: batchStore,
-    get entries(): readonly BatchEntry<M, Id>[] {
+    get entries(): readonly ModelBatchEntry<M, Id>[] {
       return batches.items.map((row) => ({
         key: row.id.value!,
         label: `合成项目 ${row.id.value}`,
@@ -258,6 +285,7 @@ const batches = collection("批量办理", () => batchItem(""), {
           },
           identity: { id: row.id.value! },
           action: "process",
+          answers: { "batch-check": true },
           input: { note: row.note.value },
         },
       }));

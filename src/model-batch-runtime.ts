@@ -1,3 +1,4 @@
+import type { InteractionAnswers } from "./collaboration";
 import { clone } from "./clone";
 import type { EditProtection } from "./edit-guard";
 import { defineBatchPage } from "./pages";
@@ -5,7 +6,11 @@ import { modelBatch, type ModelBatchOperation } from "./model-batch";
 import { nodeMetadata } from "./model-node";
 import type { ApplicationNode, ModelNode } from "./reactive-model";
 import type { RuntimeObject } from "./model-runtime";
-import type { OperationModel, OperationDefinition } from "./operation";
+import type {
+  OperationModel,
+  OperationDefinition,
+  OperationIntent,
+} from "./operation";
 export function modelBatchPage(
   source: () => ModelNode | undefined,
   application: () => ApplicationNode,
@@ -32,6 +37,13 @@ export function modelBatchPage(
     current()?.executeBatch === admitted &&
     !admitted.disabledReason &&
     !!application()[nodeMetadata].options.owner;
+  const withContext = (intent: OperationIntent<OperationModel, unknown>) => {
+    const answers = Reflect.get(intent, "answers") as
+      InteractionAnswers | undefined;
+    if (!answers || typeof answers !== "object" || Array.isArray(answers))
+      throw Error("批次项目的原问题回答缺失。");
+    return { ...intent, answers: clone(answers), ancestors: clone(ancestors) };
+  };
   const definition: OperationDefinition<OperationModel, unknown, unknown> = {
     protocol: "operation",
     persistence: admitted.persistence as unknown as OperationDefinition<
@@ -45,13 +57,12 @@ export function modelBatchPage(
         unknown,
         unknown
       >["adapter"]),
-      prepare: (intent) =>
-        admitted.prepare({ ...intent, ancestors: clone(ancestors) }),
+      prepare: (intent) => admitted.prepare(withContext(intent)),
       acceptsPreparation: (intent, prepared) =>
         "ancestors" in prepared &&
         JSON.stringify(prepared.ancestors) === JSON.stringify(ancestors) &&
         admitted.acceptsPreparation(
-          { ...intent, ancestors },
+          withContext(intent),
           prepared as Parameters<typeof admitted.acceptsPreparation>[1],
         ),
       execute: (request) => {

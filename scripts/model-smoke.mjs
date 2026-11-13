@@ -25,6 +25,16 @@ export async function modelSmoke(page) {
   await expect(page.getByRole("table")).toContainText("查询金额");
   await expect(page.getByRole("table")).toContainText("12.50");
   await expect(page.getByRole("table")).toContainText("已完成");
+  await expect(
+    page.getByText("本次查询已采用业务提示", { exact: true }),
+  ).toBeVisible();
+  const feedbackDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载查询说明", exact: true }).click();
+  assert.equal((await feedbackDownload).suggestedFilename(), "query-note.txt");
+  await page.getByRole("button", { name: "核对查询结果", exact: true }).click();
+  await expect(
+    page.getByText("已核对本次查询结果", { exact: true }),
+  ).toBeVisible();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出", exact: true }).click();
   assert.equal((await download).suggestedFilename(), "dynamic-1.txt");

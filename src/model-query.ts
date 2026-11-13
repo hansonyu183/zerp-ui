@@ -1,9 +1,11 @@
+import type { Interaction } from "./collaboration";
 import type {
   ObjectShape,
   ModelValue,
   ModelRead,
   NodeAncestors,
   ModelNode,
+  ModelLocalIntent,
 } from "./reactive-model";
 import type {
   ReportPage,
@@ -21,6 +23,7 @@ export type ModelQuery<
     id: R;
     summary: ReportSummary<ModelValue<N>>;
     context: string;
+    interactions?: readonly Interaction<ModelLocalIntent<ModelValue<Q>>>[];
   },
   null,
   NodeAncestors<N>
@@ -32,7 +35,10 @@ export type ModelQuery<
     pageSize: number;
     signal: AbortSignal;
   }): Promise<
-    ReportPage<N, string> & { summary?: ReportSummary<ModelValue<N>> }
+    ReportPage<N, string> & {
+      summary?: ReportSummary<ModelValue<N>>;
+      interactions?: readonly Interaction<ModelLocalIntent<ModelValue<Q>>>[];
+    }
   >;
   revalidate(context: {
     resultId: R;

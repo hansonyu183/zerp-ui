@@ -1,7 +1,10 @@
+import { modelQueryFeedback } from "./model-query-feedback";
 import { shallowRef } from "vue";
 import {
   modelReportAdoption,
   modelReportBinding,
+  modelReportFeedback,
+  type ModelReportFeedback,
 } from "./model-report-binding";
 import { modelOperation } from "./model-operation";
 import { defineReportPage, type PageDefinition } from "./pages";
@@ -12,10 +15,12 @@ import type {
   ReportAppearance,
   ReportResultRequest,
 } from "./report";
+import type { Interaction } from "./collaboration";
 import type { ModelQuery } from "./model-query";
 import type {
   ModelNode,
   ObjectShape,
+  ModelLocalIntent,
   ApplicationNode,
   ModelOwner,
 } from "./reactive-model";
@@ -78,15 +83,36 @@ export function modelQueryPage(
       ),
     );
   function result(
-    page: ReportPage<RuntimeObject, string>,
+    page: ReportPage<RuntimeObject, string> & {
+      interactions?: readonly Interaction<ModelLocalIntent<Values>>[];
+    },
   ): ReportPage<Values, string> {
     const keys = page.items.map(rowKey);
     const node = current()!;
     if (new Set(keys).size !== keys.length) throw Error("集合记录身份重复。");
+    const admittedOwner = JSON.stringify(owner()),
+      admittedQuery = query();
+    const { interactions, ...data } = page;
+    const feedback: ModelReportFeedback | undefined = interactions?.length
+      ? modelQueryFeedback(
+          interactions,
+          () => query()?.input,
+          application,
+          runtime,
+          () =>
+            adoptedFeedback.value === feedback &&
+            current() === node &&
+            query() === admittedQuery &&
+            !query()?.disabledReason &&
+            JSON.stringify(owner()) === admittedOwner,
+        )
+      : undefined;
     return {
-      ...page,
+      ...data,
+      [modelReportFeedback]: feedback,
       [modelReportAdoption]: () => {
         node.items = [...page.items];
+        adoptedFeedback.value = feedback ?? null;
         targets.clear();
         epoch++;
       },
@@ -145,6 +171,7 @@ export function modelQueryPage(
       throw Error("读取已失效。");
     return result;
   }
+  const adoptedFeedback = shallowRef<ModelReportFeedback | null>(null);
   let epoch = 0;
   const targets = new Map<
     string,

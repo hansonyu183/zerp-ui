@@ -10,3 +10,11 @@ export type ModelReportBinding<R, P extends object> = {
 export const modelReportAdoption: unique symbol = Symbol(
   "zerp.model.report.adopt",
 );
+
+/** Library-only result interactions, scoped to the adopted fixed result. */
+export const modelReportFeedback: unique symbol = Symbol(
+  "zerp.model.report.feedback",
+);
+export type ModelReportFeedback = {
+  collaboration: DraftCollaboration<Record<string, unknown>, string>;
+};

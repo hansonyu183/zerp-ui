@@ -1911,3 +1911,292 @@ it("rejects an invalid page expiry without replacing the adopted model rows", as
     "rejected-row",
   );
 });
+
+it("renders feedback returned by the adopted fixed query", async () => {
+  const row = () =>
+    object("结果", { id: text("编号", { value: "1" }) }, { identity: ["id"] });
+  const records = collection("查询交互", row, {
+    operations: {
+      query: {
+        async run() {
+          return {
+            id: "one",
+            items: [row()],
+            total: 1,
+            summary: { caption: "", values: {} },
+            context: "",
+            interactions: [
+              {
+                kind: "message" as const,
+                id: "query-note",
+                message: "本次查询业务提示",
+              },
+            ],
+          };
+        },
+        async page() {
+          return { items: [row()], total: 1 };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+    },
+  });
+  await renderNode(records);
+  await click("查询");
+  expect(document.body.textContent).toContain("本次查询业务提示");
+});
+
+it("keeps adopted query prompts on failure and dispatches typed local calculations with their answers", async () => {
+  let fail = false;
+  const calculate = vi.fn(
+    async (context: {
+      input: { keyword: string | null };
+      answers: Readonly<Record<string, string | boolean>>;
+    }) => ({
+      value: { keyword: context.input.keyword + "-computed" },
+      interactions: [
+        { kind: "message" as const, id: "done", message: "已计算查询条件" },
+      ],
+    }),
+  );
+  const filters = object("条件", {
+    keyword: text("关键词", { value: "original" }),
+  });
+  const row = () =>
+    object("结果", { id: text("编号", { value: "1" }) }, { identity: ["id"] });
+  const records = collection("查询交互", row, {
+    operations: {
+      query: {
+        input: filters,
+        async run() {
+          if (fail) throw Error("合成查询失败");
+          return {
+            id: "one",
+            items: [row()],
+            total: 1,
+            summary: { caption: "", values: {} },
+            context: "",
+            interactions: [
+              {
+                kind: "confirm" as const,
+                id: "query-check",
+                label: "已核对查询条件",
+              },
+              {
+                kind: "tree" as const,
+                id: "tools",
+                label: "查询工具",
+                items: [
+                  {
+                    key: "calculate",
+                    label: "计算条件",
+                    target: { kind: "calculate" as const, run: calculate },
+                  },
+                ],
+              },
+            ],
+          };
+        },
+        async page() {
+          return {
+            items: [row()],
+            total: 1,
+            interactions: [
+              {
+                kind: "message" as const,
+                id: "page",
+                message: "新分页业务提示",
+              },
+            ],
+          };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+    },
+  });
+  await renderNode(records);
+  await click("查询");
+  fail = true;
+  await click("查询");
+  expect(document.body.textContent).toContain("已核对查询条件");
+  document
+    .querySelector<HTMLInputElement>('input[aria-label="已核对查询条件"]')!
+    .click();
+  await flushPromises();
+  await click("计算条件");
+  expect(calculate).toHaveBeenCalledTimes(1);
+  expect(calculate.mock.calls[0]![0]).toMatchObject({
+    input: { keyword: "original" },
+    answers: { "query-check": true },
+  });
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="关键词"]')!
+      .value,
+  ).toBe("original-computed");
+  expect(document.body.textContent).toContain("已计算查询条件");
+  expect(document.body.textContent).not.toContain("已核对查询条件");
+});
+
+it("removes expired result prompts without blocking a fresh query", async () => {
+  vi.useFakeTimers();
+  try {
+    const row = () =>
+      object(
+        "结果",
+        { id: text("编号", { value: "1" }) },
+        { identity: ["id"] },
+      );
+    let count = 0;
+    const records = collection("查询交互", row, {
+      operations: {
+        query: {
+          async run() {
+            return {
+              id: String(++count),
+              items: [row()],
+              total: 1,
+              expiresAt: Date.now() + 2000,
+              summary: { caption: "", values: {} },
+              context: "",
+              interactions: [
+                {
+                  kind: "confirm" as const,
+                  id: "required",
+                  label: "核对已采用结果",
+                  required: true,
+                },
+              ],
+            };
+          },
+          async page() {
+            return { items: [row()], total: 1 };
+          },
+          async revalidate() {
+            return { status: "valid" };
+          },
+        },
+      },
+    });
+    await renderNode(records);
+    await click("查询");
+    expect(document.body.textContent).toContain("核对已采用结果");
+    await vi.advanceTimersByTimeAsync(2200);
+    await flushPromises();
+    expect(document.body.textContent).not.toContain("核对已采用结果");
+    const query = [
+      ...document.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.textContent?.trim() === "查询")!;
+    expect(query.disabled).toBe(false);
+    await click("查询");
+    expect(count).toBe(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("discards a late result calculation after its owner changes", async () => {
+  let complete!: (value: { value: { keyword: string | null } }) => void;
+  const filters = object("条件", {
+    keyword: text("关键词", { value: "original" }),
+  });
+  const row = () =>
+    object("结果", { id: text("编号", { value: "1" }) }, { identity: ["id"] });
+  const records = collection("查询交互", row, {
+    operations: {
+      query: {
+        input: filters,
+        async run() {
+          return {
+            id: "one",
+            items: [row()],
+            total: 1,
+            summary: { caption: "", values: {} },
+            context: "",
+            interactions: [
+              {
+                kind: "menu" as const,
+                id: "tools",
+                label: "业务工具",
+                items: [
+                  {
+                    key: "late",
+                    label: "延迟计算",
+                    target: {
+                      kind: "calculate" as const,
+                      run: () =>
+                        new Promise<{ value: { keyword: string | null } }>(
+                          (resolve) => {
+                            complete = resolve;
+                          },
+                        ),
+                    },
+                  },
+                ],
+              },
+            ],
+          };
+        },
+        async page() {
+          return { items: [row()], total: 1 };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+    },
+  });
+  const settings = await renderNode(records);
+  await click("查询");
+  await click("延迟计算");
+  settings.owner = { ...settings.owner!, generation: "later" };
+  await flushPromises();
+  complete({ value: { keyword: "late-other-owner" } });
+  await flushPromises();
+  expect(filters.keyword.value).toBe("original");
+  expect(document.body.textContent).not.toContain("延迟计算");
+});
+
+it("adopts page interactions together with the new fixed page", async () => {
+  const row = () =>
+    object("结果", { id: text("编号", { value: "1" }) }, { identity: ["id"] });
+  const records = collection("查询交互", row, {
+    operations: {
+      query: {
+        async run() {
+          return {
+            id: "one",
+            items: [row()],
+            total: 21,
+            summary: { caption: "", values: {} },
+            context: "",
+            interactions: [
+              { kind: "message" as const, id: "first", message: "第一页提示" },
+            ],
+          };
+        },
+        async page() {
+          return {
+            items: [row()],
+            total: 21,
+            interactions: [
+              { kind: "message" as const, id: "second", message: "第二页提示" },
+            ],
+          };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+    },
+  });
+  await renderNode(records);
+  await click("查询");
+  expect(document.body.textContent).toContain("第一页提示");
+  await click("下一页");
+  expect(document.body.textContent).toContain("第二页提示");
+  expect(document.body.textContent).not.toContain("第一页提示");
+});
