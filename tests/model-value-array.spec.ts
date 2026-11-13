@@ -6,6 +6,7 @@ import { BusinessApplication } from "../src/index";
 import {
   application,
   object,
+  collection,
   array,
   text,
   reference,
@@ -416,4 +417,95 @@ it("uses the current same-identity declaration when calculation returns its orig
   await click("保存");
   const request = run.mock.calls[0]![0] as { input: { rows: object[] } };
   expect(request.input.rows[0]).not.toHaveProperty("price");
+});
+
+it("finishes known committed refresh when a query replaces opaque array row declarations", async () => {
+  let stored = "原包装";
+  let revision = 1;
+  let writes = 0;
+  const row = () =>
+    object(
+      "客户",
+      {
+        id: text("编号", { value: "one", readOnly: true }),
+        units: array(
+          "包装",
+          () => object("包装行", { label: text("包装名称") }),
+          [object("包装行", { label: text("包装名称", { value: stored }) })],
+        ),
+      },
+      {
+        identity: ["id"] as const,
+        concurrency: String(revision),
+        operations: {
+          get: {
+            async run() {
+              return {
+                identity: { id: "one" },
+                concurrency: String(revision),
+                value: { id: "one", units: [{ label: stored }] },
+              };
+            },
+          },
+          update: {
+            async run(request) {
+              stored = request.input.units[0]!.label!;
+              writes++;
+              revision++;
+              return { status: "success" as const };
+            },
+          },
+        },
+      },
+    );
+  const records = collection("客户", row, {
+    operations: {
+      query: {
+        async run() {
+          return { items: [row()], total: 1 };
+        },
+      },
+    },
+  });
+  await render(records);
+  const field = document.querySelector<HTMLInputElement>(
+    'input[aria-label="包装名称"]',
+  )!;
+  field.value = "修改包装";
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+  await flushPromises();
+  await click("保存");
+  expect(stored).toBe("修改包装");
+  expect(writes).toBe(1);
+  expect(document.body.textContent).not.toContain("数组行声明已失效");
+  await click("编辑");
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="包装名称"]')
+      ?.value,
+  ).toBe("修改包装");
+});
+
+it("rejects a stale opaque row at save preparation instead of adopting a writable factory", async () => {
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "success" as const,
+  }));
+  const units = () =>
+    array("包装", () => object("行", { label: text("包装名称") }), [
+      object("行", { label: text("包装名称", { value: "包装" }) }),
+    ]);
+  const target = reactive(
+    object("客户", { units: units() }, { operations: { update: { run } } }),
+  );
+  await render(target);
+  const field = document.querySelector<HTMLInputElement>(
+    'input[aria-label="包装名称"]',
+  )!;
+  field.value = "未采用修改";
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+  await flushPromises();
+  target.units = units();
+  await flushPromises();
+  await click("保存");
+  expect(run).not.toHaveBeenCalled();
+  expect(document.body.textContent).toContain("数组行声明已失效");
 });

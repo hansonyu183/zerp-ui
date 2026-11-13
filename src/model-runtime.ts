@@ -221,6 +221,11 @@ function identity(node: RuntimeObject): ModelIdentity {
     concurrency: meta.concurrency,
   };
 }
+class StaleArrayRow extends Error {
+  constructor() {
+    super("数组行声明已失效，请重新读取。");
+  }
+}
 type ValueArray = ModelNode & {
   items: ModelNode[];
   [nodeMetadata]: { element: ModelNode; create(): ModelNode };
@@ -270,7 +275,7 @@ function declaredRow(
     const created = arrayRows.get(toRaw(array))?.get(key);
     if (created && (snapshot || createdRows.has(toRaw(created))))
       return created;
-    throw Error("数组行声明已失效，请重新读取。");
+    throw new StaleArrayRow();
   }
   const element = array[nodeMetadata].element;
   if (isObject(element) && asObject(element)[nodeMetadata].identity.length) {
@@ -580,6 +585,7 @@ export function createModelRuntime(
       }
       if (meta.kind === "array") {
         const array = child as ValueArray;
+        const unavailableFields: AnyField[] = [];
         const projections = new WeakMap<
           ModelNode,
           import("vue").ComputedRef<AnyField[]>
@@ -596,6 +602,13 @@ export function createModelRuntime(
               },
             },
             (value) => {
+              const key = Reflect.get(value, "$modelRowKey");
+              if (
+                typeof key === "string" &&
+                !array.items.some((item) => rowKey(item) === key) &&
+                !arrayRows.get(toRaw(array))?.has(key)
+              )
+                return unavailableFields;
               const row = declaredRow(array, value, undefined, true);
               let projected = projections.get(row);
               if (!projected) {
@@ -1108,7 +1121,11 @@ export function createModelRuntime(
         ready: () => hasQueried.value,
         draft: (values, id) => {
           const node = rowNode(id) ?? selection.value;
-          adopt(node, unflat(node, values, false));
+          try {
+            adopt(node, unflat(node, values, false));
+          } catch (error) {
+            if (!(error instanceof StaleArrayRow)) throw error;
+          }
         },
         row: (row) => {
           const node = rowNode(row.$identity as ModelIdentity);
