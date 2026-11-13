@@ -442,6 +442,62 @@ it("reads an off-page deep-link identity through the element get and retains its
     input: { name: "页外修改" },
   });
 });
+it.each([false, true])(
+  "finishes an initial deep-link read while the collection queries (included: %s)",
+  async (included) => {
+    let finish!: () => void;
+    let signal!: AbortSignal;
+    const row = () =>
+      object(
+        "客户",
+        {
+          id: text("编号", { readOnly: true, value: "" }),
+          name: text("名称"),
+        },
+        {
+          identity: ["id"],
+          operations: {
+            get: {
+              async run(context) {
+                signal = context.signal;
+                await new Promise<void>((resolve) => {
+                  finish = resolve;
+                });
+                return {
+                  value: { id: "off-page", name: "初始深链详情" },
+                  identity: { id: "off-page" },
+                  concurrency: "1",
+                };
+              },
+            },
+          },
+        },
+      );
+    const listed = row();
+    listed.id.value = "off-page";
+    const query = vi.fn(async () => ({
+      items: included ? [listed] : [],
+      total: included ? 1 : 0,
+    }));
+    const records = collection("客户", row, {
+      operations: { query: { run: query } },
+    });
+    await renderNode(records, {
+      navigation: {
+        current: { node: records, identity: { id: "off-page" } },
+        href: () => "/customers",
+        visit: vi.fn(),
+        guard: () => () => {},
+      },
+    });
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(signal.aborted).toBe(false);
+    finish();
+    await flushPromises();
+    expect(document.body.textContent).toContain("初始深链详情");
+    expect(document.body.textContent).not.toContain("读取已失效");
+  },
+);
 it("does not call disabled reference operations and presents their business reason", async () => {
   const search = vi.fn(async () => ({ items: [], total: 0 }));
   const resolve = vi.fn(async () => []);
@@ -1946,6 +2002,61 @@ it("renders feedback returned by the adopted fixed query", async () => {
   await renderNode(records);
   await click("查询");
   expect(document.body.textContent).toContain("本次查询业务提示");
+});
+
+it("settles parameter calculations alongside query feedback and recalculates actual edits", async () => {
+  const calculate = vi.fn(
+    async ({ input }: { input: { term: string | null } }) => {
+      if (calculate.mock.calls.length > 8) throw Error("重复计算诊断上限");
+      return { value: input };
+    },
+  );
+  const parameters = object(
+    "条件",
+    { term: text("关键词", { value: "初始" }) },
+    {
+      operations: { calculate: { run: calculate } },
+    },
+  );
+  const row = () =>
+    object("结果", { id: text("编号", { value: "1" }) }, { identity: ["id"] });
+  const records = collection("查询交互", row, {
+    operations: {
+      query: {
+        input: parameters,
+        async run() {
+          return {
+            id: "one",
+            items: [row()],
+            total: 1,
+            summary: { caption: "", values: {} },
+            context: "",
+            interactions: [
+              {
+                kind: "message" as const,
+                id: "note",
+                message: "本次查询业务提示",
+              },
+            ],
+          };
+        },
+        async page() {
+          return { items: [row()], total: 1 };
+        },
+        async revalidate() {
+          return { status: "valid" as const };
+        },
+      },
+    },
+  });
+  await renderNode(records);
+  expect(calculate).toHaveBeenCalledTimes(1);
+  await click("查询");
+  expect(document.body.textContent).toContain("本次查询业务提示");
+  expect(calculate).toHaveBeenCalledTimes(1);
+  await input("关键词", "修改");
+  expect(calculate).toHaveBeenCalledTimes(2);
+  expect(document.body.textContent).not.toContain("重复计算诊断上限");
 });
 
 it("keeps adopted query prompts on failure and dispatches typed local calculations with their answers", async () => {

@@ -1074,7 +1074,6 @@ watch(
     if (row === props.initialRow && row)
       void openRow(row, props.readOnly ?? true);
   },
-  { immediate: true },
 );
 onBeforeUnmount(() => {
   if (lock.value.phase === "idle" && initial.value)

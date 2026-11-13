@@ -102,8 +102,10 @@ async function run(
       )
         retained[item.id] = answers.value[item.id]!;
     answers.value = retained;
-    adopted = clone(result.value);
-    emit("update:modelValue", clone(result.value));
+    if (!equalValues(result.value, props.modelValue)) {
+      adopted = clone(result.value);
+      emit("update:modelValue", clone(result.value));
+    }
     emit("pending", awaitingAnswers());
   } catch (cause) {
     if (alive && epoch === generation && !signal.aborted) {
