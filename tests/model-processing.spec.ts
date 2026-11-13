@@ -12,6 +12,7 @@ import {
   type ModelOperationJournal,
   type ModelActionModel,
   type ModelNode,
+  type ModelCalculation,
 } from "../src/model";
 beforeEach(() =>
   Object.defineProperty(navigator, "locks", {
@@ -40,6 +41,7 @@ async function fixture(
     run: () => Promise<{ value: { note: string } }>;
     disabledReason?: string;
   },
+  calculate?: ModelCalculation<{ note: string | null }, {}, readonly []>,
 ) {
   const input = object(
     "处理输入",
@@ -49,7 +51,7 @@ async function fixture(
     {
       operations: {
         ...(initialize ? { initialize } : {}),
-        calculate: {
+        calculate: calculate ?? {
           async run({ input }) {
             return {
               value: input,
@@ -282,6 +284,61 @@ it("retries initialization when its first response was discarded after qualifica
   await flushPromises();
   expect(run).toHaveBeenCalledTimes(2);
   expect(note.value).toBe("重新读取");
+});
+it("keeps unanswered required prompts pending when a later local calculation is discarded", async () => {
+  let finish!: (value: { value: { note: string | null } }) => void;
+  const local = new Promise<{ value: { note: string | null } }>((resolve) => {
+    finish = resolve;
+  });
+  const calculate = reactive<
+    ModelCalculation<{ note: string | null }, {}, readonly []>
+  >({
+    disabledReason: "",
+    async run({ input }) {
+      return {
+        value: input,
+        interactions: [
+          {
+            kind: "confirm",
+            id: "required",
+            label: "确认业务依据",
+            required: true,
+          },
+          {
+            kind: "menu",
+            id: "menu",
+            label: "菜单",
+            items: [
+              {
+                key: "read",
+                label: "局部读取",
+                target: {
+                  kind: "calculate",
+                  async run() {
+                    return local;
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      };
+    },
+  });
+  const f = await fixture(false, undefined, calculate);
+  await click("局部读取");
+  calculate.disabledReason = "读取资格已撤销";
+  finish({ value: { note: "迟到" } });
+  await flushPromises();
+  const checkbox = document.querySelector<HTMLInputElement>(
+    'input[aria-label="确认业务依据"]',
+  )!;
+  expect(checkbox.checked).toBe(false);
+  const prepare = [
+    ...document.querySelectorAll<HTMLButtonElement>("button"),
+  ].find((button) => button.textContent?.trim() === "准备执行处理")!;
+  expect(prepare.disabled).toBe(true);
+  expect(f.journal()).toBeNull();
 });
 it("confirms an authoritative preview and reconciles the original unknown request without resending", async () => {
   const f = await fixture();

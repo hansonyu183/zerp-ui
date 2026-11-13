@@ -33,6 +33,17 @@ let initialized = false,
   controller: AbortController | undefined,
   adopted: D | undefined,
   alive = true;
+function awaitingAnswers() {
+  return items.value.some(
+    (item) =>
+      (item.kind === "confirm" &&
+        item.required &&
+        answers.value[item.id] !== true) ||
+      (item.kind === "input" &&
+        item.required &&
+        !String(answers.value[item.id] ?? "").trim()),
+  );
+}
 async function run(
   event: "initialize" | "change" | "answer" | "action",
   target?: T,
@@ -71,7 +82,7 @@ async function run(
       return;
     if (isDiscardedCollaboration(result)) {
       calculating.value = false;
-      emit("pending", false);
+      emit("pending", awaitingAnswers());
       return;
     }
     initialized = true;
@@ -93,18 +104,7 @@ async function run(
     answers.value = retained;
     adopted = clone(result.value);
     emit("update:modelValue", clone(result.value));
-    emit(
-      "pending",
-      items.value.some(
-        (item) =>
-          (item.kind === "confirm" &&
-            item.required &&
-            answers.value[item.id] !== true) ||
-          (item.kind === "input" &&
-            item.required &&
-            !String(answers.value[item.id] ?? "").trim()),
-      ),
-    );
+    emit("pending", awaitingAnswers());
   } catch (cause) {
     if (alive && epoch === generation && !signal.aborted) {
       calculating.value = false;
