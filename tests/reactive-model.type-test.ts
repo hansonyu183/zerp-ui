@@ -263,3 +263,25 @@ const wrongStaticField: import("../src/model").ModelFieldPath<{
   contact: { phone: string };
 }> = ["contact", "password"];
 void [staticField, wrongStaticField];
+
+const projectionMembers = {
+  id: text("编号", { readOnly: true }),
+  "values.name": text("字面字段"),
+  values: object("资料", { name: text("名称"), amount: decimal("金额") }),
+};
+object("独立列表", projectionMembers, {
+  form: ["values"],
+  list: ["id", "values.name", ["values", "name"], ["values", "amount"]],
+});
+// @ts-expect-error static nested list fields stay within the declared model
+object("错误嵌套列表", projectionMembers, {
+  list: [["values", "missing"]],
+});
+// @ts-expect-error scalar nodes have no list descendants
+object("错误标量后代", projectionMembers, {
+  list: [["id", "name"]],
+});
+// @ts-expect-error dotted strings remain literal keys rather than nested paths
+object("错误字面字段", projectionMembers, {
+  list: ["values.amount"],
+});

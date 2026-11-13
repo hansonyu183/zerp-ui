@@ -10,6 +10,17 @@ export async function modelSmoke(page) {
   await page.getByText("合成账套", { exact: true }).click();
   await page.getByRole("button", { name: "登录", exact: true }).click();
   await page.getByRole("heading", { name: "客户", exact: true }).waitFor();
+  await page.getByRole("link", { name: "列表与表单投影", exact: true }).click();
+  const projected = page.getByRole("table");
+  await expect(
+    projected
+      .getByRole("columnheader")
+      .filter({ hasText: /投影编号|嵌套列|字面列/ }),
+  ).toHaveText(["投影编号", "嵌套列", "字面列"]);
+  await expect(projected).toContainText("P1");
+  await expect(projected).toContainText("嵌套内容");
+  await expect(projected).toContainText("字面内容");
+  await page.getByRole("link", { name: "客户", exact: true }).click();
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   assert.equal(
     await page.getByLabel("信用额度", { exact: true }).inputValue(),
