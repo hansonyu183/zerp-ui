@@ -20,6 +20,17 @@ export async function modelSmoke(page) {
   await expect(projected).toContainText("P1");
   await expect(projected).toContainText("嵌套内容");
   await expect(projected).toContainText("字面内容");
+  await page.getByRole("link", { name: "动态账簿", exact: true }).click();
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await expect(page.getByRole("table")).toContainText("查询金额");
+  await expect(page.getByRole("table")).toContainText("12.50");
+  await expect(page.getByRole("table")).toContainText("已完成");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出", exact: true }).click();
+  assert.equal((await download).suggestedFilename(), "dynamic-1.txt");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await expect(page.getByRole("table")).toContainText("空结果字段");
+  await expect(page.getByRole("table")).not.toContainText("查询金额");
   await page.getByRole("link", { name: "客户", exact: true }).click();
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   assert.equal(

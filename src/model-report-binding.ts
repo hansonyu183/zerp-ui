@@ -5,3 +5,8 @@ export type ModelReportBinding<R, P extends object> = {
   collaboration?: DraftCollaboration<P, unknown>;
   row(row: R): R | undefined;
 };
+
+/** Commit model rows only after ReportView has validated the complete result. */
+export const modelReportAdoption: unique symbol = Symbol(
+  "zerp.model.report.adopt",
+);

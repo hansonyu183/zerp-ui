@@ -1,5 +1,8 @@
 import { shallowRef } from "vue";
-import { modelReportBinding } from "./model-report-binding";
+import {
+  modelReportAdoption,
+  modelReportBinding,
+} from "./model-report-binding";
 import { modelOperation } from "./model-operation";
 import { defineReportPage, type PageDefinition } from "./pages";
 import type {
@@ -45,15 +48,26 @@ export function modelQueryPage(
   ancestors: readonly unknown[],
 ): PageDefinition {
   const first = source() as QueryCollection;
-  const sample = first[nodeMetadata].element();
   const current = () => source() as QueryCollection | undefined;
   const query = () => current()?.[nodeMetadata].operations.query;
   const owner = () => application()[nodeMetadata].options.owner;
   const resource = JSON.stringify([path, ancestors]);
-  const fields = () =>
-    runtime
+  const fields = (sample = (current() ?? first)[nodeMetadata].element()) => {
+    return runtime
       .fields(sample, [], false, "list")
       .filter((field) => field.type !== "secret" && field.type !== "rows");
+  };
+  const columns = (sample?: RuntimeObject) =>
+    fields(sample).map((field) => ({
+      key: field.key,
+      label: field.label,
+      type: ["decimal", "integer", "date", "boolean", "enum"].includes(
+        field.type,
+      )
+        ? field.type
+        : "text",
+      ...(field.type === "enum" ? { options: field.options } : {}),
+    })) as unknown as typeof definition.columns;
   const rowKey = (row: RuntimeObject) =>
     JSON.stringify(
       Object.fromEntries(
@@ -67,11 +81,15 @@ export function modelQueryPage(
     page: ReportPage<RuntimeObject, string>,
   ): ReportPage<Values, string> {
     const keys = page.items.map(rowKey);
-    targets.clear();
-    epoch++;
+    const node = current()!;
     if (new Set(keys).size !== keys.length) throw Error("集合记录身份重复。");
     return {
       ...page,
+      [modelReportAdoption]: () => {
+        node.items = [...page.items];
+        targets.clear();
+        epoch++;
+      },
       items: page.items.map((row) => ({
         ...runtime.flat(row),
         $key: rowKey(row),
@@ -127,7 +145,6 @@ export function modelQueryPage(
       throw Error("读取已失效。");
     return result;
   }
-  let applied: Values = {};
   let epoch = 0;
   const targets = new Map<
     string,
@@ -166,13 +183,7 @@ export function modelQueryPage(
     initialParameters: () =>
       query()?.input ? runtime.flat(query()!.input!) : {},
     get columns() {
-      return fields().map((field) => ({
-        key: field.key,
-        label: field.label,
-        type: ["decimal", "integer", "date", "boolean"].includes(field.type)
-          ? field.type
-          : "text",
-      })) as unknown as typeof definition.columns;
+      return columns();
     },
     rowKey: (row) => row.$key as string,
     adapter: {
@@ -193,19 +204,21 @@ export function modelQueryPage(
             }),
           context.signal,
         );
-        applied = clone(context.parameters);
-        current()!.items = response.items as RuntimeObject[];
         return {
           ...result(response as unknown as ReportPage<RuntimeObject, string>),
           id: response.id,
+          columns: columns(response.items[0] as RuntimeObject | undefined),
           summary: summary(response.summary),
           context: response.context,
         };
       },
       page: async (context) => {
         const response = await read((q) => q.page(context), context.signal);
-        current()!.items = response.items as RuntimeObject[];
-        return result(response as unknown as ReportPage<RuntimeObject, string>);
+        return {
+          ...result(response as unknown as ReportPage<RuntimeObject, string>),
+          columns: columns(response.items[0] as RuntimeObject | undefined),
+          ...(response.summary ? { summary: summary(response.summary) } : {}),
+        };
       },
       revalidate: (context) =>
         read((q) => q.revalidate(context), context.signal),
@@ -217,7 +230,9 @@ export function modelQueryPage(
       },
       get export() {
         return current()?.[nodeMetadata].operations.export
-          ? async (context: ReportResultRequest<string>) => {
+          ? async (
+              context: ReportResultRequest<string> & { parameters: Values },
+            ) => {
               const op = current()![nodeMetadata].operations.export!,
                 admittedOwner = JSON.stringify(owner());
               if (op.disabledReason) throw Error(op.disabledReason);
@@ -227,7 +242,7 @@ export function modelQueryPage(
                 identity: null,
                 ancestors: clone(ancestors),
                 input: query()?.input
-                  ? runtime.unflat(query()!.input!, applied, false)
+                  ? runtime.unflat(query()!.input!, context.parameters, false)
                   : {},
                 page: 1,
                 pageSize: 20,

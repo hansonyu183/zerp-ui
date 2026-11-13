@@ -141,6 +141,23 @@ export type ModelRead<
     },
   ): Promise<O>;
 };
+/** Fixed queries provide their adopted result; ordinary collections have no result ID. */
+export type ModelExport<
+  I = object,
+  P extends readonly unknown[] = readonly [],
+> = {
+  disabledReason?: string;
+  run(
+    context: ModelContext<null, P> & {
+      input: ReadonlyValue<I>;
+      page: number;
+      pageSize: number;
+      requestId?: string;
+      resultId?: string;
+    },
+  ): Promise<void | { content: Blob; filename: string }>;
+};
+
 type NoPresentation = {
   template?: never;
   render?: never;
@@ -374,10 +391,7 @@ export type CollectionNode<N extends ObjectShape = ObjectShape> = {
             | (ModelRead<object, Page<N>> & { input?: ObjectShape })
             | ModelQuery<N, ObjectShape>;
           create?: ModelCreate<N>;
-          export?: ModelRead<
-            object,
-            void | { content: Blob; filename: string }
-          >;
+          export?: ModelExport;
         }
       | BatchOperations<NodeIdentity<N>, NodeAncestors<N>>;
   };
@@ -757,12 +771,7 @@ export function collection<
               })
             | ModelQuery<NoInfer<N>, Q>;
           create?: ModelCreate<N>;
-          export?: ModelRead<
-            ModelValue<Q>,
-            void | { content: Blob; filename: string },
-            null,
-            NodeAncestors<N>
-          >;
+          export?: ModelExport<ModelValue<Q>, NodeAncestors<N>>;
         }
       | BatchOperations<NodeIdentity<N>, NodeAncestors<N>>;
   } = {},
