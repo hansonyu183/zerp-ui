@@ -11,6 +11,7 @@ import {
   decimal,
   boolean,
   integer,
+  enumeration,
   array,
   reference,
   messages,
@@ -658,6 +659,56 @@ const projections = collection("列表与表单投影", projectedRecord, {
     },
   },
 });
+let reportRevision = 0;
+function dynamicRecord() {
+  return object(
+    "报表记录",
+    {
+      id: text("记录编号", { value: "D1", readOnly: true }),
+      ...(reportRevision === 1
+        ? {
+            amount: decimal("查询金额", { value: "12.50" }),
+            state: enumeration("办理状态", {
+              value: "A",
+              options: [{ id: "A", name: "已完成" }],
+            }),
+          }
+        : { empty: text("空结果字段") }),
+    },
+    { identity: ["id"], readOnly: true },
+  );
+}
+const dynamicResults = collection("动态账簿", dynamicRecord, {
+  operations: {
+    query: {
+      async run() {
+        reportRevision++;
+        return {
+          id: "dynamic-" + reportRevision,
+          items: reportRevision === 1 ? [dynamicRecord()] : [],
+          total: reportRevision === 1 ? 1 : 0,
+          context: "合成账簿",
+          summary: { caption: "合计", values: {} },
+        };
+      },
+      async page() {
+        return { items: [], total: 0 };
+      },
+      async revalidate() {
+        return { status: "valid" };
+      },
+    },
+    export: {
+      async run({ resultId }) {
+        if (!resultId) throw Error("请先查询。");
+        return {
+          content: new Blob([resultId], { type: "text/plain" }),
+          filename: resultId + ".txt",
+        };
+      },
+    },
+  },
+});
 const routeNodes: [string, ModelNode][] = [
   ["customers", customers],
   ["workbench", workbench],
@@ -666,6 +717,7 @@ const routeNodes: [string, ModelNode][] = [
   ["profile", profile],
   ["password", password],
   ["projections", projections],
+  ["dynamic-results", dynamicResults],
 ];
 function routeTarget(route: Pick<RouteLocationNormalized, "path" | "query">) {
   const { path, query } = route;
@@ -800,6 +852,7 @@ export const model = reactive(
       profile,
       controls,
       projections,
+      dynamicResults,
       notifications,
     },
     options,

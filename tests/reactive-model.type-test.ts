@@ -285,3 +285,35 @@ object("错误标量后代", projectionMembers, {
 object("错误字面字段", projectionMembers, {
   list: ["values.amount"],
 });
+
+collection("冻结结果导出", customer, {
+  operations: {
+    query: {
+      async run() {
+        return {
+          id: "frozen",
+          items: [],
+          total: 0,
+          context: "",
+          summary: { caption: "合计", values: {} },
+        };
+      },
+      async page() {
+        return { items: [], total: 0 };
+      },
+      async revalidate() {
+        return { status: "valid" };
+      },
+    },
+    export: {
+      async run({ resultId }) {
+        const original: string | undefined = resultId;
+        // @ts-expect-error a frozen result identity is not numeric
+        const wrong: number = resultId;
+        void original;
+        void wrong;
+        return { content: new Blob(), filename: "export.xlsx" };
+      },
+    },
+  },
+});

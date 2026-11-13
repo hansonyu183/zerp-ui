@@ -4,13 +4,13 @@
 
 ## 固定版本安装
 
-本源码为 **0.37.0**，分离同一模型的列表与表单投影，支持强类型嵌套列表路径；正式交付状态、确切 SHA 和工件摘要以 [#136](https://github.com/hansonyu183/zerp-ui/issues/136) 的验收记录为准。历史发行保持，后续 OIT 接入使用 #136 正式交付并核对摘要的固定包。
+本源码为 **0.38.0**，补齐固定查询的动态模型投影、枚举名称及冻结结果导出类型；正式交付状态、确切 SHA 和工件摘要以 [#138](https://github.com/hansonyu183/zerp-ui/issues/138) 的验收记录为准。历史发行保持，后续 OIT 接入使用 #138 正式交付并核对摘要的固定包。
 
-从 [ui-v0.37.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.37.0) 下载 `zerp-ui-0.37.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+从 [ui-v0.38.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.38.0) 下载 `zerp-ui-0.38.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.37.0.tgz
+pnpm add ./zerp-ui-0.38.0.tgz
 ```
 
 宿主仅初始化一套 Vue、Vuetify、Router；peer 范围和 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化宿主唯一的 `createVuetify`。图标字体随包分发。

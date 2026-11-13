@@ -45,15 +45,17 @@ export function modelQueryPage(
   ancestors: readonly unknown[],
 ): PageDefinition {
   const first = source() as QueryCollection;
-  const sample = first[nodeMetadata].element();
   const current = () => source() as QueryCollection | undefined;
   const query = () => current()?.[nodeMetadata].operations.query;
   const owner = () => application()[nodeMetadata].options.owner;
   const resource = JSON.stringify([path, ancestors]);
-  const fields = () =>
-    runtime
+  const fields = () => {
+    const node = current() ?? first;
+    const sample = node.items[0] ?? node[nodeMetadata].element();
+    return runtime
       .fields(sample, [], false, "list")
       .filter((field) => field.type !== "secret" && field.type !== "rows");
+  };
   const rowKey = (row: RuntimeObject) =>
     JSON.stringify(
       Object.fromEntries(
@@ -171,7 +173,10 @@ export function modelQueryPage(
         label: field.label,
         type: ["decimal", "integer", "date", "boolean"].includes(field.type)
           ? field.type
-          : "text",
+          : field.type === "enum"
+            ? "enum"
+            : "text",
+        ...(field.type === "enum" ? { options: field.options } : {}),
       })) as unknown as typeof definition.columns;
     },
     rowKey: (row) => row.$key as string,
@@ -198,6 +203,7 @@ export function modelQueryPage(
         return {
           ...result(response as unknown as ReportPage<RuntimeObject, string>),
           id: response.id,
+          columns: definition.columns,
           summary: summary(response.summary),
           context: response.context,
         };

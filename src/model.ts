@@ -23,6 +23,7 @@ export type {
   ModelEvidence,
   ModelWrite,
   ModelRead,
+  ModelExport,
   ModelContext,
   ModelValue,
   ModelInput,

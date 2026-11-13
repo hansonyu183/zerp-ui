@@ -14,6 +14,7 @@ import {
   type ModelNode,
   type ApplicationNode,
   decimal,
+  enumeration,
   boolean,
   messages,
   type ModelNavigation,
@@ -1636,4 +1637,113 @@ it("selects an ordinary object for the list without admitting its independent ch
     "list-secret",
   );
   expect(childQuery).not.toHaveBeenCalled();
+});
+
+it("projects authoritative dynamic fixed-query fields including empty results and enum labels", async () => {
+  let current = "before";
+  const element = () =>
+    object(
+      "结果",
+      {
+        id: text("编号", { value: "row1", readOnly: true }),
+        ...(current === "before"
+          ? { old: text("旧列", { value: "旧内容" }) }
+          : {}),
+        ...(current === "after"
+          ? {
+              amount: decimal("金额", { value: "12.50" }),
+              state: enumeration("状态", {
+                value: "A",
+                options: [{ id: "A", name: "已完成" }],
+              }),
+            }
+          : {}),
+        ...(current === "empty"
+          ? { empty: text("空结果列", { value: "" }) }
+          : {}),
+      },
+      { identity: ["id"], readOnly: true },
+    );
+  const records = collection("动态结果", element, {
+    operations: {
+      query: {
+        async run() {
+          current = current === "before" ? "after" : "empty";
+          return {
+            id: current,
+            items: current === "empty" ? [] : [element()],
+            total: current === "empty" ? 0 : 1,
+            context: "合成",
+            summary: { caption: "合计", values: {} },
+          };
+        },
+        async page() {
+          return { items: [], total: 0 };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+    },
+  });
+  await renderNode(records);
+  await click("查询");
+  expect(document.querySelector("table")?.textContent).toContain("金额");
+  expect(document.querySelector("table")?.textContent).toContain("12.50");
+  expect(document.querySelector("table")?.textContent).toContain("已完成");
+  expect(document.querySelector("table")?.textContent).not.toContain("旧列");
+  await click("查询");
+  expect(document.querySelector("table")?.textContent).toContain("空结果列");
+  expect(document.querySelector("table")?.textContent).not.toContain("金额");
+});
+
+it("exports the currently adopted fixed result with its original query input", async () => {
+  const exported: unknown[] = [];
+  let count = 0;
+  const filters = object("条件", {
+    search: text("关键词", { value: "first" }),
+  });
+  const element = () =>
+    object("记录", { id: text("编号", { value: "1" }) }, { identity: ["id"] });
+  const run = vi.fn(async (context: unknown) => {
+    exported.push(context);
+    throw Error("合成下载中止");
+  });
+  const records = collection("冻结导出", element, {
+    operations: {
+      query: {
+        input: filters,
+        async run() {
+          return {
+            id: "result-" + ++count,
+            items: [element()],
+            total: 1,
+            context: "合成",
+            summary: { caption: "合计", values: {} },
+          };
+        },
+        async page() {
+          return { items: [element()], total: 1 };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+      export: { run },
+    },
+  });
+  await renderNode(records);
+  await click("查询");
+  await input("关键词", "unsubmitted");
+  await click("导出");
+  expect(exported[0]).toMatchObject({
+    resultId: "result-1",
+    input: { search: "first" },
+  });
+  await click("查询");
+  await click("导出");
+  expect(exported[1]).toMatchObject({
+    resultId: "result-2",
+    input: { search: "unsubmitted" },
+  });
 });
