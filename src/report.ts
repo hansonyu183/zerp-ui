@@ -150,7 +150,12 @@ export type FixedReportAdapter<
   >;
   page: (
     input: ReportResultRequest<I> & { page: number; pageSize: number },
-  ) => Promise<ReportPage<R, K> & { columns?: readonly ReportColumn<R>[] }>;
+  ) => Promise<
+    ReportPage<R, K> & {
+      columns?: readonly ReportColumn<R>[];
+      summary?: ReportSummary<R>;
+    }
+  >;
   export?: (
     input: ReportResultRequest<I> & { parameters: P },
   ) => Promise<ReportExport>;

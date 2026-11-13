@@ -556,6 +556,7 @@ it("uses stable rows, raw values, typed drill intents and original result defini
     expect(d.adapter.export).toHaveBeenCalledWith({
       scope: "a",
       resultId: { token: "result-1" },
+      parameters: { keyword: "初始" },
       signal: expect.any(AbortSignal),
     });
     expect(anchor).toHaveBeenCalledTimes(1);

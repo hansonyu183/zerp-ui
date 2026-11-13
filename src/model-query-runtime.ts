@@ -217,6 +217,7 @@ export function modelQueryPage(
         return {
           ...result(response as unknown as ReportPage<RuntimeObject, string>),
           columns: columns(response.items[0] as RuntimeObject | undefined),
+          ...(response.summary ? { summary: summary(response.summary) } : {}),
         };
       },
       revalidate: (context) =>

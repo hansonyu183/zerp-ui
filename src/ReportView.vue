@@ -394,11 +394,14 @@ async function runFixedPage(target: number) {
     });
     if (owner !== resultGeneration || current !== pageGeneration) return;
     if (value.columns) d.columns = clone(value.columns);
-    validateResult(d, value, fixed.value);
+    const next = {
+      ...fixed.value!,
+      summary: value.summary ?? fixed.value!.summary,
+      expiresAt: value.expiresAt ?? fixed.value!.expiresAt,
+    };
+    validateResult(d, value, next);
     value[modelReportAdoption]?.();
-    const expiresAt = value.expiresAt ?? fixed.value?.expiresAt;
-    checkExpiry(expiresAt);
-    fixed.value = { ...fixed.value!, expiresAt };
+    fixed.value = next;
     adopted.value = d;
     result.value = clone(value);
     scheduleExpiry();

@@ -31,7 +31,9 @@ export type ModelQuery<
     page: number;
     pageSize: number;
     signal: AbortSignal;
-  }): Promise<ReportPage<N, string>>;
+  }): Promise<
+    ReportPage<N, string> & { summary?: ReportSummary<ModelValue<N>> }
+  >;
   revalidate(context: {
     resultId: R;
     signal: AbortSignal;

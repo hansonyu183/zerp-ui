@@ -1772,12 +1772,19 @@ it("updates fixed-query columns on a page and on an empty page", async () => {
             items: [element()],
             total: 100,
             context: "合成",
-            summary: { caption: "合计", values: {} },
+            summary: { caption: "合计", values: { first: "111" } },
           };
         },
         async page({ page }) {
           mode = page === 2 ? "second" : "empty";
-          return { items: page === 2 ? [element()] : [], total: 100 };
+          return {
+            items: page === 2 ? [element()] : [],
+            total: 100,
+            summary: {
+              caption: "合计",
+              values: page === 2 ? { second: "222" } : {},
+            },
+          };
         },
         async revalidate() {
           return { status: "valid" };
@@ -1851,6 +1858,52 @@ it("keeps the adopted rows and export input when a later query fails result vali
     resultId: "result-1",
     input: { search: "original" },
   });
+  expect(document.querySelector("table")?.textContent).toContain(
+    "original-row",
+  );
+  expect(document.querySelector("table")?.textContent).not.toContain(
+    "rejected-row",
+  );
+});
+
+it("rejects an invalid page expiry without replacing the adopted model rows", async () => {
+  const element = (name = "original-row") =>
+    object(
+      "记录",
+      {
+        id: text("编号", { value: "row" }),
+        name: text("名称", { value: name }),
+      },
+      { identity: ["id"] },
+    );
+  const records = collection("分页期限", element, {
+    operations: {
+      query: {
+        async run() {
+          return {
+            id: "result",
+            items: [element()],
+            total: 100,
+            context: "合成",
+            summary: { caption: "合计", values: {} },
+          };
+        },
+        async page() {
+          return {
+            items: [element("rejected-row")],
+            total: 100,
+            expiresAt: NaN,
+          };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+    },
+  });
+  await renderNode(records);
+  await click("查询");
+  await click("下一页");
   expect(document.querySelector("table")?.textContent).toContain(
     "original-row",
   );
