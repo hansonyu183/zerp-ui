@@ -299,6 +299,37 @@ function customerNode(
       concurrency: String(revision),
       list: ["id", "name", "creditLimit", "enabled"],
       operations: {
+        calculate: {
+          async run({ input }) {
+            return {
+              value: { ...input },
+              interactions: [
+                {
+                  kind: "menu",
+                  id: "customer-script",
+                  label: "合成脚本菜单",
+                  items: [
+                    {
+                      key: "trim",
+                      label: "整理客户名称",
+                      target: {
+                        kind: "calculate",
+                        async run({ input }) {
+                          return {
+                            value: {
+                              ...input,
+                              name: input.name?.trim() ?? null,
+                            },
+                          };
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            };
+          },
+        },
         get: {
           async run({ identity }) {
             const value = records.get(identity.id);

@@ -31,6 +31,7 @@ import type {
   ModelContext,
   ModelCalculation,
   ModelLocalIntent,
+  ModelCalculationResult,
   ReferenceOperations,
   ValueNode,
 } from "./reactive-model";
@@ -42,8 +43,8 @@ import type {
   Page,
   CrudAction,
 } from "./contracts";
-import { clone } from "./clone";
-import { equalValues, containsSecrets } from "./editor-values";
+import { clone, message } from "./clone";
+import { equalValues, containsSecrets, redactSecrets } from "./editor-values";
 import { writeLock } from "./write-lock";
 
 type Values = Record<string, unknown>;
@@ -287,17 +288,21 @@ export function flattenValue(
       const element = (
         child as unknown as { [nodeMetadata]: { element: ModelNode } }
       )[nodeMetadata].element;
-      target[JSON.stringify(path)] = next.map((value) =>
+      const rows = (child as unknown as { items: ModelNode[] }).items;
+      target[JSON.stringify(path)] = next.map((value, index) =>
         isObject(element)
           ? {
-              ...flattenValue(element, value),
-              $modelRowKey: asObject(element)[nodeMetadata].identity.length
-                ? rowKey(element, value)
-                : crypto.randomUUID(),
+              ...flattenValue(rows[index] ?? element, value),
+              $modelRowKey:
+                rows[index] || asObject(element)[nodeMetadata].identity.length
+                  ? rowKey(rows[index] ?? element, value)
+                  : crypto.randomUUID(),
             }
           : {
               [JSON.stringify(["$value"])]: clone(value),
-              $modelRowKey: crypto.randomUUID(),
+              $modelRowKey: rows[index]
+                ? rowKey(rows[index])
+                : crypto.randomUUID(),
             },
       );
     } else target[JSON.stringify(path)] = clone(next);
@@ -972,12 +977,17 @@ export function createModelRuntime(
                   : node[nodeMetadata].operations.calculate;
             if (!operation || operation.disabledReason)
               return { value: input.value };
-            const admittedOwner = ownerKey(options().owner);
+            const admittedOwner = ownerKey(options().owner),
+              active = options().navigation.current?.node;
             const target =
               typeof input.target === "string"
                 ? interactionTargets.get(input.target)
                 : undefined;
-            if (input.event === "action" && target) {
+            if (
+              input.event === "action" &&
+              target &&
+              target.kind !== "calculate"
+            ) {
               if (target.kind === "related") {
                 options().navigation.visit(target.node, target.identity);
               } else {
@@ -1004,23 +1014,46 @@ export function createModelRuntime(
               return { value: input.value };
             }
 
-            const result = await operation.run({
-              ...context(qualify(node), input.signal),
-              input: unflat(node, input.value, false),
-              event: input.event,
-              answers: input.answers,
-            });
-            if (
-              admittedOwner !== ownerKey(options().owner) ||
-              input.signal.aborted ||
-              node !== selection.value ||
-              ![
+            const contextInput = unflat(node, input.value, false),
+              inputFields = fields(node),
+              calculate = operation.run,
+              local = target?.kind === "calculate" ? target.run : undefined;
+            const activeCalculation = () =>
+              admittedOwner === ownerKey(options().owner) &&
+              options().navigation.current?.node === active &&
+              !input.signal.aborted &&
+              node === selection.value &&
+              (!target ||
+                interactionTargets.get(input.target as string) === target) &&
+              (target?.kind !== "calculate" || target.run === local) &&
+              [
                 node[nodeMetadata].operations.initialize,
                 node[nodeMetadata].operations.calculate,
-              ].includes(operation) ||
-              operation.disabledReason
-            )
-              return { value: input.value };
+              ].includes(operation) &&
+              operation.run === calculate &&
+              !operation.disabledReason;
+            let result: ModelCalculationResult<object>;
+            try {
+              result = local
+                ? await local({
+                    owner: clone(options().owner!),
+                    input: contextInput,
+                    answers: clone(input.answers),
+                    signal: input.signal,
+                  })
+                : await calculate({
+                    ...context(qualify(node), input.signal),
+                    input: contextInput,
+                    event: input.event,
+                    answers: input.answers,
+                  });
+            } catch (error) {
+              if (!activeCalculation()) return { value: input.value };
+              throw Error(
+                redactSecrets(inputFields, input.value, message(error)),
+              );
+            }
+            if (!activeCalculation()) return { value: input.value };
             interactionTargets = new Map();
             const register = (target: ModelLocalIntent) => {
               const key = crypto.randomUUID();

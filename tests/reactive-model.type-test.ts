@@ -216,3 +216,26 @@ const forbiddenArrays: ModelInput<typeof arrayValues> = {
   shared: ["A"],
 };
 void [writableArrays, forbiddenArrays];
+
+// API-produced dynamic members retain unknown values for business decoding;
+// they must not become an impossible Record<string, never> callback contract.
+const dynamicMembers: Record<string, import("../src/model").ModelNode> = {
+  amount: decimal("动态金额"),
+};
+const dynamicRecord = object("动态 API 对象", dynamicMembers, {
+  operations: {
+    get: {
+      async run() {
+        return { value: { amount: "123.45" }, identity: {}, concurrency: "1" };
+      },
+    },
+    update: {
+      async run(request) {
+        const amount: unknown = request.input.amount;
+        void amount;
+        return { status: "success" };
+      },
+    },
+  },
+});
+void dynamicRecord;

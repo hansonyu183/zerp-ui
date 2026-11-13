@@ -820,8 +820,8 @@ it("recovers a create using its original input and dependencies without sending 
     status: "not-applied" as const,
     requestId: request.requestId,
     evidence: {
-      value: { id: "uncreated", name: "" },
-      identity: { id: "uncreated" },
+      value: { id: null, name: "" },
+      identity: null,
       concurrency: "sealed",
     },
   }));
@@ -865,4 +865,348 @@ it("recovers a create using its original input and dependencies without sending 
     input: { name: "冻结的新客户" },
     concurrency: "original-dependencies",
   });
+});
+
+it.each(["menu", "tree"] as const)(
+  "calculates a %s item against the current draft without submitting",
+  async (kind) => {
+    const run = vi.fn(async (_request: unknown) => ({
+      status: "success" as const,
+    }));
+    const action = vi.fn(
+      async ({ input }: { input: { name: string | null } }) => ({
+        value: { name: input.name + " · 计算" },
+      }),
+    );
+    const node = object(
+      "客户",
+      { name: text("名称", { value: "原名称" }) },
+      {
+        operations: {
+          update: { run },
+          calculate: {
+            async run({ input }) {
+              return {
+                value: { ...input },
+                interactions: [
+                  {
+                    kind,
+                    id: "business-menu",
+                    label: "脚本菜单",
+                    items: [
+                      {
+                        key: "calculate",
+                        label: "更新名称",
+                        target: { kind: "calculate" as const, run: action },
+                      },
+                    ],
+                  },
+                ],
+              };
+            },
+          },
+        },
+      },
+    );
+    await renderNode(node);
+    await click("编辑");
+    await input("名称", "未保存的名称");
+    await click("更新名称");
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(action.mock.calls[0]![0]).toMatchObject({
+      input: { name: "未保存的名称" },
+      owner: { ledger: "demo", operator: "u", generation: "1" },
+    });
+    expect(
+      document.querySelector<HTMLInputElement>('input[aria-label="名称"]')
+        ?.value,
+    ).toBe("未保存的名称 · 计算");
+    expect(run).not.toHaveBeenCalled();
+    await click("保存");
+    expect(run.mock.calls[0]![0]).toMatchObject({
+      input: { name: "未保存的名称 · 计算" },
+    });
+  },
+);
+
+it.each([
+  "owner",
+  "node",
+  "withdraw",
+  "replace",
+  "target-callback",
+  "operation-callback",
+] as const)(
+  "rejects a late local calculation after %s changes",
+  async (change) => {
+    let release!: (value: { value: { name: string | null } }) => void;
+    const pending = new Promise<{ value: { name: string | null } }>(
+      (resolve) => {
+        release = resolve;
+      },
+    );
+    const action = vi.fn(async () => pending);
+    const target = reactive({ kind: "calculate" as const, run: action });
+    const calculate = reactive({
+      disabledReason: "",
+      async run({ input }: { input: { name: string | null } }) {
+        return {
+          value: { ...input },
+          interactions: [
+            {
+              kind: "menu" as const,
+              id: "menu",
+              label: "菜单",
+              items: [
+                {
+                  key: "calculate",
+                  label: "计算",
+                  target,
+                },
+              ],
+            },
+          ],
+        };
+      },
+    });
+    const operations = reactive({
+      calculate,
+      update: {
+        async run() {
+          return { status: "success" as const };
+        },
+      },
+    });
+    const node = object(
+      "客户",
+      { name: text("名称", { value: "当前名称" }) },
+      { operations },
+    );
+    const settings = await renderNode(node);
+    await click("编辑");
+    await click("计算");
+    expect(action).toHaveBeenCalledTimes(1);
+    if (change === "owner")
+      settings.owner = {
+        ledger: "other",
+        operator: "other",
+        generation: "other",
+      };
+    if (change === "node")
+      settings.navigation.current = {
+        node: object("其它", { name: text("其它值") }),
+      };
+    if (change === "withdraw") calculate.disabledReason = "计算已撤权";
+    if (change === "replace") operations.calculate = { ...calculate };
+    if (change === "target-callback") target.run = vi.fn(async () => pending);
+    if (change === "operation-callback") {
+      const prior = calculate.run;
+      calculate.run = async (ctx) => prior(ctx);
+    }
+    await flushPromises();
+    release({ value: { name: "不应采用的旧计算" } });
+    await flushPromises();
+    expect(document.body.textContent).not.toContain("不应采用的旧计算");
+    expect(
+      document.querySelector<HTMLInputElement>('input[aria-label="名称"]')
+        ?.value,
+    ).not.toBe("不应采用的旧计算");
+  },
+);
+
+it("redacts raw and JSON-escaped secret input from local calculation errors", async () => {
+  const secretValue = 'secret"\\value';
+  const node = object(
+    "客户",
+    { token: secret("令牌") },
+    {
+      operations: {
+        update: {
+          async run() {
+            return { status: "success" };
+          },
+        },
+        calculate: {
+          async run({ input }) {
+            return {
+              value: { ...input },
+              interactions: [
+                {
+                  kind: "menu",
+                  id: "menu",
+                  label: "菜单",
+                  items: [
+                    {
+                      key: "calculate",
+                      label: "计算",
+                      target: {
+                        kind: "calculate",
+                        async run() {
+                          throw Error(
+                            `business ${secretValue} ${JSON.stringify(secretValue)}`,
+                          );
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            };
+          },
+        },
+      },
+    },
+  );
+  await renderNode(node);
+  await click("编辑");
+  document
+    .querySelector<HTMLInputElement>('input[aria-label="令牌"]')!
+    .dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+    );
+  await flushPromises();
+  [...document.querySelectorAll<HTMLElement>(".v-list-item")]
+    .find((el) => el.textContent?.trim() === "修改")!
+    .click();
+  await flushPromises();
+  await input("新的令牌", secretValue);
+  await click("计算");
+  expect(document.body.textContent).toContain("business [已隐藏]");
+  expect(document.body.textContent).not.toContain(secretValue);
+  expect(document.body.textContent).not.toContain(
+    JSON.stringify(secretValue).slice(1, -1),
+  );
+});
+
+it.each(["withdraw", "replace"] as const)(
+  "discards a late local calculation error after %s",
+  async (change) => {
+    let reject!: (error: Error) => void;
+    const pending = new Promise<{ value: { name: string | null } }>(
+      (_resolve, fail) => {
+        reject = fail;
+      },
+    );
+    const calculate = reactive({
+      disabledReason: "",
+      async run({ input }: { input: { name: string | null } }) {
+        return {
+          value: input,
+          interactions: [
+            {
+              kind: "menu" as const,
+              id: "menu",
+              label: "菜单",
+              items: [
+                {
+                  key: "calculate",
+                  label: "计算",
+                  target: {
+                    kind: "calculate" as const,
+                    run: async () => pending,
+                  },
+                },
+              ],
+            },
+          ],
+        };
+      },
+    });
+    const operations = reactive({
+      calculate,
+      update: {
+        async run() {
+          return { status: "success" as const };
+        },
+      },
+    });
+    await renderNode(
+      object(
+        "客户",
+        { name: text("名称", { value: "当前名称" }) },
+        { operations },
+      ),
+    );
+    await click("编辑");
+    await click("计算");
+    if (change === "withdraw") calculate.disabledReason = "已撤权";
+    else operations.calculate = { ...calculate };
+    reject(Error("不应显示的旧异常"));
+    await flushPromises();
+    expect(document.body.textContent).not.toContain("不应显示的旧异常");
+    const save = [
+      ...document.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((b) => b.textContent?.trim() === "保存")!;
+    expect(save.disabled).toBe(false);
+  },
+);
+
+it("retains value-array rows when a calculated draft is saved and reread", async () => {
+  let calculations = 0;
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "success" as const,
+  }));
+  const node = object(
+    "客户",
+    {
+      name: text("名称", { value: "原名" }),
+      rows: array("行", () => object("明细", { label: text("内容") }), [
+        object("明细", { label: text("内容", { value: "必须保留" }) }),
+      ]),
+    },
+    {
+      operations: {
+        update: { run },
+        calculate: {
+          async run({ input }) {
+            if (++calculations > 12) throw Error("业务计算未能稳定");
+            return {
+              value: input,
+              interactions: [
+                {
+                  kind: "menu",
+                  id: "menu",
+                  label: "菜单",
+                  items: [
+                    {
+                      key: "calculate",
+                      label: "整理",
+                      target: {
+                        kind: "calculate",
+                        async run({ input }) {
+                          return {
+                            value: {
+                              ...input,
+                              name: "计算名称",
+                              rows: [
+                                ...input.rows,
+                                { label: "新增一" },
+                                { label: "新增二" },
+                              ],
+                            },
+                          };
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            };
+          },
+        },
+      },
+    },
+  );
+  await renderNode(node);
+  await click("编辑");
+  await click("整理");
+  await click("保存");
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(run.mock.calls[0]![0]).toMatchObject({
+    input: {
+      name: "计算名称",
+      rows: [{ label: "必须保留" }, { label: "新增一" }, { label: "新增二" }],
+    },
+  });
+  expect(document.body.textContent).not.toContain("业务计算未能稳定");
 });

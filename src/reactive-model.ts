@@ -86,8 +86,17 @@ export type ModelWrite<
   ): Promise<ModelWriteResult<V, I, Input>>;
   reconcile?(request: ModelRequest<Input, I, P>): Promise<ModelEvidence<V, I>>;
 };
-export type ModelLocalIntent =
+export type ModelLocalIntent<V = object> =
   | { kind: "related"; node: ModelNode; identity?: unknown }
+  | {
+      kind: "calculate";
+      run(context: {
+        owner: ModelOwner;
+        input: ReadonlyValue<V>;
+        answers: InteractionAnswers;
+        signal: AbortSignal;
+      }): Promise<ModelCalculationResult<V>>;
+    }
   | {
       kind: "download";
       read(context: {
@@ -95,6 +104,10 @@ export type ModelLocalIntent =
         signal: AbortSignal;
       }): Promise<{ content: Blob; filename: string }>;
     };
+export type ModelCalculationResult<V> = {
+  value: ReadonlyValue<V>;
+  interactions?: readonly Interaction<ModelLocalIntent<V>>[];
+};
 export type ModelCalculation<V, I, P extends readonly unknown[]> = {
   disabledReason?: string;
   run(
@@ -103,10 +116,7 @@ export type ModelCalculation<V, I, P extends readonly unknown[]> = {
       event: "initialize" | "change" | "answer" | "action";
       answers: InteractionAnswers;
     },
-  ): Promise<{
-    value: V;
-    interactions?: readonly Interaction<ModelLocalIntent>[];
-  }>;
+  ): Promise<ModelCalculationResult<V>>;
 };
 export type ModelRead<
   I,
@@ -202,7 +212,9 @@ export type ModelValue<N> =
         }
       : N extends { [nodeMetadata]: { kind: "array"; element: infer E } }
         ? ModelValue<E>[]
-        : never;
+        : N extends ModelNode
+          ? unknown
+          : never;
 export type ModelInput<N> = N extends {
   [nodeMetadata]: { kind: "object"; children: infer S extends ModelMembers };
 }
@@ -317,7 +329,14 @@ export type ModelCreate<N extends ObjectShape> = {
   >;
   reconcile?(
     request: ModelRequest<ModelInput<N>, null, NodeAncestors<N>>,
-  ): Promise<ModelEvidence<ModelValue<N>, NodeIdentity<N>>>;
+  ): Promise<
+    | ModelEvidence<ModelValue<N>, NodeIdentity<N>>
+    | {
+        status: "not-applied";
+        requestId: string;
+        evidence: ModelSnapshot<ModelValue<N>, null>;
+      }
+  >;
 };
 export type CollectionNode<N extends ObjectShape = ObjectShape> = {
   items: N[];
