@@ -494,7 +494,7 @@ async function begin(row?: R, readOnly = false) {
     if (current(v) && e === editVersion) detailLoading.value = false;
   }
 }
-async function cancel(): Promise<boolean> {
+async function cancel(notify = true): Promise<boolean> {
   const v = version,
     e = editVersion;
   if (blocked.value || detailLoading.value) return false;
@@ -516,7 +516,7 @@ async function cancel(): Promise<boolean> {
   formPending.value = false;
   blockPending.value = {};
   editVersion++;
-  emit("record", undefined);
+  if (notify) emit("record", undefined);
   return true;
 }
 async function openRow(row: R, readOnly = true): Promise<boolean> {
@@ -1070,7 +1070,7 @@ watch(
         binding.recordKey(editor.value.identity)
     )
       return;
-    if (editor.value && !(await cancel())) return;
+    if (editor.value && !(await cancel(false))) return;
     if (row === props.initialRow && row)
       void openRow(row, props.readOnly ?? true);
   },

@@ -63,6 +63,10 @@ export async function modelSmoke(page) {
   await expect(page.locator('.zerp-ui[aria-label="独立联系人"]')).toContainText(
     "30000",
   );
+  await page
+    .locator('.zerp-ui[aria-label="独立联系人"]')
+    .getByRole("button", { name: "取消编辑", exact: true })
+    .click();
   const contactView = page
     .locator('.zerp-ui[aria-label="独立联系人"]')
     .getByRole("link", { name: "查看", exact: true });

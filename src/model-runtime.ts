@@ -122,6 +122,36 @@ export function members(node: ModelNode): [string, ModelNode][] {
       )
     : [];
 }
+type IndependentMember = {
+  path: readonly string[];
+  key: string;
+  node: ModelNode;
+};
+function independentMembers(
+  node: ModelNode,
+  prefix: readonly string[] = [],
+): IndependentMember[] {
+  return members(node).flatMap(([key, child]) => {
+    const path = [...prefix, key];
+    if (independent(child))
+      return [
+        {
+          path,
+          key: path.length === 1 ? key : JSON.stringify(path),
+          node: child,
+        },
+      ];
+    return isObject(child) ? independentMembers(child, path) : [];
+  });
+}
+function memberAt(
+  node: ModelNode | undefined,
+  path: readonly string[],
+): ModelNode | undefined {
+  for (const key of path)
+    node = node && members(node).find(([name]) => name === key)?.[1];
+  return node;
+}
 export function modelEntries(
   node: ModelNode,
   path: string[] = [],
@@ -549,11 +579,17 @@ export function createModelRuntime(
       for (const row of rows) {
         const id = identity(row);
         if (id.value === null) continue;
-        for (const [key, child] of members(row)) {
-          if (!independent(child)) continue;
-          const nested = visit(child, [...path, key], [...ancestors, id.value]);
+        for (const child of independentMembers(row)) {
+          const nested = visit(
+            child.node,
+            [...path, ...child.path],
+            [...ancestors, id.value],
+          );
           if (nested.length)
-            return [{ ...step, identity: id.value, section: key }, ...nested];
+            return [
+              { ...step, identity: id.value, section: child.key },
+              ...nested,
+            ];
         }
       }
       return [];
@@ -1316,9 +1352,9 @@ export function createModelRuntime(
       },
       onSection: (key) => {
         const row = selection.value;
-        const child = members(row).find(
-          ([member, node]) => member === key && independent(node),
-        )?.[1];
+        const child = independentMembers(row).find(
+          (member) => member.key === key,
+        )?.node;
         const node = child ?? currentNode();
         if (node)
           options().navigation.visit(
@@ -1370,21 +1406,15 @@ export function createModelRuntime(
         const ownOperations = Object.values(row[nodeMetadata].operations).some(
           (op) => op && modelOperation in op,
         );
-        const related = members(row)
-          .filter(([, child]) => independent(child))
-          .map(([key, child]) => ({
-            key,
-            label: child[nodeMetadata].name,
-            page: resolve(
-              () =>
-                (
-                  rowNode(id) as unknown as
-                    Record<string, ModelNode> | undefined
-                )?.[key],
-              [...path, key],
-              [...ancestors, id.value],
-            ).page,
-          }));
+        const related = independentMembers(row).map((child) => ({
+          key: child.key,
+          label: child.node[nodeMetadata].name,
+          page: resolve(
+            () => memberAt(rowNode(id), child.path),
+            [...path, ...child.path],
+            [...ancestors, id.value],
+          ).page,
+        }));
         return ownOperations
           ? [
               {

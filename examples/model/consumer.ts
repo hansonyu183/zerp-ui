@@ -43,7 +43,7 @@ const owner = (): ModelOwner => ({
 const storageKey = "zerp-model-demo-";
 const options = reactive<ModelApplicationOptions>({
   owner: JSON.parse(
-    sessionStorage.getItem(storageKey + "session") ?? "null",
+    localStorage.getItem(storageKey + "session") ?? "null",
   ) as ModelOwner | null,
   brand: {
     productName: "单一模型",
@@ -504,7 +504,7 @@ const login = object(
               message: "请选择账套并输入操作员、密码。",
             };
           options.owner = owner();
-          sessionStorage.setItem(
+          localStorage.setItem(
             storageKey + "session",
             JSON.stringify(options.owner),
           );
@@ -521,9 +521,9 @@ const session = object(
     operations: {
       restoreSession: {
         async run() {
-          if (sessionStorage.getItem(storageKey + "session"))
+          if (localStorage.getItem(storageKey + "session"))
             options.owner = JSON.parse(
-              sessionStorage.getItem(storageKey + "session")!,
+              localStorage.getItem(storageKey + "session")!,
             );
           return { status: "success" };
         },
@@ -531,7 +531,7 @@ const session = object(
       signOut: {
         async run() {
           options.owner = null;
-          sessionStorage.removeItem(storageKey + "session");
+          localStorage.removeItem(storageKey + "session");
           return { status: "success" };
         },
       },

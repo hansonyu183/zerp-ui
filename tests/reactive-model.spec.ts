@@ -1391,3 +1391,90 @@ it.each([
     expect(document.activeElement?.getAttribute("aria-label")).toBe(label);
   },
 );
+
+it.each(["root", "child", "embedded-child"] as const)(
+  "keeps an external A to B record navigation at its target: %s",
+  async (kind) => {
+    let check: Parameters<ModelNavigation["guard"]>[0] | undefined;
+    const row = (id: string) =>
+      object(
+        "记录",
+        {
+          id: text("编号", { value: id, readOnly: true }),
+          name: text("名称", { value: "记录" + id }),
+        },
+        {
+          identity: ["id"],
+          operations: {
+            update: {
+              async run() {
+                return { status: "success" };
+              },
+            },
+          },
+        },
+      );
+    const records = collection("记录", () => row(""), {
+      operations: {
+        query: {
+          async run() {
+            return { items: [row("A"), row("B")], total: 2 };
+          },
+        },
+      },
+    });
+    const parentRow = object(
+      "父记录",
+      {
+        id: text("父编号", { value: "p", readOnly: true }),
+        name: text("父名称", { value: "父资料" }),
+        ...(kind === "embedded-child"
+          ? { details: object("内嵌业务", { records }) }
+          : { records }),
+      },
+      {
+        identity: ["id"],
+        operations: {
+          update: {
+            async run() {
+              return { status: "success" };
+            },
+          },
+        },
+      },
+    );
+    const parents = collection("父记录", () => parentRow, {
+      operations: {
+        query: {
+          async run() {
+            return { items: [parentRow], total: 1 };
+          },
+        },
+      },
+    });
+    const navigation = reactive<ModelNavigation>({
+      current: { node: records, identity: { id: "A" } },
+      href: () => "/records",
+      async visit(node, identity) {
+        if (!check || (await check({ node, identity })))
+          navigation.current = { node, identity };
+      },
+      guard(guard) {
+        check = guard;
+        return () => {
+          check = undefined;
+        };
+      },
+    });
+    await renderNode(kind === "root" ? records : parents, { navigation });
+    await flushPromises();
+    expect(document.body.textContent).toContain("记录A");
+    await navigation.visit(records, { id: "B" });
+    await flushPromises();
+    expect(navigation.current?.identity).toEqual({ id: "B" });
+    const views = [...document.querySelectorAll('[aria-label="查看资料"]')];
+    expect(views.some((view) => view.textContent?.includes("记录B"))).toBe(
+      true,
+    );
+  },
+);
