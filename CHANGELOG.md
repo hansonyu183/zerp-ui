@@ -1,3 +1,10 @@
+## 0.34.0
+
+- 集合创建保留实际新建节点的并发基线及字段资格，耐久预留后重新核对。
+- 集合导出下载返回的文件，拒绝失效的迟到结果并回收 object URL。
+- 固定 `reconcile` 业务操作支持只读历史原请求核对，沿用原请求耐久协议。
+- 正式发行与消费者切换依据 [#130](https://github.com/hansonyu183/zerp-ui/issues/130)。
+
 ## 0.33.0
 
 - Breaking: changePassword 使用固定 Operation 原请求协议，移除无未知结果语义的 SessionResult 简写；强制改密复用持久化、核对、封存和刷新引擎。

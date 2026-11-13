@@ -253,3 +253,116 @@ it("keeps the original operation recoverable while another family replaces its m
   expect(f.run).toHaveBeenCalledTimes(1);
   expect(query).toHaveBeenCalledTimes(1);
 });
+
+it("offers a fixed reconcile operation on a read-only historical original without a business write", async () => {
+  const input = object("核对", {});
+  type M = ModelActionModel<"reconcile", typeof input, { originalId: string }>;
+  let journal: ModelOperationJournal<M, { requestId: string }, string> | null =
+    null;
+  const run = vi.fn(
+    async (request: NonNullable<typeof journal>["request"]) => ({
+      status: "applied" as const,
+      owner: request.owner,
+      action: request.action,
+      requestId: request.requestId,
+      binding: request.binding,
+      evidence: { originalId: request.identity.requestId },
+    }),
+  );
+  const action = operation<
+    "reconcile",
+    typeof input,
+    { requestId: string },
+    string,
+    { originalId: string }
+  >("reconcile", input, {
+    async prepare(intent) {
+      return {
+        ...intent,
+        requestId: "verification-1",
+        concurrency: "original-digest",
+        binding: "verification-binding",
+        preview: { title: "核对历史原件", sections: [] },
+      };
+    },
+    acceptsPreparation: () => true,
+    run,
+    reconcile: run,
+    seal: async (_request, receipt) => receipt,
+    async refresh() {},
+    accepts: (request, receipt) =>
+      receipt.evidence.originalId === request.identity.requestId,
+    persistence: {
+      async load() {
+        return journal;
+      },
+      async save(value) {
+        journal = structuredClone(value);
+      },
+      async remove() {
+        if (journal) journal = { ...journal, completed: true };
+      },
+    },
+  });
+  const target = object(
+    "历史原件",
+    {
+      requestId: text("原请求号", {
+        value: "historical-original",
+        readOnly: true,
+      }),
+    },
+    {
+      readOnly: true,
+      identity: ["requestId"],
+      operations: { reconcile: action },
+    },
+  );
+  const model = reactive(
+    application(
+      "历史",
+      { target },
+      {
+        owner: { ledger: "test", operator: "u", generation: "1" },
+        brand: {
+          productName: "合成",
+          enterpriseName: "合成",
+          home: "/",
+          mark: { kind: "text", text: "例" },
+        },
+        navigation: {
+          current: { node: target },
+          href: () => "/",
+          visit() {},
+          guard: () => () => {},
+        },
+      },
+    ),
+  );
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/", component: {} }],
+  });
+  await router.push("/");
+  wrappers.push(
+    mount(BusinessApplication, {
+      props: { model },
+      attachTo: document.body,
+      global: { plugins: [router] },
+    }),
+  );
+  await flushPromises();
+  await click("准备核对原请求");
+  await click("确认核对原请求");
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(run.mock.calls[0]![0]).toMatchObject({
+    action: "reconcile",
+    identity: { requestId: "historical-original" },
+    concurrency: "original-digest",
+  });
+  expect(journal).toMatchObject({
+    completed: true,
+    request: { requestId: "verification-1" },
+    receipt: { evidence: { originalId: "historical-original" } },
+  });
+});

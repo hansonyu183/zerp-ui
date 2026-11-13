@@ -57,12 +57,12 @@ type Write = {
     request: ModelRequest<unknown, unknown, readonly unknown[]>,
   ): Promise<ModelEvidence<object, unknown>>;
 };
-type Read = {
+type Read<T = unknown> = {
   disabledReason?: string;
   input?: ModelNode;
   run(
     context: Context & { input: unknown; page: number; pageSize: number },
-  ): Promise<unknown>;
+  ): Promise<T>;
 };
 export type RuntimeObject = ModelNode & {
   [nodeMetadata]: {
@@ -90,7 +90,11 @@ type RuntimeCollection = ModelNode & {
     kind: "collection";
     name: string;
     element(): RuntimeObject;
-    operations: { query?: Read; create?: Write; export?: Read };
+    operations: {
+      query?: Read;
+      create?: Write;
+      export?: Read<void | { content: Blob; filename: string }>;
+    };
   };
 };
 const asObject = (node: ModelNode) => node as RuntimeObject;
@@ -525,7 +529,7 @@ export function createModelRuntime(
     const currentNode = () => getNode();
     const detached = new WeakMap<ModelNode, Map<string, RuntimeObject>>();
     const rowNode = (id?: ModelIdentity): RuntimeObject | undefined => {
-      if (!id) return selection.value;
+      if (!id || id.value === null) return selection.value;
       const node = currentNode();
       if (!node) return undefined;
       return collection
@@ -598,9 +602,8 @@ export function createModelRuntime(
         !op ||
         op !== callbacks.get(attempt.operation)?.operation ||
         op.run !== callbacks.get(attempt.operation)?.run ||
-        (name !== "create" &&
-          rowNode(attempt.identity) !==
-            callbacks.get(attempt.operation)?.record) ||
+        rowNode(attempt.identity) !==
+          callbacks.get(attempt.operation)?.record ||
         currentNode() !== callbacks.get(attempt.operation)?.node ||
         op.disabledReason ||
         asObject(rowNode(attempt.identity) ?? sample.value)[nodeMetadata]
@@ -613,12 +616,17 @@ export function createModelRuntime(
         };
       if (
         attempt.identity &&
-        name !== "create" &&
-        !equalValues(qualify(rowNode(attempt.identity)!), {
-          value: attempt.identity.value,
-          ancestors: attempt.identity.ancestors,
-          concurrency: attempt.identity.concurrency,
-        })
+        !equalValues(
+          {
+            ...qualify(rowNode(attempt.identity)!),
+            ...(name === "create" ? { value: null } : {}),
+          },
+          {
+            value: attempt.identity.value,
+            ancestors: attempt.identity.ancestors,
+            concurrency: attempt.identity.concurrency,
+          },
+        )
       )
         return {
           status: "failure" as const,
@@ -828,7 +836,7 @@ export function createModelRuntime(
           ...(attempt.identity ?? {
             value: null,
             ancestors,
-            concurrency: null,
+            concurrency: qualify(selection.value).concurrency,
           }),
           original: {
             input: attempt.input
@@ -1099,10 +1107,16 @@ export function createModelRuntime(
         return op
           ? async ({ filters }: { filters: Values }) => {
               if (op.disabledReason) throw Error(op.disabledReason);
-              await op.run({
+              const node = currentNode(),
+                active = options().navigation.current?.node,
+                owner = ownerKey(options().owner),
+                generation = detailGeneration,
+                controller = requestController,
+                run = op.run;
+              const artifact = await run({
                 ...context(
                   { value: null, ancestors, concurrency: null },
-                  requestController.signal,
+                  controller.signal,
                 ),
                 input: queryInput()
                   ? unflat(queryInput()!, filters, false)
@@ -1110,6 +1124,28 @@ export function createModelRuntime(
                 page: 1,
                 pageSize: 20,
               });
+              if (
+                controller.signal.aborted ||
+                currentNode() !== node ||
+                options().navigation.current?.node !== active ||
+                ownerKey(options().owner) !== owner ||
+                generation !== detailGeneration ||
+                collectionOperations()?.export !== op ||
+                op.run !== run ||
+                op.disabledReason
+              )
+                throw Error("导出已失效。");
+              if (artifact) {
+                const url = URL.createObjectURL(artifact.content);
+                try {
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = artifact.filename;
+                  link.click();
+                } finally {
+                  URL.revokeObjectURL(url);
+                }
+              }
             }
           : undefined;
       },
