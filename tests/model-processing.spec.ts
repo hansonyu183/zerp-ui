@@ -12,6 +12,7 @@ import {
   type ModelOperationJournal,
   type ModelActionModel,
   type ModelNode,
+  type ModelCalculation,
 } from "../src/model";
 beforeEach(() =>
   Object.defineProperty(navigator, "locks", {
@@ -34,7 +35,14 @@ async function click(label: string) {
   button!.click();
   await flushPromises();
 }
-async function fixture(withPrompt = false) {
+async function fixture(
+  withPrompt = false,
+  initialize?: {
+    run: () => Promise<{ value: { note: string } }>;
+    disabledReason?: string;
+  },
+  calculate?: ModelCalculation<{ note: string | null }, {}, readonly []>,
+) {
   const input = object(
     "处理输入",
     {
@@ -42,7 +50,8 @@ async function fixture(withPrompt = false) {
     },
     {
       operations: {
-        calculate: {
+        ...(initialize ? { initialize } : {}),
+        calculate: calculate ?? {
           async run({ input }) {
             return {
               value: input,
@@ -209,6 +218,128 @@ async function fixture(withPrompt = false) {
     journal: () => journal,
   };
 }
+it("initializes operation inputs once after journal loading and keeps the original locked on reload", async () => {
+  const initialize = vi.fn(async () => ({
+    value: { note: "从业务读取的说明" },
+  }));
+  const f = await fixture(false, { run: initialize });
+  expect(initialize).toHaveBeenCalledTimes(1);
+  const note = document.querySelector<HTMLInputElement>(
+    'input[aria-label="说明"]',
+  )!;
+  expect(note.value).toBe("从业务读取的说明");
+  note.value = "用户修改";
+  note.dispatchEvent(new Event("input", { bubbles: true }));
+  await flushPromises();
+  expect(initialize).toHaveBeenCalledTimes(1);
+  await click("准备执行处理");
+  await click("确认执行处理");
+  expect(f.journal()!.request.input.note).toBe("用户修改");
+  await f.reload();
+  expect(initialize).toHaveBeenCalledTimes(1);
+  expect(f.run).toHaveBeenCalledTimes(1);
+  await click("核实原请求");
+  expect(f.reconcile.mock.calls[0]![0].input.note).toBe("用户修改");
+  expect(f.run).toHaveBeenCalledTimes(1);
+});
+
+it("retries a failed first input initialization before accepting ordinary changes", async () => {
+  const initialize = vi
+    .fn()
+    .mockRejectedValueOnce(Error("读取办理参数失败"))
+    .mockResolvedValue({ value: { note: "重读后的说明" } });
+  await fixture(false, { run: initialize });
+  expect(document.body.textContent).toContain("读取办理参数失败");
+  expect(initialize).toHaveBeenCalledTimes(1);
+  await click("重试业务计算");
+  expect(initialize).toHaveBeenCalledTimes(2);
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="说明"]')?.value,
+  ).toBe("重读后的说明");
+});
+it("retries initialization when its first response was discarded after qualification changed", async () => {
+  let finish!: (value: { value: { note: string } }) => void;
+  const first = new Promise<{ value: { note: string } }>((resolve) => {
+    finish = resolve;
+  });
+  const run = vi
+    .fn()
+    .mockReturnValueOnce(first)
+    .mockResolvedValue({ value: { note: "重新读取" } });
+  const initialize = reactive({ run, disabledReason: "" });
+  await fixture(false, initialize);
+  expect(run).toHaveBeenCalledTimes(1);
+  initialize.disabledReason = "暂时不可读取";
+  finish({ value: { note: "迟到内容" } });
+  await flushPromises();
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="说明"]')?.value,
+  ).not.toBe("迟到内容");
+  initialize.disabledReason = "";
+  const note = document.querySelector<HTMLInputElement>(
+    'input[aria-label="说明"]',
+  )!;
+  note.value = "触发重新读取";
+  note.dispatchEvent(new Event("input", { bubbles: true }));
+  await flushPromises();
+  expect(run).toHaveBeenCalledTimes(2);
+  expect(note.value).toBe("重新读取");
+});
+it("keeps unanswered required prompts pending when a later local calculation is discarded", async () => {
+  let finish!: (value: { value: { note: string | null } }) => void;
+  const local = new Promise<{ value: { note: string | null } }>((resolve) => {
+    finish = resolve;
+  });
+  const calculate = reactive<
+    ModelCalculation<{ note: string | null }, {}, readonly []>
+  >({
+    disabledReason: "",
+    async run({ input }) {
+      return {
+        value: input,
+        interactions: [
+          {
+            kind: "confirm",
+            id: "required",
+            label: "确认业务依据",
+            required: true,
+          },
+          {
+            kind: "menu",
+            id: "menu",
+            label: "菜单",
+            items: [
+              {
+                key: "read",
+                label: "局部读取",
+                target: {
+                  kind: "calculate",
+                  async run() {
+                    return local;
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      };
+    },
+  });
+  const f = await fixture(false, undefined, calculate);
+  await click("局部读取");
+  calculate.disabledReason = "读取资格已撤销";
+  finish({ value: { note: "迟到" } });
+  await flushPromises();
+  const checkbox = document.querySelector<HTMLInputElement>(
+    'input[aria-label="确认业务依据"]',
+  )!;
+  expect(checkbox.checked).toBe(false);
+  const prepare = [
+    ...document.querySelectorAll<HTMLButtonElement>("button"),
+  ].find((button) => button.textContent?.trim() === "准备执行处理")!;
+  expect(prepare.disabled).toBe(true);
+  expect(f.journal()).toBeNull();
+});
 it("confirms an authoritative preview and reconciles the original unknown request without resending", async () => {
   const f = await fixture();
   expect(

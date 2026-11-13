@@ -2,6 +2,7 @@
 import { VBtn, VProgressLinear } from "vuetify/components";
 import { ref, shallowRef, watch, onBeforeUnmount } from "vue";
 import { clone, message } from "./clone";
+import { isDiscardedCollaboration } from "./collaboration-result";
 import { equalValues } from "./editor-values";
 import type {
   DraftCollaboration,
@@ -27,14 +28,27 @@ const items = shallowRef<readonly Interaction<T>[]>([]),
   answers = shallowRef<InteractionAnswers>({}),
   error = ref("");
 const calculating = ref(false);
-let generation = 0,
+let initialized = false,
+  generation = 0,
   controller: AbortController | undefined,
   adopted: D | undefined,
   alive = true;
+function awaitingAnswers() {
+  return items.value.some(
+    (item) =>
+      (item.kind === "confirm" &&
+        item.required &&
+        answers.value[item.id] !== true) ||
+      (item.kind === "input" &&
+        item.required &&
+        !String(answers.value[item.id] ?? "").trim()),
+  );
+}
 async function run(
   event: "initialize" | "change" | "answer" | "action",
   target?: T,
 ) {
+  if (!initialized) event = "initialize";
   controller?.abort();
   const epoch = ++generation;
   controller = new AbortController();
@@ -66,6 +80,12 @@ async function run(
       !equalValues(baseline, props.modelValue)
     )
       return;
+    if (isDiscardedCollaboration(result)) {
+      calculating.value = false;
+      emit("pending", awaitingAnswers());
+      return;
+    }
+    initialized = true;
     calculating.value = false;
     const previous = items.value;
     items.value = clone(result.interactions ?? []);
@@ -84,18 +104,7 @@ async function run(
     answers.value = retained;
     adopted = clone(result.value);
     emit("update:modelValue", clone(result.value));
-    emit(
-      "pending",
-      items.value.some(
-        (item) =>
-          (item.kind === "confirm" &&
-            item.required &&
-            answers.value[item.id] !== true) ||
-          (item.kind === "input" &&
-            item.required &&
-            !String(answers.value[item.id] ?? "").trim()),
-      ),
-    );
+    emit("pending", awaitingAnswers());
   } catch (cause) {
     if (alive && epoch === generation && !signal.aborted) {
       calculating.value = false;
@@ -110,6 +119,7 @@ watch(
     items.value = [];
     answers.value = {};
     adopted = undefined;
+    initialized = false;
     if (!props.disabled) void run("initialize");
   },
   { immediate: true, flush: "sync" },
