@@ -36,7 +36,7 @@ async function click(label: string) {
   await flushPromises();
 }
 async function fixture(
-  withPrompt = false,
+  withPrompt: boolean | "optional" = false,
   initialize?: {
     run: () => Promise<{ value: { note: string } }>;
     disabledReason?: string;
@@ -64,7 +64,7 @@ async function fixture(
                         input.note === "changed"
                           ? "确认变更依据"
                           : "确认业务依据",
-                      required: true,
+                      required: withPrompt !== "optional",
                     },
                   ]
                 : [],
@@ -558,6 +558,17 @@ it("freezes accepted script answers in a fixed operation and keeps them on reloa
     "business-check": true,
   });
   expect(f.run).toHaveBeenCalledTimes(1);
+});
+
+it("freezes an optional answer even when the calculation leaves input values unchanged", async () => {
+  const f = await fixture("optional");
+  document
+    .querySelector<HTMLInputElement>('input[aria-label="确认业务依据"]')!
+    .click();
+  await flushPromises();
+  await click("准备执行处理");
+  await click("确认执行处理");
+  expect(f.journal()!.request.answers).toEqual({ "business-check": true });
 });
 
 it("rejects a preparation that changes the accepted answers", async () => {
