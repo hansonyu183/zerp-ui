@@ -75,7 +75,7 @@ export type RuntimeObject = ModelNode & {
     independent: boolean;
     readOnly?: boolean;
     form?: readonly string[];
-    list?: readonly string[];
+    list?: readonly (string | readonly string[])[];
     operations: Partial<
       {
         get: Read;
@@ -424,8 +424,12 @@ export function createModelRuntime(
     node: ModelNode,
     prefix: readonly string[] = [],
     inheritedReadonly = false,
+    projection: "form" | "list" | "all" = "form",
   ): AnyField[] {
-    const form = isObject(node) ? asObject(node)[nodeMetadata].form : undefined;
+    const form =
+      projection === "form" && isObject(node)
+        ? asObject(node)[nodeMetadata].form
+        : undefined;
     const entries: [string, ModelNode][] =
       isObject(node) || node[nodeMetadata].kind === "application"
         ? members(node)
@@ -433,7 +437,7 @@ export function createModelRuntime(
     const ordered = form
       ? form.flatMap((key) => entries.filter(([name]) => name === key))
       : entries;
-    return ordered.flatMap(([key, child]): AnyField[] => {
+    const projected = ordered.flatMap(([key, child]): AnyField[] => {
       if (independent(child)) return [];
       const path = [...prefix, key],
         meta = child[nodeMetadata];
@@ -442,6 +446,7 @@ export function createModelRuntime(
           child,
           path,
           inheritedReadonly || !!asObject(child)[nodeMetadata].readOnly,
+          projection === "form" ? "form" : "all",
         );
       const fieldMeta = (child as ValueNode)[nodeMetadata];
       const common = {
@@ -543,6 +548,25 @@ export function createModelRuntime(
                   : "text",
         } as AnyField,
       ];
+    });
+    const list =
+      projection === "list" && isObject(node)
+        ? asObject(node)[nodeMetadata].list
+        : undefined;
+    if (!list) return projected;
+    const seen = new Set<string>();
+    return list.flatMap((key) => {
+      const path = [...prefix, ...(typeof key === "string" ? [key] : key)];
+      return projected.filter((field) => {
+        const fieldPath = JSON.parse(field.key) as string[];
+        if (
+          seen.has(field.key) ||
+          !path.every((segment, index) => fieldPath[index] === segment)
+        )
+          return false;
+        seen.add(field.key);
+        return true;
+      });
     });
   }
   type NavigationStep = {
@@ -1034,14 +1058,8 @@ export function createModelRuntime(
       },
       initialFilters: () => (queryInput() ? flat(queryInput()!) : {}),
       get columns() {
-        const list = sample.value[nodeMetadata].list;
-        return fields(sample.value)
-          .filter(
-            (field) =>
-              field.type !== "secret" &&
-              (!list ||
-                list.some((key) => field.key === JSON.stringify([key]))),
-          )
+        return fields(sample.value, [], false, "list")
+          .filter((field) => field.type !== "secret")
           .map((field) => ({ key: field.key, label: field.label }));
       },
       identity: (row) => row.$identity as ModelIdentity,
@@ -1709,6 +1727,7 @@ export type ModelRuntime = {
     node: ModelNode,
     prefix?: readonly string[],
     inheritedReadonly?: boolean,
+    projection?: "form" | "list",
   ): AnyField[];
   flatten: typeof flattenValue;
   adopt: typeof adopt;

@@ -288,6 +288,22 @@ export type ReferenceOperations = {
   >;
   resolve: ReferenceRead<{ ids: readonly string[] }, readonly ReferenceValue[]>;
 };
+type ListPath<S extends ModelMembers> = {
+  [K in Extract<keyof S, string>]:
+    | K
+    | (ModelNode extends S[K]
+        ? readonly [K, string, ...string[]]
+        : S[K] extends {
+              readonly [nodeMetadata]: {
+                kind: "object";
+                children: infer C extends ModelMembers;
+              };
+            }
+          ? | readonly [K, Extract<keyof C, string>]
+            | readonly [K, ...Extract<ListPath<C>, readonly string[]>]
+          : never);
+}[Extract<keyof S, string>];
+
 export type ObjectNode<
   S extends ModelMembers = ModelMembers,
   I = unknown,
@@ -312,7 +328,7 @@ export type ObjectNode<
     independent: B;
     readOnly?: boolean;
     form?: readonly Extract<keyof S, string>[];
-    list?: readonly Extract<keyof S, string>[];
+    list?: readonly ListPath<S>[];
   };
 };
 export type NodeIdentity<N extends ObjectShape> = NonNullable<
@@ -580,7 +596,7 @@ type ObjectOptions<
   concurrency?: string | null;
   readOnly?: boolean;
   form?: readonly Extract<keyof S, string>[];
-  list?: readonly Extract<keyof S, string>[];
+  list?: readonly ListPath<S>[];
   operations?: ObjectOperations<
     ModelValue<ObjectNode<S>>,
     Identity<S, K>,
@@ -675,7 +691,7 @@ export function object<
     concurrency?: string | null;
     readOnly?: boolean;
     form?: readonly Extract<keyof S, string>[];
-    list?: readonly Extract<keyof S, string>[];
+    list?: readonly ListPath<S>[];
     operations?: unknown;
   } = {},
 ): ObjectNode<S, Identity<S, K>, P> {

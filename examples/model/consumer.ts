@@ -631,6 +631,33 @@ const workbench = collection(
     },
   },
 );
+function projectedRecord() {
+  return object(
+    "投影资料",
+    {
+      id: text("投影编号", { value: "P1", readOnly: true }),
+      "values.name": text("字面列", { value: "字面内容" }),
+      values: object("业务资料", {
+        name: text("嵌套列", { value: "嵌套内容" }),
+      }),
+    },
+    {
+      identity: ["id"],
+      readOnly: true,
+      form: ["values"],
+      list: ["id", ["values", "name"], "values.name"],
+    },
+  );
+}
+const projections = collection("列表与表单投影", projectedRecord, {
+  operations: {
+    query: {
+      async run() {
+        return { items: [projectedRecord()], total: 1 };
+      },
+    },
+  },
+});
 const routeNodes: [string, ModelNode][] = [
   ["customers", customers],
   ["workbench", workbench],
@@ -638,6 +665,7 @@ const routeNodes: [string, ModelNode][] = [
   ["scenario", controls],
   ["profile", profile],
   ["password", password],
+  ["projections", projections],
 ];
 function routeTarget(route: Pick<RouteLocationNormalized, "path" | "query">) {
   const { path, query } = route;
@@ -771,6 +799,7 @@ export const model = reactive(
       configuration,
       profile,
       controls,
+      projections,
       notifications,
     },
     options,

@@ -52,7 +52,7 @@ export function modelQueryPage(
   const resource = JSON.stringify([path, ancestors]);
   const fields = () =>
     runtime
-      .fields(sample)
+      .fields(sample, [], false, "list")
       .filter((field) => field.type !== "secret" && field.type !== "rows");
   const rowKey = (row: RuntimeObject) =>
     JSON.stringify(

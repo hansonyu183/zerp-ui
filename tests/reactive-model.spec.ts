@@ -1498,3 +1498,142 @@ it.each(["root", "child", "embedded-child"] as const)(
     );
   },
 );
+
+it.each(["collection", "fixed"] as const)(
+  "projects ordered nested and literal list fields independently of the form for %s queries",
+  async (kind) => {
+    const element = () =>
+      object(
+        "主资料",
+        {
+          id: text("编号", { value: "A1", readOnly: true }),
+          "values.name": text("字面字段", { value: "字面内容" }),
+          values: object("资料", {
+            name: text("嵌套名称", { value: "业务名称" }),
+            password: secret("所属秘密", { value: "secret-child" }),
+          }),
+          password: secret("秘密", { value: "secret-root" }),
+        },
+        {
+          identity: ["id"],
+          form: ["values"],
+          list: [
+            "values.name",
+            ["values", "name"],
+            "id",
+            "password",
+            ["values", "password"],
+          ],
+          operations: {
+            update: {
+              async run() {
+                return { status: "success" };
+              },
+            },
+          },
+        },
+      );
+    const records = collection("主资料", element, {
+      operations: {
+        query:
+          kind === "fixed"
+            ? {
+                async run() {
+                  return {
+                    id: "query1",
+                    context: "合成",
+                    summary: { caption: "合计", values: {} },
+                    items: [element()],
+                    total: 1,
+                  };
+                },
+                async page() {
+                  return { items: [element()], total: 1 };
+                },
+                async revalidate() {
+                  return { status: "valid" };
+                },
+              }
+            : {
+                async run() {
+                  return { items: [element()], total: 1 };
+                },
+              },
+      },
+    });
+    await renderNode(records);
+    if (kind === "fixed") await click("查询");
+    const headings = [...document.querySelectorAll("th")]
+      .map((el) => el.textContent?.trim())
+      .filter((label) =>
+        ["编号", "字面字段", "嵌套名称", "秘密", "所属秘密"].includes(
+          label ?? "",
+        ),
+      );
+    expect(headings).toEqual(["字面字段", "嵌套名称", "编号"]);
+    const table = document.querySelector("table")!;
+    expect(table.textContent).toContain("字面内容");
+    expect(table.textContent).toContain("业务名称");
+    expect(table.textContent).toContain("A1");
+    expect(table.textContent).not.toContain("secret-child");
+    expect(table.textContent).not.toContain("secret-root");
+    if (kind === "collection") {
+      await click("编辑");
+      expect(
+        document.querySelector('input[aria-label="嵌套名称"]'),
+      ).toBeTruthy();
+      expect(document.querySelector('input[aria-label="编号"]')).toBeNull();
+      expect(document.querySelector('input[aria-label="字面字段"]')).toBeNull();
+    }
+  },
+);
+
+it("selects an ordinary object for the list without admitting its independent children or secrets", async () => {
+  const childQuery = vi.fn(async () => ({ items: [], total: 0 }));
+  const child = collection(
+    "独立子集合",
+    () =>
+      object(
+        "子记录",
+        {
+          id: text("子编号", { value: "c" }),
+        },
+        { identity: ["id"] },
+      ),
+    { operations: { query: { run: childQuery } } },
+  );
+  const row = () =>
+    object(
+      "主记录",
+      {
+        id: text("父编号", { value: "p", readOnly: true }),
+        details: object("普通对象", {
+          name: text("所属名称", { value: "名称内容" }),
+          password: secret("所属秘密", { value: "list-secret" }),
+          child,
+        }),
+      },
+      { identity: ["id"], form: ["details"], list: ["id", "details"] },
+    );
+  await renderNode(
+    collection("主记录", row, {
+      operations: {
+        query: {
+          async run() {
+            return { items: [row()], total: 1 };
+          },
+        },
+      },
+    }),
+  );
+  expect(
+    [...document.querySelectorAll("th")]
+      .map((el) => el.textContent?.trim())
+      .filter((label) => label && label !== "操作"),
+  ).toEqual(["父编号", "所属名称"]);
+  expect(document.querySelector("table")?.textContent).toContain("名称内容");
+  expect(document.querySelector("table")?.textContent).not.toContain(
+    "list-secret",
+  );
+  expect(childQuery).not.toHaveBeenCalled();
+});

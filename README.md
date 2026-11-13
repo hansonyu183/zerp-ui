@@ -4,13 +4,13 @@
 
 ## 固定版本安装
 
-本源码为 **0.36.0**，在原请求中冻结业务确认答案，并支持实际独立子节点的 Router 定位；正式交付状态、确切 SHA 和工件摘要以 [#134](https://github.com/hansonyu183/zerp-ui/issues/134) 的验收记录为准。历史发行保持，后续 OIT 接入使用 #134 正式交付并核对摘要的固定包。
+本源码为 **0.37.0**，分离同一模型的列表与表单投影，支持强类型嵌套列表路径；正式交付状态、确切 SHA 和工件摘要以 [#136](https://github.com/hansonyu183/zerp-ui/issues/136) 的验收记录为准。历史发行保持，后续 OIT 接入使用 #136 正式交付并核对摘要的固定包。
 
-从 [ui-v0.36.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.36.0) 下载 `zerp-ui-0.36.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+从 [ui-v0.37.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.37.0) 下载 `zerp-ui-0.37.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.36.0.tgz
+pnpm add ./zerp-ui-0.37.0.tgz
 ```
 
 宿主仅初始化一套 Vue、Vuetify、Router；peer 范围和 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化宿主唯一的 `createVuetify`。图标字体随包分发。
@@ -55,3 +55,5 @@ API、DTO、业务规则、权限计算、Session、Router、存储加密和证�
 模型写入的 `request.answers` 是库接受并随原请求冻结的确认/输入答案；消费者将其映射到业务 API 正文，不把答案塞入 `concurrency`。核对使用原请求中的同一答案，迟到计算不能更新其它记录的答案。
 
 Router 的 `navigation.current` 使用实际模型节点和业务身份。指向集合内独立子节点时，库定位并保留所属父记录；记录查看链接保留真实 href，可刷新及在新标签打开。消费者在 `guard` 的 Router 回调中把下一目标 `{ node, identity }` 传给 `check`，使库区分同一父记录内的区块切换与真正离开；无法解析的目的地传 `null`，执行完整离开保护。
+
+列表 `list` 与表单 `form` 分别选择同一模型的内容。例如 `form: ["values"]` 可仅编辑业务字段，`list: ["id", ["values", "name"], "values.name"]` 则按顺序显示编号、嵌套名称及字面含点键；秘密字段和独立子集合不进入父列表。未指定列表时显示本层普通字段。投影不改变业务值和写入边界。
