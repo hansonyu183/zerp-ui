@@ -4,13 +4,13 @@
 
 ## 固定版本安装
 
-本源码为 **0.40.3**，修复值数组已有行的字段与只读资格投影，按稳定行身份保留主子项、嵌套行和新行的模型声明；正式交付状态、确切 SHA 和工件摘要以 [#145](https://github.com/hansonyu183/zerp-ui/issues/145) 的验收记录为准。历史发行保持，OIT 接入使用 #145 正式交付并核对摘要的固定包。
+本源码为 **0.40.4**，修复页外父记录的子区块初始深链定位；正式交付状态、确切 SHA 和工件摘要以 [#145](https://github.com/hansonyu183/zerp-ui/issues/145) 的验收记录为准。历史发行保持，OIT 接入使用 #145 正式交付并核对摘要的固定包。
 
-从 [ui-v0.40.3 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.40.3) 下载 `zerp-ui-0.40.3.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+从 [ui-v0.40.4 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.40.4) 下载 `zerp-ui-0.40.4.tgz` 和 `SHA256SUMS`，核对原文件后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.40.3.tgz
+pnpm add ./zerp-ui-0.40.4.tgz
 ```
 
 宿主仅初始化一套 Vue、Vuetify、Router；peer 范围和 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化宿主唯一的 `createVuetify`。图标字体随包分发。

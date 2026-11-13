@@ -2566,3 +2566,65 @@ it("discards a pending query download after its read callback changes", async ()
     download.mockRestore();
   }
 });
+
+it("retains an initially targeted off-page parent for its independent child deep link", async () => {
+  const childGet = vi.fn(async () => ({
+    items: [
+      object(
+        "关联",
+        { id: text("关联编号", { value: "relation", readOnly: true }) },
+        { identity: ["id"] },
+      ),
+    ],
+    total: 1,
+  }));
+  const row = (id = "") =>
+    object(
+      "单据",
+      {
+        id: text("单据编号", { value: id, readOnly: true }),
+        links: collection(
+          "审批关联",
+          () =>
+            object(
+              "关联",
+              { id: text("关联编号", { readOnly: true }) },
+              { identity: ["id"] },
+            ),
+          { operations: { query: { run: childGet } } },
+        ),
+      },
+      {
+        identity: ["id"],
+        operations: {
+          get: {
+            async run({ identity }) {
+              return { value: { id: identity.id }, identity, concurrency: "1" };
+            },
+          },
+        },
+      },
+    );
+  const target = row("off-page");
+  const records = collection("单据", row, {
+    operations: {
+      query: {
+        async run() {
+          return { items: [], total: 0 };
+        },
+      },
+    },
+  });
+  records.items = [target];
+  await renderNode(records, {
+    navigation: {
+      current: { node: target.links },
+      href: () => "/voucher?section=links",
+      visit: vi.fn(),
+      guard: () => () => {},
+    },
+  });
+  await flushPromises();
+  expect(childGet).toHaveBeenCalled();
+  expect(document.body.textContent).toContain("relation");
+});

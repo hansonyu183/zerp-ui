@@ -949,6 +949,16 @@ export function createModelRuntime(
           });
           if (new Set(keys).size !== keys.length)
             throw Error("集合记录身份重复。");
+          const activeIdentity = navigationStep()?.identity;
+          const active = asCollection(node).items.find(
+            (row) => keyOf(identity(row).value) === keyOf(activeIdentity),
+          );
+          if (active && !keys.includes(keyOf(activeIdentity))) {
+            const retained =
+              detached.get(node) ?? new Map<string, RuntimeObject>();
+            retained.set(keyOf(activeIdentity), active);
+            detached.set(node, retained);
+          }
           asCollection(node).items = [...result.items];
         }
         hasQueried.value = true;
