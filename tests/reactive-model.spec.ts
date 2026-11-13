@@ -2568,14 +2568,17 @@ it("discards a pending query download after its read callback changes", async ()
 });
 
 it("retains an initially targeted off-page parent for its independent child deep link", async () => {
+  const childFields = {
+    id: text("关联编号", { value: "relation", readOnly: true }),
+  };
+  const child = () =>
+    object<typeof childFields, readonly ["id"], readonly [{ id: string }]>(
+      "关联",
+      childFields,
+      { identity: ["id"] },
+    );
   const childGet = vi.fn(async () => ({
-    items: [
-      object(
-        "关联",
-        { id: text("关联编号", { value: "relation", readOnly: true }) },
-        { identity: ["id"] },
-      ),
-    ],
+    items: [child()],
     total: 1,
   }));
   const row = (id = "") =>
@@ -2583,16 +2586,9 @@ it("retains an initially targeted off-page parent for its independent child deep
       "单据",
       {
         id: text("单据编号", { value: id, readOnly: true }),
-        links: collection(
-          "审批关联",
-          () =>
-            object(
-              "关联",
-              { id: text("关联编号", { readOnly: true }) },
-              { identity: ["id"] },
-            ),
-          { operations: { query: { run: childGet } } },
-        ),
+        links: collection("审批关联", child, {
+          operations: { query: { run: childGet } },
+        }),
       },
       {
         identity: ["id"],
