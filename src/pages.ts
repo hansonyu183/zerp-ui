@@ -1,3 +1,4 @@
+import { modelBinding } from "./model-binding";
 import { writeLock } from "./write-lock";
 import type { RecordLink } from "./shell";
 import type { DraftCollaboration, ReportInteractions } from "./collaboration";
@@ -196,6 +197,7 @@ export type CrudPage<
     onChange: (keys: (string | number)[]) => void;
   };
   rowLinks?: (row: R) => readonly RecordLink[];
+  viewHref?: (row: R) => string | undefined;
   listActions?: (row: R) => readonly Exclude<ListAction, CrudAction>[];
   onListAction?: (action: Exclude<ListAction, CrudAction>, row: R) => void;
   onQueried?: (filters: F) => void;
@@ -236,13 +238,14 @@ export function defineCrudPage<
         selectedKeys: value.selection?.selectedKeys,
         "onUpdate:selectedKeys": value.selection?.onChange,
         rowLinks: value.rowLinks,
+        viewHref: value.viewHref,
         listActions: value.listActions,
         onListAction: value.onListAction,
       }),
     (value) => ({
       definition: value.definition,
       record:
-        value.initialRow === undefined
+        value.definition[modelBinding] || value.initialRow === undefined
           ? undefined
           : value.definition.identity(value.initialRow),
     }),

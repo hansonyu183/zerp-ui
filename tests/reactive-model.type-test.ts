@@ -239,3 +239,27 @@ const dynamicRecord = object("动态 API 对象", dynamicMembers, {
   },
 });
 void dynamicRecord;
+
+const dynamicFields: ModelWrite<Record<string, unknown>, { id: string }> = {
+  async run() {
+    return {
+      status: "failure",
+      message: "嵌套字段错误",
+      fields: [
+        { field: ["contact", "mobile_no"], message: "手机无效" },
+        { field: "contact.mobile_no", message: "独立含点键错误" },
+      ],
+    };
+  },
+};
+void dynamicFields;
+
+const staticField: import("../src/model").ModelFieldPath<{
+  contact: { phone: string };
+  "contact.phone": string;
+}> = ["contact", "phone"];
+// @ts-expect-error static nested paths stay scoped to declared fields
+const wrongStaticField: import("../src/model").ModelFieldPath<{
+  contact: { phone: string };
+}> = ["contact", "password"];
+void [staticField, wrongStaticField];

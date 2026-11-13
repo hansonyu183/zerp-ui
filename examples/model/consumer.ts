@@ -1,5 +1,6 @@
 import { reactive, watch, toRaw } from "vue";
 import { router } from "./router";
+import type { RouteLocationNormalized } from "vue-router";
 import { passwordNode } from "./password";
 import {
   application,
@@ -42,7 +43,7 @@ const owner = (): ModelOwner => ({
 const storageKey = "zerp-model-demo-";
 const options = reactive<ModelApplicationOptions>({
   owner: JSON.parse(
-    sessionStorage.getItem(storageKey + "session") ?? "null",
+    localStorage.getItem(storageKey + "session") ?? "null",
   ) as ModelOwner | null,
   brand: {
     productName: "单一模型",
@@ -85,9 +86,20 @@ watch(
   { deep: true },
 );
 const contacts = reactive(
-  new Map<string, ContactInput>([
-    ["c", { name: "合成联系人", phone: "20000" }],
-  ]),
+  new Map<string, ContactInput>(
+    JSON.parse(localStorage.getItem(storageKey + "contacts") ?? "null") ?? [
+      ["c", { name: "合成联系人", phone: "20000" }],
+    ],
+  ),
+);
+watch(
+  contacts,
+  () =>
+    localStorage.setItem(
+      storageKey + "contacts",
+      JSON.stringify([...contacts]),
+    ),
+  { deep: true },
 );
 let revision = 1;
 const scenario = reactive(
@@ -492,7 +504,7 @@ const login = object(
               message: "请选择账套并输入操作员、密码。",
             };
           options.owner = owner();
-          sessionStorage.setItem(
+          localStorage.setItem(
             storageKey + "session",
             JSON.stringify(options.owner),
           );
@@ -509,9 +521,9 @@ const session = object(
     operations: {
       restoreSession: {
         async run() {
-          if (sessionStorage.getItem(storageKey + "session"))
+          if (localStorage.getItem(storageKey + "session"))
             options.owner = JSON.parse(
-              sessionStorage.getItem(storageKey + "session")!,
+              localStorage.getItem(storageKey + "session")!,
             );
           return { status: "success" };
         },
@@ -519,7 +531,7 @@ const session = object(
       signOut: {
         async run() {
           options.owner = null;
-          sessionStorage.removeItem(storageKey + "session");
+          localStorage.removeItem(storageKey + "session");
           return { status: "success" };
         },
       },
@@ -627,39 +639,60 @@ const routeNodes: [string, ModelNode][] = [
   ["profile", profile],
   ["password", password],
 ];
+function routeTarget(route: Pick<RouteLocationNormalized, "path" | "query">) {
+  const { path, query } = route;
+  let identity: unknown;
+  try {
+    identity =
+      typeof query.record === "string" ? JSON.parse(query.record) : undefined;
+  } catch {
+    identity = undefined;
+  }
+  if (
+    path === "/customers" &&
+    typeof query.parent === "string" &&
+    query.section === "contacts"
+  ) {
+    const row = customers.items.find((row) => row.id.value === query.parent);
+    return row
+      ? { node: row.contacts, identity }
+      : { node: customers, identity: { id: query.parent } };
+  }
+  return {
+    node: routeNodes.find(([key]) => path === "/" + key)?.[1] ?? customers,
+    identity,
+  };
+}
 options.navigation = {
   current: null,
   href(node, identity) {
-    const path =
-      "/" +
-      (routeNodes.find(([, target]) => toRaw(target) === toRaw(node))?.[0] ??
-        "customers");
-    return identity === undefined
-      ? path
-      : `${path}?record=${encodeURIComponent(JSON.stringify(identity))}`;
+    const parent = customers.items.find(
+      (row) => toRaw(row.contacts) === toRaw(node),
+    );
+    const path = parent
+      ? "/customers"
+      : "/" +
+        (routeNodes.find(([, target]) => toRaw(target) === toRaw(node))?.[0] ??
+          "customers");
+    const query = new URLSearchParams();
+    if (parent) {
+      query.set("parent", parent.id.value!);
+      query.set("section", "contacts");
+    }
+    if (identity !== undefined) query.set("record", JSON.stringify(identity));
+    return path + (query.size ? "?" + query : "");
   },
   visit(node, identity) {
     void router.push(options.navigation.href(node, identity));
   },
   guard(check) {
-    return router.beforeEach(async () => await check());
+    return router.beforeEach(async (to) => await check(routeTarget(to)));
   },
 };
 watch(
-  () => router.currentRoute.value.fullPath,
-  () => {
-    const { path, query } = router.currentRoute.value;
-    let identity: unknown;
-    try {
-      identity =
-        typeof query.record === "string" ? JSON.parse(query.record) : undefined;
-    } catch {
-      identity = undefined;
-    }
-    options.navigation.current = {
-      node: routeNodes.find(([key]) => path === "/" + key)?.[1] ?? customers,
-      identity,
-    };
+  () => routeTarget(router.currentRoute.value),
+  (target) => {
+    options.navigation.current = target;
   },
   { immediate: true },
 );

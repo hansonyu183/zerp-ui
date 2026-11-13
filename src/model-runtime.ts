@@ -122,6 +122,36 @@ export function members(node: ModelNode): [string, ModelNode][] {
       )
     : [];
 }
+type IndependentMember = {
+  path: readonly string[];
+  key: string;
+  node: ModelNode;
+};
+function independentMembers(
+  node: ModelNode,
+  prefix: readonly string[] = [],
+): IndependentMember[] {
+  return members(node).flatMap(([key, child]) => {
+    const path = [...prefix, key];
+    if (independent(child))
+      return [
+        {
+          path,
+          key: path.length === 1 ? key : JSON.stringify(path),
+          node: child,
+        },
+      ];
+    return isObject(child) ? independentMembers(child, path) : [];
+  });
+}
+function memberAt(
+  node: ModelNode | undefined,
+  path: readonly string[],
+): ModelNode | undefined {
+  for (const key of path)
+    node = node && members(node).find(([name]) => name === key)?.[1];
+  return node;
+}
 export function modelEntries(
   node: ModelNode,
   path: string[] = [],
@@ -335,6 +365,9 @@ export function createModelRuntime(
     page: PageDefinition;
     definition: CrudDefinition<Values, Values, Values, ModelIdentity, object>;
     pending(): boolean;
+    requestLeave(): Promise<boolean>;
+    displayedIdentity(): ModelIdentity | undefined;
+    records(): RuntimeObject[];
     stop(): void;
   };
   const cache = shallowReactive(new Map<string, Boundary>());
@@ -512,6 +545,62 @@ export function createModelRuntime(
       ];
     });
   }
+  type NavigationStep = {
+    node: ModelNode;
+    path: readonly string[];
+    ancestors: readonly unknown[];
+    identity?: unknown;
+    section?: string;
+  };
+  function locate(
+    target: { node: ModelNode; identity?: unknown } | null | undefined,
+  ): NavigationStep[] {
+    if (!target) return [];
+    const seen = new Set<ModelNode>();
+    function visit(
+      node: ModelNode,
+      path: readonly string[],
+      ancestors: readonly unknown[],
+    ): NavigationStep[] {
+      if (seen.has(toRaw(node))) return [];
+      seen.add(toRaw(node));
+      const step = { node, path, ancestors };
+      if (toRaw(node) === toRaw(target!.node))
+        return [{ ...step, identity: target!.identity }];
+      const known = cache.get(JSON.stringify([path, ancestors]));
+      const rows =
+        known && toRaw(known.node() ?? {}) === toRaw(node)
+          ? known.records()
+          : node[nodeMetadata].kind === "collection"
+            ? asCollection(node).items
+            : isObject(node)
+              ? [asObject(node)]
+              : [];
+      for (const row of rows) {
+        const id = identity(row);
+        if (id.value === null) continue;
+        for (const child of independentMembers(row)) {
+          const nested = visit(
+            child.node,
+            [...path, ...child.path],
+            [...ancestors, id.value],
+          );
+          if (nested.length)
+            return [
+              { ...step, identity: id.value, section: child.key },
+              ...nested,
+            ];
+        }
+      }
+      return [];
+    }
+    for (const entry of modelEntries(source())) {
+      if (!independent(entry.node)) continue;
+      const found = visit(entry.node, entry.path, []);
+      if (found.length) return found;
+    }
+    return [];
+  }
   function boundary(
     getNode: () => ModelNode | undefined,
     path: readonly string[],
@@ -531,6 +620,12 @@ export function createModelRuntime(
     );
     let requestController = new AbortController();
     let detailGeneration = 0;
+    let readingNavigation = options().navigation.current;
+    let displayed: ModelIdentity | undefined;
+    const draftAnswers = new WeakMap<
+      RuntimeObject,
+      import("./collaboration").InteractionAnswers
+    >();
     const currentNode = () => getNode();
     const detached = new WeakMap<ModelNode, Map<string, RuntimeObject>>();
     const rowNode = (id?: ModelIdentity): RuntimeObject | undefined => {
@@ -572,6 +667,7 @@ export function createModelRuntime(
           attempt.identity?.original?.operation ??
           (attempt.operation === "save" ? "update" : attempt.operation),
         input: clone(attempt.identity?.original?.input),
+        answers: clone(attempt.identity?.original?.answers ?? {}),
         identity: clone(attempt.identity?.value),
         ancestors: clone(attempt.identity?.ancestors ?? ancestors),
         concurrency: attempt.identity?.concurrency ?? null,
@@ -770,6 +866,7 @@ export function createModelRuntime(
         }
         if (!node) throw Error("记录已不可读取。");
         selection.value = node;
+        readingNavigation = options().navigation.current;
         const get = node[nodeMetadata].operations.get,
           run = get?.run,
           controller = requestController,
@@ -844,6 +941,11 @@ export function createModelRuntime(
             concurrency: qualify(selection.value).concurrency,
           }),
           original: {
+            answers: clone(
+              draftAnswers.get(
+                toRaw(rowNode(attempt.identity) ?? selection.value),
+              ) ?? {},
+            ),
             input: attempt.input
               ? unflat(
                   rowNode(attempt.identity) ?? sample.value,
@@ -867,12 +969,15 @@ export function createModelRuntime(
       queryInput() ? fields(queryInput()!) : [],
     );
     let interactionTargets = new Map<string, ModelLocalIntent>();
+    let previousInteractions: readonly import("./collaboration").Interaction<ModelLocalIntent>[] =
+      [];
     let collaborationCache: CrudDefinition<
       Values,
       Values,
       Values,
       ModelIdentity
     >["collaboration"];
+    let requestLeave = () => Promise.resolve(true);
     const definition: CrudDefinition<
       Values,
       Values,
@@ -881,7 +986,18 @@ export function createModelRuntime(
       object
     > = {
       [modelBinding]: {
+        guard(check) {
+          requestLeave = check;
+          return () => {
+            if (requestLeave === check) {
+              requestLeave = () => Promise.resolve(true);
+              displayed = undefined;
+            }
+          };
+        },
         key: (row) => keyOf((row.$identity as ModelIdentity).value),
+        recordKey: (id) => keyOf([id.value, id.ancestors]),
+        navigationActive: () => !!navigationStep(),
         ready: () => hasQueried.value,
         draft: (values, id) => {
           const node = rowNode(id) ?? selection.value;
@@ -1054,6 +1170,21 @@ export function createModelRuntime(
               );
             }
             if (!activeCalculation()) return { value: input.value };
+            const accepted: Record<string, string | boolean> = {};
+            for (const item of result.interactions ?? [])
+              if (
+                (item.kind === "confirm" || item.kind === "input") &&
+                input.answers[item.id] !== undefined &&
+                equalValues(
+                  item,
+                  previousInteractions.find(
+                    (previous) => previous.id === item.id,
+                  ),
+                )
+              )
+                accepted[item.id] = input.answers[item.id]!;
+            draftAnswers.set(toRaw(node), accepted);
+            previousInteractions = result.interactions ?? [];
             interactionTargets = new Map();
             const register = (target: ModelLocalIntent) => {
               const key = crypto.randomUUID();
@@ -1190,22 +1321,58 @@ export function createModelRuntime(
       write: !!currentNode(),
       reconcile: !!currentNode(),
     }));
+    const navigationStep = () =>
+      locate(options().navigation.current).find(
+        (step) =>
+          equalValues(step.path, path) &&
+          equalValues(step.ancestors, ancestors),
+      );
     const crudPage: PageDefinition = defineCrudPage(() => ({
       definition,
       permissions: permissions.value,
       initialRow:
-        options().navigation.current?.node === currentNode() &&
-        options().navigation.current?.identity !== undefined
+        navigationStep()?.identity !== undefined
           ? {
               $identity: {
-                value: options().navigation.current!.identity,
+                value: navigationStep()!.identity,
                 ancestors,
                 concurrency: null,
               },
             }
           : undefined,
+      section: navigationStep()?.section ?? "$basic",
+      onRecord: (id) => {
+        displayed = id;
+        if (id && options().navigation.current !== readingNavigation) return;
+        const step = navigationStep();
+        if (!step && options().navigation.current) return;
+        if (step && equalValues(step.identity, id?.value)) return;
+        const node = currentNode();
+        if (node) options().navigation.visit(node, id?.value);
+      },
+      onSection: (key) => {
+        const row = selection.value;
+        const child = independentMembers(row).find(
+          (member) => member.key === key,
+        )?.node;
+        const node = child ?? currentNode();
+        if (node)
+          options().navigation.visit(
+            node,
+            child ? undefined : identity(row).value,
+          );
+      },
       retainEditor: true,
       collaborateOnRead: true,
+      viewHref: (row) => {
+        const node = currentNode();
+        return node
+          ? options().navigation.href(
+              node,
+              (row.$identity as ModelIdentity).value,
+            )
+          : undefined;
+      },
       rowLinks: (row) => {
         const record = rowNode(row.$identity as ModelIdentity);
         return record
@@ -1239,21 +1406,15 @@ export function createModelRuntime(
         const ownOperations = Object.values(row[nodeMetadata].operations).some(
           (op) => op && modelOperation in op,
         );
-        const related = members(row)
-          .filter(([, child]) => independent(child))
-          .map(([key, child]) => ({
-            key,
-            label: child[nodeMetadata].name,
-            page: resolve(
-              () =>
-                (
-                  rowNode(id) as unknown as
-                    Record<string, ModelNode> | undefined
-                )?.[key],
-              [...path, key],
-              [...ancestors, id.value],
-            ).page,
-          }));
+        const related = independentMembers(row).map((child) => ({
+          key: child.key,
+          label: child.node[nodeMetadata].name,
+          page: resolve(
+            () => memberAt(rowNode(id), child.path),
+            [...path, ...child.path],
+            [...ancestors, id.value],
+          ).page,
+        }));
         return ownOperations
           ? [
               {
@@ -1420,6 +1581,20 @@ export function createModelRuntime(
       },
       page,
       definition,
+      requestLeave: () => requestLeave(),
+      displayedIdentity: () => displayed,
+      records: () => {
+        const node = currentNode();
+        if (!node) return [];
+        if (!collection) return [asObject(node)];
+        return [
+          ...new Set([
+            ...asCollection(node).items,
+            ...(detached.get(node)?.values() ?? []),
+            selection.value,
+          ]),
+        ];
+      },
       pending: () =>
         writeLock(adapter, resource, ownerKey(options().owner)).phase !==
           "idle" ||
@@ -1443,6 +1618,41 @@ export function createModelRuntime(
     return result;
   }
   const runtime: ModelRuntime = {
+    locate,
+    async requestNavigation(next, leave) {
+      const previous = locate(options().navigation.current),
+        following = locate(next);
+      const root = previous[0],
+        nextRoot = following[0];
+      if (!root || !nextRoot || toRaw(root.node) !== toRaw(nextRoot.node))
+        return leave();
+      const catchesUp = (step: typeof root, target: typeof root) => {
+        const shown = cache
+          .get(JSON.stringify([step.path, step.ancestors]))
+          ?.displayedIdentity();
+        return shown !== undefined && equalValues(shown.value, target.identity);
+      };
+      if (!equalValues(root.identity, nextRoot.identity))
+        return catchesUp(root, nextRoot) ? true : leave();
+      for (const step of previous.slice(1)) {
+        const target = following.find(
+          (item) =>
+            toRaw(item.node) === toRaw(step.node) &&
+            equalValues(item.ancestors, step.ancestors),
+        );
+        if (target && !equalValues(step.identity, target.identity)) {
+          if (catchesUp(step, target)) return true;
+          return resolve(
+            () => step.node,
+            step.path,
+            step.ancestors,
+          ).requestLeave();
+        }
+      }
+      // Sections stay mounted under the same saved parent; their drafts and
+      // unknown originals remain owned by those independent runtimes.
+      return true;
+    },
     restoreManifest,
     pendingRequests: () =>
       pendingRequests.value.filter(
@@ -1469,6 +1679,17 @@ export function createModelRuntime(
   return runtime;
 }
 export type ModelRuntime = {
+  requestNavigation(
+    next: { node: ModelNode; identity?: unknown } | null | undefined,
+    leave: () => Promise<boolean>,
+  ): Promise<boolean>;
+  locate(target: { node: ModelNode; identity?: unknown } | null | undefined): {
+    node: ModelNode;
+    path: readonly string[];
+    ancestors: readonly unknown[];
+    identity?: unknown;
+    section?: string;
+  }[];
   restoreManifest(): Promise<void>;
   pendingRequests(): readonly ModelPendingRequest[];
   resolve(

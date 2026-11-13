@@ -91,9 +91,8 @@ const navigationEntries = computed(() =>
 const selected = computed(() =>
   options.value.forcePasswordChange
     ? password.value
-    : (entries.value.find(
-        ({ node }) => node === options.value.navigation.current?.node,
-      ) ?? navigationEntries.value[0]),
+    : (runtime.locate(options.value.navigation.current)[0] ??
+      navigationEntries.value[0]),
 );
 const authentication = computed(() =>
   !options.value.owner ? signIn.value : undefined,
@@ -252,8 +251,11 @@ watch(
   () => props.model,
   (_next, _previous, cleanup) => {
     const currentRuntime = runtime;
-    removeGuard = options.value.navigation.guard(
-      () => app.value?.requestLeave() ?? Promise.resolve(!busy.value),
+    removeGuard = options.value.navigation.guard((next) =>
+      runtime.requestNavigation(
+        next,
+        () => app.value?.requestLeave() ?? Promise.resolve(!busy.value),
+      ),
     );
     cleanup(() => {
       removeGuard?.();

@@ -45,6 +45,47 @@ export async function modelSmoke(page) {
   await page.reload();
   await page.getByRole("region", { name: "查看资料", exact: true }).waitFor();
   assert.ok((await page.locator("body").innerText()).includes("合成修改客户"));
+  const childLink = new URL("/customers", page.url());
+  childLink.searchParams.set("parent", "a");
+  childLink.searchParams.set("section", "contacts");
+  childLink.searchParams.set("record", JSON.stringify({ id: "c" }));
+  await page.goto(childLink.href);
+  await expect(
+    page.getByRole("tab", { name: "独立联系人", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator('.zerp-ui[aria-label="独立联系人"]')).toContainText(
+    "30000",
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("tab", { name: "独立联系人", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator('.zerp-ui[aria-label="独立联系人"]')).toContainText(
+    "30000",
+  );
+  await page
+    .locator('.zerp-ui[aria-label="独立联系人"]')
+    .getByRole("button", { name: "取消编辑", exact: true })
+    .click();
+  const contactView = page
+    .locator('.zerp-ui[aria-label="独立联系人"]')
+    .getByRole("link", { name: "查看", exact: true });
+  const [newTab] = await Promise.all([
+    page.context().waitForEvent("page"),
+    contactView.click({ button: "middle" }),
+  ]);
+  try {
+    await expect(
+      newTab.getByRole("tab", { name: "独立联系人", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      newTab.locator('.zerp-ui[aria-label="独立联系人"]'),
+    ).toContainText("30000");
+  } finally {
+    await newTab.close();
+  }
+  await page.goto(deepLink.href);
+  await page.getByRole("region", { name: "查看资料", exact: true }).waitFor();
   await page.getByRole("button", { name: "取消编辑", exact: true }).click();
   await page
     .getByRole("link", { name: "配置与工作台偏好", exact: true })
