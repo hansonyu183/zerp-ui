@@ -786,7 +786,12 @@ const navigation = reactive<ModelNavigation>({
     void router.push(navigation.href(node));
   },
   guard(check) {
-    return router.beforeEach(async () => await check());
+    return router.beforeEach(
+      async (to) =>
+        await check({
+          node: nodes[to.path.slice(1) as keyof typeof nodes] ?? results,
+        }),
+    );
   },
 });
 export const model = reactive(

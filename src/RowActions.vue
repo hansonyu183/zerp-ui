@@ -99,6 +99,7 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
       (event instanceof MouseEvent && event.button !== 0))
   )
     return;
+  if (action === "view" && props.viewHref) event.preventDefault();
   emit("action", action);
 }
 const items = computed(() => [

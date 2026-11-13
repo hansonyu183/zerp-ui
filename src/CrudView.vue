@@ -64,6 +64,7 @@ const props = defineProps<{
   selectedKeys?: readonly (string | number)[];
   rowKey?: (row: R) => string | number;
   rowLinks?: (row: R) => readonly RecordLink[];
+  viewHref?: (row: R) => string | undefined;
   listActions?: (row: R) => readonly Exclude<ListAction, CrudAction>[];
   permissions: {
     query: boolean;
@@ -573,6 +574,18 @@ watch(protection, (value) => emit("protection", value), {
   immediate: true,
   flush: "sync",
 });
+watch(
+  () => props.definition,
+  (definition, _previous, cleanup) => {
+    const remove = definition[modelBinding]?.guard?.(() =>
+      props.beforeClose
+        ? props.beforeClose()
+        : (guard.value?.requestLeave() ?? Promise.resolve(false)),
+    );
+    if (remove) cleanup(remove);
+  },
+  { immediate: true },
+);
 const bindings = computed(() => {
   const v = version,
     e = editVersion;
@@ -1043,8 +1056,23 @@ watch(
 );
 watch(
   () => props.initialRow,
-  (row) => {
-    if (row) void openRow(row, props.readOnly ?? true);
+  async (row) => {
+    const binding = props.definition[modelBinding];
+    if (!binding) {
+      if (row) void openRow(row, props.readOnly ?? true);
+      return;
+    }
+    if (!row && !binding.navigationActive()) return;
+    if (
+      row &&
+      editor.value?.identity !== undefined &&
+      binding.recordKey(props.definition.identity(row)) ===
+        binding.recordKey(editor.value.identity)
+    )
+      return;
+    if (editor.value && !(await cancel())) return;
+    if (row === props.initialRow && row)
+      void openRow(row, props.readOnly ?? true);
   },
   { immediate: true },
 );
@@ -1205,6 +1233,7 @@ defineExpose<CrudViewHandle<R>>({ openRow, close: cancel });
       :labels="definition.labels"
       :disabled-actions="definition.disabledActions"
       :row-links="permissions.query ? rowLinks : undefined"
+      :view-href="permissions.query ? viewHref : undefined"
       :cell="
         (row, key) =>
           permissions.query &&

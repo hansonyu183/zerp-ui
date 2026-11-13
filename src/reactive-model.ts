@@ -38,6 +38,8 @@ export type ModelRequest<
   node: readonly string[];
   operation: "create" | "update" | "delete" | "enable" | "disable";
   input: ReadonlyValue<V>;
+  /** Answers accepted for this draft, frozen with the durable original. */
+  answers: InteractionAnswers;
   identity: ReadonlyValue<I>;
   ancestors: ReadonlyValue<P>;
   concurrency: string | null;
@@ -50,13 +52,18 @@ export type ModelSnapshot<V, I> = {
 export type ModelFieldPath<V> = {
   [K in Extract<keyof V, string>]:
     | K
-    | (NonNullable<V[K]> extends object
-        ? | readonly [
-              K,
-              ...Extract<ModelFieldPath<NonNullable<V[K]>>, readonly string[]>,
-            ]
-          | readonly [K, Extract<keyof NonNullable<V[K]>, string>]
-        : never);
+    | (unknown extends V[K]
+        ? readonly [K, string, ...string[]]
+        : NonNullable<V[K]> extends object
+          ? | readonly [
+                K,
+                ...Extract<
+                  ModelFieldPath<NonNullable<V[K]>>,
+                  readonly string[]
+                >,
+              ]
+            | readonly [K, Extract<keyof NonNullable<V[K]>, string>]
+          : never);
 }[Extract<keyof V, string>];
 export type ModelWriteResult<V, I, Input = V> =
   | { status: "success"; snapshot?: ModelSnapshot<V, I>; message?: string }
@@ -384,7 +391,11 @@ export type ModelNavigation = {
   href(node: ModelNode, identity?: unknown): string;
   visit(node: ModelNode, identity?: unknown): void;
   /** Consumer Router installs this guard, and returns its removal function. */
-  guard(check: () => Promise<boolean>): () => void;
+  guard(
+    check: (
+      next?: { node: ModelNode; identity?: unknown } | null,
+    ) => Promise<boolean>,
+  ): () => void;
 };
 export type ModelApplicationOptions = NoPresentation & {
   owner: ModelOwner | null;
@@ -417,6 +428,7 @@ export type ModelIdentity = {
   concurrency: string | null;
   original?: {
     input: unknown;
+    answers: InteractionAnswers;
     node: readonly string[];
     owner: ModelOwner;
     operation: ModelRequest<unknown, unknown>["operation"];

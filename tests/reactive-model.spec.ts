@@ -26,7 +26,9 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 async function click(name: string, root: ParentNode = document) {
-  const button = [...root.querySelectorAll("button")].find(
+  const button = [
+    ...root.querySelectorAll<HTMLButtonElement | HTMLAnchorElement>("button,a"),
+  ].find(
     (el) =>
       el.textContent?.trim() === name || el.getAttribute("aria-label") === name,
   );
@@ -46,6 +48,7 @@ async function input(name: string, value: string) {
 async function fixture(
   unknown = false,
   persistence?: ModelApplicationOptions["persistence"],
+  followNavigation = false,
 ) {
   const run = vi.fn(async (_request: unknown) =>
     unknown ? { status: "unknown" as const } : { status: "success" as const },
@@ -110,12 +113,23 @@ async function fixture(
       },
     },
   });
-  const navigation: ModelNavigation = {
+  let check: Parameters<ModelNavigation["guard"]>[0] | undefined;
+  const navigation: ModelNavigation = reactive({
     current: { node: customers },
     href: () => "/customers",
-    visit: vi.fn(),
-    guard: () => () => {},
-  };
+    visit: followNavigation
+      ? async (node: ModelNode, identity?: unknown) => {
+          if (!check || (await check({ node, identity })))
+            navigation.current = { node, identity };
+        }
+      : vi.fn(),
+    guard: (guard: Parameters<ModelNavigation["guard"]>[0]) => {
+      check = guard;
+      return () => {
+        if (check === guard) check = undefined;
+      };
+    },
+  });
   const settings = reactive({
     owner: { ledger: "demo", operator: "u", generation: "1" },
     navigation,
@@ -131,7 +145,17 @@ async function fixture(
     application("合成应用", { customers, notifications: messages() }, settings),
   );
   const wrapper = await mountApplication(model);
-  return { wrapper, model, run, row, reconcile, update, settings, childRun };
+  return {
+    wrapper,
+    model,
+    run,
+    row,
+    reconcile,
+    update,
+    settings,
+    childRun,
+    leave: () => check!(null),
+  };
 }
 it("binds only a model and preserves zero/false and exact decimal on a customer update", async () => {
   const { run } = await fixture();
@@ -1210,3 +1234,160 @@ it("retains value-array rows when a calculated draft is saved and reread", async
   });
   expect(document.body.textContent).not.toContain("业务计算未能稳定");
 });
+
+it("freezes draft answers in an existing record's original request across reload without changing concurrency", async () => {
+  let saved: unknown;
+  const persistence: NonNullable<ModelApplicationOptions["persistence"]> = {
+    pending: async () => [],
+    load: async () => (saved as never) ?? null,
+    async save(journal) {
+      saved = structuredClone(journal);
+    },
+    async complete() {},
+  };
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "unknown" as const,
+  }));
+  const reconcile = vi.fn(async (_request: unknown) => ({
+    status: "unknown" as const,
+  }));
+  const record = () =>
+    object(
+      "客户",
+      {
+        id: text("编号", { readOnly: true, value: "a" }),
+        name: text("名称", { value: "原客户" }),
+      },
+      {
+        identity: ["id"],
+        concurrency: "authority-snapshot",
+        operations: {
+          update: { run, reconcile },
+          calculate: {
+            async run({ input }) {
+              return {
+                value: input,
+                interactions: [
+                  {
+                    kind: "confirm" as const,
+                    id: "approve",
+                    label: "核对业务资料",
+                  },
+                  { kind: "input" as const, id: "reason", label: "业务原因" },
+                ],
+              };
+            },
+          },
+        },
+      },
+    );
+  await renderNode(record(), { persistence });
+  await click("编辑");
+  await input("名称", "已确认客户");
+  const confirm = document.querySelector<HTMLInputElement>(
+    'input[aria-label="核对业务资料"]',
+  )!;
+  expect(confirm).toBeTruthy();
+  confirm.click();
+  await flushPromises();
+  await input("业务原因", "合成确认理由");
+  document
+    .querySelector<HTMLInputElement>('input[aria-label="业务原因"]')!
+    .dispatchEvent(new Event("change", { bubbles: true }));
+  await flushPromises();
+  await click("保存");
+  expect(run).toHaveBeenCalledOnce();
+  const original = structuredClone(run.mock.calls[0]![0]);
+  expect(original).toMatchObject({
+    answers: { approve: true, reason: "合成确认理由" },
+    concurrency: "authority-snapshot",
+    identity: { id: "a" },
+  });
+  mounted.pop()!.unmount();
+  document.body.innerHTML = "";
+  await renderNode(record(), { persistence });
+  await click("核实本次请求");
+  expect(reconcile.mock.calls[0]![0]).toEqual(original);
+  expect(run).toHaveBeenCalledOnce();
+});
+
+it("projects an actual independent child node and identity into its parent's mounted record", async () => {
+  const { row, settings, wrapper } = await fixture();
+  settings.navigation.current = { node: row.contacts, identity: { id: "c" } };
+  await flushPromises();
+  expect(wrapper.text()).toContain("联系人电话");
+  expect(wrapper.text()).toContain("100");
+  expect(
+    document
+      .querySelector('[role="tab"][aria-label="联系人"]')
+      ?.getAttribute("aria-selected"),
+  ).toBe("true");
+});
+
+it("updates Router node projections while retaining a parent's unsaved draft across child navigation", async () => {
+  const { settings, model, run, childRun, leave } = await fixture(
+    false,
+    undefined,
+    true,
+  );
+  await click("编辑");
+  await input("名称", "父草稿仍在");
+  await click("联系人");
+  expect(settings.navigation.current?.node).toBe(
+    model.customers.items[0]!.contacts,
+  );
+  expect(document.body.textContent).not.toContain("是否放弃");
+  const child = document.querySelector('.zerp-ui[aria-label="联系人"]')!;
+  await click("编辑", child);
+  expect(settings.navigation.current?.identity).toEqual({ id: "c" });
+  await input("联系人电话", "300");
+  await click("保存", child);
+  await click("基本资料");
+  expect(settings.navigation.current?.node).toBe(model.customers);
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="名称"]')!.value,
+  ).toBe("父草稿仍在");
+  expect(childRun).toHaveBeenCalledOnce();
+  expect(run).not.toHaveBeenCalled();
+  const leaving = leave();
+  await flushPromises();
+  expect(document.body.textContent).toContain("是否放弃");
+  await click("继续编辑");
+  expect(await leaving).toBe(false);
+});
+
+it.each([
+  ["contact.phone", "含点字面字段"],
+  [["contact", "phone"], "嵌套电话字段"],
+] as const)(
+  "keeps literal and nested dynamic field feedback distinct: %s",
+  async (field, label) => {
+    const children: Record<string, ModelNode> = {
+      "contact.phone": text("含点字面字段", { value: "literal" }),
+      contact: object("联系信息", {
+        phone: text("嵌套电话字段", { value: "nested" }),
+      }),
+    };
+    const node = object<typeof children, readonly [], readonly []>(
+      "动态业务字段",
+      children,
+      {
+        operations: {
+          update: {
+            async run() {
+              return {
+                status: "failure" as const,
+                message: "业务字段无效",
+                fields: [{ field, message: "此业务字段无效" }],
+              };
+            },
+          },
+        },
+      },
+    );
+    await renderNode(node);
+    await click("编辑");
+    await click("保存");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(label);
+  },
+);
