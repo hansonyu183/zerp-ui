@@ -1,3 +1,4 @@
+import { arrayFields } from "./model-array-fields";
 import type { AnyField } from "./contracts";
 import { valueAt, setValueAt } from "./business-type";
 
@@ -13,7 +14,7 @@ function secretSlots(
       if (Array.isArray(rows))
         for (const row of rows)
           if (row && typeof row === "object")
-            secretSlots(field.fields, row, visit);
+            secretSlots(arrayFields(field, row), row, visit);
     }
   }
 }

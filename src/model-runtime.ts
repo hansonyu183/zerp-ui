@@ -1,3 +1,4 @@
+import { bindArrayFields } from "./model-array-fields";
 import { discardedCollaboration } from "./collaboration-result";
 import { modelWorkflowPage } from "./model-workflow-runtime";
 import { modelWorkflow } from "./model-workflow";
@@ -200,7 +201,7 @@ export function adopt(node: ModelNode, value: unknown) {
       [nodeMetadata]: { create(): ModelNode };
     };
     arrayNode.items = value.map((item, index) => {
-      const child = arrayNode.items[index] ?? arrayNode[nodeMetadata].create();
+      const child = declaredRow(arrayNode as ValueArray, item, index);
       adopt(child, item);
       return child;
     });
@@ -219,6 +220,67 @@ function identity(node: RuntimeObject): ModelIdentity {
     ancestors: [],
     concurrency: meta.concurrency,
   };
+}
+type ValueArray = ModelNode & {
+  items: ModelNode[];
+  [nodeMetadata]: { element: ModelNode; create(): ModelNode };
+};
+const arrayRows = new WeakMap<object, Map<string, ModelNode>>();
+const adoptedRows = new WeakMap<object, { array: object; key: string }>();
+const createdRows = new WeakSet<object>();
+function rememberRow(array: ValueArray, row: ModelNode, value?: unknown) {
+  let known = arrayRows.get(toRaw(array));
+  if (!known) arrayRows.set(toRaw(array), (known = new Map()));
+  known.set(rowKey(row, value), row);
+  return row;
+}
+function newArrayRow(array: ValueArray, value?: unknown) {
+  const row = array[nodeMetadata].create();
+  createdRows.add(toRaw(row));
+  return rememberRow(array, row, value);
+}
+function declaredRow(
+  array: ValueArray,
+  value: unknown,
+  index?: number,
+  snapshot = false,
+): ModelNode {
+  const current = new Map(
+    array.items.map((row) => {
+      createdRows.delete(toRaw(row));
+      rememberRow(array, row);
+      return [rowKey(row), row] as const;
+    }),
+  );
+  const association =
+    value && typeof value === "object" ? adoptedRows.get(value) : undefined;
+  const explicitKey =
+    value && typeof value === "object"
+      ? Reflect.get(value, "$modelRowKey")
+      : undefined;
+  const key =
+    typeof explicitKey === "string"
+      ? explicitKey
+      : association?.array === toRaw(array)
+        ? association.key
+        : undefined;
+  if (key !== undefined) {
+    const authoritative = current.get(key);
+    if (authoritative) return authoritative;
+    const created = arrayRows.get(toRaw(array))?.get(key);
+    if (created && (snapshot || createdRows.has(toRaw(created))))
+      return created;
+    throw Error("数组行声明已失效，请重新读取。");
+  }
+  const element = array[nodeMetadata].element;
+  if (isObject(element) && asObject(element)[nodeMetadata].identity.length) {
+    const existing = [...current.values()].find(
+      (row) => rowKey(row, value) === rowKey(row),
+    );
+    if (existing) return existing;
+  } else if (index !== undefined && array.items[index])
+    return array.items[index]!;
+  return newArrayRow(array, value);
 }
 const rowKeys = new WeakMap<object, string>();
 function rowKey(node: ModelNode, value?: unknown): string {
@@ -256,7 +318,10 @@ function flat(
     else if (child[nodeMetadata].kind === "array")
       target[JSON.stringify(path)] = (
         child as unknown as { items: ModelNode[] }
-      ).items.map((item) => ({ ...flat(item), $modelRowKey: rowKey(item) }));
+      ).items.map((item) => ({
+        ...flat(rememberRow(child as ValueArray, item)),
+        $modelRowKey: rowKey(item),
+      }));
     else target[JSON.stringify(path)] = clone(modelValue(child));
   }
   return target;
@@ -292,7 +357,18 @@ function unflat(
             : arrayElement && Array.isArray(input)
               ? input.map((row) =>
                   isObject(arrayElement)
-                    ? unflat(arrayElement, row, writable)
+                    ? (() => {
+                        const declaration = declaredRow(
+                          child as ValueArray,
+                          row,
+                        );
+                        const result = unflat(declaration, row, writable);
+                        adoptedRows.set(result, {
+                          array: toRaw(child),
+                          key: rowKey(declaration),
+                        });
+                        return result;
+                      })()
                     : row[JSON.stringify(["$value"])],
                 )
               : input,
@@ -319,23 +395,15 @@ export function flattenValue(
       const element = (
         child as unknown as { [nodeMetadata]: { element: ModelNode } }
       )[nodeMetadata].element;
-      const rows = (child as unknown as { items: ModelNode[] }).items;
-      target[JSON.stringify(path)] = next.map((value, index) =>
-        isObject(element)
-          ? {
-              ...flattenValue(rows[index] ?? element, value),
-              $modelRowKey:
-                rows[index] || asObject(element)[nodeMetadata].identity.length
-                  ? rowKey(rows[index] ?? element, value)
-                  : crypto.randomUUID(),
-            }
+      target[JSON.stringify(path)] = next.map((value, index) => {
+        const row = declaredRow(child as ValueArray, value, index);
+        return isObject(element)
+          ? { ...flattenValue(row, value), $modelRowKey: rowKey(row, value) }
           : {
               [JSON.stringify(["$value"])]: clone(value),
-              $modelRowKey: rows[index]
-                ? rowKey(rows[index])
-                : crypto.randomUUID(),
-            },
-      );
+              $modelRowKey: rowKey(row),
+            };
+      });
     } else target[JSON.stringify(path)] = clone(next);
   }
   return target;
@@ -511,19 +579,32 @@ export function createModelRuntime(
         ];
       }
       if (meta.kind === "array") {
-        const array = child as unknown as {
-          [nodeMetadata]: { element: ModelNode; create(): ModelNode };
-        };
+        const array = child as ValueArray;
+        const projections = new WeakMap<
+          ModelNode,
+          import("vue").ComputedRef<AnyField[]>
+        >();
         return [
-          {
-            ...common,
-            type: "rows",
-            fields: fields(array[nodeMetadata].element),
-            empty: () => {
-              const row = array[nodeMetadata].create();
-              return { ...flat(row), $modelRowKey: rowKey(row) };
+          bindArrayFields(
+            {
+              ...common,
+              type: "rows",
+              fields: fields(array[nodeMetadata].element),
+              empty: () => {
+                const row = newArrayRow(array);
+                return { ...flat(row), $modelRowKey: rowKey(row) };
+              },
             },
-          },
+            (value) => {
+              const row = declaredRow(array, value, undefined, true);
+              let projected = projections.get(row);
+              if (!projected) {
+                projected = computed(() => fields(row));
+                projections.set(row, projected);
+              }
+              return projected.value;
+            },
+          ),
         ];
       }
       if (meta.kind === "enum")

@@ -9,7 +9,8 @@ import {
 import { computed, onBeforeUnmount } from "vue";
 import { valueAt } from "./business-type";
 import ReferencePicker from "./ReferencePicker.vue";
-import { factText, type FactField } from "./details";
+import { modelArrayFields } from "./model-array-fields";
+import { factText, formFacts, type FactField } from "./details";
 import type { ReferenceValue } from "./contracts";
 const props = defineProps<{
   value: object;
@@ -107,7 +108,11 @@ function rows(value: unknown): object[] {
                     <FactFields
                       :value="row"
                       :scope="scope"
-                      :fields="field.fields ?? []"
+                      :fields="
+                        modelArrayFields(field, row)
+                          ? formFacts(modelArrayFields(field, row)!)
+                          : (field.fields ?? [])
+                      "
                       @related="active && emit('related', $event)"
                     />
                   </VExpansionPanelText>

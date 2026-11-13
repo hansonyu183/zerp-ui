@@ -11,6 +11,7 @@ import {
   reference,
   integer,
   decimal,
+  secret,
   type ModelNode,
 } from "../src/model";
 let wrapper: ReturnType<typeof mount> | undefined;
@@ -239,4 +240,180 @@ it("cancels scalar array edits without a business write", async () => {
       ?.value,
   ).toBe("甲");
   expect(run).not.toHaveBeenCalled();
+});
+
+it.each([true, false])(
+  "projects row fields and retains qualification after deletion (identity=%s)",
+  async (identified) => {
+    const run = vi.fn(async (_request: unknown) => ({
+      status: "success" as const,
+    }));
+    const line = (id: string, editable: boolean) =>
+      object(
+        "明细",
+        {
+          id: text("行号", { value: id, readOnly: true }),
+          price: text("价格", {
+            value: id === "main" ? "100" : "20",
+            readOnly: !editable,
+          }),
+          ...(editable ? { note: text("子项说明", { value: "原说明" }) } : {}),
+        },
+        { identity: identified ? (["id"] as const) : [] },
+      );
+    const target = object(
+      "单据",
+      {
+        rows: array("明细", () => line("new", true), [
+          line("main", false),
+          line("child", true),
+        ]),
+      },
+      { operations: { update: { run } } },
+    );
+    await render(target);
+    const rows = document.querySelectorAll<HTMLElement>(
+      'section[aria-label^="明细 "]',
+    );
+    expect(
+      rows[0]!.querySelector<HTMLInputElement>('input[aria-label="价格"]')
+        ?.disabled,
+    ).toBe(true);
+    expect(rows[0]!.querySelector('input[aria-label="子项说明"]')).toBeNull();
+    const note = rows[1]!.querySelector<HTMLInputElement>(
+      'input[aria-label="子项说明"]',
+    )!;
+    expect(note).toBeTruthy();
+    note.value = "子项修改";
+    note.dispatchEvent(new Event("input", { bubbles: true }));
+    await flushPromises();
+    await click("删除明细 1");
+    await click("新增");
+    await click("保存");
+    expect(run.mock.calls[0]![0]).toMatchObject({
+      input: {
+        rows: [
+          { price: "20", note: "子项修改" },
+          { price: "20", note: "原说明" },
+        ],
+      },
+    });
+    expect(
+      (run.mock.calls[0]![0] as { input: { rows: object[] } }).input.rows,
+    ).toHaveLength(2);
+    await click("编辑");
+    const first = document.querySelector<HTMLElement>(
+      'section[aria-label="明细 1"]',
+    )!;
+    expect(
+      first.querySelector<HTMLInputElement>('input[aria-label="价格"]')
+        ?.disabled,
+    ).toBe(false);
+    expect(
+      first.querySelector<HTMLInputElement>('input[aria-label="子项说明"]')
+        ?.value,
+    ).toBe("子项修改");
+  },
+);
+
+it("uses nested row declarations for required fields and secret write qualification", async () => {
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "success" as const,
+  }));
+  const child = (id: string, locked = false) =>
+    object(
+      "子行",
+      {
+        id: text("子行号", { value: id, readOnly: true }),
+        note: text("子行内容", { value: id, required: true }),
+        password: secret("行口令", { value: "must-clear", readOnly: locked }),
+      },
+      { identity: ["id"] as const },
+    );
+  const line = () =>
+    object("父行", {
+      children: array("子明细", () => child("new"), [
+        child("locked", true),
+        child("editable"),
+      ]),
+    });
+  const target = object(
+    "单据",
+    { rows: array("父明细", line, [line()]) },
+    { operations: { update: { run } } },
+  );
+  await render(target);
+  const inputs = document.querySelectorAll<HTMLInputElement>(
+    'input[aria-label="行口令"]',
+  );
+  expect(inputs).toHaveLength(2);
+  expect(inputs[0]!.disabled).toBe(true);
+  expect(inputs[1]!.disabled).toBe(false);
+  expect(document.querySelector('input[type="password"]')).toBeNull();
+  await click("保存");
+  expect(run.mock.calls[0]![0]).toMatchObject({
+    input: {
+      rows: [
+        {
+          children: [
+            { note: "locked" },
+            { note: "editable", password: undefined },
+          ],
+        },
+      ],
+    },
+  });
+  const input = (
+    run.mock.calls[0]![0] as { input: { rows: { children: object[] }[] } }
+  ).input;
+  expect(input.rows[0]!.children[0]).not.toHaveProperty("password");
+});
+
+it("uses the current same-identity declaration when calculation returns its original input", async () => {
+  const line = (locked: boolean) =>
+    object(
+      "行",
+      {
+        id: text("行号", { value: "one", readOnly: true }),
+        price: text("价格", { value: "10", readOnly: locked }),
+        ...(locked ? { newField: text("新字段") } : {}),
+      },
+      { identity: ["id"] as const },
+    );
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "success" as const,
+  }));
+  const target = object(
+    "单据",
+    {
+      mode: text("业务模式"),
+      rows: array("明细", () => line(false), [line(false)]),
+    },
+    {
+      operations: {
+        update: { run },
+        calculate: {
+          async run({ input }) {
+            if (input.mode === "locked") target.rows.items = [line(true)];
+            return { value: input };
+          },
+        },
+      },
+    },
+  );
+  await render(target);
+  const mode = document.querySelector<HTMLInputElement>(
+    'input[aria-label="业务模式"]',
+  )!;
+  mode.value = "locked";
+  mode.dispatchEvent(new Event("input", { bubbles: true }));
+  await flushPromises();
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="价格"]')
+      ?.disabled,
+  ).toBe(true);
+  expect(document.querySelector('input[aria-label="新字段"]')).toBeTruthy();
+  await click("保存");
+  const request = run.mock.calls[0]![0] as { input: { rows: object[] } };
+  expect(request.input.rows[0]).not.toHaveProperty("price");
 });

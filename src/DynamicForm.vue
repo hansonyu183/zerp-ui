@@ -8,6 +8,7 @@ import {
   useId,
   nextTick,
 } from "vue";
+import { arrayFields } from "./model-array-fields";
 import type { AnyField, Fields, ReferenceValue, FieldGroup } from "./contracts";
 import {
   VTabs,
@@ -482,7 +483,7 @@ onBeforeUnmount(() => emit("pending", false));
                   class="zerp-form-row"
                 >
                   <DynamicForm
-                    :fields="field.fields"
+                    :fields="arrayFields(field, row.value)"
                     :model-value="row.value"
                     :scope="scope"
                     :mode="mode"

@@ -3,6 +3,7 @@
   lang="ts"
   generic="H extends object, R extends object, C extends object = object"
 >
+import { childArray } from "./model-array-fields";
 import { useDisplay } from "vuetify";
 import RowActions from "./RowActions.vue";
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
@@ -169,11 +170,13 @@ const childFields = computed(
     (childColumn.value
       ? [
           {
+            ...childArray(
+              childColumn.value,
+              props.modelValue.rows.find(
+                (row) => props.rowKey(row) === childEditing.value?.parentKey,
+              )!,
+            ),
             key: "items",
-            label: childColumn.value.label,
-            type: "rows",
-            fields: childColumn.value.fields,
-            empty: childColumn.value.empty,
           },
         ]
       : []) as unknown as Fields<{ items: C[] }>,

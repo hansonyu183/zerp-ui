@@ -1,3 +1,4 @@
+import { arrayFields, bindArrayChild } from "./model-array-fields";
 import { nodeMetadata } from "./model-node";
 import type { ModelNode } from "./reactive-model";
 import type { ModelRuntime } from "./model-runtime";
@@ -21,25 +22,33 @@ export function modelRowBlocks(
     const fields = runtime.fields(metadata.element);
     const columns = fields.map((child) =>
       child.type === "rows"
-        ? {
-            key: child.key,
-            label: child.label,
-            type: "children",
-            fields: child.fields,
-            empty: child.empty,
-            summary: (rows: readonly object[]) => `${rows.length} 项`,
-          }
+        ? bindArrayChild(
+            {
+              key: child.key,
+              label: child.label,
+              type: "children",
+              fields: child.fields,
+              empty: child.empty,
+              summary: (rows: readonly object[]) => `${rows.length} 项`,
+            },
+            (parent) => {
+              const declared = arrayFields(field, parent).find(
+                (f) => f.key === child.key,
+              );
+              if (declared?.type !== "rows")
+                throw Error("子行声明已失效，请重新读取。");
+              return declared;
+            },
+          )
         : { key: child.key, label: child.label },
     );
     const editor = {
       headerFields: [],
-      rowFields: fields.filter((child) => child.type !== "rows"),
+      rowFields: (row: Values) =>
+        arrayFields(field, row).filter((child) => child.type !== "rows"),
       columns,
       rowKey: (row: Values) => String(row.$modelRowKey),
-      emptyRow: () => ({
-        ...runtime.flat(metadata.create()),
-        $modelRowKey: crypto.randomUUID(),
-      }),
+      emptyRow: () => field.empty(),
     } as unknown as VoucherEditorDefinition<Values, Values, Values>;
     return [
       domainBlocks<Values>().voucher({

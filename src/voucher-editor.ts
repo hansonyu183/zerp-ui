@@ -1,3 +1,4 @@
+import { arrayFields, childArray } from "./model-array-fields";
 import { clone } from "./clone";
 import type { Column, Fields } from "./contracts";
 
@@ -86,7 +87,11 @@ export function validateVoucherContent<
       for (const child of children) {
         if (!child || typeof child !== "object")
           return `${column.label}包含无效子项。`;
-        const problem = validate(column.fields, child, mode);
+        const problem = validate(
+          arrayFields(childArray(column, row), child),
+          child,
+          mode,
+        );
         if (problem) return problem;
       }
     }

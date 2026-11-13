@@ -1,3 +1,4 @@
+import { arrayFields } from "./model-array-fields";
 import { fieldEnabled, type FormField } from "./form-field";
 import type { AnyField, Fields } from "./contracts";
 import { valueAt } from "./business-type";
@@ -126,7 +127,7 @@ export function validate(
       return `${field.label}应为有效日期范围（起日不晚于止日）。`;
     if (field.type === "rows")
       for (const row of value as object[]) {
-        const error = validate(field.fields, row, mode);
+        const error = validate(arrayFields(field, row), row, mode);
         if (error) return error;
       }
   }

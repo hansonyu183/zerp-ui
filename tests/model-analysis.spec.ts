@@ -444,3 +444,83 @@ it("keeps a document original locked when workflow operations replace the author
   expect(foreignGet).not.toHaveBeenCalled();
   expect(document.body.textContent).toContain("请求结果未知");
 });
+
+it("creates registered model rows and nested child rows in the document block", async () => {
+  let next = 0;
+  const child = () => object("子行", { note: text("子行内容") });
+  const line = () =>
+    object(
+      "行",
+      {
+        id: text("行号", { value: String(++next), readOnly: true }),
+        note: text("行内容"),
+        children: array("子明细", child),
+      },
+      { identity: ["id"] as const },
+    );
+  const content = () => object("内容", { rows: array("明细", line) });
+  const versions = {
+    official: content(),
+    candidate: content(),
+    history: array("历史", content),
+  };
+  const audit = object("审计", {});
+  const snapshot = {
+    label: "候选",
+    identity: "one",
+    state: "draft",
+    owner: "owner",
+    values: { rows: [] },
+    attachments: [],
+    eligible: { edit: true },
+  };
+  const node = object("档案", versions, {
+    operations: documentOperations<
+      typeof versions.candidate,
+      string,
+      string,
+      string,
+      string,
+      typeof audit
+    >(versions, audit, {
+      get: {
+        async run() {
+          return {
+            official: snapshot,
+            candidate: snapshot,
+            history: [],
+            audit: [],
+          };
+        },
+      },
+      submit: {
+        async run() {
+          return { status: "success" };
+        },
+      },
+    }),
+  });
+  await start(node);
+  await click("编辑档案");
+  await click("新增");
+  await input("行内容", "合成父行");
+  await click("确定明细行");
+  expect(document.body.textContent).toContain("合成父行");
+  const button = [
+    ...document.querySelectorAll<HTMLButtonElement>("button"),
+  ].find((b) => b.textContent?.includes("编辑子明细"))!;
+  expect(button).toBeTruthy();
+  button.click();
+  await flushPromises();
+  const dialog = document.querySelector<HTMLElement>(
+    ".zerp-voucher-child-dialog",
+  )!;
+  const add = [...dialog.querySelectorAll<HTMLButtonElement>("button")].find(
+    (b) => b.textContent?.trim() === "新增",
+  )!;
+  expect(add).toBeTruthy();
+  add.click();
+  await flushPromises();
+  await input("子行内容", "合成子行");
+  expect(document.body.textContent).not.toContain("数组行声明已失效");
+});
