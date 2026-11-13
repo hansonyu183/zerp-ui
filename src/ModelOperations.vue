@@ -7,6 +7,7 @@ import DynamicForm from "./DynamicForm.vue";
 import PrintPreview from "./PrintPreview.vue";
 import { nodeMetadata } from "./model-node";
 import { modelOperation } from "./model-operation";
+import { modelOperationPersistence } from "./model-operation-persistence";
 import {
   operationLabels,
   type OperationAction,
@@ -18,8 +19,13 @@ import type { EditProtection } from "./edit-guard";
 import type { ModelRuntime, RuntimeObject } from "./model-runtime";
 import type { ApplicationNode, ObjectShape } from "./reactive-model";
 import type { ModelOperation } from "./model-operation";
-import { containsSecrets, equalValues } from "./editor-values";
-import { clone } from "./clone";
+import {
+  clearSecrets,
+  containsSecrets,
+  equalValues,
+  redactSecrets,
+} from "./editor-values";
+import { clone, message } from "./clone";
 import { validateFields } from "./validation";
 import type { Fields } from "./contracts";
 const props = defineProps<{
@@ -93,6 +99,7 @@ const locked = computed(
   () =>
     protection.value.writeState !== "idle" ||
     protection.value.dirty ||
+    protection.value.localPending ||
     pending.value,
 );
 watch(
@@ -119,9 +126,13 @@ watch(
 );
 const fields = computed(() =>
   props.node() && admitted.value
-    ? (props.runtime.fields(admitted.value.input) as unknown as Fields<
-        Record<string, unknown>
-      >)
+    ? (props.runtime
+        .fields(admitted.value.input)
+        .map((field) =>
+          selected.value === "changePassword" && field.type === "secret"
+            ? { ...field, type: "password" as const }
+            : field,
+        ) as unknown as Fields<Record<string, unknown>>)
     : [],
 );
 const eligible = computed(
@@ -194,16 +205,34 @@ async function importFile(value: File | File[] | null) {
   }
 }
 const protocols = new Map(actions.value);
-const persistence = admitted.value!.persistence;
+const sourcePersistence = admitted.value!.persistence;
+const persistence = modelOperationPersistence(sourcePersistence);
 const preparedRuns = new Map<string, Action["run"]>();
 function protocol(action: OperationAction): Action {
   const current = actions.value.find(([key]) => key === action)?.[1];
   if (current) protocols.set(action, current);
   const result = protocols.get(action);
   if (!result) throw Error("原请求操作不可用。");
-  if (result.persistence !== persistence)
+  if (result.persistence !== sourcePersistence)
     throw Error("同一办理边界必须共用原请求存储。");
   return result;
+}
+async function invoke<T>(
+  op: Action,
+  input: unknown,
+  work: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await work();
+  } catch (cause) {
+    throw Error(
+      redactSecrets(
+        props.runtime.fields(op.input),
+        props.runtime.flatten(op.input, input),
+        message(cause),
+      ),
+    );
+  }
 }
 const definition: OperationDefinition<OperationModel, unknown, unknown> = {
   protocol: "operation",
@@ -220,7 +249,19 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
         !("secrets" in op.persistence && op.persistence.secrets === "encrypted")
       )
         throw Error("秘密输入需要消费者加密的原请求存储。");
-      const request = await op.prepare(intent);
+      const request = await invoke(op, intent.input, () => op.prepare(intent));
+      const exposesSecret = (value: unknown): boolean =>
+        typeof value === "string"
+          ? redactSecrets(
+              props.runtime.fields(op.input),
+              props.runtime.flatten(op.input, intent.input),
+              value,
+            ) !== value
+          : !!value &&
+            typeof value === "object" &&
+            Object.values(value).some(exposesSecret);
+      if (exposesSecret(request.preview))
+        throw Error("秘密值不能包含在办理预览中。");
       if (
         !("ancestors" in request) ||
         !equalValues(
@@ -232,13 +273,27 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
       preparedRuns.set(request.requestId, run);
       return request;
     },
-    acceptsPreparation: (intent, prepared) =>
-      "ancestors" in prepared &&
-      equalValues(
-        prepared.ancestors,
-        (intent as unknown as { ancestors: unknown }).ancestors,
-      ) &&
-      protocol(intent.action).acceptsPreparation(intent, prepared),
+    acceptsPreparation: (intent, prepared) => {
+      const op = protocol(intent.action);
+      try {
+        return (
+          "ancestors" in prepared &&
+          equalValues(
+            prepared.ancestors,
+            (intent as unknown as { ancestors: unknown }).ancestors,
+          ) &&
+          op.acceptsPreparation(intent, prepared)
+        );
+      } catch (cause) {
+        throw Error(
+          redactSecrets(
+            props.runtime.fields(op.input),
+            props.runtime.flatten(op.input, intent.input),
+            message(cause),
+          ),
+        );
+      }
+    },
     execute: (request) => {
       const op = protocol(request.action);
       if (
@@ -254,14 +309,34 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
         !equalValues(request.ancestors, props.ancestors)
       )
         throw Error("操作已撤销。");
-      return op.run(request);
+      return invoke(op, request.input, () => op.run(request));
     },
-    reconcile: (request) => protocol(request.action).reconcile(request),
-    seal: (request, receipt) => protocol(request.action).seal(request, receipt),
-    refresh: (settlement) =>
-      protocol(settlement.request.action).refresh(settlement),
-    accepts: (request, receipt) =>
-      protocol(request.action).accepts(request, receipt),
+    reconcile: (request) => {
+      const op = protocol(request.action);
+      return invoke(op, request.input, () => op.reconcile(request));
+    },
+    seal: (request, receipt) => {
+      const op = protocol(request.action);
+      return invoke(op, request.input, () => op.seal(request, receipt));
+    },
+    refresh: (settlement) => {
+      const op = protocol(settlement.request.action);
+      return invoke(op, settlement.request.input, () => op.refresh(settlement));
+    },
+    accepts: (request, receipt) => {
+      const op = protocol(request.action);
+      try {
+        return op.accepts(request, receipt);
+      } catch (cause) {
+        throw Error(
+          redactSecrets(
+            props.runtime.fields(op.input),
+            props.runtime.flatten(op.input, request.input),
+            message(cause),
+          ),
+        );
+      }
+    },
   },
 };
 const intent = computed<
@@ -293,12 +368,23 @@ function settled(
   >,
 ) {
   if (
-    value.receipt.status === "applied" &&
+    (value.receipt.status === "applied" ||
+      value.request.action === "changePassword") &&
     value.request.action === selected.value &&
     equalValues(value.request.identity, identity.value) &&
     equalValues(value.request.input, intent.value.input)
-  )
+  ) {
+    if (value.request.action === "changePassword") {
+      const next = clone(draft.value);
+      clearSecrets(props.runtime.fields(admitted.value!.input), next, "");
+      props.runtime.adopt(
+        admitted.value!.input,
+        props.runtime.unflat(admitted.value!.input, next, false),
+      );
+      draft.value = next;
+    }
     baseline.value = clone(draft.value);
+  }
 }
 watch(
   () => ({
