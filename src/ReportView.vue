@@ -396,7 +396,7 @@ async function runFixedPage(target: number) {
     if (value.columns) d.columns = clone(value.columns);
     const next = {
       ...fixed.value!,
-      summary: value.summary ?? fixed.value!.summary,
+      summary: clone(value.summary ?? fixed.value!.summary),
       expiresAt: value.expiresAt ?? fixed.value!.expiresAt,
     };
     validateResult(d, value, next);

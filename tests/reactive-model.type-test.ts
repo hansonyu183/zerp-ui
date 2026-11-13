@@ -8,6 +8,7 @@ import {
   decimal,
   type ModelInput,
   type ModelWrite,
+  type ModelQuery,
 } from "../src/model";
 const customer = () =>
   object(
@@ -317,3 +318,27 @@ collection("冻结结果导出", customer, {
     },
   },
 });
+
+type FixedPageSummary = NonNullable<
+  Awaited<
+    ReturnType<
+      ModelQuery<
+        ReturnType<typeof customer>,
+        ReturnType<typeof customer>
+      >["page"]
+    >
+  >["summary"]
+>;
+const pageSummary: FixedPageSummary = {
+  caption: "合计",
+  values: { credit: "12.50" },
+};
+const invalidPageSummary: FixedPageSummary = {
+  caption: "合计",
+  values: {
+    // @ts-expect-error decimal totals are strings, never numbers
+    credit: 12.5,
+  },
+};
+void pageSummary;
+void invalidPageSummary;
