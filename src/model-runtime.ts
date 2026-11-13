@@ -1,3 +1,4 @@
+import { discardedCollaboration } from "./collaboration-result";
 import { modelWorkflowPage } from "./model-workflow-runtime";
 import { modelWorkflow } from "./model-workflow";
 import { modelSubmissionPage } from "./model-submission-runtime";
@@ -1111,7 +1112,7 @@ export function createModelRuntime(
                     node[nodeMetadata].operations.calculate)
                   : node[nodeMetadata].operations.calculate;
             if (!operation || operation.disabledReason)
-              return { value: input.value };
+              return discardedCollaboration(input.value);
             const admittedOwner = ownerKey(options().owner),
               active = options().navigation.current?.node;
             const target =
@@ -1146,7 +1147,7 @@ export function createModelRuntime(
                   }
                 }
               }
-              return { value: input.value };
+              return discardedCollaboration(input.value);
             }
 
             const contextInput = unflat(node, input.value, false),
@@ -1183,12 +1184,14 @@ export function createModelRuntime(
                     answers: input.answers,
                   });
             } catch (error) {
-              if (!activeCalculation()) return { value: input.value };
+              if (!activeCalculation())
+                return discardedCollaboration(input.value);
               throw Error(
                 redactSecrets(inputFields, input.value, message(error)),
               );
             }
-            if (!activeCalculation()) return { value: input.value };
+            if (!activeCalculation())
+              return discardedCollaboration(input.value);
             const accepted: Record<string, string | boolean> = {};
             for (const item of result.interactions ?? [])
               if (

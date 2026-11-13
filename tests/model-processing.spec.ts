@@ -36,7 +36,10 @@ async function click(label: string) {
 }
 async function fixture(
   withPrompt = false,
-  initialize?: () => Promise<{ value: { note: string } }>,
+  initialize?: {
+    run: () => Promise<{ value: { note: string } }>;
+    disabledReason?: string;
+  },
 ) {
   const input = object(
     "处理输入",
@@ -45,7 +48,7 @@ async function fixture(
     },
     {
       operations: {
-        ...(initialize ? { initialize: { run: initialize } } : {}),
+        ...(initialize ? { initialize } : {}),
         calculate: {
           async run({ input }) {
             return {
@@ -217,7 +220,7 @@ it("initializes operation inputs once after journal loading and keeps the origin
   const initialize = vi.fn(async () => ({
     value: { note: "从业务读取的说明" },
   }));
-  const f = await fixture(false, initialize);
+  const f = await fixture(false, { run: initialize });
   expect(initialize).toHaveBeenCalledTimes(1);
   const note = document.querySelector<HTMLInputElement>(
     'input[aria-label="说明"]',
@@ -243,7 +246,7 @@ it("retries a failed first input initialization before accepting ordinary change
     .fn()
     .mockRejectedValueOnce(Error("读取办理参数失败"))
     .mockResolvedValue({ value: { note: "重读后的说明" } });
-  await fixture(false, initialize);
+  await fixture(false, { run: initialize });
   expect(document.body.textContent).toContain("读取办理参数失败");
   expect(initialize).toHaveBeenCalledTimes(1);
   await click("重试业务计算");
@@ -251,6 +254,34 @@ it("retries a failed first input initialization before accepting ordinary change
   expect(
     document.querySelector<HTMLInputElement>('input[aria-label="说明"]')?.value,
   ).toBe("重读后的说明");
+});
+it("retries initialization when its first response was discarded after qualification changed", async () => {
+  let finish!: (value: { value: { note: string } }) => void;
+  const first = new Promise<{ value: { note: string } }>((resolve) => {
+    finish = resolve;
+  });
+  const run = vi
+    .fn()
+    .mockReturnValueOnce(first)
+    .mockResolvedValue({ value: { note: "重新读取" } });
+  const initialize = reactive({ run, disabledReason: "" });
+  await fixture(false, initialize);
+  expect(run).toHaveBeenCalledTimes(1);
+  initialize.disabledReason = "暂时不可读取";
+  finish({ value: { note: "迟到内容" } });
+  await flushPromises();
+  expect(
+    document.querySelector<HTMLInputElement>('input[aria-label="说明"]')?.value,
+  ).not.toBe("迟到内容");
+  initialize.disabledReason = "";
+  const note = document.querySelector<HTMLInputElement>(
+    'input[aria-label="说明"]',
+  )!;
+  note.value = "触发重新读取";
+  note.dispatchEvent(new Event("input", { bubbles: true }));
+  await flushPromises();
+  expect(run).toHaveBeenCalledTimes(2);
+  expect(note.value).toBe("重新读取");
 });
 it("confirms an authoritative preview and reconciles the original unknown request without resending", async () => {
   const f = await fixture();

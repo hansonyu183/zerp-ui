@@ -2,6 +2,7 @@
 import { VBtn, VProgressLinear } from "vuetify/components";
 import { ref, shallowRef, watch, onBeforeUnmount } from "vue";
 import { clone, message } from "./clone";
+import { isDiscardedCollaboration } from "./collaboration-result";
 import { equalValues } from "./editor-values";
 import type {
   DraftCollaboration,
@@ -68,6 +69,11 @@ async function run(
       !equalValues(baseline, props.modelValue)
     )
       return;
+    if (isDiscardedCollaboration(result)) {
+      calculating.value = false;
+      emit("pending", false);
+      return;
+    }
     initialized = true;
     calculating.value = false;
     const previous = items.value;
