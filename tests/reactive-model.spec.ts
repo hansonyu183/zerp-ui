@@ -820,8 +820,8 @@ it("recovers a create using its original input and dependencies without sending 
     status: "not-applied" as const,
     requestId: request.requestId,
     evidence: {
-      value: { id: "uncreated", name: "" },
-      identity: { id: "uncreated" },
+      value: { id: null, name: "" },
+      identity: null,
       concurrency: "sealed",
     },
   }));

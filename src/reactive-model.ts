@@ -212,7 +212,9 @@ export type ModelValue<N> =
         }
       : N extends { [nodeMetadata]: { kind: "array"; element: infer E } }
         ? ModelValue<E>[]
-        : never;
+        : N extends ModelNode
+          ? unknown
+          : never;
 export type ModelInput<N> = N extends {
   [nodeMetadata]: { kind: "object"; children: infer S extends ModelMembers };
 }
@@ -327,7 +329,14 @@ export type ModelCreate<N extends ObjectShape> = {
   >;
   reconcile?(
     request: ModelRequest<ModelInput<N>, null, NodeAncestors<N>>,
-  ): Promise<ModelEvidence<ModelValue<N>, NodeIdentity<N>>>;
+  ): Promise<
+    | ModelEvidence<ModelValue<N>, NodeIdentity<N>>
+    | {
+        status: "not-applied";
+        requestId: string;
+        evidence: ModelSnapshot<ModelValue<N>, null>;
+      }
+  >;
 };
 export type CollectionNode<N extends ObjectShape = ObjectShape> = {
   items: N[];
