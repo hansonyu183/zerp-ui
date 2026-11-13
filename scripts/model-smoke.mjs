@@ -15,7 +15,11 @@ export async function modelSmoke(page) {
     await page.getByLabel("信用额度", { exact: true }).inputValue(),
     "12345678901234567890.00",
   );
-  await page.getByLabel("客户名称", { exact: true }).fill("合成修改客户");
+  await page.getByLabel("客户名称", { exact: true }).fill(" 合成修改客户 ");
+  await page.getByRole("button", { name: "整理客户名称", exact: true }).click();
+  await expect(page.getByLabel("客户名称", { exact: true })).toHaveValue(
+    "合成修改客户",
+  );
   await page.getByLabel("外部编号", { exact: true }).fill("含点键修改");
   await page.getByRole("tab", { name: "独立联系人", exact: true }).click();
   const contacts = page.locator('.zerp-ui[aria-label="独立联系人"]');

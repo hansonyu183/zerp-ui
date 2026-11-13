@@ -38,6 +38,7 @@ export type {
   ModelPendingRequest,
   ModelFieldPath,
   ModelCalculation,
+  ModelCalculationResult,
   ModelLocalIntent,
 } from "./reactive-model";
 
