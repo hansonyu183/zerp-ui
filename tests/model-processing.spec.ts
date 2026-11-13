@@ -428,3 +428,16 @@ it("freezes accepted script answers in a fixed operation and keeps them on reloa
   });
   expect(f.run).toHaveBeenCalledTimes(1);
 });
+
+it("rejects a preparation that changes the accepted answers", async () => {
+  const f = await fixture();
+  const prepare = f.action.prepare;
+  f.action.prepare = async (intent) => ({
+    ...(await prepare(intent)),
+    answers: { invented: true },
+  });
+  await click("准备执行处理");
+  expect(document.body.textContent).toContain("准备结果改变了问题回答");
+  expect(f.journal()).toBeNull();
+  expect(f.run).not.toHaveBeenCalled();
+});

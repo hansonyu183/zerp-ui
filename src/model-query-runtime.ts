@@ -91,7 +91,9 @@ export function modelQueryPage(
     const node = current()!;
     if (new Set(keys).size !== keys.length) throw Error("集合记录身份重复。");
     const admittedOwner = JSON.stringify(owner()),
-      admittedQuery = query();
+      admittedQuery = query(),
+      admittedRun = admittedQuery?.run,
+      admittedPage = admittedQuery?.page;
     const { interactions, ...data } = page;
     const feedback: ModelReportFeedback | undefined = interactions?.length
       ? modelQueryFeedback(
@@ -103,6 +105,8 @@ export function modelQueryPage(
             adoptedFeedback.value === feedback &&
             current() === node &&
             query() === admittedQuery &&
+            query()?.run === admittedRun &&
+            query()?.page === admittedPage &&
             !query()?.disabledReason &&
             JSON.stringify(owner()) === admittedOwner,
         )

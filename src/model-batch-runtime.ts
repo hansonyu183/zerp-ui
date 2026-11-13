@@ -1,5 +1,6 @@
 import type { InteractionAnswers } from "./collaboration";
 import { clone } from "./clone";
+import { equalValues } from "./editor-values";
 import type { EditProtection } from "./edit-guard";
 import { defineBatchPage } from "./pages";
 import { modelBatch, type ModelBatchOperation } from "./model-batch";
@@ -57,8 +58,17 @@ export function modelBatchPage(
         unknown,
         unknown
       >["adapter"]),
-      prepare: (intent) => admitted.prepare(withContext(intent)),
+      prepare: async (intent) => {
+        const context = withContext(intent);
+        const answers = clone(context.answers);
+        const prepared = await admitted.prepare(context);
+        if (!equalValues(prepared.answers, answers))
+          throw Error("准备结果改变了问题回答。");
+        return prepared;
+      },
       acceptsPreparation: (intent, prepared) =>
+        "answers" in prepared &&
+        equalValues(prepared.answers, withContext(intent).answers) &&
         "ancestors" in prepared &&
         JSON.stringify(prepared.ancestors) === JSON.stringify(ancestors) &&
         admitted.acceptsPreparation(

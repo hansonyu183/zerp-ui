@@ -2200,3 +2200,192 @@ it("adopts page interactions together with the new fixed page", async () => {
   expect(document.body.textContent).toContain("第二页提示");
   expect(document.body.textContent).not.toContain("第一页提示");
 });
+
+it.each(["target", "query"])(
+  "discards a pending query calculation when its %s callback changes",
+  async (change) => {
+    let complete!: (value: { value: { keyword: string | null } }) => void;
+    const target = {
+      kind: "calculate" as const,
+      run: () =>
+        new Promise<{ value: { keyword: string | null } }>((resolve) => {
+          complete = resolve;
+        }),
+    };
+    const filters = object("条件", {
+      keyword: text("关键词", { value: "original" }),
+    });
+    const row = () =>
+      object(
+        "结果",
+        { id: text("编号", { value: "1" }) },
+        { identity: ["id"] },
+      );
+    const query = {
+      input: filters,
+      async run() {
+        return {
+          id: "one",
+          items: [row()],
+          total: 1,
+          summary: { caption: "", values: {} },
+          context: "",
+          interactions: [
+            {
+              kind: "menu" as const,
+              id: "tools",
+              label: "工具",
+              items: [{ key: "calc", label: "延迟计算", target }],
+            },
+          ],
+        };
+      },
+      async page() {
+        return { items: [row()], total: 1 };
+      },
+      async revalidate() {
+        return { status: "valid" as const };
+      },
+    };
+    const records = collection("查询交互", row, { operations: { query } });
+    await renderNode(records);
+    await click("查询");
+    await click("延迟计算");
+    if (change === "target")
+      target.run = async () => ({ value: { keyword: "new" } });
+    else
+      query.run = async () => ({
+        id: "new",
+        items: [row()],
+        total: 1,
+        summary: { caption: "", values: {} },
+        context: "",
+        interactions: [],
+      });
+    complete({ value: { keyword: "stale" } });
+    await flushPromises();
+    expect(
+      document.querySelector<HTMLInputElement>('input[aria-label="关键词"]')!
+        .value,
+    ).toBe("original");
+  },
+);
+
+it("redacts a pending query exception after its secret field is removed", async () => {
+  let reject!: (cause: Error) => void;
+  const filters = object("条件", {
+    token: secret("查询秘密", { value: "old-query-secret" }),
+  });
+  const row = () =>
+    object("结果", { id: text("编号", { value: "1" }) }, { identity: ["id"] });
+  const records = collection("查询交互", row, {
+    operations: {
+      query: {
+        input: filters,
+        async run() {
+          return {
+            id: "one",
+            items: [row()],
+            total: 1,
+            summary: { caption: "", values: {} },
+            context: "",
+            interactions: [
+              {
+                kind: "menu" as const,
+                id: "tools",
+                label: "工具",
+                items: [
+                  {
+                    key: "fail",
+                    label: "延迟失败",
+                    target: {
+                      kind: "calculate" as const,
+                      run: () =>
+                        new Promise<{ value: { token: string } }>(
+                          (_resolve, fail) => {
+                            reject = fail;
+                          },
+                        ),
+                    },
+                  },
+                ],
+              },
+            ],
+          };
+        },
+        async page() {
+          return { items: [row()], total: 1 };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+    },
+  });
+  await renderNode(records);
+  await click("查询");
+  await click("延迟失败");
+  Reflect.deleteProperty(filters, "token");
+  reject(Error("业务失败 old-query-secret"));
+  await flushPromises();
+  expect(document.body.textContent).not.toContain("old-query-secret");
+});
+
+it("discards a pending query download after its read callback changes", async () => {
+  let complete!: (file: { filename: string; content: Blob }) => void;
+  const target = {
+    kind: "download" as const,
+    read: () =>
+      new Promise<{ filename: string; content: Blob }>((resolve) => {
+        complete = resolve;
+      }),
+  };
+  const row = () =>
+    object("结果", { id: text("编号", { value: "1" }) }, { identity: ["id"] });
+  const records = collection("查询交互", row, {
+    operations: {
+      query: {
+        async run() {
+          return {
+            id: "one",
+            items: [row()],
+            total: 1,
+            summary: { caption: "", values: {} },
+            context: "",
+            interactions: [
+              {
+                kind: "download" as const,
+                id: "file",
+                label: "下载原结果",
+                target,
+              },
+            ],
+          };
+        },
+        async page() {
+          return { items: [row()], total: 1 };
+        },
+        async revalidate() {
+          return { status: "valid" };
+        },
+      },
+    },
+  });
+  const download = vi
+    .spyOn(HTMLAnchorElement.prototype, "click")
+    .mockImplementation(() => {});
+  try {
+    await renderNode(records);
+    await click("查询");
+    await click("下载原结果");
+    target.read = async () => ({
+      filename: "new.txt",
+      content: new Blob(["new"]),
+    });
+    complete({ filename: "stale.txt", content: new Blob(["stale"]) });
+    await flushPromises();
+    expect(download).not.toHaveBeenCalled();
+  } finally {
+    download.mockRestore();
+  }
+});

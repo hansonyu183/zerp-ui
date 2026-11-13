@@ -240,7 +240,8 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
   adapter: {
     prepare: async (intent) => {
       const op = protocol(intent.action),
-        run = op.run;
+        run = op.run,
+        answers = clone(Reflect.get(intent, "answers"));
       if (
         containsSecrets(
           props.runtime.fields(op.input),
@@ -270,6 +271,8 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
         )
       )
         throw Error("准备结果改变了祖先身份。");
+      if (!("answers" in request) || !equalValues(request.answers, answers))
+        throw Error("准备结果改变了问题回答。");
       preparedRuns.set(request.requestId, run);
       return request;
     },
@@ -277,6 +280,8 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
       const op = protocol(intent.action);
       try {
         return (
+          "answers" in prepared &&
+          equalValues(prepared.answers, Reflect.get(intent, "answers")) &&
           "ancestors" in prepared &&
           equalValues(
             prepared.ancestors,

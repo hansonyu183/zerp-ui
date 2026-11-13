@@ -63,10 +63,15 @@ export function modelQueryFeedback(
         if (!target) throw Error("查询交互已失效，请重新查询。");
         const node = input();
         const owner = clone(application()[nodeMetadata].options.owner!);
+        const inputFields = node ? runtime.fields(node) : [];
+        const calculate = target.kind === "calculate" ? target.run : undefined;
+        const read = target.kind === "download" ? target.read : undefined;
         const current = () =>
           active() &&
           !context.signal.aborted &&
           input() === node &&
+          (target.kind !== "calculate" || target.run === calculate) &&
+          (target.kind !== "download" || target.read === read) &&
           context.target &&
           targets.get(context.target) === target &&
           JSON.stringify(application()[nodeMetadata].options.owner) ===
@@ -78,7 +83,7 @@ export function modelQueryFeedback(
               target.identity,
             );
           } else if (target.kind === "download") {
-            const file = await target.read({ owner, signal: context.signal });
+            const file = await read!({ owner, signal: context.signal });
             if (!current()) return { value: context.value };
             const url = URL.createObjectURL(file.content);
             const anchor = document.createElement("a");
@@ -90,7 +95,7 @@ export function modelQueryFeedback(
               URL.revokeObjectURL(url);
             }
           } else {
-            const result = await target.run({
+            const result = await calculate!({
               owner,
               input: node ? runtime.unflat(node, context.value, false) : {},
               answers: clone(context.answers),
@@ -107,11 +112,7 @@ export function modelQueryFeedback(
         } catch (cause) {
           if (!current()) return { value: context.value };
           throw Error(
-            redactSecrets(
-              node ? runtime.fields(node) : [],
-              context.value,
-              message(cause),
-            ),
+            redactSecrets(inputFields, context.value, message(cause)),
           );
         }
       },
