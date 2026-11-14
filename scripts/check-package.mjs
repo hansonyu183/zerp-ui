@@ -15,11 +15,8 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
-import { modelSmoke } from "./model-smoke.mjs";
-import { modelBusinessSmoke } from "./model-business-smoke.mjs";
-const modelBusinessMode = process.argv.includes("--model-business");
-const exampleName = modelBusinessMode ? "model-business" : "model";
-const smoke = modelBusinessMode ? modelBusinessSmoke : modelSmoke;
+import { directModelSmoke as smoke } from "./direct-model-smoke.mjs";
+const exampleName = "model";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceBase = execFileSync("git", ["rev-parse", "HEAD"], {
   cwd: root,
@@ -112,12 +109,7 @@ for (const name of ["main.ts"]) {
     (await readFile(path, "utf8")).replaceAll('"../shared/', '"./shared/'),
   );
 }
-for (const name of [
-  "public-api",
-  "reactive-model",
-  "model-processing",
-  "business-model",
-]) {
+for (const name of ["business-model"]) {
   const fixture = await readFile(
     join(root, `tests/${name}.type-test.ts`),
     "utf8",
@@ -169,7 +161,7 @@ run(
   [
     "--input-type=module",
     "--eval",
-    "import assert from 'node:assert/strict'; import { object, text, application } from '@zerp/ui/model'; assert.equal(object('Sample', {name:text('Name', {value:'sample'})}).name.value, 'sample'); assert.equal(typeof application, 'function');",
+    "import assert from 'node:assert/strict'; import * as model from '@zerp/ui/model'; assert.deepEqual(Object.keys(model), ['modelMetadata']); assert.equal(typeof model.modelMetadata, 'symbol');",
   ],
   consumer,
 );
