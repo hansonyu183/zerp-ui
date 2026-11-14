@@ -129,6 +129,10 @@ for (const name of [
       .replaceAll("../src/model", "@zerp/ui/model"),
   );
 }
+await cp(
+  join(root, "examples/model-contract/model.type-example.ts"),
+  join(consumer, "business-model.type-example.ts"),
+);
 await writeFile(
   join(consumer, "tsconfig.json"),
   JSON.stringify(

@@ -59,6 +59,8 @@ type CollectionNode = {
   [nodeMetadata]: {
     kind: "collection";
     name: string;
+    /** Record structure and available operations, also readable when items is empty. */
+    element: ObjectNode;
     list: readonly string[];
     operations: Partial<Record<CollectionAction, Operation>>;
   };
@@ -76,7 +78,7 @@ type Permission = {
 };
 
 /**
- * Single target model contract for BusinessApplication.
+ * Directly defined target contract for BusinessApplication, independent of examples.
  *
  * Business member names are open; node kinds and operation names are closed.
  * Inputs live directly in field values. No editor baseline, frozen request,
@@ -86,7 +88,7 @@ type Permission = {
  * BusinessApplication runtime has not yet migrated to this contract.
  * @see https://github.com/hansonyu183/zerp-ui/issues/152
  */
-export type BusinessModel = {
+export interface BusinessModel {
   [businessMember: string]: Node;
   [nodeMetadata]: {
     kind: "application";
@@ -120,4 +122,4 @@ export type BusinessModel = {
       text: string;
     }[];
   };
-};
+}

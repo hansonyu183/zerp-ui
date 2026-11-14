@@ -42,6 +42,7 @@ const collection: CollectionNode = {
   [meta]: {
     kind: "collection",
     name: "Any collection",
+    element: record,
     list: ["name"],
     operations: {
       query: { async run() {} },
@@ -125,6 +126,19 @@ const wrongObjectAction: ObjectNode[typeof meta]["operations"] = {
   // @ts-expect-error collection queries do not belong to an object
   query: { async run() {} },
 };
+const missingElement: CollectionNode = {
+  ...collection,
+  // @ts-expect-error even an empty collection must provide its record structure
+  [meta]: { kind: "collection", name: "Empty", list: ["name"], operations: {} },
+};
+const wrongElement: CollectionNode = {
+  ...collection,
+  [meta]: {
+    ...collection[meta],
+    // @ts-expect-error collection elements are object models, not scalar fields
+    element: field,
+  },
+};
 const oldRequestProtocol: ObjectNode[typeof meta]["operations"] = {
   update: {
     // @ts-expect-error operations do not require a frozen request parameter
@@ -170,6 +184,8 @@ void [
   arbitraryAction,
   wrongCollectionAction,
   wrongObjectAction,
+  missingElement,
+  wrongElement,
   oldRequestProtocol,
   componentConfiguration,
   layoutConfiguration,

@@ -76,7 +76,7 @@ options.navigationProjection = [
 
 ## 独立消费者与验证
 
-下一版单一模型类型已在源码的 `@zerp/ui/model` 入口导出为 `BusinessModel`，元数据键为 `modelMetadata`。当前类型切片覆盖普通对象、聚合、集合、字段、有限操作、权限与导航，业务成员名开放；操作直接读取和更新模型，不要求编辑基线或冻结请求。完整对象见 [契约示例](examples/model-contract/README.md)，本片正式范围与验收见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。本片尚未迁移 `BusinessApplication`，也未正式发行；当前宿主继续使用上文已发布模型契约，不能把新类型直接接入现有宿主。后续统一迁移时不保留两套运行时或兼容分支。
+下一版单一模型契约直接定义为 `BusinessModel`，从源码的 `@zerp/ui/model` 入口导出，元数据键为 `modelMetadata`。当前类型切片覆盖普通对象、聚合、集合、字段、有限操作、权限与导航；集合通过元素模型提供完整字段结构，业务成员名开放。输入和后端结果直接更新模型，不要求编辑基线或冻结请求。仅供类型检查的对象见 [类型示例](examples/model-contract/README.md)，对应界面见 [UI 结构](examples/model-contract/ui-structure.md)，本片正式范围与验收见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。本片尚未迁移 `BusinessApplication`，也未正式发行；当前宿主继续使用上文已发布模型契约，不能把新类型直接接入现有宿主。后续统一迁移时不保留两套运行时或兼容分支。
 
 | 消费者                                              | 覆盖能力                                                                                          |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
