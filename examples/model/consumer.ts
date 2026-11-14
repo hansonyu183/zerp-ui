@@ -111,8 +111,93 @@ const directory = {
     operations: {},
   },
 } satisfies BusinessModel[string];
+const authentication = {
+  username: {
+    value: "",
+    [meta]: { kind: "text", name: "登录名", required: true },
+  },
+  password: {
+    value: "",
+    [meta]: { kind: "password", name: "登录密码", required: true },
+  },
+  [meta]: {
+    kind: "object",
+    family: "authentication",
+    name: "登录",
+    operations: {
+      signIn: {
+        async run() {
+          trace("session.signIn");
+          model[meta].owner = { ...owner, generation: String(Date.now()) };
+          model[meta].userPermissions =
+            model.authentication.username.value === "viewer"
+              ? {
+                  owner: model[meta].owner,
+                  administrator: false,
+                  grants: [
+                    {
+                      node: model.directory.customers,
+                      read: true,
+                      write: false,
+                      operations: { query: true, get: true },
+                    },
+                    {
+                      node: model.directory.customers[meta].element.credit,
+                      read: false,
+                    },
+                  ],
+                }
+              : { owner: model[meta].owner, administrator: true };
+          model[meta].session.state = "ready";
+          model[meta].navigation.current = model.directory;
+        },
+      },
+    },
+  },
+} satisfies BusinessModel[string];
+const profile = {
+  displayName: {
+    value: "合成用户",
+    [meta]: { kind: "text", name: "用户姓名" },
+  },
+  [meta]: {
+    kind: "object",
+    name: "个人资料",
+    operations: {
+      get: {
+        async run() {
+          trace("account.profile");
+        },
+      },
+    },
+  },
+} satisfies BusinessModel[string];
+const password = {
+  next: { value: "", [meta]: { kind: "password", name: "新密码" } },
+  [meta]: {
+    kind: "object",
+    family: "account",
+    name: "密码管理",
+    operations: {
+      changePassword: {
+        async run() {
+          trace("account.changePassword");
+          model[meta].messages.push({
+            id: "password",
+            level: "info",
+            text: "合成密码已更新",
+          });
+          model.password.next.value = "";
+        },
+      },
+    },
+  },
+} satisfies BusinessModel[string];
 type Target = NonNullable<BusinessModel[typeof meta]["navigation"]["current"]>;
 const source = {
+  authentication,
+  profile,
+  password,
   directory,
   document,
   voucher,
@@ -124,8 +209,24 @@ const source = {
     kind: "application",
     name: "直接业务模型",
     brand: { productName: "合成业务示例", companyName: "示例企业" },
-    owner,
-    userPermissions: { owner, administrator: true },
+    owner: null as BusinessModel[typeof meta]["owner"],
+    userPermissions: null as BusinessModel[typeof meta]["userPermissions"],
+    authentication,
+    session: { state: "anonymous" as "anonymous" | "ready" },
+    account: {
+      name: "合成用户",
+      profile,
+      password,
+      signOut: {
+        async run() {
+          trace("session.signOut");
+          model[meta].owner = null;
+          model[meta].userPermissions = null;
+          model[meta].session.state = "anonymous";
+          model.authentication.password.value = "";
+        },
+      },
+    },
     navigation: {
       current: directory as Target | null,
       href(node: Target) {
