@@ -112,7 +112,12 @@ for (const name of ["main.ts"]) {
     (await readFile(path, "utf8")).replaceAll('"../shared/', '"./shared/'),
   );
 }
-for (const name of ["public-api", "reactive-model", "model-processing"]) {
+for (const name of [
+  "public-api",
+  "reactive-model",
+  "model-processing",
+  "business-model",
+]) {
   const fixture = await readFile(
     join(root, `tests/${name}.type-test.ts`),
     "utf8",
