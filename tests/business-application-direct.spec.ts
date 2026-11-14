@@ -290,3 +290,75 @@ it("retains an in-flight write guard across navigation and rejects late consumer
   expect((group.intro as { value: string }).value).toBe("hello");
   wrapper.unmount();
 });
+it("keeps nested independent writes denied while inherited fields remain readable and private rows stay hidden", async () => {
+  const { model } = fixture();
+  const group = model.group as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "object" } }
+  >;
+  const rows = group.rows as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "collection" } }
+  >;
+  const save = vi.fn(async () => {});
+  const child = {
+    value: {
+      value: "independent",
+      [meta]: { kind: "text" as const, name: "Independent value" },
+    },
+    [meta]: {
+      kind: "object" as const,
+      name: "Independent",
+      operations: { update: { run: save } },
+    },
+  };
+  const record = {
+    code: {
+      value: "secret cell",
+      [meta]: { kind: "text" as const, name: "Code" },
+    },
+    nested: {
+      description: {
+        value: "inherited",
+        [meta]: { kind: "text" as const, name: "Inherited" },
+      },
+      [meta]: { kind: "object" as const, name: "Embedded", operations: {} },
+    },
+    child,
+    [meta]: { kind: "object" as const, name: "Record", operations: {} },
+  };
+  rows.items = [record];
+  rows.selected = record;
+  group[meta].form = ["rows"];
+  rows[meta].list = ["missing", "code"];
+  model[meta].userPermissions = {
+    owner: { generation: "1", operator: "test", ledger: "synthetic" },
+    administrator: false,
+    grants: [
+      {
+        node: rows,
+        read: true,
+        write: true,
+        operations: { query: true, update: true },
+      },
+      { node: child, read: true, write: false },
+      { node: record.code, read: false },
+    ],
+  };
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  expect(wrapper.text()).not.toContain("secret cell");
+  await wrapper.get('[role="tab"][data-member="nested"]').trigger("click");
+  await flushPromises();
+  expect(
+    (wrapper.get('input[aria-label="Inherited"]').element as HTMLInputElement)
+      .value,
+  ).toBe("inherited");
+  await wrapper.get('[role="tab"][data-member="child"]').trigger("click");
+  await flushPromises();
+  expect(wrapper.findAll("button").some((b) => b.text() === "保存")).toBe(
+    false,
+  );
+  expect(save).not.toHaveBeenCalled();
+  wrapper.unmount();
+});
