@@ -1,6 +1,7 @@
 import { reactive } from "vue";
 import { modelMetadata as meta, type BusinessModel } from "@zerp/ui/model";
 import { router } from "./router";
+import { document, voucher, workflow, batch, report, output } from "./families";
 
 const trace = (name: string) => console.log(`synthetic-call:${name}`);
 const owner = { ledger: "synthetic", operator: "demo", generation: "1" };
@@ -76,6 +77,12 @@ const directory = {
 type Target = NonNullable<BusinessModel[typeof meta]["navigation"]["current"]>;
 const source = {
   directory,
+  document,
+  voucher,
+  workflow,
+  batch,
+  report,
+  output,
   [meta]: {
     kind: "application",
     name: "直接业务模型",
@@ -85,14 +92,26 @@ const source = {
     navigation: {
       current: directory as Target | null,
       href(node: Target) {
-        return node[meta].kind === "collection" ? "/customers" : "/directory";
+        return `/business/${encodeURIComponent(node[meta].name)}`;
       },
       visit(node: Target) {
         void router.push(this.href(node));
       },
     },
     navigationProjection: [
-      { key: "business", name: "业务", items: [{ node: directory }] },
+      {
+        key: "business",
+        name: "业务",
+        items: [
+          { node: directory },
+          { node: document },
+          { node: voucher },
+          { node: workflow },
+          { node: batch },
+          { node: report },
+          { node: output },
+        ],
+      },
     ],
     messages: [] as BusinessModel[typeof meta]["messages"],
   },
@@ -100,5 +119,7 @@ const source = {
 export const model = reactive(source);
 router.afterEach((to) => {
   model[meta].navigation.current =
-    to.path === "/customers" ? model.directory.customers : model.directory;
+    Object.values(model).find(
+      (node) => `/business/${encodeURIComponent(node[meta].name)}` === to.path,
+    ) ?? model.directory;
 });
