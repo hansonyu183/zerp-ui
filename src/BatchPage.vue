@@ -1,5 +1,6 @@
 <script setup lang="ts" generic="M extends OperationModel, I, B">
-import { computed, ref, shallowRef, watch, onBeforeUnmount } from "vue";
+import { modelRecoveryOnlyKey } from "./model-recovery-view";
+import { computed, ref, shallowRef, watch, onBeforeUnmount, inject } from "vue";
 import OperationRuntime from "./OperationRuntime.vue";
 import { VBtn } from "vuetify/components";
 import Feedback from "./Feedback.vue";
@@ -9,6 +10,10 @@ import { equalValues } from "./editor-values";
 import type { OperationModel, OperationSettlement } from "./operation";
 import type { BatchPage, BatchJournal } from "./batch";
 import type { EditProtection } from "./edit-guard";
+const recoveryOnly = inject(
+  modelRecoveryOnlyKey,
+  computed(() => false),
+);
 const props = defineProps<{ options: BatchPage<M, I, B>; scope: string }>();
 const emit = defineEmits<{ protection: [state: EditProtection] }>();
 const journal = shallowRef<BatchJournal<M, I, B> | null>(null),
@@ -240,7 +245,7 @@ onBeforeUnmount(() => {
         </VBtn></Feedback
       ></FeedbackRegion
     >
-    <ul>
+    <ul v-if="!recoveryOnly">
       <li v-for="item in displayed" :key="item.key">
         {{ item.label
         }}<template v-if="item.settlement">
@@ -254,15 +259,15 @@ onBeforeUnmount(() => {
       </li>
     </ul>
     <VBtn
-      v-if="!journal || journal.completed"
+      v-if="!recoveryOnly && (!journal || journal.completed)"
       type="button"
       :disabled="busy || !ready || !options.eligible || !options.entries.length"
       @click="start"
     >
       建立批次
     </VBtn>
-    <template v-else-if="entry && ready"
-      ><h2>{{ entry.label }}</h2>
+    <template v-else-if="entry && ready && journal"
+      ><h2 v-if="!recoveryOnly">{{ entry.label }}</h2>
       <OperationRuntime
         :key="journal.index"
         :definition="options.definition"

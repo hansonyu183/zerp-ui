@@ -1,5 +1,5 @@
 import { mount, flushPromises, type VueWrapper } from "@vue/test-utils";
-import { reactive } from "vue";
+import { reactive, ref } from "vue";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { afterEach, expect, it, vi } from "vitest";
 import { BusinessApplication } from "../src/index";
@@ -68,7 +68,7 @@ async function fixture(
   const childRun = vi.fn(
     async (
       _request: ModelRequest<
-        { phone: string | null },
+        { phone?: string | null },
         { id: string | null },
         readonly [{ id: string }]
       >,
@@ -143,9 +143,14 @@ async function fixture(
       mark: { kind: "text" as const, text: "例" },
     },
   });
+  const permissions = ref<ModelApplicationOptions["userPermissions"]>();
   Object.defineProperty(settings, "userPermissions", {
-    get: () => ({ owner: { ...settings.owner }, administrator: true }),
     configurable: true,
+    get: () =>
+      permissions.value === undefined
+        ? { owner: { ...settings.owner }, administrator: true }
+        : permissions.value,
+    set: (value) => (permissions.value = value),
   });
   Object.assign(settings, {
     navigationProjection: [
@@ -418,7 +423,7 @@ it("reads an off-page deep-link identity through the element get and retains its
   }));
   const run = vi.fn(
     async (
-      _request: ModelRequest<{ name: string | null }, { id: string }>,
+      _request: ModelRequest<{ name?: string | null }, { id: string }>,
     ) => ({ status: "success" as const }),
   );
   const element = () =>
@@ -2823,10 +2828,8 @@ it("retains an unknown original across root authorization withdrawal and restore
   await click("编辑");
   await input("名称", "未知提交");
   await click("保存");
-  Object.defineProperty(f.settings, "userPermissions", {
-    configurable: true,
-    writable: true,
-    value: {
+  Object.assign(f.settings, {
+    userPermissions: {
       owner: { ...f.settings.owner },
       grants: [
         permission(f.model.customers, {
@@ -2839,10 +2842,8 @@ it("retains an unknown original across root authorization withdrawal and restore
   await flushPromises();
   expect(document.body.textContent).toContain("请求结果未知");
   expect(f.run).toHaveBeenCalledOnce();
-  Object.defineProperty(f.settings, "userPermissions", {
-    configurable: true,
-    writable: true,
-    value: {
+  Object.assign(f.settings, {
+    userPermissions: {
       owner: { ...f.settings.owner },
       administrator: true,
     },
@@ -2851,4 +2852,24 @@ it("retains an unknown original across root authorization withdrawal and restore
   await click("核实本次请求");
   expect(f.reconcile).toHaveBeenCalledOnce();
   expect(f.run).toHaveBeenCalledOnce();
+});
+
+it("opens only original recovery after node read is withdrawn, without exposing its data", async () => {
+  const f = await fixture(true);
+  await click("编辑");
+  await input("名称", "原请求秘密内容");
+  await click("保存");
+  Object.assign(f.settings, {
+    userPermissions: { owner: { ...f.settings.owner }, grants: [] },
+  });
+  await flushPromises();
+  expect(document.body.textContent).not.toContain("原请求秘密内容");
+  await click("恢复原请求");
+  expect(document.body.textContent).toContain("请求结果未知");
+  expect(document.body.textContent).not.toContain("原请求秘密内容");
+  expect(document.querySelector('input[aria-label="名称"]')).toBeNull();
+  await click("核实本次请求");
+  expect(f.reconcile).toHaveBeenCalledOnce();
+  expect(f.run).toHaveBeenCalledOnce();
+  expect(document.body.textContent).not.toContain("请求结果未知");
 });

@@ -1,4 +1,9 @@
-import type { ObjectShape, ModelValue, ArrayNode } from "./reactive-model";
+import type {
+  ObjectShape,
+  ModelValue,
+  ModelInput,
+  ArrayNode,
+} from "./reactive-model";
 import type { DocumentAdapter, DocumentDefinition } from "./document";
 import type { VoucherAdapter, VoucherDefinition } from "./voucher";
 export type ModelVersions<N extends ObjectShape> = {
@@ -19,7 +24,7 @@ type DocumentPorts<
 > = {
   get: Read<DocumentAdapter<ModelValue<N>, I, S, O, H, ModelValue<A>>["query"]>;
   submit: Read<
-    DocumentAdapter<ModelValue<N>, I, S, O, H, ModelValue<A>>["submit"]
+    DocumentAdapter<ModelInput<N>, I, S, O, H, ModelValue<A>>["submit"]
   >;
   approve?: Read<
     NonNullable<
@@ -40,7 +45,7 @@ type DocumentPorts<
     DocumentAdapter<ModelValue<N>, I, S, O, H, ModelValue<A>>["attachments"]
   >;
   reconcile?: DocumentDefinition<
-    ModelValue<N>,
+    ModelInput<N>,
     I,
     S,
     O,
@@ -107,7 +112,7 @@ type VoucherPorts<
     >
   >;
   submit: Read<
-    VoucherAdapter<ModelValue<N>, I, R, U, S, O, H, ModelValue<A>>["submit"]
+    VoucherAdapter<ModelInput<N>, I, R, U, S, O, H, ModelValue<A>>["submit"]
   >;
   approve?: Read<
     NonNullable<
@@ -127,7 +132,7 @@ type VoucherPorts<
     >["attachments"]
   >;
   reconcile?: VoucherDefinition<
-    ModelValue<N>,
+    ModelInput<N>,
     I,
     R,
     U,

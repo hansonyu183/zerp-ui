@@ -11,6 +11,7 @@ import {
 } from "vue";
 import { VBtn } from "vuetify/components";
 import AppPage from "./AppPage.vue";
+import { modelRecoveryOnlyKey } from "./model-recovery-view";
 import AuthFrame from "./AuthFrame.vue";
 import { clearReferenceScope } from "./reference-directory";
 import DynamicForm from "./DynamicForm.vue";
@@ -52,6 +53,42 @@ const draft = shallowRef<Record<string, unknown>>({});
 const pending = ref(false);
 const runtime = createModelRuntime(() => props.model);
 const options = computed(() => props.model[nodeMetadata].options);
+const recoveryEntry = shallowRef<ReturnType<typeof runtime.resolve>>();
+const recoveryOnly = computed(() => {
+  const node =
+    recoveryEntry.value?.node() ?? options.value.navigation.current?.node;
+  return (
+    !!options.value.owner &&
+    (!!recoveryEntry.value || runtime.pending()) &&
+    !!node &&
+    !runtime.authorization.readable(node)
+  );
+});
+provide(modelRecoveryOnlyKey, recoveryOnly);
+watch(
+  recoveryOnly,
+  (value) => {
+    runtime.authorization.recovering.value = value;
+  },
+  { flush: "sync", immediate: true },
+);
+function openRecovery(
+  entry: ReturnType<typeof runtime.resolve> | undefined,
+  knownPending = false,
+) {
+  if (entry && (entry.pending() || knownPending) && options.value.owner)
+    recoveryEntry.value = entry;
+}
+watch(
+  () => [
+    options.value.navigation.current?.node,
+    options.value.navigation.current?.identity,
+  ],
+  () => {
+    recoveryEntry.value = undefined;
+  },
+  { flush: "sync" },
+);
 const scope = computed(() => ownerKey(options.value.owner));
 const generation = ref(0);
 let controller = new AbortController();
@@ -223,6 +260,7 @@ const emptyPage: PageDefinition = {
   }),
 };
 const page = computed(() => {
+  if (recoveryEntry.value) return recoveryEntry.value.page;
   if (!selected.value || authentication.value) return emptyPage;
   const path = selected.value.path;
   return runtime.resolve(
@@ -280,7 +318,8 @@ const notifications = computed(() =>
     return (
       notificationOwners.get(raw) === scope.value &&
       (!item.target ||
-        allNodes.value.some((node) => toRaw(node) === toRaw(item.target!)))
+        (runtime.authorization.readable(item.target) &&
+          allNodes.value.some((node) => toRaw(node) === toRaw(item.target!))))
     );
   }),
 );
@@ -313,6 +352,8 @@ watch(
     error.value = "";
     notice.value = "";
     draft.value = {};
+    recoveryEntry.value = undefined;
+    runtime.authorization.recovering.value = false;
   },
   { flush: "sync" },
 );
@@ -367,6 +408,8 @@ provide(modelNoticesKey, {
       target: recoveryTarget(item.node),
       identity: item.ancestors[0],
       action: "恢复所属原请求",
+      recover: () =>
+        openRecovery(runtime.recovery(item.node, item.ancestors), true),
     })),
     ...runtime.recoveries().map((entry) => ({
       id: `${scope.value}:recovery:${entry.definition.resource}`,
@@ -378,6 +421,7 @@ provide(modelNoticesKey, {
         JSON.parse(entry.definition.resource) as [string[], unknown[]]
       )[1][0],
       action: "恢复原请求",
+      recover: () => openRecovery(entry),
     })),
   ]),
   visit: (node, identity) => options.value.navigation.visit(node, identity),
@@ -410,6 +454,7 @@ watch(
 onBeforeUnmount(() => {
   controller.abort();
   runtime.stop();
+  runtime.authorization.recovering.value = false;
   removeGuard?.();
 });
 </script>

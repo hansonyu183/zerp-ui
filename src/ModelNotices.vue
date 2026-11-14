@@ -16,9 +16,13 @@ const notices = inject(modelNoticesKey, undefined);
       :persistent="item.persistent"
     >
       <VBtn
-        v-if="item.target"
+        v-if="item.target || item.recover"
         variant="text"
-        @click="notices.visit(item.target, item.identity)"
+        @click="
+          item.recover
+            ? item.recover()
+            : item.target && notices.visit(item.target, item.identity)
+        "
         >{{ item.action ?? "查看" }}</VBtn
       >
     </Feedback>

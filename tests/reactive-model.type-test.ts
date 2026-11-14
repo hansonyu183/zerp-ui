@@ -1,6 +1,7 @@
 import {
   application,
   permission,
+  voucherOperations,
   array,
   object,
   collection,
@@ -26,7 +27,7 @@ const customer = () =>
         update: {
           async run(request) {
             const id: string | null = request.identity.id;
-            const credit: string | null = request.input.credit;
+            const credit: string | null | undefined = request.input.credit;
             void [id, credit];
             return { status: "success" };
           },
@@ -180,7 +181,7 @@ const foreignContact = () =>
         update: {
           async run(
             _request: import("../src/model").ModelRequest<
-              { name: string | null },
+              { name?: string | null },
               { id: string | null },
               readonly [{ foreign: string }]
             >,
@@ -406,3 +407,49 @@ permission(granted, { operations: { executeSql: true } });
 permission(granted.name, { operations: { query: true } });
 // @ts-expect-error permission bindings require a model node
 permission({ name: "foreign DTO" }, { read: true });
+
+const permissionInput: ModelInput<ReturnType<typeof customer>> = {};
+// @ts-expect-error authorization may omit a writable field
+const requiredCredit: string | null = permissionInput.credit;
+void requiredCredit;
+
+const voucherContent = object("内容", { memo: text("说明") });
+const voucherAudit = object("审计", {});
+const voucherPermissions = object(
+  "单据",
+  { content: voucherContent },
+  {
+    operations: voucherOperations<
+      typeof voucherContent,
+      string,
+      string,
+      null,
+      string,
+      string,
+      string,
+      typeof voucherAudit
+    >(voucherContent, voucherAudit, {
+      query: {
+        async run() {
+          return { items: [], total: 0 };
+        },
+      },
+      get: {
+        async run() {
+          return { current: null, history: [], audit: [] };
+        },
+      },
+      submit: {
+        async run(attempt) {
+          // @ts-expect-error user authorization can omit this field from the submitted input
+          const requiredMemo: string | null = attempt.input.memo;
+          void requiredMemo;
+          return { status: "success" };
+        },
+      },
+    }),
+  },
+);
+permission(voucherPermissions, { read: true, operations: { submit: true } });
+// @ts-expect-error voucher protocols have no document enable operation
+permission(voucherPermissions, { operations: { enable: true } });

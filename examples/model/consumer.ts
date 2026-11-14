@@ -208,18 +208,36 @@ watch(
   },
   { immediate: true },
 );
-function customerNode(
-  id = "",
-  value: CustomerInput = {
-    name: "",
-    enabled: true,
-    creditLimit: "0.00",
-    contact: { phone: "" },
-    units: [],
-    category: null,
-    "external.code": "",
+const emptyCustomer: CustomerInput = {
+  name: "",
+  enabled: true,
+  creditLimit: "0.00",
+  contact: { phone: "" },
+  units: [],
+  category: null,
+  "external.code": "",
+};
+function customerValue(
+  input: Readonly<Partial<Omit<CustomerInput, "contact" | "units">>> & {
+    readonly contact?: Readonly<Partial<CustomerInput["contact"]>>;
+    readonly units?: readonly Readonly<
+      Partial<CustomerInput["units"][number]>
+    >[];
   },
-) {
+  previous: CustomerInput = emptyCustomer,
+): CustomerInput {
+  return {
+    ...previous,
+    ...input,
+    contact: { ...previous.contact, ...input.contact },
+    units:
+      input.units?.map((unit) => ({
+        label: unit.label ?? null,
+        quantity: unit.quantity ?? null,
+      })) ?? previous.units,
+  };
+}
+function customerNode(id = "", value: CustomerInput = emptyCustomer) {
   const row = object(
     "客户",
     {
@@ -273,11 +291,15 @@ function customerNode(
           create: {
             async run(request) {
               const contactId = crypto.randomUUID();
-              contacts.set(contactId, { ...request.input });
+              const value = {
+                name: request.input.name ?? null,
+                phone: request.input.phone ?? null,
+              };
+              contacts.set(contactId, value);
               return {
                 status: "success",
                 snapshot: {
-                  value: { id: contactId, ...request.input },
+                  value: { id: contactId, ...value },
                   identity: { id: contactId },
                   concurrency: String(++revision),
                 },
@@ -378,7 +400,10 @@ function customerNode(
                 fields: [{ field: "name" as const, message: "请修改合成名称" }],
               };
             scenario.writes++;
-            records.set(request.identity.id!, request.input as CustomerInput);
+            records.set(
+              request.identity.id!,
+              customerValue(request.input, records.get(request.identity.id!)!),
+            );
             revision++;
             return { status: scenario.unknown ? "unknown" : "success" };
           },
@@ -445,11 +470,12 @@ const customers = collection("客户", customerNode, {
     create: {
       async run(request) {
         const id = crypto.randomUUID();
-        records.set(id, request.input as CustomerInput);
+        const value = customerValue(request.input);
+        records.set(id, value);
         return {
           status: "success",
           snapshot: {
-            value: { id, ...request.input },
+            value: { id, ...value },
             identity: { id },
             concurrency: String(++revision),
           },
@@ -469,8 +495,10 @@ const configuration = object(
     operations: {
       update: {
         async run({ input }) {
-          configuration.compact.value = input.compact;
-          configuration.favorites.value = input.favorites;
+          if (input.compact !== undefined)
+            configuration.compact.value = input.compact;
+          if (input.favorites !== undefined)
+            configuration.favorites.value = input.favorites;
           return { status: "success" };
         },
       },

@@ -251,7 +251,7 @@ export type ModelInput<N> = N extends {
         }
           ? never
           : K
-      ]: ModelInput<S[K]>;
+      ]?: ModelInput<S[K]>;
     }
   : N extends { [nodeMetadata]: { kind: "array"; element: infer E } }
     ? ModelInput<E>[]
@@ -683,11 +683,14 @@ export function object<
       >;
   },
 ): ObjectNode<S, Identity<S, K>, P, false>;
-export function object<const S extends ModelMembers>(
+export function object<
+  const S extends ModelMembers,
+  const O extends SubmissionOperations | WorkflowOperations,
+>(
   name: string,
   children: S,
   options: NoPresentation & {
-    operations: SubmissionOperations | WorkflowOperations;
+    operations: O;
   },
 ): S & {
   readonly [nodeMetadata]: {
@@ -699,7 +702,7 @@ export function object<const S extends ModelMembers>(
     parentIdentities?: readonly [];
     concurrency: null;
     independent: true;
-    operations: SubmissionOperations | WorkflowOperations;
+    operations: O;
   };
 };
 export function object<

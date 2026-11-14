@@ -10,6 +10,9 @@ import {
   text,
   array,
   documentOperations,
+  voucherOperations,
+  permission,
+  type ModelUserPermissions,
   type ApplicationNode,
   type ModelNode,
 } from "../src/model";
@@ -36,7 +39,10 @@ async function input(name: string, value: string) {
   el.dispatchEvent(new Event("input", { bubbles: true }));
   await flushPromises();
 }
-async function start<N extends ModelNode>(node: N) {
+async function start<N extends ModelNode>(
+  node: N,
+  userPermissions?: ModelUserPermissions,
+) {
   const visit = vi.fn();
   const model = reactive(
     application(
@@ -44,7 +50,7 @@ async function start<N extends ModelNode>(node: N) {
       { node: node as ModelNode },
       {
         owner: { ledger: "s", operator: "u", generation: "1" },
-        userPermissions: {
+        userPermissions: userPermissions ?? {
           owner: { ledger: "s", operator: "u", generation: "1" },
           administrator: true,
         },
@@ -540,4 +546,80 @@ it("creates registered model rows and nested child rows in the document block", 
   await flushPromises();
   await input("子行内容", "合成子行");
   expect(document.body.textContent).not.toContain("数组行声明已失效");
+});
+
+it("submits only authorized voucher content through the public model", async () => {
+  const content = object("内容", {
+    name: text("可写名称"),
+    locked: text("只读内容"),
+  });
+  const audit = object("审计", {});
+  const submit = vi.fn(async (_attempt: unknown) => ({
+    status: "success" as const,
+  }));
+  const snapshot = {
+    identity: { voucher: "v", revision: "1", submission: null },
+    number: "V1",
+    handler: "合成",
+    state: "draft",
+    owner: "owner",
+    values: { name: "原名", locked: "不可提交" },
+    attachments: [],
+    eligible: { edit: true, clone: false, approve: false },
+  };
+  const node = object(
+    "权限单据",
+    { content },
+    {
+      operations: voucherOperations<
+        typeof content,
+        string,
+        string,
+        null,
+        string,
+        string,
+        string,
+        typeof audit
+      >(content, audit, {
+        query: {
+          async run() {
+            return {
+              items: [
+                { identity: snapshot.identity, number: "V1", handler: "合成" },
+              ],
+              total: 1,
+            };
+          },
+        },
+        get: {
+          async run() {
+            return { current: snapshot, history: [], audit: [] };
+          },
+        },
+        submit: { run: submit },
+      }),
+    },
+  );
+  await start(node, {
+    owner: { ledger: "s", operator: "u", generation: "1" },
+    grants: [
+      permission(node, {
+        read: true,
+        write: true,
+        operations: { query: true, get: true, submit: true },
+        fields: { content: { fields: { locked: { write: false } } } },
+      }),
+    ],
+  });
+  await click("查看");
+  await click("编辑单据");
+  await input("可写名称", "授权修改");
+  await click("提交单据");
+  expect(submit).toHaveBeenCalledOnce();
+  expect(submit.mock.calls[0]![0]).toMatchObject({
+    input: { name: "授权修改" },
+  });
+  expect(
+    (submit.mock.calls[0]![0] as { input: object }).input,
+  ).not.toHaveProperty("locked");
 });

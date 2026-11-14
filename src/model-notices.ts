@@ -8,6 +8,7 @@ export type ModelNotice = {
   target?: ModelNode;
   identity?: unknown;
   action?: string;
+  recover?: () => void;
 };
 export const modelNoticesKey: InjectionKey<{
   items: ComputedRef<readonly ModelNotice[]>;

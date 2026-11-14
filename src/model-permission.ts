@@ -1,10 +1,4 @@
 import { nodeMetadata } from "./model-node";
-import type { WorkflowOperations, workflowOperations } from "./model-workflow";
-import type {
-  SubmissionOperations,
-  documentOperations,
-  voucherOperations,
-} from "./model-submission";
 import type { BatchOperations } from "./model-batch";
 import type { ModelNode, ModelOwner } from "./reactive-model";
 type Members<N> = N extends { readonly [nodeMetadata]: { children: infer S } }
@@ -14,19 +8,11 @@ type Members<N> = N extends { readonly [nodeMetadata]: { children: infer S } }
     : N extends { readonly [nodeMetadata]: { element: infer E } }
       ? Members<E>
       : never;
-type PortKeys<O> = O extends WorkflowOperations
-  ? Extract<keyof Parameters<typeof workflowOperations>[1], string>
-  : O extends SubmissionOperations
-    ? Extract<
-        | keyof Parameters<typeof documentOperations>[2]
-        | keyof Parameters<typeof voucherOperations>[2],
-        string
-      >
-    : O extends BatchOperations
-      ? "executeBatch"
-      : O extends unknown
-        ? Extract<keyof O, string>
-        : never;
+type PortKeys<O> = O extends BatchOperations
+  ? "executeBatch"
+  : O extends unknown
+    ? Extract<keyof O, string>
+    : never;
 type OperationKeys<N> = N extends {
   readonly [nodeMetadata]: { operations: infer O };
 }

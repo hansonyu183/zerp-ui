@@ -451,7 +451,7 @@ it("finishes known committed refresh when a query replaces opaque array row decl
           },
           update: {
             async run(request) {
-              stored = request.input.units[0]!.label!;
+              stored = request.input.units![0]!.label!;
               writes++;
               revision++;
               return { status: "success" as const };

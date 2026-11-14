@@ -476,31 +476,68 @@ export function createModelRuntime(
       ? [...(await persistence.pending(clone(owner)))]
       : [];
     for (const { node, path } of modelEntries(root)) {
-      if (!isObject(node)) continue;
-      const op = Reflect.get(
-        asObject(node)[nodeMetadata].operations,
-        "changePassword",
-      ) as
-        | {
-            persistence: OperationPersistence<OperationModel, unknown, unknown>;
-          }
-        | undefined;
-      if (!op || !(modelOperation in op)) continue;
-      const operationOwner = {
-        scope: requested,
-        operator: owner.operator,
-        resource: JSON.stringify([path, [], identity(asObject(node)).value]),
-      };
-      const journal = await modelOperationPersistence(op.persistence).load(
-        operationOwner,
-      );
-      if (journal && !sameOperationOwner(journal.request.owner, operationOwner))
-        throw Error("原请求归属不匹配，请保留证据。");
-      if (journal && !journal.completed)
-        pending.push({ node: path, ancestors: [] });
+      if (!independent(node)) continue;
+      const ports = Reflect.get(node[nodeMetadata], "operations") as
+        object | undefined;
+      if (!ports) continue;
+      const seen = new Set<object>();
+      for (const candidate of Object.values(ports)) {
+        if (
+          !candidate ||
+          typeof candidate !== "object" ||
+          !(modelOperation in candidate)
+        )
+          continue;
+        const op = candidate as {
+          persistence: OperationPersistence<OperationModel, unknown, unknown>;
+        };
+        if (seen.has(op.persistence)) continue;
+        seen.add(op.persistence);
+        const operationOwner = {
+          scope: requested,
+          operator: owner.operator,
+          resource: JSON.stringify([
+            path,
+            [],
+            isObject(node) ? identity(asObject(node)).value : null,
+          ]),
+        };
+        const journal = await modelOperationPersistence(op.persistence).load(
+          operationOwner,
+        );
+        if (
+          journal &&
+          !sameOperationOwner(journal.request.owner, operationOwner)
+        )
+          throw Error("原请求归属不匹配，请保留证据。");
+        if (journal && !journal.completed)
+          pending.push({ node: path, ancestors: [] });
+      }
+      if (modelBatch in ports) {
+        const batch = Reflect.get(ports, "executeBatch") as {
+          journal: import("./batch").BatchPersistence<
+            OperationModel,
+            unknown,
+            unknown
+          >;
+        };
+        const operationOwner = {
+          scope: requested,
+          operator: owner.operator,
+          resource: JSON.stringify([path, []]),
+        };
+        const journal = await batch.journal.load(operationOwner);
+        if (journal && !sameOperationOwner(journal.owner, operationOwner))
+          throw Error("批次原请求归属不匹配，请保留证据。");
+        if (journal && !journal.completed)
+          pending.push({ node: path, ancestors: [] });
+      }
     }
     if (ownerKey(options().owner) === requested && source() === root)
-      pendingRequests.value = pending;
+      pendingRequests.value = pending.filter(
+        (item, index) =>
+          pending.findIndex((other) => equalValues(item, other)) === index,
+      );
   }
 
   const options = () => source()[nodeMetadata].options;
@@ -519,6 +556,7 @@ export function createModelRuntime(
     prefix: readonly string[] = [],
     inheritedReadonly = false,
     projection: "form" | "list" | "all" = "form",
+    includeProtected = false,
   ): AnyField[] {
     const form =
       projection === "form" && isObject(node)
@@ -533,7 +571,12 @@ export function createModelRuntime(
       : entries;
     const projected = ordered.flatMap(([key, child]): AnyField[] => {
       if (independent(child)) return [];
-      if (options().owner && !authorization.readable(child)) return [];
+      if (
+        !includeProtected &&
+        options().owner &&
+        !authorization.readable(child)
+      )
+        return [];
       const path = [...prefix, key],
         meta = child[nodeMetadata];
       if (meta.kind === "object")
@@ -542,6 +585,7 @@ export function createModelRuntime(
           path,
           inheritedReadonly || !!asObject(child)[nodeMetadata].readOnly,
           projection === "form" ? "form" : "all",
+          includeProtected,
         );
       const fieldMeta = (child as ValueNode)[nodeMetadata];
       const common = {
@@ -621,7 +665,13 @@ export function createModelRuntime(
             {
               ...common,
               type: "rows",
-              fields: fields(array[nodeMetadata].element),
+              fields: fields(
+                array[nodeMetadata].element,
+                [],
+                false,
+                "form",
+                includeProtected,
+              ),
               empty: () => {
                 const row = newArrayRow(array);
                 return { ...flat(row), $modelRowKey: rowKey(row) };
@@ -638,7 +688,9 @@ export function createModelRuntime(
               const row = declaredRow(array, value, undefined, true);
               let projected = projections.get(row);
               if (!projected) {
-                projected = computed(() => fields(row));
+                projected = computed(() =>
+                  fields(row, [], false, "form", includeProtected),
+                );
                 projections.set(row, projected);
               }
               return projected.value;
@@ -1302,7 +1354,7 @@ export function createModelRuntime(
             }
 
             const contextInput = unflat(node, input.value, false),
-              inputFields = fields(node),
+              inputFields = fields(node, [], false, "all", true),
               calculate = operation.run,
               local = target?.kind === "calculate" ? target.run : undefined;
             const activeCalculation = () =>
@@ -1396,10 +1448,14 @@ export function createModelRuntime(
           | undefined;
       },
       async reconcile(attempt) {
-        const op = operation(
-          attempt.operation === "save" ? "update" : attempt.operation,
-          attempt.identity,
-        );
+        const name =
+          attempt.operation === "save" ? "update" : attempt.operation;
+        const original = callbacks.get(attempt.operation)?.operation;
+        const node = name === "create" ? getNode() : rowNode(attempt.identity);
+        const rawPorts = node
+          ? Reflect.get(toRaw(node)[nodeMetadata], "operations")
+          : undefined;
+        const op = original ? toRaw(original) : rawPorts?.[name];
         if (
           !op?.reconcile ||
           op.disabledReason ||
@@ -1489,9 +1545,12 @@ export function createModelRuntime(
     };
     const permissions = computed(() => ({
       query:
-        !!currentNode() && (!collection || !!collectionOperations()?.query),
+        !!currentNode() &&
+        authorization.readable(currentNode()!) &&
+        (!collection || !!collectionOperations()?.query),
       create: !!collectionOperations()?.create,
-      write: !!currentNode(),
+      write:
+        !!currentNode() && authorization.access(currentNode()!).write === true,
       reconcile: !!currentNode(),
     }));
     const navigationStep = () =>
@@ -1830,12 +1889,28 @@ export function createModelRuntime(
       return true;
     },
     restoreManifest,
+    recovery(path, ancestors) {
+      const existing = cache.get(JSON.stringify([path, ancestors]));
+      if (existing) return existing;
+      let node: ModelNode | undefined = source();
+      let parent = 0;
+      for (const key of path) {
+        if (!node) return;
+        if (node[nodeMetadata].kind === "collection") {
+          node = asCollection(node)[nodeMetadata].element();
+          adopt(node, ancestors[parent++]);
+        }
+        node = members(node).find(([name]) => name === key)?.[1];
+      }
+      return node ? resolve(() => node, path, ancestors) : undefined;
+    },
     pendingRequests: () =>
       pendingRequests.value.filter(
         (item) => !cache.has(JSON.stringify([item.node, item.ancestors])),
       ),
     resolve,
     fields,
+    redactionFields: (node) => fields(node, [], false, "all", true),
     flatten: flattenValue,
     adopt,
     flat,
@@ -1855,6 +1930,10 @@ export function createModelRuntime(
   return runtime;
 }
 export type ModelRuntime = {
+  recovery(
+    path: readonly string[],
+    ancestors: readonly unknown[],
+  ): ReturnType<ModelRuntime["resolve"]> | undefined;
   authorization: ReturnType<typeof createModelPermissions>;
   requestNavigation(
     next: { node: ModelNode; identity?: unknown } | null | undefined,
@@ -1883,6 +1962,7 @@ export type ModelRuntime = {
     answers(): import("./collaboration").InteractionAnswers;
     stop(): void;
   };
+  redactionFields(node: ModelNode): AnyField[];
   fields(
     node: ModelNode,
     prefix?: readonly string[],

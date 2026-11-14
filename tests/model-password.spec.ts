@@ -48,7 +48,7 @@ async function fixture({
   type M = ModelActionModel<"changePassword", typeof input, { digest: string }>;
   type Journal = ModelOperationJournal<M, {}, string>;
   let journal: Journal | null = null;
-  const run = vi.fn(async (request: { input: { next: string | null } }) => {
+  const run = vi.fn(async (request: { input: { next?: string | null } }) => {
     throw Error("connection lost: " + request.input.next);
   });
   const refresh = vi.fn(async () => {});
@@ -327,4 +327,24 @@ it("redacts JSON-escaped password inputs in consumer exceptions", async () => {
     JSON.stringify(nextSecret).slice(1, -1),
   );
   expect(f.run).not.toHaveBeenCalled();
+});
+
+it("recovers a password original without node read and still redacts its secret on failure", async () => {
+  const f = await fixture();
+  await click("准备更改密码");
+  await click("确认更改密码");
+  const reconcile = f.action.reconcile;
+  f.action.reconcile = async () => {
+    throw Error("reconcile: " + nextSecret);
+  };
+  f.options.userPermissions = { owner: { ...f.options.owner! }, grants: [] };
+  await flushPromises();
+  await click("恢复原请求");
+  expect(document.querySelector('input[aria-label="新密码"]')).toBeNull();
+  await click("核实原请求");
+  expect(document.body.textContent).not.toContain(nextSecret);
+  f.action.reconcile = reconcile;
+  await click("核实原请求");
+  expect(f.run).toHaveBeenCalledOnce();
+  expect(f.refresh).toHaveBeenCalledOnce();
 });

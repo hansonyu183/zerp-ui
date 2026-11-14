@@ -3,6 +3,7 @@ import { reactive, watch, toRaw } from "vue";
 import { router } from "./router";
 import {
   application,
+  type ModelInput,
   object,
   collection,
   array,
@@ -118,7 +119,7 @@ const protocol = {
               {
                 key: "one",
                 fields: [
-                  { label: "说明", value: intent.input.note },
+                  { label: "说明", value: intent.input.note ?? null },
                   {
                     label: "办理依据",
                     value: intent.answers["business-basis"] === true,
@@ -317,6 +318,32 @@ type Content = {
 };
 type Audit = { message: string | null };
 const initialContent: Content = { title: "合成正式内容", lines: [] };
+function contentValue(
+  input: ModelInput<ReturnType<typeof content>>,
+  previous: Content = initialContent,
+): Content {
+  return {
+    title: input.title === undefined ? previous.title : input.title,
+    lines:
+      input.lines?.map((line, index) => {
+        const old = previous.lines[index];
+        return {
+          item: line.item === undefined ? (old?.item ?? null) : line.item,
+          amount:
+            line.amount === undefined ? (old?.amount ?? null) : line.amount,
+          children:
+            line.children?.map((child, childIndex) => ({
+              note:
+                child.note === undefined
+                  ? (old?.children[childIndex]?.note ?? null)
+                  : child.note,
+            })) ??
+            old?.children ??
+            [],
+        };
+      }) ?? previous.lines,
+  };
+}
 const snapshot = {
   label: "正式 v1",
   identity: "document-1",
@@ -368,7 +395,11 @@ const documents = object("正式候选与附件", versions, {
             ...snapshot,
             label: "候选 v2",
             state: "v2",
-            values: attempt.input,
+            values: contentValue(
+              attempt.input,
+              documentArchive.candidate?.values ??
+                documentArchive.official?.values,
+            ),
             attachments: attempt.attachments.map((handle) => ({
               label: handle,
               handle,
@@ -504,7 +535,10 @@ const vouchers = object(
             current: {
               ...voucherArchive.current!,
               identity: attempt.identity,
-              values: attempt.input,
+              values: contentValue(
+                attempt.input,
+                voucherArchive.current?.values,
+              ),
             },
           };
           return { status: "success" };

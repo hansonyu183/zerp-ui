@@ -9,7 +9,6 @@ export type ReferenceValue = {
   label: string;
   selectable?: boolean;
   snapshot?: unknown;
-  hasChildren?: boolean;
 };
 export type ReferenceAdapter = {
   directory: object;

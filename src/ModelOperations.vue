@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from "vue";
+import { computed, ref, shallowRef, watch, inject } from "vue";
+import { modelRecoveryOnlyKey } from "./model-recovery-view";
 import { VBtn, VFileInput } from "vuetify/components";
 import DraftCollaborationView from "./DraftCollaboration.vue";
 import OperationRuntime from "./OperationRuntime.vue";
@@ -37,6 +38,10 @@ const props = defineProps<{
   discardVersion: number;
   requestLeave(): Promise<boolean>;
 }>();
+const recoveryOnly = inject(
+  modelRecoveryOnlyKey,
+  computed(() => false),
+);
 const emit = defineEmits<{ protection: [value: EditProtection] }>();
 type Action = {
   input: ObjectShape;
@@ -227,7 +232,7 @@ async function invoke<T>(
   } catch (cause) {
     throw Error(
       redactSecrets(
-        props.runtime.fields(op.input),
+        props.runtime.redactionFields(op.input),
         props.runtime.flatten(op.input, input),
         message(cause),
       ),
@@ -244,7 +249,7 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
         answers = clone(Reflect.get(intent, "answers"));
       if (
         containsSecrets(
-          props.runtime.fields(op.input),
+          props.runtime.redactionFields(op.input),
           props.runtime.flatten(op.input, intent.input),
         ) &&
         !("secrets" in op.persistence && op.persistence.secrets === "encrypted")
@@ -254,7 +259,7 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
       const exposesSecret = (value: unknown): boolean =>
         typeof value === "string"
           ? redactSecrets(
-              props.runtime.fields(op.input),
+              props.runtime.redactionFields(op.input),
               props.runtime.flatten(op.input, intent.input),
               value,
             ) !== value
@@ -292,7 +297,7 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
       } catch (cause) {
         throw Error(
           redactSecrets(
-            props.runtime.fields(op.input),
+            props.runtime.redactionFields(op.input),
             props.runtime.flatten(op.input, intent.input),
             message(cause),
           ),
@@ -335,7 +340,7 @@ const definition: OperationDefinition<OperationModel, unknown, unknown> = {
       } catch (cause) {
         throw Error(
           redactSecrets(
-            props.runtime.fields(op.input),
+            props.runtime.redactionFields(op.input),
             props.runtime.flatten(op.input, request.input),
             message(cause),
           ),
@@ -412,7 +417,7 @@ watch(
 </script>
 <template>
   <section aria-label="模型业务办理">
-    <div role="group" aria-label="业务操作">
+    <div v-if="!recoveryOnly" role="group" aria-label="业务操作">
       <VBtn
         v-for="[action, operation] in actions"
         :key="action"
@@ -424,6 +429,7 @@ watch(
     </div>
     <template v-if="admitted">
       <DynamicForm
+        v-if="!recoveryOnly"
         :fields="fields"
         :model-value="draft"
         :disabled="locked || !selectedOperation || !!admitted.disabledReason"
@@ -433,7 +439,7 @@ watch(
         @pending="pending = $event"
       />
       <DraftCollaborationView
-        v-if="collaboration"
+        v-if="collaboration && !recoveryOnly"
         :adapter="collaboration"
         :model-value="draft"
         :scope="owner.scope"
@@ -443,7 +449,7 @@ watch(
         @pending="calculating = $event"
       />
       <VFileInput
-        v-if="admitted.importResource"
+        v-if="admitted.importResource && !recoveryOnly"
         prepend-icon=""
         :label="admitted.importResource.label"
         :aria-label="admitted.importResource.label"
@@ -460,7 +466,7 @@ watch(
         @settled="settled"
       />
       <PrintPreview
-        v-if="admitted.printing"
+        v-if="admitted.printing && !recoveryOnly"
         :document="admitted.printing.document"
         :allowed="admitted.printing.state === 'opened'"
         :disabled="locked"

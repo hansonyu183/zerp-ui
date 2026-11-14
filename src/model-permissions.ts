@@ -1,10 +1,11 @@
-import { toRaw, reactive } from "vue";
+import { toRaw, reactive, ref } from "vue";
 import { nodeMetadata } from "./model-node";
 import type { ApplicationNode, ModelNode, ModelOwner } from "./reactive-model";
 
 import type { ModelPermission } from "./model-permission";
 type Access = { read?: boolean; write?: boolean };
 export function createModelPermissions(application: () => ApplicationNode) {
+  const recovering = ref(false);
   type Scope = { node: ModelNode; path: readonly string[] };
   const scopes = new WeakMap<object, Scope>();
   const views = new WeakMap<object, ModelNode>();
@@ -108,6 +109,25 @@ export function createModelPermissions(application: () => ApplicationNode) {
     const operations = new WeakMap<object, Map<string, object>>();
     const metadata = new Map<object, object>();
     const portsCache = new WeakMap<object, object>();
+    const protocolMetadata = new WeakMap<object, object>();
+    function projectMetadata(value: object): object {
+      if (nodeMetadata in value) {
+        const child = value as ModelNode;
+        return scopeOf(child) ? view(child) : bind(child, node);
+      }
+      const known = protocolMetadata.get(value);
+      if (known) return known;
+      const projected = new Proxy(value, {
+        get(target, key) {
+          const child = Reflect.get(target, key);
+          return child && typeof child === "object"
+            ? projectMetadata(child)
+            : child;
+        },
+      });
+      protocolMetadata.set(value, projected);
+      return projected;
+    }
     const result = new Proxy(raw, {
       set(_target, key, value) {
         return Reflect.set(observed, key, value);
@@ -148,22 +168,16 @@ export function createModelPermissions(application: () => ApplicationNode) {
                     typeof action === "symbol" &&
                     protocol &&
                     typeof protocol === "object"
-                  ) {
-                    for (const child of Object.values(protocol))
-                      if (
-                        child &&
-                        typeof child === "object" &&
-                        nodeMetadata in child
-                      )
-                        bind(child as ModelNode, node);
-                  }
+                  )
+                    return projectMetadata(protocol);
                   if (
                     typeof action !== "string" ||
                     !protocol ||
                     typeof protocol !== "object"
                   )
                     return protocol;
-                  if (!allowed(node, action)) return undefined;
+                  if (!allowed(node, action) && !recovering.value)
+                    return undefined;
                   let cached = operations.get(protocol);
                   if (!cached) operations.set(protocol, (cached = new Map()));
                   const cacheKey = action;
@@ -173,6 +187,7 @@ export function createModelPermissions(application: () => ApplicationNode) {
                       cacheKey,
                       new Proxy(protocol, {
                         get(port, method) {
+                          if (method === "__v_raw") return toRaw(protocol);
                           const callback = Reflect.get(port, method);
                           if (
                             callback &&
@@ -186,9 +201,12 @@ export function createModelPermissions(application: () => ApplicationNode) {
                               : "当前用户未获授权。";
                           if (
                             typeof callback !== "function" ||
-                            ["reconcile", "seal", "refresh"].includes(
-                              String(method),
-                            )
+                            [
+                              "reconcile",
+                              "seal",
+                              "refresh",
+                              "accepts",
+                            ].includes(String(method))
                           )
                             return callback;
                           if (callbacks.has(callback))
@@ -235,5 +253,5 @@ export function createModelPermissions(application: () => ApplicationNode) {
     views.set(raw, result);
     return result;
   }
-  return { ready, readable, allowed, access, view, bind };
+  return { ready, readable, allowed, access, view, bind, recovering };
 }

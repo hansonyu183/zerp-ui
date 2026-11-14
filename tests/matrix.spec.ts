@@ -14,6 +14,14 @@ afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount();
 });
 const click = async (w: ReturnType<typeof mount>, name: string) => {
+  const option = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((item) => item.textContent?.trim() === name);
+  if (option) {
+    option.click();
+    await flushPromises();
+    return;
+  }
   await hostAndDialogButtons(w)
     .find((b) => b.text() === name || b.attributes("aria-label") === name)!
     .trigger("click");
