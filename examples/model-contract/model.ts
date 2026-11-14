@@ -78,7 +78,30 @@ const backend = {
   },
 };
 
+// Index the actual model nodes, not copies of their values or editor baselines.
+const customerRecords = new Map<
+  string,
+  ReturnType<typeof createCustomerRecord>
+>();
+
+function adoptCustomer(
+  record: ReturnType<typeof createCustomerRecord>,
+  result: Customer,
+) {
+  record.id.value = result.id;
+  record.name.value = result.name;
+  record.credit.value = result.credit;
+  record[meta].identity = result.id || undefined;
+  if (result.id) customerRecords.set(result.id, record);
+}
+
 function customerRecord(value: Customer) {
+  const record = customerRecords.get(value.id) ?? createCustomerRecord(value);
+  adoptCustomer(record, value);
+  return record;
+}
+
+function createCustomerRecord(value: Customer) {
   const record = object(
     "客户资料",
     {
@@ -93,17 +116,10 @@ function customerRecord(value: Customer) {
   );
   record[meta].identity = value.id || undefined;
 
-  function adopt(result: Customer) {
-    record.id.value = result.id;
-    record.name.value = result.name;
-    record.credit.value = result.credit;
-    record[meta].identity = result.id;
-  }
-
   record[meta].operations = {
     get: {
       async run() {
-        adopt(await backend.get(record.id.value));
+        adoptCustomer(record, await backend.get(record.id.value));
       },
     },
     update: {
@@ -114,9 +130,10 @@ function customerRecord(value: Customer) {
           name: record.name.value,
           credit: record.credit.value,
         });
-        adopt(result);
+        adoptCustomer(record, result);
         if (customers.draft === record) customers.draft = null;
-        if (!customers.items.includes(record)) customers.items.push(record);
+        if (!customers.items.some((item) => item[meta].identity === result.id))
+          customers.items.push(record);
         customers.selected = record;
       },
     },
@@ -125,9 +142,15 @@ function customerRecord(value: Customer) {
         return record.id.value ? undefined : "尚未保存。";
       },
       async run() {
-        await backend.remove(record.id.value);
-        customers.items = customers.items.filter((item) => item !== record);
-        if (customers.selected === record) customers.selected = null;
+        const id = record.id.value;
+        await backend.remove(id);
+        customerRecords.delete(id);
+        customers.items = customers.items.filter(
+          (item) => item[meta].identity !== id,
+        );
+        if (customers.selected?.[meta].identity === id)
+          customers.selected = null;
+        if (navigation.current === record) navigation.visit(customers);
       },
     },
   };
@@ -155,7 +178,8 @@ const customers = reactive<CollectionNode>({
             customers.page,
             customers.pageSize,
           );
-          // Explicit query adopts backend results. Tab switching does not query.
+          // Reuse records and fields by identity, including records on other pages.
+          // Explicit query adopts backend values; Tab switching does not query.
           customers.items = result.items.map(customerRecord);
           customers.total = result.total;
         },
@@ -169,6 +193,28 @@ const customers = reactive<CollectionNode>({
     },
   },
 });
+
+function createHistoryRecord(entry: History) {
+  const record = object("变更内容", {
+    id: text("编号", entry.id, true),
+    text: text("内容", entry.text, true),
+  });
+  record[meta].identity = entry.id;
+  return record;
+}
+
+const historyRecords = new Map<
+  string,
+  ReturnType<typeof createHistoryRecord>
+>();
+
+function historyRecord(entry: History) {
+  const record = historyRecords.get(entry.id) ?? createHistoryRecord(entry);
+  record.id.value = entry.id;
+  record.text.value = entry.text;
+  historyRecords.set(entry.id, record);
+  return record;
+}
 
 const history = reactive<CollectionNode>({
   items: [],
@@ -186,12 +232,7 @@ const history = reactive<CollectionNode>({
       query: {
         async run() {
           const result = await backend.readHistory();
-          history.items = result.map((entry) =>
-            object("变更内容", {
-              id: text("编号", entry.id, true),
-              text: text("内容", entry.text, true),
-            }),
-          );
+          history.items = result.map(historyRecord);
           history.total = result.length;
         },
       },
