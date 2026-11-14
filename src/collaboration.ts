@@ -40,7 +40,13 @@ export type Interaction<T = never> =
         values: Readonly<Record<string, string | number | boolean | null>>;
       }[];
     }
-  | { kind: "related" | "download"; id: string; label: string; target: T };
+  | {
+      kind: "related" | "download";
+      id: string;
+      label: string;
+      target: T;
+      disabled?: boolean;
+    };
 export type InteractionAnswers = Readonly<Record<string, string | boolean>>;
 /** A read/calculation port. It must never perform the final business write. */
 export type DraftCollaboration<D extends object, T = never> = {

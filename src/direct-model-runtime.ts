@@ -33,7 +33,7 @@ export interface DirectRuntime {
   operations(node: Node): Record<string, Action>;
   run(node: Node, action: string, publicAuth?: boolean): Promise<void>;
   runAccount(): Promise<void>;
-  invalidate(): void;
+  invalidate(scopeChanged?: boolean): void;
 }
 export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   const ownerKey = (owner: BusinessModel[typeof meta]["owner"] | undefined) =>
@@ -47,6 +47,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       ownerKey(model()[meta].userPermissions?.owner) === scope.value,
   );
   const busy = ref(new Set<object>());
+  const executions = new Map<object, symbol>();
   const error = ref("");
   let epoch = 0;
   function paths(): Map<object, Node[]> {
@@ -146,7 +147,12 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         (n as CollectionNode).query === chain[i + 1],
     );
     if (queryOwner)
-      return allowed(queryOwner, "query") && grant(node)?.write !== false;
+      return (
+        allowed(queryOwner, "query") &&
+        chain
+          .slice(chain.indexOf(queryOwner) + 1)
+          .every((n) => grant(n)?.write !== false)
+      );
     const b = boundary(node);
     return (
       !!b &&
@@ -155,6 +161,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     );
   }
   function allowed(node: Node, action: string, publicAuth = false) {
+    if (!operations(node)[action]) return false;
     if (publicAuth)
       return (
         (!model()[meta].owner && ["signIn", "recover"].includes(action)) ||
@@ -190,6 +197,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       return;
     const start = epoch;
     const owner = scope.value;
+    const execution = Symbol();
+    executions.set(toRaw(node), execution);
     busy.value.add(toRaw(node));
     error.value = "";
     try {
@@ -198,7 +207,10 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       if (start === epoch && owner === scope.value)
         error.value = "操作失败，请检查业务信息后重试。";
     } finally {
-      busy.value.delete(toRaw(node));
+      if (executions.get(toRaw(node)) === execution) {
+        executions.delete(toRaw(node));
+        busy.value.delete(toRaw(node));
+      }
     }
   }
   async function runAccount() {
@@ -214,6 +226,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       return;
     const start = epoch,
       owner = scope.value;
+    const execution = Symbol();
+    executions.set(toRaw(account), execution);
     busy.value.add(toRaw(account));
     try {
       await op.run();
@@ -221,10 +235,17 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       if (start === epoch && owner === scope.value)
         error.value = "退出失败，请重试。";
     } finally {
-      busy.value.delete(toRaw(account));
+      if (executions.get(toRaw(account)) === execution) {
+        executions.delete(toRaw(account));
+        busy.value.delete(toRaw(account));
+      }
     }
   }
-  function invalidate() {
+  function invalidate(scopeChanged = false) {
+    if (scopeChanged) {
+      executions.clear();
+      busy.value.clear();
+    }
     epoch++;
     error.value = "";
   }

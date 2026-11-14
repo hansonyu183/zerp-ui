@@ -1,7 +1,16 @@
 import { reactive } from "vue";
 import { modelMetadata as meta, type BusinessModel } from "@zerp/ui/model";
 import { router } from "./router";
-import { document, voucher, workflow, batch, report, output } from "./families";
+import {
+  document,
+  voucher,
+  workflow,
+  batch,
+  report,
+  output,
+  structuredReport,
+  analysisDetail,
+} from "./families";
 
 const trace = (name: string) => console.log(`synthetic-call:${name}`);
 const owner = { ledger: "synthetic", operator: "demo", generation: "1" };
@@ -166,6 +175,17 @@ const authentication = {
   },
 } satisfies BusinessModel[string];
 const profile = {
+  credential: {
+    value: { intent: "keep" } as Extract<
+      BusinessModel[string],
+      { [meta]: { kind: "secret" } }
+    >["value"],
+    [meta]: { kind: "secret", name: "接口密钥" },
+  },
+  secretStatus: {
+    value: "未提交密钥意图",
+    [meta]: { kind: "text", name: "密钥提交结果", readOnly: true },
+  },
   displayName: {
     value: "合成用户",
     [meta]: { kind: "text", name: "用户姓名" },
@@ -177,6 +197,18 @@ const profile = {
       get: {
         async run() {
           trace("account.profile");
+        },
+      },
+      update: {
+        async run() {
+          const intent = model.profile.credential.value.intent;
+          trace(`account.secret.${intent}`);
+          model.profile.secretStatus.value =
+            intent === "keep"
+              ? "已保留密钥"
+              : intent === "replace"
+                ? "已修改密钥"
+                : "已清除密钥";
         },
       },
     },
@@ -215,6 +247,8 @@ const source = {
   batch,
   report,
   output,
+  structuredReport,
+  analysisDetail,
   [meta]: {
     kind: "application",
     name: "直接业务模型",
@@ -257,6 +291,7 @@ const source = {
           { node: workflow },
           { node: batch },
           { node: report },
+          { node: structuredReport },
           { node: output },
         ],
       },

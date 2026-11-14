@@ -1,5 +1,6 @@
 import { nodeMetadata } from "./model-node";
 import type { PrintDocument } from "./printing";
+import type { ReportPresentation, ReportSummary } from "./report";
 import type { Interaction } from "./collaboration";
 
 /** Operations read and update their own model; transport and outcomes belong to the consumer. */
@@ -65,6 +66,18 @@ type Owner = {
 
 type Field =
   | {
+      value:
+        | { intent: "keep" }
+        | { intent: "replace"; value: string }
+        | { intent: "clear" };
+      [nodeMetadata]: {
+        kind: "secret";
+        name: string;
+        readOnly?: boolean;
+        required?: boolean;
+      };
+    }
+  | {
       value: number | null;
       [nodeMetadata]: {
         kind: "integer";
@@ -87,13 +100,7 @@ type Field =
       value: string;
       [nodeMetadata]: {
         kind:
-          | "text"
-          | "longText"
-          | "decimal"
-          | "password"
-          | "secret"
-          | "date"
-          | "datetime";
+          "text" | "longText" | "decimal" | "password" | "date" | "datetime";
         name: string;
         required?: boolean;
         readOnly?: boolean;
@@ -159,6 +166,7 @@ interface ObjectNode {
   } & ObjectOperations;
 }
 
+type ReportValues = Record<string, string | number | boolean | null>;
 type CollectionNode = {
   items: ObjectNode[];
   selected: ObjectNode | null;
@@ -174,6 +182,19 @@ type CollectionNode = {
     /** Record structure and available operations, also readable when items is empty. */
     element: ObjectNode;
     list: readonly string[];
+    /** Finite result facts. Presentation rows refer to record metadata.identity. */
+    report?: {
+      summary?: ReportSummary<ReportValues>;
+      presentation?: ReportPresentation<ReportValues, string>;
+      cells?: readonly {
+        row: ObjectNode;
+        field: string;
+        kind: "record" | "detail" | "select";
+        target: Target;
+        label: string;
+        disabledReason?: string;
+      }[];
+    };
     operations: Partial<Record<CollectionAction, Operation>>;
   };
 };
@@ -198,7 +219,12 @@ type InteractionNode = {
     readOnly?: boolean;
     items: readonly (
       | Exclude<Interaction<Target>, { kind: "related" | "download" }>
-      | { kind: "related"; id: string; label: string; target: Target }
+      | {
+          kind: "related" | "download";
+          id: string;
+          label: string;
+          target: Target;
+        }
     )[];
   };
 };

@@ -20,6 +20,7 @@ const props = defineProps<{
   items: readonly Interaction<T>[];
   answers: InteractionAnswers;
   disabled?: boolean;
+  answersDisabled?: boolean;
 }>();
 const dispatch = defineEmits<{
   answer: [id: string, value: string | boolean];
@@ -33,7 +34,8 @@ const controls = computed(() =>
 );
 let alive = true;
 function answer(id: string, value: string | boolean) {
-  if (alive && !props.disabled) dispatch("answer", id, value);
+  if (alive && !props.disabled && !props.answersDisabled)
+    dispatch("answer", id, value);
 }
 function intent(target: T) {
   if (alive && !props.disabled) dispatch("intent", target);
@@ -62,7 +64,7 @@ onBeforeUnmount(() => {
         :label="item.label"
         :aria-label="item.label"
         :model-value="answers[item.id] === true"
-        :disabled="disabled"
+        :disabled="disabled || answersDisabled"
         :required="item.required"
         hide-details
         @update:model-value="answer(item.id, $event === true)"
@@ -75,7 +77,7 @@ onBeforeUnmount(() => {
         item-title="label"
         item-value="value"
         :model-value="String(answers[item.id] ?? '')"
-        :disabled="disabled"
+        :disabled="disabled || answersDisabled"
         :required="item.required"
         @update:model-value="answer(item.id, String($event ?? ''))"
       />
@@ -84,7 +86,7 @@ onBeforeUnmount(() => {
         :label="item.label"
         :aria-label="item.label"
         :model-value="String(answers[item.id] ?? '')"
-        :disabled="disabled"
+        :disabled="disabled || answersDisabled"
         :required="item.required"
         @change="answer(item.id, ($event.target as HTMLInputElement).value)"
       />
@@ -176,7 +178,7 @@ onBeforeUnmount(() => {
         type="button"
         variant="text"
         color=""
-        :disabled="disabled"
+        :disabled="disabled || item.disabled"
         @click="intent(item.target)"
         >{{ item.label }}</VBtn
       >

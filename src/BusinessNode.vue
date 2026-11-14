@@ -20,6 +20,7 @@ const props = withDefaults(
   { autoRead: true },
 );
 import BusinessField from "./BusinessField.vue";
+import BusinessCollection from "./BusinessCollection.vue";
 const runtime = inject(directRuntimeKey)!;
 const info = computed(() => props.node[meta]);
 const object = computed(() => props.node as ObjectNode);
@@ -93,9 +94,6 @@ async function query(page = 1) {
   collection.value.page = page;
   await run("query");
 }
-function value(node: Node | undefined): string {
-  return node && "value" in node ? String(node.value ?? "") : "";
-}
 watch(
   () => props.node,
   () => {
@@ -146,52 +144,12 @@ watch(
         @click="query()"
         >查询</VBtn
       >
-      <table>
-        <thead>
-          <tr>
-            <th
-              v-for="key in collection[meta].list.filter((k) =>
-                runtime.readable(collection[meta].element[k]!),
-              )"
-              :key="key"
-            >
-              {{ collection[meta].element[key]?.[meta].name }}
-            </th>
-            <th>记录</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="(row, i) in collection.items.filter((row) =>
-              runtime.readable(row),
-            )"
-            :key="row[meta].identity ?? i"
-          >
-            <td
-              v-for="key in collection[meta].list.filter((k) =>
-                runtime.readable(collection[meta].element[k]!),
-              )"
-              :key="key"
-            >
-              {{ runtime.readable(row[key]!) ? value(row[key]) : "" }}
-            </td>
-            <td><VBtn @click="collection.selected = row">查看</VBtn></td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-if="!collection.items.length">暂无记录</p>
-      <VBtn
-        :disabled="!canQuery || collection.page <= 1"
-        @click="query(collection.page - 1)"
-        >上一页</VBtn
-      ><span>第 {{ collection.page }} 页</span
-      ><VBtn
-        :disabled="
-          !canQuery || collection.page * collection.pageSize >= collection.total
-        "
-        @click="query(collection.page + 1)"
-        >下一页</VBtn
-      >
+      <BusinessCollection
+        :node="collection"
+        :loading="pending"
+        :can-query="canQuery"
+        @page="query"
+      />
       <BusinessNode v-if="detail" :node="detail" />
     </template>
     <template v-else-if="info.kind === 'array' && 'items' in node"

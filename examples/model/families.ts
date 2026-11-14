@@ -181,7 +181,10 @@ export const report = reactive({
     [meta]: {
       kind: "interactions",
       name: "查询问题",
-      items: [{ kind: "input", id: "factor", label: "计算系数" }],
+      items: [] as Extract<
+        BusinessModel[string],
+        { [meta]: { kind: "interactions" } }
+      >[typeof meta]["items"],
     },
   },
   quantity: { value: "2", [meta]: { kind: "decimal", name: "查询数量" } },
@@ -216,6 +219,103 @@ export const report = reactive({
           URL.revokeObjectURL(url);
         },
       },
+    },
+  },
+} satisfies BusinessModel[string]);
+report.answers[meta].items = [
+  { kind: "input", id: "factor", label: "计算系数" },
+  {
+    kind: "download",
+    id: "script-download",
+    label: "下载脚本结果",
+    target: report,
+  },
+];
+export const analysisDetail = reactive({
+  number: text("关联凭证编号", "S-001"),
+  [meta]: {
+    kind: "object",
+    name: "合成凭证详情",
+    operations: {
+      get: {
+        async run() {
+          trace("report.drill.get");
+        },
+      },
+    },
+  },
+} satisfies BusinessModel[string]);
+const sale = reactive({
+  name: text("销售名称", "合成销售"),
+  amount: {
+    value: "12345678901234567890.10",
+    [meta]: { kind: "decimal", name: "销售金额" },
+  },
+  [meta]: {
+    kind: "object",
+    identity: "sale-1",
+    name: "销售记录",
+    operations: {},
+  },
+} satisfies BusinessModel[string]);
+export const structuredReport = reactive({
+  items: [sale],
+  selected: null,
+  draft: null,
+  query: { [meta]: { kind: "object", name: "报表条件", operations: {} } },
+  page: 1,
+  pageSize: 20,
+  total: 1,
+  [meta]: {
+    kind: "collection",
+    name: "结构化报表",
+    element: sale,
+    list: ["name", "amount"],
+    operations: {
+      query: {
+        async run() {
+          trace("structured.query");
+        },
+      },
+    },
+    report: {
+      summary: {
+        caption: "销售总计",
+        values: { amount: "12345678901234567890.10" },
+      },
+      presentation: {
+        rows: [
+          {
+            rowId: "sale-1",
+            appearance: { bold: true },
+            cells: { amount: { align: "right" } },
+          },
+        ],
+        groups: [
+          {
+            id: "group-1",
+            label: "业务分组",
+            level: 0,
+            firstKey: "sale-1",
+            lastKey: "sale-1",
+            continuedBefore: false,
+            continuedAfter: false,
+            summary: {
+              caption: "分组小计",
+              values: { amount: "12345678901234567890.10" },
+            },
+          },
+        ],
+      },
+      cells: [
+        {
+          row: sale,
+          field: "amount",
+          kind: "record",
+          label: "打开合成凭证",
+          target: analysisDetail,
+        },
+      ],
     },
   },
 } satisfies BusinessModel[string]);

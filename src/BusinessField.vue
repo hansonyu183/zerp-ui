@@ -19,6 +19,18 @@ type Reference = Extract<Field, { [meta]: { kind: "reference" } }>;
 const props = defineProps<{ node: Field; readOnly?: boolean; scope: string }>();
 const metadata = computed(() => props.node[meta]);
 const disabled = computed(() => props.readOnly || metadata.value.readOnly);
+const secret = computed(
+  () => props.node as Extract<Field, { [meta]: { kind: "secret" } }>,
+);
+function setSecretIntent(intent: "keep" | "replace" | "clear") {
+  if (disabled.value) return;
+  secret.value.value =
+    intent === "replace" ? { intent, value: "" } : { intent };
+}
+function setSecretValue(value: unknown) {
+  if (disabled.value || secret.value.value.intent !== "replace") return;
+  secret.value.value.value = String(value ?? "");
+}
 const reference = computed(() => props.node as Reference);
 
 const adapter = computed<ReferenceAdapter>(() => {
@@ -66,8 +78,32 @@ function setValue(value: unknown) {
 }
 </script>
 <template>
+  <div v-if="metadata.kind === 'secret'">
+    <VSelect
+      :label="metadata.name"
+      :aria-label="metadata.name"
+      :model-value="secret.value.intent"
+      :disabled="disabled"
+      :items="[
+        { title: '保留', value: 'keep' },
+        { title: '修改', value: 'replace' },
+        { title: '清除', value: 'clear' },
+      ]"
+      @update:model-value="setSecretIntent"
+    />
+    <VTextField
+      v-if="secret.value.intent === 'replace'"
+      :label="`新的${metadata.name}`"
+      :aria-label="`新的${metadata.name}`"
+      type="password"
+      autocomplete="new-password"
+      :model-value="secret.value.value"
+      :readonly="disabled"
+      @update:model-value="setSecretValue"
+    />
+  </div>
   <VCheckbox
-    v-if="metadata.kind === 'boolean'"
+    v-else-if="metadata.kind === 'boolean'"
     :label="metadata.name"
     :model-value="Boolean(node.value)"
     :disabled="disabled"
@@ -122,7 +158,7 @@ function setValue(value: unknown) {
     :aria-label="metadata.name"
     :model-value="node.value"
     :type="
-      metadata.kind === 'password' || metadata.kind === 'secret'
+      metadata.kind === 'password'
         ? 'password'
         : metadata.kind === 'date'
           ? 'date'

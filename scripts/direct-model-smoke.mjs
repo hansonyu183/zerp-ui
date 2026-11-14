@@ -151,6 +151,32 @@ export async function directModelSmoke(page) {
       await readFile(await artifact.path(), "utf8"),
       "合计\n20.00\n",
     );
+    const scriptDownload = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "下载脚本结果", exact: true })
+      .click();
+    const scriptFile = await scriptDownload;
+    assert.equal(scriptFile.suggestedFilename(), "synthetic-report.csv");
+    assert.equal(
+      await readFile(await scriptFile.path(), "utf8"),
+      "合计\n20.00\n",
+    );
+    await navigation
+      .getByRole("link", { name: "结构化报表", exact: true })
+      .click();
+    await page.getByText("业务分组", { exact: true }).waitFor();
+    await page.getByText("分组小计", { exact: true }).waitFor();
+    await expect(
+      page.getByRole("rowgroup", { name: "销售总计", exact: true }),
+    ).toContainText("12345678901234567890.10");
+    const drill = page.getByRole("link", { name: "打开合成凭证", exact: true });
+    await expect(drill).toHaveText("12345678901234567890.10");
+    await expect(drill).toHaveCSS("text-align", "right");
+    await drill.click();
+    await expect(
+      page.getByRole("textbox", { name: "关联凭证编号", exact: true }),
+    ).toHaveValue("S-001");
+    await navigation.getByText("业务", { exact: true }).click();
     await navigation
       .getByRole("link", { name: "打印办理", exact: true })
       .click();
@@ -181,6 +207,35 @@ export async function directModelSmoke(page) {
     await expect(
       page.getByRole("textbox", { name: "用户姓名", exact: true }),
     ).toHaveValue("合成用户");
+    await expect(
+      page.getByRole("textbox", { name: "新的接口密钥", exact: true }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(
+      page.getByRole("textbox", { name: "密钥提交结果", exact: true }),
+    ).toHaveValue("已保留密钥");
+    await page
+      .getByRole("combobox", { name: "接口密钥", exact: true })
+      .press("Enter");
+    await page.getByRole("option", { name: "修改", exact: true }).click();
+    await page
+      .getByRole("textbox", { name: "新的接口密钥", exact: true })
+      .fill("synthetic-api-secret");
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(
+      page.getByRole("textbox", { name: "密钥提交结果", exact: true }),
+    ).toHaveValue("已修改密钥");
+    await page
+      .getByRole("combobox", { name: "接口密钥", exact: true })
+      .press("Enter");
+    await page.getByRole("option", { name: "清除", exact: true }).click();
+    await expect(
+      page.getByRole("textbox", { name: "新的接口密钥", exact: true }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(
+      page.getByRole("textbox", { name: "密钥提交结果", exact: true }),
+    ).toHaveValue("已清除密钥");
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
@@ -226,6 +281,11 @@ export async function directModelSmoke(page) {
       "workflow.advance",
       "batch.executeBatch",
       "report.export",
+      "structured.query",
+      "report.drill.get",
+      "account.secret.keep",
+      "account.secret.replace",
+      "account.secret.clear",
       "output.preview",
       "output.print",
       "account.profile",

@@ -61,3 +61,38 @@ const invalid: Node = {
   },
 };
 void [login, voucher, invalid];
+const secretKeep: Node = {
+  value: { intent: "keep" },
+  [meta]: { kind: "secret", name: "Stored secret" },
+};
+const secretReplace: Node = {
+  value: { intent: "replace", value: "synthetic" },
+  [meta]: { kind: "secret", name: "Stored secret" },
+};
+const secretClear: Node = {
+  value: { intent: "clear" },
+  [meta]: { kind: "secret", name: "Stored secret" },
+};
+// @ts-expect-error Stored secrets require explicit intent; a string cannot distinguish keep and clear.
+const secretString: Node = {
+  value: "",
+  [meta]: { kind: "secret", name: "Stored secret" },
+};
+// @ts-expect-error A replacement intent must contain its new value.
+const secretMissing: Node = {
+  value: { intent: "replace" },
+  [meta]: { kind: "secret", name: "Stored secret" },
+};
+// @ts-expect-error A keep intent cannot carry a cached secret.
+const secretLeak: Node = {
+  value: { intent: "keep", value: "cached" },
+  [meta]: { kind: "secret", name: "Stored secret" },
+};
+void [
+  secretKeep,
+  secretReplace,
+  secretClear,
+  secretString,
+  secretMissing,
+  secretLeak,
+];

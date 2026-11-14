@@ -51,6 +51,8 @@ const props = defineProps<{
   viewHref?: (row: R) => string | undefined;
   rowLinks?: (row: R) => readonly RecordLink[];
   disabled?: boolean;
+  pagingDisabled?: boolean;
+  emptyCaption?: string;
   wide?: boolean;
   rowKey?: (row: R) => K;
   summary?: ReportSummary<R>;
@@ -252,8 +254,10 @@ function activateCell(
       !event.shiftKey &&
       !event.altKey &&
       (!(event instanceof MouseEvent) || event.button === 0))
-  )
+  ) {
+    event.preventDefault();
     emit("cell", intent, row);
+  }
 }
 function displayRow(row: R, column: Column<R>) {
   return props.labels?.(row)[column.key] ?? display(row, column);
@@ -554,11 +558,13 @@ function display(row: Partial<R>, column: Column<R>) {
           </component>
         </component>
       </component>
-      <p v-if="!loading && !result.items.length">暂无数据</p>
+      <p v-if="!loading && !result.items.length">
+        {{ emptyCaption ?? "暂无数据" }}
+      </p>
       <nav aria-label="分页">
         <VBtn
           type="button"
-          :disabled="page <= 1 || loading || disabled"
+          :disabled="page <= 1 || loading || disabled || pagingDisabled"
           @click="emit('page', page - 1)"
         >
           上一页</VBtn
@@ -571,6 +577,7 @@ function display(row: Partial<R>, column: Column<R>) {
           type="button"
           :disabled="
             disabled ||
+            pagingDisabled ||
             loading ||
             (result.total !== undefined
               ? page * pageSize >= result.total

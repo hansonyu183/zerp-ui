@@ -79,11 +79,11 @@ const brand = computed(() => ({
 }));
 const messageOwners = new WeakMap<object, string>();
 watch(
-  runtime.scope,
-  (next, previous) => {
-    for (const message of options.value.messages)
+  () => options.value.messages.slice(),
+  (items) => {
+    for (const message of items)
       if (!messageOwners.has(toRaw(message)))
-        messageOwners.set(toRaw(message), previous ?? next);
+        messageOwners.set(toRaw(message), runtime.scope.value);
   },
   { immediate: true, flush: "sync" },
 );
@@ -156,9 +156,10 @@ async function accountAction(action: AccountIntent) {
   }
   await runtime.runAccount();
 }
-watch([() => props.model, runtime.scope, current], () => runtime.invalidate(), {
+watch([() => props.model, runtime.scope], () => runtime.invalidate(true), {
   flush: "sync",
 });
+watch(current, () => runtime.invalidate(), { flush: "sync" });
 </script>
 <template>
   <AuthFrame

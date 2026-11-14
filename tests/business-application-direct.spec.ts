@@ -510,3 +510,138 @@ it("hides explicitly denied value-array members and leaves disabled query pagina
   expect(rows.page).toBe(1);
   wrapper.unmount();
 });
+it.each(["owner", "model"] as const)(
+  "clears old %s execution state without letting its completion unlock a newer write",
+  async (change) => {
+    const { model } = fixture();
+    const record = model.group as Extract<
+      BusinessModel[string],
+      { [meta]: { kind: "object" } }
+    >;
+    record[meta].form = ["intro"];
+    const releases: (() => void)[] = [];
+    const save = vi.fn(
+      () => new Promise<void>((resolve) => releases.push(resolve)),
+    );
+    record[meta].operations = { update: { run: save } };
+    const wrapper = mount(BusinessApplication, { props: { model } });
+    await flushPromises();
+    const saveButton = () =>
+      wrapper.findAll("button").find((b) => b.text() === "保存")!;
+    await saveButton().trigger("click");
+    expect(save).toHaveBeenCalledTimes(1);
+    if (change === "owner") {
+      const owner = { ledger: "new", operator: "next", generation: "2" };
+      model[meta].owner = owner;
+      model[meta].userPermissions = { owner, administrator: true };
+    } else {
+      await wrapper.setProps({
+        model: reactive({
+          ...model,
+          [meta]: { ...model[meta] },
+        }) as BusinessModel,
+      });
+    }
+    await flushPromises();
+    expect(saveButton().attributes("disabled")).toBeUndefined();
+    await saveButton().trigger("click");
+    expect(save).toHaveBeenCalledTimes(2);
+    releases[0]!();
+    await flushPromises();
+    expect(saveButton().attributes("disabled")).toBeDefined();
+    releases[1]!();
+    await flushPromises();
+    expect(saveButton().attributes("disabled")).toBeUndefined();
+    wrapper.unmount();
+  },
+);
+it.each(["query", "subtree"] as const)(
+  "honors explicit read-only %s grants within otherwise editable query criteria",
+  async (target) => {
+    const { model } = fixture();
+    const group = model.group as Extract<
+      BusinessModel[string],
+      { [meta]: { kind: "object" } }
+    >;
+    const rows = group.rows as Extract<
+      BusinessModel[string],
+      { [meta]: { kind: "collection" } }
+    >;
+    const subtree = {
+      term: {
+        value: "fixed",
+        [meta]: { kind: "text" as const, name: "Protected criteria" },
+      },
+      [meta]: { kind: "object" as const, name: "Criteria", operations: {} },
+    };
+    rows.query.criteria = subtree;
+    group[meta].form = ["rows"];
+    model[meta].userPermissions = {
+      owner: model[meta].owner!,
+      administrator: false,
+      grants: [
+        { node: rows, read: true, write: false, operations: { query: true } },
+        {
+          node: target === "query" ? rows.query : subtree,
+          read: true,
+          write: false,
+        },
+      ],
+    };
+    const wrapper = mount(BusinessApplication, { props: { model } });
+    await flushPromises();
+    expect(
+      wrapper
+        .get('input[aria-label="Protected criteria"]')
+        .attributes("readonly"),
+    ).toBeDefined();
+    wrapper.unmount();
+  },
+);
+it("does not advertise query when an administrator collection has no query operation", async () => {
+  const { model } = fixture();
+  const group = model.group as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "object" } }
+  >;
+  const rows = group.rows as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "collection" } }
+  >;
+  group[meta].form = ["rows"];
+  rows[meta].operations = {};
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  expect(wrapper.findAll("button").some((b) => b.text() === "查询")).toBe(
+    false,
+  );
+  wrapper.unmount();
+});
+it("shows fresh messages on atomic model-owner replacement while retaining old-message isolation", async () => {
+  const { model } = fixture();
+  const old = { id: "old", level: "info" as const, text: "Old owner message" };
+  model[meta].messages = [old];
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  const owner = { ledger: "next", operator: "next", generation: "2" };
+  const fresh = {
+    id: "fresh",
+    level: "info" as const,
+    text: "New owner message",
+  };
+  await wrapper.setProps({
+    model: reactive({
+      ...model,
+      [meta]: {
+        ...model[meta],
+        owner,
+        userPermissions: { owner, administrator: true as const },
+        messages: [old, fresh],
+      },
+    }) as BusinessModel,
+  });
+  await flushPromises();
+  expect(wrapper.text()).toContain("New owner message");
+  expect(wrapper.text()).not.toContain("Old owner message");
+  wrapper.unmount();
+});
