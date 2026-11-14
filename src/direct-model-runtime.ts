@@ -20,12 +20,12 @@ export function createDirectRuntime(model:()=>BusinessModel):DirectRuntime{
  const busy=ref(new Set<object>()); const error=ref(''); let epoch=0;
  function paths():Map<object,Node[]> {
   const result=new Map<object,Node[]>();
-  function walk(node:Node,parents:Node[]){if(result.has(toRaw(node)))return;result.set(toRaw(node),parents); if(node[meta].kind==='object')for(const [,child]of members(node))walk(child,[...parents,node]); else if(node[meta].kind==='array'){const a=node as Extract<Node,{[meta]:{kind:'array'}}>;walk(a[meta].element,[...parents,node]);for(const item of a.items)walk(item,[...parents,node]);} else if(node[meta].kind==='collection'){const c=node as CollectionNode;walk(c.query,[...parents,node]);walk(c[meta].element,[...parents,node]);for(const item of [...c.items,c.selected,c.draft])if(item)walk(item,[...parents,node]);}}
+  function walk(node:Node,parents:Node[]){if(result.has(toRaw(node)))return;result.set(toRaw(node),parents); if(node[meta].kind==='object')for(const child of Object.values(node))walk(child,[...parents,node]); else if(node[meta].kind==='array'){const a=node as Extract<Node,{[meta]:{kind:'array'}}>;walk(a[meta].element,[...parents,node]);for(const item of a.items)walk(item,[...parents,node]);} else if(node[meta].kind==='collection'){const c=node as CollectionNode;walk(c.query,[...parents,node]);walk(c[meta].element,[...parents,node]);for(const item of [...c.items,c.selected,c.draft])if(item)walk(item,[...parents,node]);}}
   for(const node of Object.values(model()))walk(node,[]); return result;
  }
  function ancestors(node:Node){return paths().get(toRaw(node))??[];}
  function grant(node:Node){const p=model()[meta].userPermissions;return p&&!p.administrator?p.grants.find(x=>toRaw(x.node)===toRaw(node)):undefined;}
- function boundary(node:Node):Node|undefined {return [...ancestors(node),node].reverse().find(n=>n[meta].kind==='collection'||(n[meta].kind==='object'&&Object.keys((n as ObjectNode)[meta].operations).length>0))??node;}
+ function boundary(node:Node):Node|undefined {const chain=[...ancestors(node),node];return chain.find((n,i)=>n[meta].kind==='collection'||(n[meta].kind==='object'&&Object.keys((n as ObjectNode)[meta].operations).length>0&&chain[i-1]?.[meta].kind!=='array'))??chain.find(n=>n[meta].kind==='object')??node;}
  function readable(node:Node):boolean {
   if(!ready.value)return false;
   const p=model()[meta].userPermissions!;if(p.administrator)return true;
@@ -35,7 +35,9 @@ export function createDirectRuntime(model:()=>BusinessModel):DirectRuntime{
   if(node[meta].kind==='object'){
    if(parent?.[meta].kind==='collection'||parent?.[meta].kind==='array')return readable(parent);
    if(Object.keys((node as ObjectNode)[meta].operations).length)return direct?.read===true;
-   return direct?.read===true||members(node).some(([,child])=>readable(child));
+   if(direct?.read===true)return true;
+   if(parent&&parent[meta].kind==='object'&&grant(parent)?.read)return readable(parent);
+   return Object.values(node).some(child=>['object','collection'].includes(child[meta].kind)&&readable(child));
   }
   return !!parent&&readable(parent);
  }
