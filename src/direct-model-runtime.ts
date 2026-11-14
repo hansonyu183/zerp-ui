@@ -101,6 +101,15 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   }
   function readable(node: Node): boolean {
     if (!node || !ready.value) return false;
+    if (model()[meta].session?.state === "password-required") {
+      const password = model()[meta].account?.password;
+      if (
+        !password ||
+        (node !== password && !ancestors(node).includes(password))
+      )
+        return false;
+    }
+    if (model()[meta].session?.state === "recovering") return false;
     const p = model()[meta].userPermissions!;
     if (p.administrator) return true;
     const b = boundary(node);
@@ -130,6 +139,14 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       return false;
     const p = model()[meta].userPermissions!;
     if (p.administrator) return true;
+    const chain = [...ancestors(node), node];
+    const queryOwner = chain.find(
+      (n, i) =>
+        n[meta].kind === "collection" &&
+        (n as CollectionNode).query === chain[i + 1],
+    );
+    if (queryOwner)
+      return allowed(queryOwner, "query") && grant(node)?.write !== false;
     const b = boundary(node);
     return (
       !!b &&
@@ -140,8 +157,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   function allowed(node: Node, action: string, publicAuth = false) {
     if (publicAuth)
       return (
-        !model()[meta].owner &&
-        ["signIn", "restoreSession", "recover"].includes(action)
+        (!model()[meta].owner && ["signIn", "recover"].includes(action)) ||
+        (model()[meta].session?.state === "recovering" && action === "recover")
       );
     if (!readable(node)) return false;
     if (
