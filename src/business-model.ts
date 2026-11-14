@@ -1,5 +1,6 @@
 import { nodeMetadata } from "./model-node";
 import type { PrintDocument } from "./printing";
+import type { Interaction } from "./collaboration";
 
 /** Operations read and update their own model; transport and outcomes belong to the consumer. */
 type Operation = {
@@ -11,15 +12,34 @@ type BaseObjectAction = "get" | "update" | "delete" | "reconcile";
 type FamilyActions = {
   authentication: "signIn" | "recover";
   account: "changePassword" | "signOut";
-  document: "submit" | "approve" | "enable" | "disable";
+  document: "submit" | "approve" | "enable" | "disable" | "stageAttachments";
   voucher:
     | "submit"
     | "approve"
     | "withdraw"
     | "reverse"
     | "calculate"
-    | "stageAttachments";
-  workflow: "start" | "advance" | "approveChild" | "cancel";
+    | "stageAttachments"
+    | "clone"
+    | "send"
+    | "unapprove"
+    | "complete"
+    | "uncomplete"
+    | "void"
+    | "unvoid";
+  workflow:
+    | "start"
+    | "advance"
+    | "createChild"
+    | "approveChild"
+    | "rejectChild"
+    | "retryChild"
+    | "cancelChild"
+    | "openVoucher"
+    | "audit"
+    | "cancel";
+  processing:
+    "process" | "publish" | "restore" | "validate" | "run" | "stop" | "import";
   batch: "executeBatch" | "cancel";
   report: "calculate" | "export";
   output: "preview" | "print" | "confirmPrinted" | "confirmNotPrinted";
@@ -45,9 +65,35 @@ type Owner = {
 
 type Field =
   | {
+      value: number | null;
+      [nodeMetadata]: {
+        kind: "integer";
+        name: string;
+        required?: boolean;
+        readOnly?: boolean;
+      };
+    }
+  | {
+      value: string | null;
+      [nodeMetadata]: {
+        kind: "enum";
+        name: string;
+        required?: boolean;
+        readOnly?: boolean;
+        options: readonly { id: string; name: string }[];
+      };
+    }
+  | {
       value: string;
       [nodeMetadata]: {
-        kind: "text" | "decimal" | "password" | "date";
+        kind:
+          | "text"
+          | "longText"
+          | "decimal"
+          | "password"
+          | "secret"
+          | "date"
+          | "datetime";
         name: string;
         required?: boolean;
         readOnly?: boolean;
@@ -88,7 +134,17 @@ type Field =
     }
   | {
       value: PrintDocument | null;
-      [nodeMetadata]: { kind: "output"; name: string; readOnly?: boolean };
+      [nodeMetadata]: {
+        kind: "output";
+        name: string;
+        readOnly?: boolean;
+        operations?: Partial<
+          Record<
+            "print" | "confirmPrinted" | "confirmNotPrinted" | "reconcile",
+            Operation
+          >
+        >;
+      };
     };
 
 interface ObjectNode {
@@ -123,17 +179,30 @@ type CollectionNode = {
 };
 
 type ArrayNode = {
-  items: ObjectNode[];
+  items: Node[];
+  selected?: Node | null;
   [nodeMetadata]: {
     kind: "array";
     name: string;
     readOnly?: boolean;
-    element: ObjectNode;
+    element: Node;
     /** Local value edits; they do not establish a separate persistence boundary. */
-    operations: Partial<Record<"create", Operation>>;
+    operations: Partial<Record<"create" | "remove", Operation>>;
   };
 };
-type Node = Field | ObjectNode | CollectionNode | ArrayNode;
+type InteractionNode = {
+  value: Record<string, string | boolean>;
+  [nodeMetadata]: {
+    kind: "interactions";
+    name: string;
+    readOnly?: boolean;
+    items: readonly (
+      | Exclude<Interaction<Target>, { kind: "related" | "download" }>
+      | { kind: "related"; id: string; label: string; target: Target }
+    )[];
+  };
+};
+type Node = Field | ObjectNode | CollectionNode | ArrayNode | InteractionNode;
 type Target = ObjectNode | CollectionNode;
 
 type Permission = {
@@ -141,7 +210,9 @@ type Permission = {
   read: boolean;
   write?: boolean;
   /** Collection grants may also authorize their records' object operations. */
-  operations?: Partial<Record<ObjectAction | CollectionAction, boolean>>;
+  operations?: Partial<
+    Record<ObjectAction | CollectionAction | "remove", boolean>
+  >;
 };
 
 /**
