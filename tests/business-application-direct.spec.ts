@@ -362,3 +362,97 @@ it("keeps nested independent writes denied while inherited fields remain readabl
   expect(save).not.toHaveBeenCalled();
   wrapper.unmount();
 });
+it("allows a read-only user to enter query criteria without granting record edits", async () => {
+  const { model } = fixture();
+  const group = model.group as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "object" } }
+  >;
+  const rows = group.rows as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "collection" } }
+  >;
+  rows.query.term = {
+    value: "",
+    [meta]: { kind: "text", name: "Search term" },
+  };
+  group[meta].form = ["rows"];
+  model[meta].userPermissions = {
+    owner: model[meta].owner!,
+    administrator: false,
+    grants: [
+      { node: rows, read: true, write: false, operations: { query: true } },
+    ],
+  };
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  expect(
+    wrapper.get('input[aria-label="Search term"]').attributes("readonly"),
+  ).toBeUndefined();
+  await wrapper.get('input[aria-label="Search term"]').setValue("wanted");
+  expect((rows.query.term as { value: string }).value).toBe("wanted");
+  wrapper.unmount();
+});
+it("reads the newly navigated independent object once", async () => {
+  const { model } = fixture();
+  const get = vi.fn(async () => {});
+  const other = {
+    name: {
+      value: "profile",
+      [meta]: { kind: "text" as const, name: "Profile name" },
+    },
+    [meta]: {
+      kind: "object" as const,
+      name: "Profile",
+      operations: { get: { run: get } },
+    },
+  };
+  model.other = other;
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  model[meta].navigation.current = other;
+  await flushPromises();
+  expect(get).toHaveBeenCalledTimes(1);
+  wrapper.unmount();
+});
+it("keeps consumer unknown-result restrictions after ordinary query and hides other work during forced password change", async () => {
+  const { model } = fixture();
+  const group = model.group as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "object" } }
+  >;
+  const save = vi.fn(async () => {});
+  group[meta].operations = {
+    update: { run: save, disabledReason: "结果未知，请核对" },
+  };
+  group[meta].form = ["intro"];
+  const password = {
+    secret: {
+      value: "",
+      [meta]: { kind: "password" as const, name: "New password" },
+    },
+    [meta]: {
+      kind: "object" as const,
+      name: "Password",
+      family: "account" as const,
+      operations: { changePassword: { run: vi.fn(async () => {}) } },
+    },
+  };
+  model[meta].account = { name: "Operator", password };
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  expect(
+    wrapper
+      .findAll("button")
+      .find((b) => b.text() === "保存")!
+      .attributes("disabled"),
+  ).toBeDefined();
+  model[meta].messages = [];
+  await flushPromises();
+  expect(save).not.toHaveBeenCalled();
+  model[meta].session = { state: "password-required" };
+  await flushPromises();
+  expect(wrapper.find('input[aria-label="Introduction"]').exists()).toBe(false);
+  expect(wrapper.find('input[aria-label="New password"]').exists()).toBe(true);
+  wrapper.unmount();
+});

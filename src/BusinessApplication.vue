@@ -41,6 +41,7 @@ const current = computed(() =>
 const root = computed(() => {
   const n = current.value;
   if (!n || !runtime.readable(n)) return null;
+  if (options.value.session?.state === "password-required") return n;
   return runtime.ancestors(n).find((a) => a[meta].kind === "object") ?? n;
 });
 const navigation = computed<NavigationGroup[]>(() =>
@@ -129,19 +130,21 @@ function feedback() {
     ),
   ]);
 }
-const page = computed<PageDefinition>(() => ({
-  kind: "details",
-  title: root.value?.[meta].name ?? "工作台",
-  [snapshotPage]: () => ({
-    title: root.value?.[meta].name ?? "工作台",
-    render: () => [
-      root.value
-        ? h(BusinessNode, { node: root.value, focus: current.value })
-        : h("p", "暂无可用内容。"),
-      feedback(),
-    ],
-  }),
-}));
+const page = computed<PageDefinition>(() => {
+  const node = root.value,
+    focus = current.value;
+  return {
+    kind: "details",
+    title: node?.[meta].name ?? "工作台",
+    [snapshotPage]: () => ({
+      title: node?.[meta].name ?? "工作台",
+      render: () => [
+        node ? h(BusinessNode, { node, focus }) : h("p", "暂无可用内容。"),
+        feedback(),
+      ],
+    }),
+  };
+});
 async function accountAction(action: AccountIntent) {
   const account = options.value.account;
   if (!account) return;
@@ -158,7 +161,11 @@ watch([() => props.model, runtime.scope, current], () => runtime.invalidate(), {
 });
 </script>
 <template>
-  <AuthFrame v-if="!options.owner" :brand="brand" :theme="theme">
+  <AuthFrame
+    v-if="!options.owner || options.session?.state === 'recovering'"
+    :brand="brand"
+    :theme="theme"
+  >
     <BusinessNode
       v-if="options.authentication"
       :node="options.authentication"
