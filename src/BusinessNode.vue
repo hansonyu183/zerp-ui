@@ -67,7 +67,7 @@ watch(
 const actions = computed(() =>
   Object.entries(runtime.operations(props.node)).filter(
     ([key]) =>
-      !["get", "query"].includes(key) &&
+      key !== "query" &&
       !(info.value.kind === "output" && key === "print") &&
       runtime.allowed(props.node, key, props.publicAuth),
   ),
@@ -81,7 +81,15 @@ const pending = computed(() => runtime.busy.value.has(toRaw(props.node)));
 function run(action: string) {
   return runtime.run(props.node, action, props.publicAuth);
 }
+const canQuery = computed(
+  () =>
+    !!runtime.operations(props.node).query &&
+    runtime.allowed(props.node, "query") &&
+    !runtime.operations(props.node).query?.disabledReason &&
+    !pending.value,
+);
 async function query(page = 1) {
+  if (!canQuery.value) return;
   collection.value.page = page;
   await run("query");
 }
@@ -98,7 +106,7 @@ watch(
 );
 </script>
 <template>
-  <section :aria-label="info.name">
+  <section v-if="publicAuth || runtime.readable(node)" :aria-label="info.name">
     <template v-if="info.kind === 'object'">
       <template v-if="aggregate">
         <div role="tablist" :aria-label="info.name">
@@ -173,13 +181,13 @@ watch(
       </table>
       <p v-if="!collection.items.length">暂无记录</p>
       <VBtn
-        :disabled="pending || collection.page <= 1"
+        :disabled="!canQuery || collection.page <= 1"
         @click="query(collection.page - 1)"
         >上一页</VBtn
       ><span>第 {{ collection.page }} 页</span
       ><VBtn
         :disabled="
-          pending || collection.page * collection.pageSize >= collection.total
+          !canQuery || collection.page * collection.pageSize >= collection.total
         "
         @click="query(collection.page + 1)"
         >下一页</VBtn
@@ -187,7 +195,10 @@ watch(
       <BusinessNode v-if="detail" :node="detail" />
     </template>
     <template v-else-if="info.kind === 'array' && 'items' in node"
-      ><div v-for="(row, i) in array.items" :key="i">
+      ><div
+        v-for="(row, i) in array.items.filter((item) => runtime.readable(item))"
+        :key="i"
+      >
         <input
           v-if="array[meta].operations.remove"
           type="radio"

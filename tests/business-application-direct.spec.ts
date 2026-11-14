@@ -415,7 +415,7 @@ it("reads the newly navigated independent object once", async () => {
   expect(get).toHaveBeenCalledTimes(1);
   wrapper.unmount();
 });
-it("keeps consumer unknown-result restrictions after ordinary query and hides other work during forced password change", async () => {
+it("keeps consumer unknown-result restrictions after ordinary refresh and hides other work during forced password change", async () => {
   const { model } = fixture();
   const group = model.group as Extract<
     BusinessModel[string],
@@ -423,6 +423,7 @@ it("keeps consumer unknown-result restrictions after ordinary query and hides ot
   >;
   const save = vi.fn(async () => {});
   group[meta].operations = {
+    get: { run: vi.fn(async () => {}) },
     update: { run: save, disabledReason: "结果未知，请核对" },
   };
   group[meta].form = ["intro"];
@@ -448,11 +449,64 @@ it("keeps consumer unknown-result restrictions after ordinary query and hides ot
       .attributes("disabled"),
   ).toBeDefined();
   model[meta].messages = [];
+  await wrapper
+    .findAll("button")
+    .find((b) => b.text() === "刷新")!
+    .trigger("click");
   await flushPromises();
   expect(save).not.toHaveBeenCalled();
   model[meta].session = { state: "password-required" };
   await flushPromises();
   expect(wrapper.find('input[aria-label="Introduction"]').exists()).toBe(false);
   expect(wrapper.find('input[aria-label="New password"]').exists()).toBe(true);
+  wrapper.unmount();
+});
+it("hides explicitly denied value-array members and leaves disabled query pagination unchanged", async () => {
+  const { model } = fixture();
+  const group = model.group as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "object" } }
+  >;
+  const rows = group.rows as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "collection" } }
+  >;
+  const hidden = {
+    value: "private array value",
+    [meta]: { kind: "text" as const, name: "Private array" },
+  };
+  const array = {
+    items: [hidden],
+    [meta]: {
+      kind: "array" as const,
+      name: "Values",
+      element: hidden,
+      operations: {},
+    },
+  };
+  group.values = array;
+  group[meta].form = ["values", "rows"];
+  rows.total = 50;
+  rows[meta].operations.query!.disabledReason = "暂不可查询";
+  model[meta].userPermissions = {
+    owner: model[meta].owner!,
+    administrator: false,
+    grants: [
+      { node: group, read: true, write: true },
+      { node: rows, read: true, operations: { query: true } },
+      { node: hidden, read: false },
+    ],
+  };
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  expect(wrapper.find('input[aria-label="Private array"]').exists()).toBe(
+    false,
+  );
+  await wrapper.get('[role="tab"][data-member="rows"]').trigger("click");
+  await flushPromises();
+  const next = wrapper.findAll("button").find((b) => b.text() === "下一页")!;
+  expect(next.attributes("disabled")).toBeDefined();
+  await next.trigger("click");
+  expect(rows.page).toBe(1);
   wrapper.unmount();
 });
