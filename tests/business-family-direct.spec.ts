@@ -1,8 +1,15 @@
-import { mount, flushPromises } from "@vue/test-utils";
+import { mount, flushPromises, config } from "@vue/test-utils";
 import { reactive } from "vue";
 import { afterEach, expect, it, vi } from "vitest";
 import { BusinessApplication } from "../src/index";
 import { modelMetadata as meta, type BusinessModel } from "../src/model";
+import { createRouter, createMemoryHistory } from "vue-router";
+config.global.plugins.push(
+  createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: "/:pathMatch(.*)*", component: { template: "<div />" } }],
+  }),
+);
 type Node = BusinessModel[string];
 type ObjectNode = Extract<Node, { [meta]: { kind: "object" } }>;
 let wrapper: ReturnType<typeof mount> | undefined;
@@ -71,7 +78,7 @@ it("keeps script answers on the direct model and calculates from those answers",
   await wrapper!.get('input[aria-label="Factor"]').setValue("4");
   await wrapper!.get('input[aria-label="Factor"]').trigger("change");
   expect(questions.value.factor).toBe("4");
-  await click("calculate");
+  await click("计算");
   expect(calculate).toHaveBeenCalledTimes(1);
   expect(wrapper!.get('input[aria-label="Result"]').element).toHaveProperty(
     "value",
