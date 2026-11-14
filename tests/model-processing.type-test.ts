@@ -1,11 +1,6 @@
-import {
-  object,
-  text,
-  decimal,
-  secret,
-  operation,
-  type ModelOperation,
-} from "../src/model";
+// Private legacy engine contract regression; not a public package contract.
+import { operation, type ModelOperation } from "../src/model-operation";
+import { object, text, decimal, secret } from "../src/reactive-model";
 const input = object("输入", { amount: decimal("金额") });
 type Id = { id: string };
 declare const protocol: ModelOperation<
@@ -68,7 +63,7 @@ declare const childProtocol: ModelOperation<
   Id,
   string,
   { digest: string },
-  import("../src/model").ModelActionModel<
+  import("../src/model-operation").ModelActionModel<
     "process",
     typeof input,
     { digest: string }
@@ -116,9 +111,10 @@ childProcess.reconcile({
   ancestors: [{ other: "wrong" }],
 });
 
-const { batchOperations, collection } = await import("../src/model");
-declare const batchProtocol: import("../src/model").ModelBatchOperation<
-  import("../src/model").ModelActionModel<
+const { batchOperations } = await import("../src/model-batch");
+const { collection } = await import("../src/reactive-model");
+declare const batchProtocol: import("../src/model-batch").ModelBatchOperation<
+  import("../src/model-operation").ModelActionModel<
     "process",
     typeof input,
     { digest: string }

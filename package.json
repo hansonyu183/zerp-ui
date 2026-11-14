@@ -43,7 +43,7 @@
     "dev:model": "vite examples/model --host 127.0.0.1",
     "build:model": "vite build examples/model",
     "check:model": "pnpm build && pnpm build:model && node scripts/check-package.mjs --model",
-    "test:model": "vitest run tests/business-model.spec.ts tests/public-api.spec.ts",
+    "test:model": "vitest run tests/business-application-direct.spec.ts tests/business-model-reactivity.spec.ts tests/public-api.spec.ts",
     "dev": "vite examples/model --host 127.0.0.1",
     "check:package": "pnpm build && pnpm build:model && node scripts/check-package.mjs --model"
   },
