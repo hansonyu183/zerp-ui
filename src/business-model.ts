@@ -1,4 +1,5 @@
 import { nodeMetadata } from "./model-node";
+import type { PrintDocument } from "./printing";
 
 /** Operations read and update their own model; transport and outcomes belong to the consumer. */
 type Operation = {
@@ -6,7 +7,34 @@ type Operation = {
   run(): Promise<void>;
 };
 
-type ObjectAction = "get" | "update" | "delete" | "reconcile";
+type BaseObjectAction = "get" | "update" | "delete" | "reconcile";
+type FamilyActions = {
+  authentication: "signIn" | "recover";
+  account: "changePassword" | "signOut";
+  document: "submit" | "approve" | "enable" | "disable";
+  voucher:
+    | "submit"
+    | "approve"
+    | "withdraw"
+    | "reverse"
+    | "calculate"
+    | "stageAttachments";
+  workflow: "start" | "advance" | "approveChild" | "cancel";
+  batch: "executeBatch" | "cancel";
+  report: "calculate" | "export";
+  output: "preview" | "print" | "confirmPrinted" | "confirmNotPrinted";
+};
+type ObjectAction = BaseObjectAction | FamilyActions[keyof FamilyActions];
+type ObjectOperations =
+  | { family?: never; operations: Partial<Record<BaseObjectAction, Operation>> }
+  | {
+      [F in keyof FamilyActions]: {
+        family: F;
+        operations: Partial<
+          Record<BaseObjectAction | FamilyActions[F], Operation>
+        >;
+      };
+    }[keyof FamilyActions];
 type CollectionAction = "query" | "create" | "export";
 
 type Owner = {
@@ -19,7 +47,7 @@ type Field =
   | {
       value: string;
       [nodeMetadata]: {
-        kind: "text" | "decimal";
+        kind: "text" | "decimal" | "password" | "date";
         name: string;
         required?: boolean;
         readOnly?: boolean;
@@ -32,6 +60,35 @@ type Field =
         name: string;
         readOnly?: boolean;
       };
+    }
+  | {
+      value:
+        | { id: string; label: string; selectable?: boolean }
+        | { id: string; label: string; selectable?: boolean }[]
+        | null;
+      [nodeMetadata]: {
+        kind: "reference";
+        name: string;
+        readOnly?: boolean;
+        multiple?: boolean;
+        /** Entire directory, populated by load; filtering and paging stay local. */
+        options: readonly { id: string; label: string; selectable?: boolean }[];
+        dependencies?: readonly (string | number | boolean | null)[];
+        load?: Operation;
+      };
+    }
+  | {
+      value: File[];
+      [nodeMetadata]: {
+        kind: "attachments";
+        name: string;
+        readOnly?: boolean;
+        multiple?: boolean;
+      };
+    }
+  | {
+      value: PrintDocument | null;
+      [nodeMetadata]: { kind: "output"; name: string; readOnly?: boolean };
     };
 
 interface ObjectNode {
@@ -43,8 +100,7 @@ interface ObjectNode {
     /** Ordered content projection; omitted means member declaration order. */
     form?: readonly string[];
     readOnly?: boolean;
-    operations: Partial<Record<ObjectAction, Operation>>;
-  };
+  } & ObjectOperations;
 }
 
 type CollectionNode = {
@@ -66,7 +122,18 @@ type CollectionNode = {
   };
 };
 
-type Node = Field | ObjectNode | CollectionNode;
+type ArrayNode = {
+  items: ObjectNode[];
+  [nodeMetadata]: {
+    kind: "array";
+    name: string;
+    readOnly?: boolean;
+    element: ObjectNode;
+    /** Local value edits; they do not establish a separate persistence boundary. */
+    operations: Partial<Record<"create", Operation>>;
+  };
+};
+type Node = Field | ObjectNode | CollectionNode | ArrayNode;
 type Target = ObjectNode | CollectionNode;
 
 type Permission = {
@@ -84,8 +151,8 @@ type Permission = {
  * Inputs live directly in field values. No editor baseline, frozen request,
  * persistence port, component, template or parallel page definition is required.
  *
- * This first type slice covers ordinary objects and collections. The existing
- * BusinessApplication runtime has not yet migrated to this contract.
+ * All business families share direct values and no-argument operations.
+ * Family discriminants restrict operations without selecting consumer layouts.
  * @see https://github.com/hansonyu183/zerp-ui/issues/152
  */
 export interface BusinessModel {
@@ -98,6 +165,17 @@ export interface BusinessModel {
       companyName: string;
     };
     owner: Owner | null;
+    authentication?: ObjectNode;
+    account?: {
+      name: string;
+      profile?: ObjectNode;
+      password?: ObjectNode;
+      signOut?: Operation;
+    };
+    session?: {
+      state: "anonymous" | "ready" | "recovering" | "password-required";
+      message?: string;
+    };
     /** null means authorization is not ready; it never grants workspace access. */
     userPermissions:
       | ({ owner: Owner } & (
