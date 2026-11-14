@@ -1,7 +1,9 @@
+// Private legacy engine contract regression; not a public package contract.
+import { permission } from "../src/model-permission";
+import { voucherOperations } from "../src/model-submission";
+import type { ModelQuery } from "../src/model-query";
 import {
   application,
-  permission,
-  voucherOperations,
   array,
   object,
   collection,
@@ -10,8 +12,7 @@ import {
   decimal,
   type ModelInput,
   type ModelWrite,
-  type ModelQuery,
-} from "../src/model";
+} from "../src/reactive-model";
 const customer = () =>
   object(
     "客户",
@@ -128,7 +129,7 @@ const wrongEvidence: ModelWrite<{ name: string }, { id: string }> = {
     };
   },
 };
-const invalidField: import("../src/model").ModelWriteResult<
+const invalidField: import("../src/reactive-model").ModelWriteResult<
   { name: string },
   { id: string }
 > = {
@@ -180,7 +181,7 @@ const foreignContact = () =>
       operations: {
         update: {
           async run(
-            _request: import("../src/model").ModelRequest<
+            _request: import("../src/reactive-model").ModelRequest<
               { name?: string | null },
               { id: string | null },
               readonly [{ foreign: string }]
@@ -222,7 +223,10 @@ void [writableArrays, forbiddenArrays];
 
 // API-produced dynamic members retain unknown values for business decoding;
 // they must not become an impossible Record<string, never> callback contract.
-const dynamicMembers: Record<string, import("../src/model").ModelNode> = {
+const dynamicMembers: Record<
+  string,
+  import("../src/reactive-model").ModelNode
+> = {
   amount: decimal("动态金额"),
 };
 const dynamicRecord = object("动态 API 对象", dynamicMembers, {
@@ -257,12 +261,12 @@ const dynamicFields: ModelWrite<Record<string, unknown>, { id: string }> = {
 };
 void dynamicFields;
 
-const staticField: import("../src/model").ModelFieldPath<{
+const staticField: import("../src/reactive-model").ModelFieldPath<{
   contact: { phone: string };
   "contact.phone": string;
 }> = ["contact", "phone"];
 // @ts-expect-error static nested paths stay scoped to declared fields
-const wrongStaticField: import("../src/model").ModelFieldPath<{
+const wrongStaticField: import("../src/reactive-model").ModelFieldPath<{
   contact: { phone: string };
 }> = ["contact", "password"];
 void [staticField, wrongStaticField];
