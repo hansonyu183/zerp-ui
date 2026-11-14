@@ -35,6 +35,7 @@
     "typecheck": "pnpm build && vue-tsc --noEmit",
     "build": "vite build && vue-tsc -p tsconfig.build.json && node scripts/build-assets.mjs",
     "test": "vitest run",
+    "test:reactivity": "vitest run tests/business-model-reactivity.spec.ts",
     "lint": "oxlint src tests examples scripts",
     "format": "prettier --write src tests examples scripts '*.{json,ts}' README.md CHANGELOG.md GLOSSARY.md",
     "format:check": "prettier --check src tests examples scripts '*.{json,ts}' README.md CHANGELOG.md GLOSSARY.md",

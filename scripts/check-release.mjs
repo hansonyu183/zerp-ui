@@ -42,7 +42,9 @@ assert.ok(
 );
 for (const script of ["typecheck", "lint", "format:check"])
   run("pnpm", [script]);
-if (artifactIndex < 0) run("pnpm", ["test"]);
+run("pnpm", ["test:reactivity"]);
+if (artifactIndex < 0)
+  run("pnpm", ["test", "--exclude", "tests/business-model-reactivity.spec.ts"]);
 const slices = [
   { issue: 123, name: "model", build: "build:model", flag: ["--model"] },
   {
