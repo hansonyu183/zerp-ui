@@ -1,6 +1,6 @@
 {
   "name": "@zerp/ui",
-  "version": "0.41.0",
+  "version": "0.42.0",
   "type": "module",
   "license": "MIT",
   "files": [
@@ -43,10 +43,7 @@
     "dev:model": "vite examples/model --host 127.0.0.1",
     "build:model": "vite build examples/model",
     "check:model": "pnpm build && pnpm build:model && node scripts/check-package.mjs --model",
-    "test:model": "vitest run tests/reactive-model.spec.ts tests/model-password.spec.ts tests/model-value-array.spec.ts tests/public-api.spec.ts",
-    "dev:model-business": "vite examples/model-business --host 127.0.0.1",
-    "build:model-business": "vite build examples/model-business",
-    "check:model-business": "pnpm build && pnpm build:model-business && node scripts/check-package.mjs --model-business",
+    "test:model": "vitest run tests/business-model.spec.ts tests/public-api.spec.ts",
     "dev": "vite examples/model --host 127.0.0.1",
     "check:package": "pnpm build && pnpm build:model && node scripts/check-package.mjs --model"
   },
