@@ -5,7 +5,25 @@ import { document, voucher, workflow, batch, report, output } from "./families";
 
 const trace = (name: string) => console.log(`synthetic-call:${name}`);
 const owner = { ledger: "synthetic", operator: "demo", generation: "1" };
+const catalog = reactive({
+  value: null as { id: string; label: string } | null,
+  [meta]: {
+    kind: "reference",
+    name: "客户分类",
+    options: [] as { id: string; label: string }[],
+    load: {
+      async run() {
+        trace("catalog.load");
+        catalog[meta].options = Array.from({ length: 45 }, (_, i) => ({
+          id: String(i + 1),
+          label: `分类${i + 1}`,
+        }));
+      },
+    },
+  },
+} satisfies BusinessModel[string]);
 const record = {
+  category: catalog,
   code: { value: "C1", [meta]: { kind: "text", name: "编号", readOnly: true } },
   name: { value: "合成客户甲", [meta]: { kind: "text", name: "客户名称" } },
   credit: { value: "100.00", [meta]: { kind: "decimal", name: "额度" } },
@@ -13,7 +31,7 @@ const record = {
     kind: "object",
     name: "客户资料",
     identity: "C1",
-    form: ["code", "name", "credit"],
+    form: ["code", "name", "credit", "category"],
     operations: {
       get: {
         async run() {
@@ -53,12 +71,41 @@ const customers = {
       query: {
         async run() {
           trace("customers.query");
+          if (model.directory.customers.query.keyword.value === "失败")
+            throw Error("合成查询失败");
         },
       },
     },
   },
 } satisfies BusinessModel[string];
+const historyEntry = {
+  code: { value: "", [meta]: { kind: "text", name: "记录编号" } },
+  name: { value: "", [meta]: { kind: "text", name: "变更内容" } },
+  [meta]: {
+    kind: "object",
+    name: "变更记录项",
+    readOnly: true,
+    operations: {},
+  },
+} satisfies BusinessModel[string];
+const emptyHistory = {
+  items: [],
+  selected: null,
+  draft: null,
+  query: { [meta]: { kind: "object", name: "记录查询条件", operations: {} } },
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  [meta]: {
+    kind: "collection",
+    name: "变更记录",
+    element: historyEntry,
+    list: ["code", "name"],
+    operations: {},
+  },
+} satisfies BusinessModel[string];
 const directory = {
+  emptyHistory,
   overview: {
     note: {
       value: "输入直接更新模型；操作读取当前值。",
@@ -70,12 +117,97 @@ const directory = {
   [meta]: {
     kind: "object",
     name: "往来资料",
-    form: ["overview", "customers"],
+    form: ["overview", "customers", "emptyHistory"],
     operations: {},
+  },
+} satisfies BusinessModel[string];
+const authentication = {
+  username: {
+    value: "",
+    [meta]: { kind: "text", name: "登录名", required: true },
+  },
+  password: {
+    value: "",
+    [meta]: { kind: "password", name: "登录密码", required: true },
+  },
+  [meta]: {
+    kind: "object",
+    family: "authentication",
+    name: "登录",
+    operations: {
+      signIn: {
+        async run() {
+          trace("session.signIn");
+          model[meta].owner = { ...owner, generation: String(Date.now()) };
+          model[meta].userPermissions =
+            model.authentication.username.value === "viewer"
+              ? {
+                  owner: model[meta].owner,
+                  administrator: false,
+                  grants: [
+                    {
+                      node: model.directory.customers,
+                      read: true,
+                      write: false,
+                      operations: { query: true, get: true },
+                    },
+                    {
+                      node: model.directory.customers[meta].element.credit,
+                      read: false,
+                    },
+                  ],
+                }
+              : { owner: model[meta].owner, administrator: true };
+          model[meta].session.state = "ready";
+          model[meta].navigation.current = model.directory;
+        },
+      },
+    },
+  },
+} satisfies BusinessModel[string];
+const profile = {
+  displayName: {
+    value: "合成用户",
+    [meta]: { kind: "text", name: "用户姓名" },
+  },
+  [meta]: {
+    kind: "object",
+    name: "个人资料",
+    operations: {
+      get: {
+        async run() {
+          trace("account.profile");
+        },
+      },
+    },
+  },
+} satisfies BusinessModel[string];
+const password = {
+  next: { value: "", [meta]: { kind: "password", name: "新密码" } },
+  [meta]: {
+    kind: "object",
+    family: "account",
+    name: "密码管理",
+    operations: {
+      changePassword: {
+        async run() {
+          trace("account.changePassword");
+          model[meta].messages.push({
+            id: "password",
+            level: "info",
+            text: "合成密码已更新",
+          });
+          model.password.next.value = "";
+        },
+      },
+    },
   },
 } satisfies BusinessModel[string];
 type Target = NonNullable<BusinessModel[typeof meta]["navigation"]["current"]>;
 const source = {
+  authentication,
+  profile,
+  password,
   directory,
   document,
   voucher,
@@ -87,8 +219,24 @@ const source = {
     kind: "application",
     name: "直接业务模型",
     brand: { productName: "合成业务示例", companyName: "示例企业" },
-    owner,
-    userPermissions: { owner, administrator: true },
+    owner: null as BusinessModel[typeof meta]["owner"],
+    userPermissions: null as BusinessModel[typeof meta]["userPermissions"],
+    authentication,
+    session: { state: "anonymous" as "anonymous" | "ready" },
+    account: {
+      name: "合成用户",
+      profile,
+      password,
+      signOut: {
+        async run() {
+          trace("session.signOut");
+          model[meta].owner = null;
+          model[meta].userPermissions = null;
+          model[meta].session.state = "anonymous";
+          model.authentication.password.value = "";
+        },
+      },
+    },
     navigation: {
       current: directory as Target | null,
       href(node: Target) {

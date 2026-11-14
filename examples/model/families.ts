@@ -42,6 +42,40 @@ const line = {
 };
 export const voucher = reactive({
   number: text("单据编号", "V001"),
+  tags: {
+    items: [text("标签值", "初始标签")],
+    [meta]: {
+      kind: "array",
+      name: "标签",
+      element: text("标签值", ""),
+      operations: {},
+    },
+  },
+  related: {
+    items: [
+      {
+        value: null as { id: string; label: string } | null,
+        [meta]: {
+          kind: "reference" as const,
+          name: "关联值",
+          options: [{ id: "R1", label: "合成关联" }],
+        },
+      },
+    ],
+    [meta]: {
+      kind: "array",
+      name: "关联列表",
+      element: {
+        value: null,
+        [meta]: {
+          kind: "reference",
+          name: "关联值",
+          options: [{ id: "R1", label: "合成关联" }],
+        },
+      },
+      operations: {},
+    },
+  },
   amount: {
     value: "20.00",
     [meta]: { kind: "decimal", name: "金额", readOnly: true },
@@ -59,7 +93,7 @@ export const voucher = reactive({
     kind: "object",
     family: "voucher",
     name: "单据办理",
-    form: ["number", "amount", "files", "status", "rows"],
+    form: ["number", "amount", "files", "status", "rows", "tags", "related"],
     operations: {
       calculate: {
         async run() {
@@ -78,7 +112,7 @@ export const voucher = reactive({
       submit: {
         async run() {
           trace("voucher.submit");
-          voucher.status.value = "已提交";
+          voucher.status.value = `已提交：${voucher.tags.items[0]!.value}/${voucher.related.items[0]!.value?.label ?? "无关联"}`;
         },
       },
       withdraw: {
@@ -142,6 +176,14 @@ export const batch = reactive({
   },
 } satisfies BusinessModel[string]);
 export const report = reactive({
+  answers: {
+    value: {} as Record<string, string | boolean>,
+    [meta]: {
+      kind: "interactions",
+      name: "查询问题",
+      items: [{ kind: "input", id: "factor", label: "计算系数" }],
+    },
+  },
   quantity: { value: "2", [meta]: { kind: "decimal", name: "查询数量" } },
   total: {
     value: "0.00",
@@ -155,7 +197,10 @@ export const report = reactive({
       calculate: {
         async run() {
           trace("report.calculate");
-          report.total.value = (Number(report.quantity.value) * 10).toFixed(2);
+          report.total.value = (
+            Number(report.quantity.value) *
+            Number(report.answers.value.factor || 10)
+          ).toFixed(2);
         },
       },
       export: {
@@ -178,7 +223,30 @@ type Output = Extract<BusinessModel[string], { [meta]: { kind: "output" } }>;
 export const output = reactive({
   sheet: {
     value: null as Output["value"],
-    [meta]: { kind: "output", name: "打印内容" },
+    [meta]: {
+      kind: "output",
+      name: "打印内容",
+      operations: {
+        print: {
+          async run() {
+            trace("output.print");
+            output.result.value = "等待打印确认";
+          },
+        },
+        confirmPrinted: {
+          async run() {
+            trace("output.confirmPrinted");
+            output.result.value = "已确认打印";
+          },
+        },
+        confirmNotPrinted: {
+          async run() {
+            trace("output.confirmNotPrinted");
+            output.result.value = "已确认未打印";
+          },
+        },
+      },
+    },
   },
   result: text("打印结果", "未确认"),
   [meta]: {
@@ -211,18 +279,6 @@ export const output = reactive({
               },
             ],
           };
-        },
-      },
-      confirmPrinted: {
-        async run() {
-          trace("output.confirmPrinted");
-          output.result.value = "已确认打印";
-        },
-      },
-      confirmNotPrinted: {
-        async run() {
-          trace("output.confirmNotPrinted");
-          output.result.value = "已确认未打印";
         },
       },
     },
