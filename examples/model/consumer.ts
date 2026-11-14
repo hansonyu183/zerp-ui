@@ -78,6 +78,16 @@ const customers = {
     },
   },
 } satisfies BusinessModel[string];
+const historyEntry = {
+  code: { value: "", [meta]: { kind: "text", name: "记录编号" } },
+  name: { value: "", [meta]: { kind: "text", name: "变更内容" } },
+  [meta]: {
+    kind: "object",
+    name: "变更记录项",
+    readOnly: true,
+    operations: {},
+  },
+} satisfies BusinessModel[string];
 const emptyHistory = {
   items: [],
   selected: null,
@@ -89,7 +99,7 @@ const emptyHistory = {
   [meta]: {
     kind: "collection",
     name: "变更记录",
-    element: record,
+    element: historyEntry,
     list: ["code", "name"],
     operations: {},
   },

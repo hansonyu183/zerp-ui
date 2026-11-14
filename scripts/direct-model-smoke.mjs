@@ -172,14 +172,22 @@ export async function directModelSmoke(page) {
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
-    await page.getByText("名称与头像", { exact: true }).click();
+    await page
+      .getByRole("menuitem", { name: "名称与头像", exact: true })
+      .click();
+    await expect(
+      page.getByRole("menu", { name: "账户菜单", exact: true }),
+    ).toBeHidden();
     await expect(
       page.getByRole("textbox", { name: "用户姓名", exact: true }),
     ).toHaveValue("合成用户");
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
-    await page.getByText("更改密码", { exact: true }).click();
+    await page.getByRole("menuitem", { name: "更改密码", exact: true }).click();
+    await expect(
+      page.getByRole("menu", { name: "账户菜单", exact: true }),
+    ).toBeHidden();
     await page
       .getByRole("textbox", { name: "新密码", exact: true })
       .fill("synthetic-next");
@@ -188,7 +196,10 @@ export async function directModelSmoke(page) {
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
-    await page.getByText("退出登录", { exact: true }).click();
+    await page.getByRole("menuitem", { name: "退出登录", exact: true }).click();
+    await expect(
+      page.getByRole("menu", { name: "账户菜单", exact: true }),
+    ).toBeHidden();
     await page
       .getByRole("textbox", { name: "登录名", exact: true })
       .fill("viewer");
