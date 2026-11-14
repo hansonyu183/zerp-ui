@@ -142,6 +142,14 @@ export const batch = reactive({
   },
 } satisfies BusinessModel[string]);
 export const report = reactive({
+  answers: {
+    value: {} as Record<string, string | boolean>,
+    [meta]: {
+      kind: "interactions",
+      name: "查询问题",
+      items: [{ kind: "input", id: "factor", label: "计算系数" }],
+    },
+  },
   quantity: { value: "2", [meta]: { kind: "decimal", name: "查询数量" } },
   total: {
     value: "0.00",
@@ -155,7 +163,10 @@ export const report = reactive({
       calculate: {
         async run() {
           trace("report.calculate");
-          report.total.value = (Number(report.quantity.value) * 10).toFixed(2);
+          report.total.value = (
+            Number(report.quantity.value) *
+            Number(report.answers.value.factor || 10)
+          ).toFixed(2);
         },
       },
       export: {
@@ -178,7 +189,30 @@ type Output = Extract<BusinessModel[string], { [meta]: { kind: "output" } }>;
 export const output = reactive({
   sheet: {
     value: null as Output["value"],
-    [meta]: { kind: "output", name: "打印内容" },
+    [meta]: {
+      kind: "output",
+      name: "打印内容",
+      operations: {
+        print: {
+          async run() {
+            trace("output.print");
+            output.result.value = "等待打印确认";
+          },
+        },
+        confirmPrinted: {
+          async run() {
+            trace("output.confirmPrinted");
+            output.result.value = "已确认打印";
+          },
+        },
+        confirmNotPrinted: {
+          async run() {
+            trace("output.confirmNotPrinted");
+            output.result.value = "已确认未打印";
+          },
+        },
+      },
+    },
   },
   result: text("打印结果", "未确认"),
   [meta]: {
@@ -211,18 +245,6 @@ export const output = reactive({
               },
             ],
           };
-        },
-      },
-      confirmPrinted: {
-        async run() {
-          trace("output.confirmPrinted");
-          output.result.value = "已确认打印";
-        },
-      },
-      confirmNotPrinted: {
-        async run() {
-          trace("output.confirmNotPrinted");
-          output.result.value = "已确认未打印";
         },
       },
     },
