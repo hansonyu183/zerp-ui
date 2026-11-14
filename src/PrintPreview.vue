@@ -9,6 +9,7 @@ const props = defineProps<{
   allowed: boolean;
   disabled?: boolean;
 }>();
+const emit = defineEmits<{ opened: [] }>();
 const frame = ref<HTMLIFrameElement>(),
   ready = ref(false),
   error = ref("");
@@ -67,6 +68,7 @@ function print() {
   if (!props.allowed || props.disabled || !ready.value || !markup.value) return;
   try {
     frame.value?.contentWindow?.print();
+    emit("opened");
   } catch {
     error.value = "打印窗口未打开，请确认未打印。";
   }
