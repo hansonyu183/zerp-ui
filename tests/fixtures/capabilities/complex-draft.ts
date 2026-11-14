@@ -77,12 +77,13 @@ export function complexValues(): ComplexDraft {
   };
 }
 const regionCatalog: ReferenceAdapter = {
-  search: async () => ({ items: copy(regions), total: 2 }),
-  resolve: async ({ ids }) => copy(regions.filter((r) => ids.includes(r.id))),
+  directory: {},
+  load: async () => copy(regions),
 };
 const warehouseCatalog: ReferenceAdapter = {
-  search: async ({ parent }) => ({
-    items: parent
+  directory: {},
+  load: async ({ parent }) =>
+    parent
       ? [
           {
             id: `${parent.id}-warehouse`,
@@ -91,14 +92,6 @@ const warehouseCatalog: ReferenceAdapter = {
           },
         ]
       : [],
-    hasMore: false,
-  }),
-  resolve: async ({ ids }) =>
-    ids.map((id) => ({
-      id,
-      label: "目录新仓库名",
-      snapshot: { revision: "r2" },
-    })),
 };
 /** Synthetic calculation is exact decimal addition, owned by the consumer. */
 function sum(values: readonly string[]) {

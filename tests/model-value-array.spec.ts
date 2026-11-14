@@ -21,7 +21,9 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 async function click(label: string) {
-  const button = [...document.querySelectorAll("button")].find(
+  const button = [
+    ...document.querySelectorAll<HTMLElement>("button,[role=option]"),
+  ].find(
     (b) =>
       b.textContent?.trim() === label || b.getAttribute("aria-label") === label,
   );
@@ -36,6 +38,10 @@ async function render(target: ModelNode) {
       { target },
       {
         owner: { ledger: "test", operator: "user", generation: "1" },
+        userPermissions: {
+          owner: { ledger: "test", operator: "user", generation: "1" },
+          administrator: true,
+        },
         brand: {
           productName: "合成",
           enterpriseName: "合成",
@@ -110,17 +116,12 @@ it("renders and changes a reference array without changing its scalar ID shape",
     reference("分组", {
       value: id,
       operations: {
-        search: {
+        load: {
           async run() {
-            return { items: [{ id: "B", label: "合成分组乙" }], total: 1 };
-          },
-        },
-        resolve: {
-          async run({ input }) {
-            return input.ids.map((id) => ({
-              id,
-              label: id === "A" ? "合成分组甲" : "合成分组乙",
-            }));
+            return [
+              { id: "A", label: "合成分组甲" },
+              { id: "B", label: "合成分组乙" },
+            ];
           },
         },
       },
@@ -132,11 +133,12 @@ it("renders and changes a reference array without changing its scalar ID shape",
   );
   await render(target);
   const input = document.querySelector<HTMLInputElement>(
-    'input[aria-label="分组"]',
+    'input[aria-label="所属分组"]',
   );
-  expect(input?.value).toContain("合成分组甲");
+  expect(document.body.textContent).toContain("合成分组甲");
   input!.click();
   await flushPromises();
+  await click("合成分组甲");
   await click("合成分组乙");
   await click("保存");
   expect(run.mock.calls[0]![0]).toMatchObject({ input: { groups: ["B"] } });

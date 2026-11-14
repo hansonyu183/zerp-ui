@@ -60,6 +60,14 @@ function button(w: VueWrapper, label: string) {
   return found!;
 }
 async function click(w: VueWrapper, label: string) {
+  const option = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((item) => item.textContent?.trim() === label);
+  if (option) {
+    option.click();
+    await flushPromises();
+    return;
+  }
   await button(w, label).trigger("click");
   await flushPromises();
 }
@@ -80,7 +88,7 @@ it("saves directly edited complex blocks with exact values, children and adopted
       saves.push(value);
     },
   });
-  expect(input(w, "仓库").element.value).toBe("历史仓库");
+  expect(w.text()).toContain("历史仓库");
   expect(w.text()).not.toContain("目录新仓库名");
   await input(w, "换算比").setValue("9007199254740993.0100");
   expect(button(w, "保存").attributes("disabled")).toBeDefined();
@@ -164,10 +172,7 @@ it("protects unfinished collection input and discards a child panel without a fi
   expect(save).not.toHaveBeenCalled();
 });
 it("retains historical reference facts but clears a dependent selection on parent change and ignores the old catalog", async () => {
-  let oldSearch!: (value: {
-    items: { id: string; label: string }[];
-    total: number;
-  }) => void;
+  let oldSearch!: (value: { id: string; label: string }[]) => void;
   const parents: (string | undefined)[] = [];
   const saves: ComplexDraft[] = [];
   const w = await start({
@@ -175,47 +180,41 @@ it("retains historical reference facts but clears a dependent selection on paren
       saves.push(value);
     },
     warehouse: {
-      search: ({ parent }) => {
+      directory: {},
+      load: ({ parent }) => {
         parents.push(parent?.id);
         if (parent?.id === "north")
           return new Promise((resolve) => {
             oldSearch = resolve;
           });
-        return Promise.resolve({
-          items: [
-            {
-              id: "south-warehouse",
-              label: "新南区仓库",
-              snapshot: { revision: "r7" },
-            },
-          ],
-          total: 1,
-        });
+        return Promise.resolve([
+          {
+            id: "south-warehouse",
+            label: "新南区仓库",
+            snapshot: { revision: "r7" },
+          },
+        ]);
       },
-      resolve: async ({ ids }) =>
-        ids.map((id) => ({
-          id,
-          label: "目录新仓库名",
-          snapshot: { revision: "r9" },
-        })),
     },
   });
-  expect(input(w, "仓库").element.value).toBe("历史仓库");
+  expect(w.text()).toContain("历史仓库");
   expect(w.text()).not.toContain("目录新仓库名");
+  await input(w, "仓库").trigger("click");
+  await flushPromises();
+  await input(w, "仓库").trigger("keydown", { key: "Escape" });
   await input(w, "补充说明").setValue(true);
   await input(w, "地区说明").setValue("保留条件字段内容");
   await input(w, "地区").trigger("click");
   await flushPromises();
   await click(w, "合成南区");
   expect(input(w, "仓库").element.value).toBe("");
-  expect(new Set(parents)).toEqual(new Set(["north", "south"]));
-  expect(parents.at(-1)).toBe("south");
-  oldSearch({ items: [{ id: "late", label: "迟到北区仓库" }], total: 1 });
+  oldSearch([{ id: "late", label: "迟到北区仓库" }]);
   await flushPromises();
   expect(w.text()).not.toContain("迟到北区仓库");
   await input(w, "仓库").trigger("click");
   await flushPromises();
   await click(w, "新南区仓库");
+  expect(new Set(parents)).toEqual(new Set(["north", "south"]));
   await answer(w);
   await click(w, "保存");
   expect(saves[0].profile).toEqual({

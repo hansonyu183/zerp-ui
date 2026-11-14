@@ -1,3 +1,4 @@
+import type { ModelUserPermissions } from "./model-permission";
 import type { WorkflowOperations } from "./model-workflow";
 import type { BatchOperations } from "./model-batch";
 import type { SubmissionOperations } from "./model-submission";
@@ -287,23 +288,16 @@ export type SessionOperations<V> = Partial<
     }
   >
 >;
-type ReferenceRead<I, O> = {
-  disabledReason?: string;
-  run(
-    context: Omit<ModelContext, "owner"> & {
-      owner: ModelOwner | null;
-      input: ReadonlyValue<I>;
-      page: number;
-      pageSize: number;
-    },
-  ): Promise<O>;
-};
 export type ReferenceOperations = {
-  search: ReferenceRead<
-    { keyword: string; ancestor?: ReferenceValue | null },
-    Page<ReferenceValue>
-  >;
-  resolve: ReferenceRead<{ ids: readonly string[] }, readonly ReferenceValue[]>;
+  load: {
+    disabledReason?: string;
+    run(
+      context: Omit<ModelContext, "owner"> & {
+        owner: ModelOwner | null;
+        input: { dependencies: readonly unknown[] };
+      },
+    ): Promise<readonly ReferenceValue[]>;
+  };
 };
 type ListPath<S extends ModelMembers> = {
   [K in Extract<keyof S, string>]:
@@ -427,6 +421,18 @@ export type ModelNavigation = {
     ) => Promise<boolean>,
   ): () => void;
 };
+export type ModelNavigationGroup = {
+  key: string;
+  name: string;
+  items: readonly (
+    | { node: ModelNode }
+    | {
+        key: string;
+        name: string;
+        items: readonly { node: ModelNode }[];
+      }
+  )[];
+};
 export type ModelApplicationOptions = NoPresentation & {
   owner: ModelOwner | null;
   brand: Brand;
@@ -437,6 +443,8 @@ export type ModelApplicationOptions = NoPresentation & {
   };
   theme?: { value: ThemeChoice; change(value: ThemeChoice): void };
   navigation: ModelNavigation;
+  userPermissions?: ModelUserPermissions | null;
+  navigationProjection?: readonly ModelNavigationGroup[];
   persistence?: ModelPersistence;
   forcePasswordChange?: boolean;
 };
@@ -557,6 +565,7 @@ export const enumeration = (
 export function reference<
   const O extends FieldOptions<string | null> & {
     operations: ReferenceOperations;
+    dependencies?: readonly ValueNode<unknown>[];
     target?: ModelNode;
   },
 >(

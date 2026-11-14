@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { BusinessApplication } from "../src/index";
 import {
   application,
+  permission,
   object,
   collection,
   text,
@@ -141,6 +142,15 @@ async function fixture(
       home: "/",
       mark: { kind: "text" as const, text: "例" },
     },
+  });
+  Object.defineProperty(settings, "userPermissions", {
+    get: () => ({ owner: { ...settings.owner }, administrator: true }),
+    configurable: true,
+  });
+  Object.assign(settings, {
+    navigationProjection: [
+      { key: "business", name: "业务", items: [{ node: customers }] },
+    ],
   });
   const model = reactive(
     application("合成应用", { customers, notifications: messages() }, settings),
@@ -386,8 +396,15 @@ async function renderNode(
       visit: vi.fn(),
       guard: () => () => {},
     } as ModelNavigation,
+    navigationProjection: [
+      { key: "business", name: "业务", items: [{ node }] },
+    ],
     ...extra,
   });
+  if (!("userPermissions" in extra))
+    Object.assign(settings, {
+      userPermissions: { owner: settings.owner, administrator: true },
+    });
   await mountApplication(
     reactive(application("合成应用", { records: node }, settings)),
   );
@@ -499,17 +516,13 @@ it.each([false, true])(
   },
 );
 it("does not call disabled reference operations and presents their business reason", async () => {
-  const search = vi.fn(async () => ({ items: [], total: 0 }));
-  const resolve = vi.fn(async () => []);
+  const search = vi.fn(async () => []);
   const node = object(
     "设置",
     {
       category: reference("分类", {
         value: "old",
-        operations: {
-          search: { disabledReason: "分类搜索已停用", run: search },
-          resolve: { disabledReason: "分类解析已停用", run: resolve },
-        },
+        operations: { load: { disabledReason: "分类搜索已停用", run: search } },
       }),
     },
     {
@@ -525,7 +538,6 @@ it("does not call disabled reference operations and presents their business reas
   await renderNode(node);
   await click("编辑");
   expect(search).not.toHaveBeenCalled();
-  expect(resolve).not.toHaveBeenCalled();
   expect(document.body.textContent).toContain("分类搜索已停用");
   expect(
     document.querySelector<HTMLInputElement>('input[aria-label="分类"]')
@@ -2005,20 +2017,15 @@ it("renders feedback returned by the adopted fixed query", async () => {
 });
 
 it("keeps fixed-report reference-array conditions stable while candidates resolve", async () => {
-  const resolve = vi.fn(
-    async ({ input }: { input: { ids: readonly string[] } }) =>
-      input.ids.map((id) => ({ id, label: "合成仓库 " + id })),
-  );
   const warehouse = () =>
     reference("仓库", {
       value: "W1",
       operations: {
-        search: {
+        load: {
           async run() {
-            return { items: [], total: 0 };
+            return [{ id: "W1", label: "合成仓库 W1" }];
           },
         },
-        resolve: { run: resolve },
       },
     });
   const parameters = object("条件", {
@@ -2062,7 +2069,6 @@ it("keeps fixed-report reference-array conditions stable while candidates resolv
     ...document.querySelectorAll<HTMLButtonElement>("button"),
   ].find((button) => button.textContent?.trim() === "查询")!;
   expect(query.disabled).toBe(false);
-  expect(resolve.mock.calls.length).toBeLessThan(4);
   await click("查询");
   expect(run).toHaveBeenCalledTimes(1);
   expect(run.mock.calls[0]![0]).toMatchObject({
@@ -2623,4 +2629,226 @@ it("retains an initially targeted off-page parent for its independent child deep
   await flushPromises();
   expect(childGet).toHaveBeenCalled();
   expect(document.body.textContent).toContain("relation");
+});
+
+it("loads a complete reference directory on demand and filters locally after 150ms", async () => {
+  const load = vi.fn(async () =>
+    Array.from({ length: 45 }, (_, i) => ({
+      id: String(i),
+      label: `候选${i}`,
+    })),
+  );
+  const node = object(
+    "目录设置",
+    { category: reference("分类", { operations: { load: { run: load } } }) },
+    {
+      operations: {
+        update: {
+          async run() {
+            return { status: "success" };
+          },
+        },
+      },
+    },
+  );
+  await renderNode(node);
+  await click("编辑");
+  expect(load).not.toHaveBeenCalled();
+  const element = document.querySelector<HTMLInputElement>(
+    'input[aria-label="分类"]',
+  )!;
+  element.click();
+  await flushPromises();
+  expect(load).toHaveBeenCalledOnce();
+  await input("分类", "候选44");
+  await new Promise((r) => setTimeout(r, 180));
+  await flushPromises();
+  expect(document.body.textContent).toContain("候选44");
+  expect(document.body.textContent).not.toContain("搜索引用");
+  (document.querySelector('[role="option"]') as HTMLElement).click();
+  await flushPromises();
+  expect(load).toHaveBeenCalledOnce();
+  expect(element.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("rejects missing and stale permissions, cuts fields and denies ungranted writes", async () => {
+  const run = vi.fn(async () => ({ status: "success" as const }));
+  const node = object(
+    "授权资料",
+    {
+      visible: text("可见", { value: "公开内容" }),
+      hidden: text("秘密", { value: "保密内容" }),
+    },
+    { operations: { update: { run } } },
+  );
+  const settings = await renderNode(node, { userPermissions: null });
+  expect(document.body.textContent).not.toContain("公开内容");
+  expect(run).not.toHaveBeenCalled();
+  Object.assign(settings, {
+    userPermissions: {
+      owner: { ...settings.owner },
+      grants: [
+        permission(node, { read: true, fields: { hidden: { read: false } } }),
+      ],
+    },
+  });
+  await flushPromises();
+  expect(document.body.textContent).toContain("公开内容");
+  expect(document.body.textContent).not.toContain("保密内容");
+  expect(
+    [...document.querySelectorAll("button")].some(
+      (button) => button.textContent?.trim() === "编辑" && !button.disabled,
+    ),
+  ).toBe(false);
+  settings.owner = { ...settings.owner!, generation: "2" };
+  await flushPromises();
+  expect(document.body.textContent).not.toContain("公开内容");
+});
+
+it("inherits readable fields, removes denied write fields and rechecks revoked actions", async () => {
+  const run = vi.fn(async (_request: unknown) => ({
+    status: "success" as const,
+  }));
+  const node = object(
+    "权限编辑",
+    {
+      name: text("可写名称", { value: "原名" }),
+      locked: text("只读字段", { value: "原值" }),
+      hidden: text("隐藏字段", { value: "机密" }),
+    },
+    { operations: { update: { run } } },
+  );
+  const owner = { ledger: "demo", operator: "u", generation: "1" };
+  const settings = await renderNode(node, {
+    userPermissions: {
+      owner,
+      grants: [
+        permission(node, {
+          read: true,
+          write: true,
+          operations: { update: true },
+          fields: { locked: { write: false }, hidden: { read: false } },
+        }),
+      ],
+    },
+  });
+  await click("编辑");
+  await input("可写名称", "新名");
+  expect(
+    document
+      .querySelector('input[aria-label="只读字段"]')
+      ?.hasAttribute("disabled"),
+  ).toBe(true);
+  expect(document.querySelector('input[aria-label="隐藏字段"]')).toBeNull();
+  await click("保存");
+  expect(run).toHaveBeenCalledOnce();
+  expect(run.mock.calls[0]![0]).toMatchObject({ input: { name: "新名" } });
+  expect((run.mock.calls[0]![0] as { input: object }).input).not.toHaveProperty(
+    "locked",
+  );
+  expect((run.mock.calls[0]![0] as { input: object }).input).not.toHaveProperty(
+    "hidden",
+  );
+  await click("编辑");
+  Object.assign(settings, {
+    userPermissions: { owner, grants: [permission(node, { read: true })] },
+  });
+  await flushPromises();
+  const save = [...document.querySelectorAll<HTMLButtonElement>("button")].find(
+    (button) => button.textContent?.trim() === "保存",
+  );
+  save?.click();
+  await flushPromises();
+  expect(run).toHaveBeenCalledOnce();
+});
+
+it("uses ordered explicit navigation, drops empty groups and rejects an unauthorized deep link", async () => {
+  const read = vi.fn(async () => ({
+    value: { name: "不应读取" },
+    identity: {},
+    concurrency: "1",
+  }));
+  const hidden = object(
+    "秘密业务",
+    { name: text("名称") },
+    { operations: { get: { run: read } } },
+  );
+  const first = object(
+    "先展示",
+    { name: text("名称") },
+    { operations: { get: { run: read } } },
+  );
+  const root = object("业务目录", { first, hidden });
+  const owner = { ledger: "demo", operator: "u", generation: "1" };
+  await renderNode(root, {
+    userPermissions: {
+      owner,
+      grants: [permission(first, { read: true, operations: { get: true } })],
+    },
+    navigation: {
+      current: { node: hidden },
+      href: () => "/shared",
+      visit: vi.fn(),
+      guard: () => () => {},
+    },
+    navigationProjection: [
+      { key: "empty", name: "不可见组", items: [{ node: hidden }] },
+      {
+        key: "work",
+        name: "业务分类",
+        items: [
+          {
+            key: "semantic",
+            name: "语义分组",
+            items: [{ node: first }, { node: hidden }],
+          },
+        ],
+      },
+    ],
+  });
+  expect(read).not.toHaveBeenCalled();
+  expect(document.body.textContent).toContain("业务分类");
+  expect(document.body.textContent).toContain("语义分组");
+  expect(document.body.textContent).not.toContain("不可见组");
+  expect(
+    [...document.querySelectorAll("a")].map((link) => link.textContent?.trim()),
+  ).toContain("先展示");
+  expect(
+    [...document.querySelectorAll("a")].map((link) => link.textContent?.trim()),
+  ).not.toContain("秘密业务");
+});
+
+it("retains an unknown original across root authorization withdrawal and restores only that request", async () => {
+  const f = await fixture(true);
+  await click("编辑");
+  await input("名称", "未知提交");
+  await click("保存");
+  Object.defineProperty(f.settings, "userPermissions", {
+    configurable: true,
+    writable: true,
+    value: {
+      owner: { ...f.settings.owner },
+      grants: [
+        permission(f.model.customers, {
+          read: true,
+          operations: { query: true, get: true },
+        }),
+      ],
+    },
+  });
+  await flushPromises();
+  expect(document.body.textContent).toContain("请求结果未知");
+  expect(f.run).toHaveBeenCalledOnce();
+  Object.defineProperty(f.settings, "userPermissions", {
+    configurable: true,
+    writable: true,
+    value: {
+      owner: { ...f.settings.owner },
+      administrator: true,
+    },
+  });
+  await flushPromises();
+  await click("核实本次请求");
+  expect(f.reconcile).toHaveBeenCalledOnce();
+  expect(f.run).toHaveBeenCalledOnce();
 });

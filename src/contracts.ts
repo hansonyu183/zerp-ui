@@ -12,18 +12,12 @@ export type ReferenceValue = {
   hasChildren?: boolean;
 };
 export type ReferenceAdapter = {
-  search(input: {
+  directory: object;
+  dependencies?: readonly unknown[];
+  load(input: {
     scope: string;
     parent?: ReferenceValue | null;
-    ancestor?: ReferenceValue | null;
-    keyword: string;
-    page: number;
-    pageSize: number;
-  }): Promise<Page<ReferenceValue>>;
-  resolve(input: {
-    scope: string;
-    parent?: ReferenceValue | null;
-    ids: readonly string[];
+    signal: AbortSignal;
   }): Promise<readonly ReferenceValue[]>;
 };
 type Common<K extends string> = {
@@ -57,7 +51,6 @@ export type AnyField = Common<string> &
         disabledReason?: string;
         parentKey?: string;
         valueMode?: "id";
-        hierarchical?: boolean;
       }
     | {
         type: "references";
@@ -65,7 +58,6 @@ export type AnyField = Common<string> &
         disabledReason?: string;
         parentKey?: string;
         valueMode?: "id";
-        hierarchical?: boolean;
       }
     | { type: "rows"; fields: readonly AnyField[]; empty: () => object }
   );

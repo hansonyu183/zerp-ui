@@ -1,3 +1,4 @@
+import { createModelPermissions } from "./model-permissions";
 import { bindArrayFields } from "./model-array-fields";
 import { discardedCollaboration } from "./collaboration-result";
 import { modelWorkflowPage } from "./model-workflow-runtime";
@@ -309,6 +310,13 @@ function rowKey(node: ModelNode, value?: unknown): string {
   }
   return key;
 }
+function referenceArray(node: ModelNode): boolean {
+  return (
+    node[nodeMetadata].kind === "array" &&
+    (node as ValueArray)[nodeMetadata].element[nodeMetadata].kind ===
+      "reference"
+  );
+}
 function flat(
   node: ModelNode,
   prefix: readonly string[] = [],
@@ -323,10 +331,14 @@ function flat(
     else if (child[nodeMetadata].kind === "array")
       target[JSON.stringify(path)] = (
         child as unknown as { items: ModelNode[] }
-      ).items.map((item) => ({
-        ...flat(rememberRow(child as ValueArray, item)),
-        $modelRowKey: rowKey(item),
-      }));
+      ).items.map((item) =>
+        referenceArray(child)
+          ? clone(modelValue(item))
+          : {
+              ...flat(rememberRow(child as ValueArray, item)),
+              $modelRowKey: rowKey(item),
+            },
+      );
     else target[JSON.stringify(path)] = clone(modelValue(child));
   }
   return target;
@@ -374,7 +386,9 @@ function unflat(
                         });
                         return result;
                       })()
-                    : row[JSON.stringify(["$value"])],
+                    : referenceArray(child)
+                      ? row
+                      : row[JSON.stringify(["$value"])],
                 )
               : input,
         ],
@@ -400,6 +414,10 @@ export function flattenValue(
       const element = (
         child as unknown as { [nodeMetadata]: { element: ModelNode } }
       )[nodeMetadata].element;
+      if (referenceArray(child)) {
+        target[JSON.stringify(path)] = clone(next);
+        continue;
+      }
       target[JSON.stringify(path)] = next.map((value, index) => {
         const row = declaredRow(child as ValueArray, value, index);
         return isObject(element)
@@ -486,6 +504,7 @@ export function createModelRuntime(
   }
 
   const options = () => source()[nodeMetadata].options;
+  const authorization = createModelPermissions(() => source());
   function context(id: ModelIdentity, signal: AbortSignal): Context {
     if (!options().owner) throw Error("会话已失效。");
     return {
@@ -514,6 +533,7 @@ export function createModelRuntime(
       : entries;
     const projected = ordered.flatMap(([key, child]): AnyField[] => {
       if (independent(child)) return [];
+      if (options().owner && !authorization.readable(child)) return [];
       const path = [...prefix, key],
         meta = child[nodeMetadata];
       if (meta.kind === "object")
@@ -528,63 +548,69 @@ export function createModelRuntime(
         key: JSON.stringify(path),
         label: meta.name,
         required: fieldMeta.options?.required,
-        readonly: inheritedReadonly || fieldMeta.options?.readOnly,
+        readonly:
+          inheritedReadonly ||
+          fieldMeta.options?.readOnly ||
+          (!!options().owner && !authorization.access(child).write),
       };
       if (meta.kind === "reference") {
         const operations = fieldMeta.operations as ReferenceOperations;
-        const invoke = async (
-          op: "search" | "resolve",
-          input: unknown,
-          page = 1,
-          pageSize = 20,
-        ) => {
-          const operation = operations[op],
-            run = operation.run,
-            owner = ownerKey(options().owner);
-          if (operation.disabledReason) throw Error(operation.disabledReason);
-          const result = await run({
-            owner: clone(options().owner),
-            identity: null,
-            signal: new AbortController().signal,
-            ancestors: [] as const,
-            input: input as never,
-            page,
-            pageSize,
-          });
-          if (
-            ownerKey(options().owner) !== owner ||
-            fieldMeta.operations !== operations ||
-            operations[op] !== operation ||
-            operation.run !== run ||
-            operation.disabledReason
-          )
-            throw Error("引用读取已失效。");
-          return result;
+        const referenceOptions = fieldMeta.options as {
+          dependencies?: readonly ValueNode<unknown>[];
         };
+        const dependencies = (referenceOptions.dependencies ?? []).map((node) =>
+          clone(node.value),
+        );
         return [
           {
             ...common,
             type: "reference",
             valueMode: "id",
-            disabledReason: operations.search.disabledReason,
+            disabledReason: operations.load.disabledReason,
             adapter: {
-              search: ({ keyword, ancestor, page, pageSize }) =>
-                invoke(
-                  "search",
-                  { keyword, ancestor },
-                  page,
-                  pageSize,
-                ) as Promise<Page<import("./contracts").ReferenceValue>>,
-              resolve: ({ ids }) =>
-                invoke("resolve", { ids }) as Promise<
-                  readonly import("./contracts").ReferenceValue[]
-                >,
+              directory: operations,
+              dependencies,
+              async load({ signal }) {
+                const operation = operations.load;
+                const owner = ownerKey(options().owner);
+                if (operation.disabledReason)
+                  throw Error(operation.disabledReason);
+                const result = await operation.run({
+                  owner: clone(options().owner),
+                  identity: null,
+                  ancestors: [],
+                  signal,
+                  input: { dependencies },
+                });
+                if (
+                  signal.aborted ||
+                  ownerKey(options().owner) !== owner ||
+                  operations.load !== operation ||
+                  !equalValues(
+                    dependencies,
+                    (referenceOptions.dependencies ?? []).map(
+                      (node) => node.value,
+                    ),
+                  )
+                )
+                  throw Error("引用读取已失效。");
+                return result;
+              },
             },
           },
         ];
       }
       if (meta.kind === "array") {
         const array = child as ValueArray;
+        if (referenceArray(child)) {
+          const projected = fields(
+            array[nodeMetadata].element,
+            [],
+            !!common.readonly,
+          )[0];
+          if (!projected || projected.type !== "reference") return [];
+          return [{ ...projected, ...common, type: "references" }];
+        }
         const unavailableFields: AnyField[] = [];
         const projections = new WeakMap<
           ModelNode,
@@ -726,7 +752,7 @@ export function createModelRuntime(
     path: readonly string[],
     ancestors: readonly unknown[] = [],
   ): Boundary {
-    const first = getNode()!;
+    const first = authorization.view(getNode()!);
     const collection = first[nodeMetadata].kind === "collection";
     const sample = shallowRef<RuntimeObject>(
       collection
@@ -736,8 +762,12 @@ export function createModelRuntime(
     const hasQueried = shallowRef(false);
     const resource = JSON.stringify([path, ancestors]);
     const selection = shallowRef<RuntimeObject>(
-      reactive(sample.value) as RuntimeObject,
+      authorization.bind(
+        reactive(sample.value) as RuntimeObject,
+        getNode()!,
+      ) as RuntimeObject,
     );
+    sample.value = selection.value;
     let requestController = new AbortController();
     let detailGeneration = 0;
     let readingNavigation = options().navigation.current;
@@ -746,9 +776,12 @@ export function createModelRuntime(
       RuntimeObject,
       import("./collaboration").InteractionAnswers
     >();
-    const currentNode = () => getNode();
+    const currentNode = () => {
+      const node = getNode();
+      return node ? authorization.view(node) : undefined;
+    };
     const detached = new WeakMap<ModelNode, Map<string, RuntimeObject>>();
-    const rowNode = (id?: ModelIdentity): RuntimeObject | undefined => {
+    const rawRowNode = (id?: ModelIdentity): RuntimeObject | undefined => {
       if (!id || id.value === null) return selection.value;
       const node = currentNode();
       if (!node) return undefined;
@@ -757,6 +790,13 @@ export function createModelRuntime(
             (row) => keyOf(identity(row).value) === keyOf(id.value),
           ) ?? detached.get(node)?.get(keyOf(id.value)))
         : asObject(node);
+    };
+    const rowNode = (id?: ModelIdentity): RuntimeObject | undefined => {
+      const row = rawRowNode(id);
+      const root = getNode();
+      return row && root
+        ? (authorization.bind(row, root) as RuntimeObject)
+        : row;
     };
     const qualify = (node: RuntimeObject) => ({
       ...identity(node),
@@ -1233,7 +1273,10 @@ export function createModelRuntime(
               target.kind !== "calculate"
             ) {
               if (target.kind === "related") {
-                options().navigation.visit(target.node, target.identity);
+                options().navigation.visit(
+                  reactive(toRaw(target.node)),
+                  target.identity,
+                );
               } else {
                 const download = await target.read({
                   owner: clone(options().owner!),
@@ -1478,7 +1521,7 @@ export function createModelRuntime(
         if (!step && options().navigation.current) return;
         if (step && equalValues(step.identity, id?.value)) return;
         const node = currentNode();
-        if (node) options().navigation.visit(node, id?.value);
+        if (node) options().navigation.visit(reactive(toRaw(node)), id?.value);
       },
       onSection: (key) => {
         const row = selection.value;
@@ -1488,7 +1531,7 @@ export function createModelRuntime(
         const node = child ?? currentNode();
         if (node)
           options().navigation.visit(
-            node,
+            reactive(toRaw(node)),
             child ? undefined : identity(row).value,
           );
       },
@@ -1498,7 +1541,7 @@ export function createModelRuntime(
         const node = currentNode();
         return node
           ? options().navigation.href(
-              node,
+              reactive(toRaw(node)),
               (row.$identity as ModelIdentity).value,
             )
           : undefined;
@@ -1517,7 +1560,7 @@ export function createModelRuntime(
                       key,
                       label: `打开${child[nodeMetadata].name}`,
                       href: options().navigation.href(
-                        target.target,
+                        reactive(toRaw(target.target)),
                         (child as ValueNode).value,
                       ),
                     },
@@ -1750,7 +1793,9 @@ export function createModelRuntime(
   }
   const runtime: ModelRuntime = {
     locate,
+    authorization,
     async requestNavigation(next, leave) {
+      if (next && !authorization.readable(next.node)) return false;
       const previous = locate(options().navigation.current),
         following = locate(next);
       const root = previous[0],
@@ -1810,6 +1855,7 @@ export function createModelRuntime(
   return runtime;
 }
 export type ModelRuntime = {
+  authorization: ReturnType<typeof createModelPermissions>;
   requestNavigation(
     next: { node: ModelNode; identity?: unknown } | null | undefined,
     leave: () => Promise<boolean>,

@@ -1,6 +1,7 @@
 import { reactive, watch, toRaw } from "vue";
 import { router } from "./router";
 import type { RouteLocationNormalized } from "vue-router";
+import { revisionNode } from "./revision";
 import { passwordNode } from "./password";
 import {
   application,
@@ -61,6 +62,15 @@ const options = reactive<ModelApplicationOptions>({
   },
   navigation: {} as ModelNavigation,
 });
+watch(
+  () => options.owner,
+  (value) => {
+    options.userPermissions = value
+      ? { owner: { ...value }, administrator: true }
+      : null;
+  },
+  { immediate: true, flush: "sync" },
+);
 const notifications = reactive(messages());
 const records = reactive(
   new Map<string, CustomerInput>(
@@ -221,18 +231,12 @@ function customerNode(
       category: reference("客户分类", {
         value: value.category,
         operations: {
-          search: {
+          load: {
             async run() {
-              return { items: [{ id: "active", label: "可选分类" }], total: 1 };
-            },
-          },
-          resolve: {
-            async run({ input }) {
-              return input.ids.map((id) => ({
-                id,
-                label: id === "historical" ? "历史停用分类" : "可选分类",
-                selectable: id !== "historical",
-              }));
+              return [
+                { id: "active", label: "可选分类" },
+                { id: "historical", label: "历史停用分类", selectable: false },
+              ];
             },
           },
         },
@@ -426,6 +430,7 @@ const customers = collection("客户", customerNode, {
     query: {
       input: queryInput,
       async run({ input, page, pageSize }) {
+        console.info("synthetic-call:business.customers.query");
         const rows = [...records].filter(([, value]) =>
           value.name?.includes(input.search ?? ""),
         );
@@ -477,17 +482,10 @@ const login = object(
   {
     ledger: reference("账套", {
       operations: {
-        search: {
+        load: {
           async run() {
-            return {
-              items: [{ id: "synthetic", label: "合成账套" }],
-              total: 1,
-            };
-          },
-        },
-        resolve: {
-          async run({ input }) {
-            return input.ids.map((id) => ({ id, label: "合成账套" }));
+            console.info("synthetic-call:reference.ledger.load");
+            return [{ id: "synthetic", label: "合成账套" }];
           },
         },
       },
@@ -499,6 +497,7 @@ const login = object(
     operations: {
       signIn: {
         async run({ input }) {
+          console.info("synthetic-call:session.signIn");
           if (!input.ledger || !input.identifier || !input.password)
             return {
               status: "failure",
@@ -522,6 +521,7 @@ const session = object(
     operations: {
       restoreSession: {
         async run() {
+          console.info("synthetic-call:session.restore");
           if (localStorage.getItem(storageKey + "session"))
             options.owner = JSON.parse(
               localStorage.getItem(storageKey + "session")!,
@@ -584,14 +584,9 @@ function shortcutNode(id: string, title: string, target: ModelNode) {
         value: id,
         target,
         operations: {
-          search: {
+          load: {
             async run() {
-              return { items: [{ id, label: title }], total: 1 };
-            },
-          },
-          resolve: {
-            async run({ input }) {
-              return input.ids.map((id) => ({ id, label: title }));
+              return [{ id, label: title }];
             },
           },
         },
@@ -760,7 +755,9 @@ const dynamicResults = collection("动态账簿", dynamicRecord, {
     },
   },
 });
+const revisionDemo = revisionNode(options);
 const routeNodes: [string, ModelNode][] = [
+  ["revision", revisionDemo],
   ["customers", customers],
   ["workbench", workbench],
   ["configuration", configuration],
@@ -890,11 +887,33 @@ options.persistence = {
     localStorage.setItem(storageKey + expected, done);
   },
 };
+options.navigationProjection = [
+  {
+    key: "business",
+    name: "业务",
+    items: [
+      { node: customers },
+      {
+        key: "tools",
+        name: "工作台与设置",
+        items: [
+          workbench,
+          configuration,
+          controls,
+          projections,
+          dynamicResults,
+          revisionDemo,
+        ].map((node) => ({ node })),
+      },
+    ],
+  },
+];
 export const model = reactive(
   application(
     "模型驱动客户应用",
     {
       login,
+      revisionDemo,
       session,
       password,
       customers,

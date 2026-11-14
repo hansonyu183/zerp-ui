@@ -241,7 +241,20 @@ try {
   context.setDefaultTimeout(30_000);
   const page = await context.newPage();
   const errors = [];
+  const requests = [];
+  const callbackTrace = [];
   const observe = (page) => {
+    page.on("request", (request) =>
+      requests.push({
+        url: request.url(),
+        method: request.method(),
+        type: request.resourceType(),
+      }),
+    );
+    page.on("console", (message) => {
+      if (message.text().startsWith("synthetic-call:"))
+        callbackTrace.push(message.text().slice("synthetic-call:".length));
+    });
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("requestfailed", (request) =>
       errors.push(`Failed resource: ${request.url()}`),
@@ -306,6 +319,8 @@ try {
   const report = {
     sourceBase,
     commands,
+    requests,
+    callbackTrace,
     scenarios: {
       installed: installedScenarioEvidence,
       built: builtScenarioEvidence,

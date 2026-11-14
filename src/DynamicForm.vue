@@ -36,6 +36,7 @@ const props = defineProps<{
   mode?: "create" | "edit";
   purpose?: "filter" | "edit" | "short";
   focusField?: { key: string; version: number };
+  deferErrors?: boolean;
   issues?: readonly { key: string; message: string }[];
 }>();
 const emit = defineEmits<{
@@ -101,15 +102,19 @@ function set(key: string, value: unknown) {
 }
 const formId = useId();
 const focusedField = ref<string | null>(null);
+const touched = ref(new Set<string>());
 function blurField(event: FocusEvent) {
   if (
     !(event.currentTarget as HTMLElement).contains(
       event.relatedTarget as Node | null,
     )
-  )
+  ) {
+    if (focusedField.value) touched.value.add(focusedField.value);
     focusedField.value = null;
+  }
 }
 function errors(field: AnyField) {
+  if (props.deferErrors && !touched.value.has(field.key)) return [];
   return [
     ...new Set(
       [...validation.value.issues, ...(props.issues ?? [])]
@@ -456,7 +461,6 @@ onBeforeUnmount(() => emit("pending", false));
                 :disabled-reason="field.disabledReason"
                 :parent="referenceStates[field.key]?.parent"
                 :model-value="reference(field)"
-                :hierarchical="field.hierarchical"
                 :scope="scope"
                 :label="field.label"
                 :multiple="field.type === 'references'"

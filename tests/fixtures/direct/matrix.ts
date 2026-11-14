@@ -63,8 +63,9 @@ export const resourceCases = [
   ["aux/vehicle", "车辆", "conditional"],
 ] as const;
 export const catalog: ReferenceAdapter = {
-  async search({ keyword, page, parent }) {
-    const items = [
+  directory: {},
+  async load({ parent }) {
+    return [
       {
         id: parent ? `${parent.id}-child-a` : "a",
         label: parent ? `${parent.label} 子项 A` : "合成可选 A",
@@ -76,18 +77,7 @@ export const catalog: ReferenceAdapter = {
         snapshot: { revision: "synthetic-b" },
       },
       { id: "blocked", label: "合成停用项", selectable: false },
-    ].filter((v) => v.label.includes(keyword));
-    return {
-      items: items.slice((page - 1) * 20, page * 20),
-      total: items.length,
-    };
-  },
-  async resolve({ ids }) {
-    return ids.map((id) => ({
-      id,
-      label: `合成已选 ${id}`,
-      selectable: id !== "blocked",
-    }));
+    ];
   },
 };
 export function exampleDefinition(

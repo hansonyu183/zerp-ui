@@ -350,7 +350,13 @@ function navigated(event: MouseEvent) {
                   :is="group.ungrouped ? 'div' : 'details'"
                   v-for="{ group, sections } in navigationGroups"
                   :key="group.key"
-                  :open="group.ungrouped ? undefined : false"
+                  :open="
+                    group.ungrouped
+                      ? undefined
+                      : group.items.some(
+                          (item) => item.key === selectedNavigationKey,
+                        )
+                  "
                 >
                   <summary v-if="!group.ungrouped">{{ group.caption }}</summary>
                   <component

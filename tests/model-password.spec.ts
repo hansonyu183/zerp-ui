@@ -133,6 +133,10 @@ async function fixture({
   );
   const options = reactive<ModelApplicationOptions>({
     owner: { ledger: "synthetic", operator: "user", generation: "1" },
+    userPermissions: {
+      owner: { ledger: "synthetic", operator: "user", generation: "1" },
+      administrator: true,
+    },
     forcePasswordChange: force,
     brand: {
       productName: "合成",

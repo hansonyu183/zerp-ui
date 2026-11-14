@@ -1394,12 +1394,8 @@ it.each([false, true])(
     });
     const received: Draft[] = [];
     const adapter: import("./fixtures/assembly").ReferenceAdapter = {
-      search: async () => ({
-        items: [{ id: "new", label: "新父项" }],
-        total: 1,
-      }),
-      resolve: async ({ ids }) =>
-        ids.map((id) => ({ id, label: id === "old" ? "旧父项" : "旧子项" })),
+      directory: {},
+      load: async () => [{ id: "new", label: "新父项" }],
     };
     const fields: import("./fixtures/assembly").Fields<Local> = [
       { key: "parent", label: "父项", type: "reference", adapter },
@@ -1483,8 +1479,7 @@ it.each([false, true])(
       // Clearing the parent must clear a child that lives on another, hidden panel.
       await wrapper.get('input[aria-label="父项"]').trigger("click");
       await flushPromises();
-      await button("移除旧父项").trigger("click");
-      await button("完成选择").trigger("click");
+      await wrapper.get('[aria-label="Clear 父项"]').trigger("click");
       await flushPromises();
       await button("保存").trigger("click");
       await flushPromises();

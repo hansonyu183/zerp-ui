@@ -1,16 +1,27 @@
+import { openModelLink, modelRevisionSmoke } from "./model-revision-smoke.mjs";
 import { expect } from "@playwright/test";
 import assert from "node:assert/strict";
 export async function modelSmoke(page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".zerp-field-error")).toHaveCount(0);
+  const started = Date.now();
   await page
     .getByRole("heading", { name: "模型驱动客户应用", exact: true })
     .waitFor();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
   await page.getByLabel("操作员", { exact: true }).fill("synthetic-user");
   await page.getByLabel("密码", { exact: true }).fill("synthetic-password");
   await page.getByLabel("账套", { exact: true }).click();
   await page.getByText("合成账套", { exact: true }).click();
   await page.getByRole("button", { name: "登录", exact: true }).click();
   await page.getByRole("heading", { name: "客户", exact: true }).waitFor();
-  await page.getByRole("link", { name: "列表与表单投影", exact: true }).click();
+  const readyMs = Date.now() - started;
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openModelLink(page, "列表与表单投影");
   const projected = page.getByRole("table");
   await expect(
     projected
@@ -20,7 +31,7 @@ export async function modelSmoke(page) {
   await expect(projected).toContainText("P1");
   await expect(projected).toContainText("嵌套内容");
   await expect(projected).toContainText("字面内容");
-  await page.getByRole("link", { name: "动态账簿", exact: true }).click();
+  await openModelLink(page, "动态账簿");
   await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(page.getByRole("table")).toContainText("查询金额");
   await expect(page.getByRole("table")).toContainText("12.50");
@@ -41,7 +52,7 @@ export async function modelSmoke(page) {
   await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(page.getByRole("table")).toContainText("空结果字段");
   await expect(page.getByRole("table")).not.toContainText("查询金额");
-  await page.getByRole("link", { name: "客户", exact: true }).click();
+  await openModelLink(page, "客户");
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   assert.equal(
     await page.getByLabel("信用额度", { exact: true }).inputValue(),
@@ -119,9 +130,7 @@ export async function modelSmoke(page) {
   await page.goto(deepLink.href);
   await page.getByRole("region", { name: "查看资料", exact: true }).waitFor();
   await page.getByRole("button", { name: "取消编辑", exact: true }).click();
-  await page
-    .getByRole("link", { name: "配置与工作台偏好", exact: true })
-    .click();
+  await openModelLink(page, "配置与工作台偏好");
   await page
     .getByRole("heading", { name: "配置与工作台偏好", exact: true })
     .waitFor();
@@ -129,16 +138,16 @@ export async function modelSmoke(page) {
   await page.getByLabel("工作台常用项", { exact: true }).fill("客户、配置");
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByRole("button", { name: "取消编辑", exact: true }).click();
-  await page.getByRole("link", { name: "客户", exact: true }).click();
+  await openModelLink(page, "客户");
   await page.waitForURL("**/customers");
-  await page.getByRole("link", { name: "合成场景", exact: true }).click();
+  await openModelLink(page, "合成场景");
   await page.getByRole("heading", { name: "合成场景", exact: true }).waitFor();
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   await page.getByLabel("模拟未知结果", { exact: true }).check();
   await page.getByLabel("确认原请求已应用", { exact: true }).check();
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByRole("button", { name: "取消编辑", exact: true }).click();
-  await page.getByRole("link", { name: "客户", exact: true }).click();
+  await openModelLink(page, "客户");
   await page.getByRole("heading", { name: "客户", exact: true }).waitFor();
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   await page.getByLabel("客户名称", { exact: true }).fill("待核实客户");
@@ -204,7 +213,7 @@ export async function modelSmoke(page) {
   await page.reload();
   await page.getByRole("button", { name: "核实原请求", exact: true }).click();
   await expect(page.getByLabel("新密码", { exact: true })).toHaveValue("");
-  await page.getByRole("link", { name: "工作台与偏好", exact: true }).click();
+  await openModelLink(page, "工作台与偏好");
   await page
     .getByRole("heading", { name: "工作台与偏好", exact: true })
     .waitFor();
@@ -215,23 +224,23 @@ export async function modelSmoke(page) {
   await page.getByLabel("加入工作台", { exact: true }).uncheck();
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByRole("button", { name: "取消编辑", exact: true }).click();
-  await page.getByRole("link", { name: "合成场景", exact: true }).click();
+  await openModelLink(page, "合成场景");
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   await page.getByLabel("模拟未知结果", { exact: true }).uncheck();
   await page.getByLabel("撤销客户编辑权限", { exact: true }).check();
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByRole("button", { name: "取消编辑", exact: true }).click();
   await page.getByText("合成业务资格已更新", { exact: true }).waitFor();
-  await page.getByRole("link", { name: "客户", exact: true }).click();
+  await openModelLink(page, "客户");
   await expect(
     page.getByRole("button", { name: "编辑", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("link", { name: "合成场景", exact: true }).click();
+  await openModelLink(page, "合成场景");
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   await page.getByLabel("撤销客户编辑权限", { exact: true }).uncheck();
   await page.getByRole("button", { name: "保存", exact: true }).click();
   await page.getByRole("button", { name: "取消编辑", exact: true }).click();
-  await page.getByRole("link", { name: "客户", exact: true }).click();
+  await openModelLink(page, "客户");
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   await page.getByLabel("客户名称", { exact: true }).fill("合成字段错误");
   await page.getByRole("button", { name: "保存", exact: true }).click();
@@ -252,6 +261,7 @@ export async function modelSmoke(page) {
     await page
       .getByRole("button", { name: "放弃本地修改", exact: true })
       .click();
+  const revision = await modelRevisionSmoke(page);
   await page
     .getByRole("button", { name: "账户：演示账户", exact: true })
     .click();
@@ -259,6 +269,8 @@ export async function modelSmoke(page) {
   await page.getByRole("button", { name: "登录", exact: true }).waitFor();
   return {
     synthetic: true,
+    revision,
+    readyMs,
     paths: [
       "login/ledger/session-restore",
       "customer/nested-independent-save/deep-link",

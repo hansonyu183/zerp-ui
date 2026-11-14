@@ -164,7 +164,14 @@ async function fixture(
       "合成办理",
       { parents },
       {
+        navigationProjection: [
+          { key: "business", name: "业务", items: [{ node: parents }] },
+        ],
         owner: { ledger: "test", operator: "user", generation: "1" },
+        userPermissions: {
+          owner: { ledger: "test", operator: "user", generation: "1" },
+          administrator: true,
+        },
         brand: {
           productName: "合成",
           enterpriseName: "合成",
@@ -482,6 +489,10 @@ it("offers a fixed reconcile operation on a read-only historical original withou
       { target },
       {
         owner: { ledger: "test", operator: "u", generation: "1" },
+        userPermissions: {
+          owner: { ledger: "test", operator: "u", generation: "1" },
+          administrator: true,
+        },
         brand: {
           productName: "合成",
           enterpriseName: "合成",

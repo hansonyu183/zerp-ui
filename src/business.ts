@@ -129,7 +129,6 @@ export function projectBusinessFields(
           valueMode: "id",
           adapter: reference(ref, key),
           parentKey: ref.dependsOn,
-          hierarchical: ref.hierarchical,
         },
       ];
     }

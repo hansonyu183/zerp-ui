@@ -9,8 +9,10 @@ import {
   toRaw,
   provide,
 } from "vue";
-import { VBtn, VCard, VCardText } from "vuetify/components";
+import { VBtn } from "vuetify/components";
 import AppPage from "./AppPage.vue";
+import AuthFrame from "./AuthFrame.vue";
+import { clearReferenceScope } from "./reference-directory";
 import DynamicForm from "./DynamicForm.vue";
 import Feedback from "./Feedback.vue";
 import { modelNoticesKey, type ModelNotice } from "./model-notices";
@@ -80,20 +82,30 @@ const password = computed(() =>
   ),
 );
 const navigationEntries = computed(() =>
-  entries.value.filter(({ node }) => {
-    if (node[nodeMetadata].kind === "collection") return true;
-    return (
-      node[nodeMetadata].kind === "object" &&
-      (node as RuntimeObject)[nodeMetadata].independent
-    );
-  }),
+  (options.value.navigationProjection ?? [])
+    .flatMap((group) =>
+      group.items.flatMap((item) =>
+        "node" in item ? [item.node] : item.items.map((entry) => entry.node),
+      ),
+    )
+    .filter((node) => runtime.authorization.readable(node)),
 );
-const selected = computed(() =>
-  options.value.forcePasswordChange
-    ? password.value
-    : (runtime.locate(options.value.navigation.current)[0] ??
-      navigationEntries.value[0]),
-);
+const selected = computed(() => {
+  if (!runtime.authorization.ready()) return undefined;
+  const target = options.value.forcePasswordChange
+    ? password.value?.node
+    : (options.value.navigation.current?.node ?? navigationEntries.value[0]);
+  if (!target || !runtime.authorization.readable(target)) return undefined;
+  return (
+    runtime.locate({
+      node: target,
+      identity: options.value.navigation.current?.identity,
+    })[0] ??
+    entries.value.find(
+      (entry) => toRaw(entry.node) === toRaw(navigationEntries.value[0]),
+    )
+  );
+});
 const authentication = computed(() =>
   !options.value.owner ? signIn.value : undefined,
 );
@@ -165,18 +177,43 @@ function submit() {
       runtime.unflat(authentication.value.node, draft.value, true),
     );
 }
-const navigation = computed<NavigationGroup[]>(() => [
-  {
-    key: "model",
-    caption: props.model[nodeMetadata].name,
-    ungrouped: true,
-    items: navigationEntries.value.map(({ node, path }) => ({
-      key: JSON.stringify(path),
-      caption: node[nodeMetadata].name,
-      to: options.value.navigation.href(node),
-    })),
-  },
-]);
+const navigation = computed<NavigationGroup[]>(() =>
+  (options.value.navigationProjection ?? []).flatMap((group) => {
+    const project = (
+      node: ModelNode,
+      section?: { key: string; caption: string },
+    ) => {
+      const entry = entries.value.find(
+        (entry) => toRaw(entry.node) === toRaw(node),
+      );
+      return entry && runtime.authorization.readable(node)
+        ? [
+            {
+              key: JSON.stringify(entry.path),
+              caption: node[nodeMetadata].name,
+              to: options.value.navigation.href(node),
+              section,
+            },
+          ]
+        : [];
+    };
+    const items = group.items.flatMap((item) =>
+      "node" in item
+        ? project(item.node)
+        : item.items.flatMap((entry) =>
+            project(entry.node, { key: item.key, caption: item.name }),
+          ),
+    );
+    return items.length ? [{ key: group.key, caption: group.name, items }] : [];
+  }),
+);
+const selectedNavigationKey = computed(() => {
+  const target = options.value.navigation.current?.node ?? selected.value?.node;
+  const entry = entries.value.find(
+    (entry) => toRaw(entry.node) === toRaw(target),
+  );
+  return entry ? JSON.stringify(entry.path) : null;
+});
 const emptyPage: PageDefinition = {
   kind: "details",
   title: "工作台",
@@ -229,6 +266,7 @@ const notificationOwners = new WeakMap<object, string>();
 watch(
   scope,
   (next, previous) => {
+    if (previous && previous !== next) clearReferenceScope(previous);
     for (const item of messageItems.value)
       if (!notificationOwners.has(toRaw(item)))
         notificationOwners.set(toRaw(item), previous ?? next);
@@ -376,41 +414,44 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <VCard v-if="authentication || !options.owner" class="zerp-model-auth">
-    <VCardText>
-      <h1>{{ model[nodeMetadata].name }}</h1>
-      <form
-        v-if="authentication && !restoring"
-        :aria-label="authentication.node[nodeMetadata].name"
-        @submit.prevent="submit"
+  <AuthFrame
+    v-if="authentication || !options.owner"
+    :brand="options.brand"
+    :theme="options.theme?.value ?? defaultThemeChoice"
+  >
+    <h2>{{ model[nodeMetadata].name }}</h2>
+    <form
+      v-if="authentication && !restoring"
+      :aria-label="authentication.node[nodeMetadata].name"
+      @submit.prevent="submit"
+    >
+      <DynamicForm
+        :key="generation"
+        :fields="authFields"
+        :model-value="draft"
+        :scope="scope"
+        :disabled="busy || restoring"
+        defer-errors
+        @update:model-value="draft = $event"
+        @pending="pending = $event"
+      />
+      <VBtn
+        type="submit"
+        :disabled="
+          busy ||
+          restoring ||
+          pending ||
+          invalidAuth ||
+          !!sessionOperation(authentication.node, authAction)?.disabledReason
+        "
+        >登录</VBtn
       >
-        <DynamicForm
-          :key="generation"
-          :fields="authFields"
-          :model-value="draft"
-          :scope="scope"
-          :disabled="busy || restoring"
-          @update:model-value="draft = $event"
-          @pending="pending = $event"
-        />
-        <VBtn
-          type="submit"
-          :disabled="
-            busy ||
-            restoring ||
-            pending ||
-            invalidAuth ||
-            !!sessionOperation(authentication.node, authAction)?.disabledReason
-          "
-          >登录</VBtn
-        >
-      </form>
-      <p v-else>会话不可用。</p>
-      <FeedbackRegion
-        ><Feedback :message="error" kind="error" /><Feedback :message="notice"
-      /></FeedbackRegion>
-    </VCardText>
-  </VCard>
+    </form>
+    <p v-else>会话不可用。</p>
+    <FeedbackRegion
+      ><Feedback :message="error" kind="error" /><Feedback :message="notice"
+    /></FeedbackRegion>
+  </AuthFrame>
   <AppPage
     v-else
     ref="app"
@@ -418,6 +459,7 @@ onBeforeUnmount(() => {
     :brand="options.brand"
     :brand-state="{ kind: 'ready' }"
     :navigation="navigation"
+    :selected-navigation-key="selectedNavigationKey"
     :navigation-state="{ kind: 'ready' }"
     :page="page"
     :scope="scope"
@@ -428,9 +470,3 @@ onBeforeUnmount(() => {
     @update:theme="options.theme?.change($event)"
   />
 </template>
-<style>
-.zerp-model-auth {
-  max-width: 36rem;
-  margin: 2rem auto;
-}
-</style>

@@ -376,7 +376,7 @@ it("chooses readable foregrounds for light and saturated brand surfaces in every
   }
 });
 
-it("groups long menus by displayed names and bounds unrelated lists without interpreting keys or routes", async () => {
+it("preserves explicit navigation semantics and never groups by displayed names or codes", async () => {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: "/catalog", component: { template: "<p>资料</p>" } }],
@@ -438,34 +438,13 @@ it("groups long menus by displayed names and bounds unrelated lists without inte
   try {
     const root = wrapper.get("nav > details");
     expect(root.get("summary").text()).toBe("基础资料");
-    expect(root.attributes("open")).toBeUndefined();
+    expect(root.attributes("open")).toBeDefined();
     const groups = wrapper.findAll(".zerp-navigation-section");
-    expect(groups.map((group) => group.get("summary").text())).toEqual([
-      "客户",
-      "产品",
-      "供应商",
-      "采购",
-      "销售单据1 — 销售单据7",
-      "销售单据8 — 销售单据13",
-    ]);
-    expect(groups[0]!.findAll("a").map((link) => link.text())).toEqual([
-      "客户",
-      "客户分类",
-      "客户联系人",
-    ]);
-    expect(groups[3]!.findAll("a").map((link) => link.text())).toEqual([
-      "BA 采购订单",
-      "BB 采购入库单",
-    ]);
-    expect(
-      wrapper
-        .findAll("nav a")
-        .map((link) => link.attributes("href"))
-        .sort(),
-    ).toEqual(items.map((item) => item.to).sort());
+    expect(groups).toHaveLength(0);
+    expect(wrapper.findAll("nav a").map((link) => link.text())).toEqual(
+      captions,
+    );
     expect(wrapper.get('nav a[aria-current="page"]').text()).toBe("客户分类");
-    for (const group of groups)
-      expect(group.findAll("a").length).toBeLessThanOrEqual(12);
     // Replacing the permission-filtered directory removes all prior entries.
     const unrelated = Array.from({ length: 13 }, (_, index) => ({
       key: `new-${index}`,
@@ -482,7 +461,7 @@ it("groups long menus by displayed names and bounds unrelated lists without inte
       wrapper
         .findAll(".zerp-navigation-section")
         .map((group) => group.findAll("a").length),
-    ).toEqual([7, 6]);
+    ).toEqual([]);
     expect(wrapper.findAll("nav a").map((link) => link.text())).toEqual(
       unrelated.map((item) => item.caption),
     );

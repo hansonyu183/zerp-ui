@@ -107,196 +107,137 @@ it("edits recursive rows directly and removes their entire subtree", async () =>
   expect(value.value.rows).toEqual([{ name: "确认", children: [] }]);
   w.unmount();
 });
-it("keeps historical snapshots when resolve returns changed labels and retains unavailable page-out values", async () => {
-  const adapter: ReferenceAdapter = {
-    search: vi.fn(async () => ({
-      items: [{ id: "new", label: "新候选" }],
-      hasMore: false,
-    })),
-    resolve: vi.fn(async () => [
-      {
-        id: "old",
-        label: "当前新名",
-        snapshot: { revision: "new" },
-        selectable: false,
-      },
-    ]),
-  };
+it("keeps historical snapshots and toggles multiple values in the same dropdown", async () => {
   const selected: ReferenceValue = {
     id: "old",
     label: "历史采用名",
     snapshot: { revision: "old" },
     selectable: false,
   };
-  const w = mount(ReferencePicker, {
-    attachTo: document.body,
-    props: {
-      adapter,
-      modelValue: [selected],
-      scope: "a",
-      label: "引用",
-      multiple: true,
-    },
-  });
-  await flushPromises();
+  const adapter: ReferenceAdapter = {
+    directory: {},
+    load: vi.fn(async () => [
+      { id: "new", label: "新候选" },
+      { id: "old", label: "当前新名", selectable: false },
+    ]),
+  };
+  const value = ref<readonly ReferenceValue[]>([selected]);
+  const w = mount(
+    defineComponent({
+      setup: () => () =>
+        h(ReferencePicker, {
+          adapter,
+          modelValue: value.value,
+          scope: "a",
+          label: "引用",
+          multiple: true,
+          "onUpdate:modelValue": (next) =>
+            (value.value = next as readonly ReferenceValue[]),
+        }),
+    }),
+    { attachTo: document.body },
+  );
   await w.get('input[aria-label="引用"]').trigger("click");
   await flushPromises();
   expect(document.body.textContent).toContain("历史采用名");
-  expect(document.body.textContent).not.toContain("当前新名");
-  expect(w.emitted("update:modelValue")).toBeUndefined();
-  await click(new DOMWrapper(document.body), "新候选");
-  expect(w.emitted("update:modelValue")?.[0]?.[0]).toEqual([
-    selected,
-    { id: "new", label: "新候选" },
-  ]);
+  const option = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((item) => item.textContent?.includes("新候选"))!;
+  option.click();
+  await flushPromises();
+  expect(value.value).toEqual([selected, { id: "new", label: "新候选" }]);
+  option.click();
+  await flushPromises();
+  expect(value.value).toEqual([selected]);
   w.unmount();
 });
-it("surfaces resolve failure and keeps selected values instead of replacing them with empty options", async () => {
-  const adapter: ReferenceAdapter = {
-    search: async () => ({ items: [], total: 0 }),
-    resolve: async () => {
-      throw new Error("读取已选失败");
-    },
-  };
+it("retries a failed complete directory without losing historical selections", async () => {
+  const load = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("读取候选失败"))
+    .mockResolvedValue([{ id: "new", label: "新候选" }]);
   const w = mount(ReferencePicker, {
     attachTo: document.body,
     props: {
-      adapter,
-      modelValue: { id: "old", label: "已选" },
+      adapter: { directory: {}, load },
+      modelValue: { id: "old", label: "历史" },
+      scope: "a",
+      label: "引用",
+    },
+  });
+  await w.get('input[aria-label="引用"]').trigger("click");
+  await flushPromises();
+  expect(document.body.textContent).toContain("读取候选失败");
+  expect(document.body.textContent).toContain("历史");
+  await click(new DOMWrapper(document.body), "重试引用");
+  expect(document.body.textContent).toContain("新候选");
+  expect(load).toHaveBeenCalledTimes(2);
+  w.unmount();
+});
+it("ignores a late directory after owner change and does not preload unused fields", async () => {
+  let finish!: (v: readonly ReferenceValue[]) => void;
+  const load = vi
+    .fn()
+    .mockImplementationOnce(() => new Promise((r) => (finish = r)))
+    .mockResolvedValue([{ id: "new", label: "新作用域候选" }]);
+  const w = mount(ReferencePicker, {
+    attachTo: document.body,
+    props: {
+      adapter: { directory: {}, load },
+      modelValue: null,
       scope: "a",
       label: "引用",
     },
   });
   await flushPromises();
+  expect(load).not.toHaveBeenCalled();
   await w.get('input[aria-label="引用"]').trigger("click");
   await flushPromises();
-  expect(document.body.textContent).toContain("读取已选失败");
-  expect(document.body.textContent).toContain("已选");
-  expect(w.emitted("update:modelValue")).toBeUndefined();
-  w.unmount();
-});
-it("ignores reference search and resolve responses from the previous scope", async () => {
-  let finish!: (v: readonly ReferenceValue[]) => void,
-    searchFinish!: (v: { items: ReferenceValue[]; total: number }) => void;
-  const adapter: ReferenceAdapter = {
-    search: vi
-      .fn()
-      .mockImplementationOnce(() => new Promise((r) => (searchFinish = r)))
-      .mockResolvedValue({
-        items: [{ id: "new", label: "新作用域候选" }],
-        total: 1,
-      }),
-    resolve: vi
-      .fn()
-      .mockImplementationOnce(() => new Promise((r) => (finish = r)))
-      .mockResolvedValue([]),
-  };
-  const w = mount(ReferencePicker, {
-    attachTo: document.body,
-    props: { adapter, modelValue: null, scope: "a", label: "引用" },
-  });
   await w.setProps({ scope: "b" });
-  await flushPromises();
   await w.get('input[aria-label="引用"]').trigger("click");
   await flushPromises();
-  finish([{ id: "old", label: "旧已选" }]);
-  searchFinish({ items: [{ id: "old", label: "旧候选" }], total: 1 });
+  finish([{ id: "old", label: "旧候选" }]);
   await flushPromises();
   expect(document.body.textContent).toContain("新作用域候选");
   expect(document.body.textContent).not.toContain("旧候选");
   w.unmount();
 });
-it("supports single select, server paging and prevents choosing unavailable candidates", async () => {
-  const adapter: ReferenceAdapter = {
-    search: vi.fn(async ({ page }) => ({
-      items: [
-        { id: String(page), label: `候选${page}` },
-        { id: "blocked", label: "禁止选择", selectable: false },
-      ],
-      hasMore: page === 1,
+it("paginates a complete local directory and prevents unavailable choices", async () => {
+  const load = vi.fn(async () => [
+    { id: "blocked", label: "禁止选择", selectable: false },
+    ...Array.from({ length: 44 }, (_, i) => ({
+      id: String(i),
+      label: `候选${i}`,
     })),
-    resolve: async () => [],
-  };
+  ]);
   const w = mount(ReferencePicker, {
     attachTo: document.body,
-    props: { adapter, modelValue: null, scope: "a", label: "引用" },
-  });
-  await flushPromises();
-  await w.get('input[aria-label="引用"]').trigger("click");
-  await flushPromises();
-  expect(
-    new DOMWrapper(document.body)
-      .findAll("button")
-      .find((b) => b.text() === "禁止选择")!
-      .attributes("disabled"),
-  ).toBeDefined();
-  await click(new DOMWrapper(document.body), "下一页引用");
-  await click(new DOMWrapper(document.body), "候选2");
-  expect(w.emitted("update:modelValue")?.[0]?.[0]).toEqual({
-    id: "2",
-    label: "候选2",
-  });
-  expect(adapter.search).toHaveBeenLastCalledWith(
-    expect.objectContaining({ page: 2, pageSize: 20 }),
-  );
-  w.unmount();
-});
-it("aggregates pending from two references until both resolve", async () => {
-  let finishA!: (v: readonly ReferenceValue[]) => void,
-    finishB!: (v: readonly ReferenceValue[]) => void;
-  const a: ReferenceAdapter = {
-      search: async () => ({ items: [], total: 0 }),
-      resolve: () => new Promise((r) => (finishA = r)),
-    },
-    b: ReferenceAdapter = {
-      search: async () => ({ items: [], total: 0 }),
-      resolve: () => new Promise((r) => (finishB = r)),
-    };
-  const w = mount(DynamicForm as Component, {
     props: {
-      fields: [
-        { key: "a", label: "A", type: "reference", adapter: a },
-        { key: "b", label: "B", type: "reference", adapter: b },
-      ],
-      modelValue: { a: null, b: null },
+      adapter: { directory: {}, load },
+      modelValue: null,
       scope: "a",
+      label: "引用",
     },
   });
+  await w.get('input[aria-label="引用"]').trigger("click");
   await flushPromises();
-  expect(w.emitted("pending")?.at(-1)).toEqual([true]);
-  finishA([]);
+  const blocked = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((item) => item.textContent?.includes("禁止选择"))!;
+  blocked.click();
   await flushPromises();
-  expect(w.emitted("pending")?.at(-1)).toEqual([true]);
-  finishB([]);
+  expect(w.emitted("update:modelValue")).toBeUndefined();
+  await click(new DOMWrapper(document.body), "下一页引用");
+  const option = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((item) => item.textContent?.trim() === "候选20")!;
+  option.click();
   await flushPromises();
-  expect(w.emitted("pending")?.at(-1)).toEqual([false]);
-  w.unmount();
-});
-it("removes old scope candidates even when the new search fails", async () => {
-  const adapter: ReferenceAdapter = {
-    search: vi
-      .fn()
-      .mockResolvedValueOnce({
-        items: [{ id: "old", label: "旧范围候选" }],
-        total: 1,
-      })
-      .mockRejectedValueOnce(new Error("新范围失败")),
-    resolve: async () => [],
-  };
-  const w = mount(ReferencePicker, {
-    attachTo: document.body,
-    props: { adapter, scope: "a", label: "引用", modelValue: null },
+  expect(w.emitted("update:modelValue")?.[0]?.[0]).toMatchObject({
+    id: "20",
+    label: "候选20",
   });
-  await flushPromises();
-  await w.get('input[aria-label="引用"]').trigger("click");
-  await flushPromises();
-  expect(document.body.textContent).toContain("旧范围候选");
-  await w.setProps({ scope: "b" });
-  await flushPromises();
-  await w.get('input[aria-label="引用"]').trigger("click");
-  await flushPromises();
-  expect(document.body.textContent).toContain("新范围失败");
-  expect(document.body.textContent).not.toContain("旧范围候选");
+  expect(load).toHaveBeenCalledOnce();
   w.unmount();
 });
 it("adopts controlled integers without remounting and retains incomplete local input until adoption", async () => {
@@ -384,8 +325,8 @@ it("validates exact field values through the public engine while retaining reado
       type: "reference",
       label: "引用",
       adapter: {
-        search: async () => ({ items: [], total: 0 }),
-        resolve: async () => [],
+        directory: {},
+        load: async () => [],
       },
     },
   ];

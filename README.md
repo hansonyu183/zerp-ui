@@ -4,13 +4,13 @@
 
 ## 固定版本安装
 
-本源码为 **0.40.4**，修复页外父记录的子区块初始深链定位；正式交付状态、确切 SHA 和工件摘要以 [#145](https://github.com/hansonyu183/zerp-ui/issues/145) 的验收记录为准。历史发行保持，OIT 接入使用 #145 正式交付并核对摘要的固定包。
+本源码为 **0.41.0**，实施根级权限、显式分类导航、完整目录下拉和统一认证外壳。正式交付状态、确切 SHA 和工件摘要以 [#149](https://github.com/hansonyu183/zerp-ui/issues/149) 的验收记录为准。历史发行保持，消费者另票接入本票核对摘要的固定包。
 
-从 [ui-v0.40.4 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.40.4) 下载 `zerp-ui-0.40.4.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+从 [ui-v0.41.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.41.0) 下载 `zerp-ui-0.41.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.40.4.tgz
+pnpm add ./zerp-ui-0.41.0.tgz
 ```
 
 宿主仅初始化一套 Vue、Vuetify、Router；peer 范围和 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化宿主唯一的 `createVuetify`。图标字体随包分发。
@@ -31,9 +31,48 @@ import { model } from "./consumer";
 
 从 0.31.1 迁移时，将字段、数据、资格、业务回调及所需耐久端口放到同一模型，通过对象成员表达所属层级，通过 reference 表达关联。移除消费者的页面/资源/关系/权限注册表、重复 Adapter 树和通用业务模板。旧 `AuthPage`、`AppPage`、`define…Page`、旧定义工厂、投影函数及 applicationNavigation 已移除，无别名、转发或 fallback。原有纯业务事实、版本、证据及强类型业务端口仍可供模型回调使用；私有源码和声明子路径不开放。
 
-API、DTO、业务规则、权限计算、Session、Router、存储加密和证据解码仍归消费者。模型的 navigation 端口在应用生命周期内保持稳定，由消费者 Router 注册库的离页保护。操作存在性、disabledReason 和 readOnly 表达权威资格；响应式更新不会自动执行写入。库统一处理消息及持续恢复入口，关闭通知、普通查询或恢复权限不会解除未知结果锁。
+API、DTO、业务规则、权限计算、Session、Router、存储加密和证据解码仍归消费者。模型的 navigation 端口在应用生命周期内保持稳定，由消费者 Router 注册库的离页保护。根级 userPermissions 表达用户授权；操作存在性、disabledReason 和 readOnly 继续表达业务资格；响应式更新不会自动执行写入。库统一处理消息及持续恢复入口，关闭通知、普通查询或恢复权限不会解除未知结果锁。
 
 `changePassword` 使用 `operation("changePassword", input, protocol)`，提供强类型 prepare/run/reconcile/seal/refresh、精确证据及加密耐久 CAS 端口，复用既有原请求引擎；0.32.0 的成功/失败简写已删除。强制改密也提供同一确认、未知锁和恢复入口。秘密值不会进入办理预览或错误通知；业务 API、证据和加密实现仍由消费者提供。值数组可直接包含标量或引用，库内编辑投影不会改变回调收到的原始数组形状；数组只读通过工厂第四参数 `{ readOnly: true }` 表达。
+
+## 从 0.40.4 迁移到 0.41.0
+
+本轮为破坏性修订，完整模型保留，消费者不再通过删除节点/操作表达用户权限。`options.userPermissions` 为 `null` 或缺省时受保护工作区不可见；登录、会话恢复和账户菜单仍独立可达。登录/恢复一次返回权限，UI不请求权限或补模型定义。
+
+```ts
+import { permission } from "@zerp/ui/model";
+options.userPermissions = {
+  owner: { ...options.owner! },
+  grants: [
+    permission(customers, {
+      read: true,
+      write: true,
+      operations: { query: true, update: true },
+      fields: {
+        creditLimit: { write: false },
+        "external.code": { read: false },
+      },
+    }),
+  ],
+};
+options.navigationProjection = [
+  {
+    key: "business",
+    name: "业务",
+    items: [
+      { key: "archives", name: "业务资料", items: [{ node: customers }] },
+    ],
+  },
+];
+```
+
+权限归属不可变的 ledger/operator/generation 快照。每次登录、身份切换或有效权限更新替换整个快照，不原地改 owner。`{ owner, administrator: true }` 授予完整模型已定义的能力，不解除业务只读、禁用或未知结果锁。普通用户各独立对象/集合默认拒绝，必须逐边界授权；集合授权适用于其行。边界内普通字段和内嵌对象继承 read/write，字段覆盖只能进一步收窄，`read: false` 同时禁止写入；独立子业务不继承父授权。操作逐项授权，缺省拒绝；引用目录读取随字段可读资格。`permission(node, facts)` 检查字段名和封闭操作名，不接受权限表达式、URL或回调。隐藏/只读字段不进入普通写入正文。库内裁剪不替代后端授权。
+
+导航只来自有序 `navigationProjection`，组、可选语义分组及节点引用均由消费者提供；不再把独立子业务摊平到主导航，也不猜中文名称或业务码分组。未投影子业务仍可按权限从所属入口及 Router 深链访问。权限裁剪删除空组，选中按节点身份判断；href、刷新、后退与新标签仍使用原 Router 端口。账号、个人资料、改密及退出不依赖导航加载。
+
+引用的 `operations.search/resolve` 已删除，改成共享的 `operations: { load: { async run(context) { return 完整候选数组; } } }`。同一目录复用同一 operations 对象；`dependencies: [依赖值节点]` 给出有限依赖，回调从 `context.input.dependencies` 获取当前值。候选必须一次包含此作用域全部项目及需要回显的历史停用项（`selectable: false`）；已有值可携带标签快照。首次展开或需要补足已选标签时读取完整目录，不逐ID请求。缓存按目录对象、owner及依赖隔离；150ms防抖、本地过滤与20项分页不查询后端，单选即关闭，多选在同一下拉勾选。旧引用弹窗、层级浏览和完成按钮已删除，没有运行时 fallback。
+
+模型构造、遍历、导航投影均只读取本地定义，不执行业务回调。两个消费者在新包内完成装配与验证；真实 oit-go 接入与请求性能另票验收。
 
 ## 独立消费者与验证
 

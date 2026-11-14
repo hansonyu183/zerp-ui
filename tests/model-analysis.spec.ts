@@ -44,12 +44,29 @@ async function start<N extends ModelNode>(node: N) {
       { node: node as ModelNode },
       {
         owner: { ledger: "s", operator: "u", generation: "1" },
+        userPermissions: {
+          owner: { ledger: "s", operator: "u", generation: "1" },
+          administrator: true,
+        },
         brand: {
           home: "/",
           productName: "合成",
           enterpriseName: "合成",
           mark: { kind: "text", text: "例" },
         },
+        navigationProjection: [
+          {
+            key: "business",
+            name: "业务",
+            items: [
+              {
+                get node(): ModelNode {
+                  return model.node;
+                },
+              },
+            ],
+          },
+        ],
         navigation: {
           current: { node },
           href: () => "/",

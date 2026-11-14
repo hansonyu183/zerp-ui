@@ -25,10 +25,7 @@ const input: BusinessInput<typeof model> = { enabled: false };
 const readonlyInput: BusinessInput<typeof model> = { id: "a" };
 // @ts-expect-error independent collections are not part of their parent's write input
 const collectionInput: BusinessInput<typeof model> = { children: "x" };
-const reference: ReferenceAdapter = {
-  search: async () => ({ items: [], total: 0 }),
-  resolve: async () => [],
-};
+const reference: ReferenceAdapter = { directory: {}, load: async () => [] };
 const ids: Fields<{ selected: string }> = [
   {
     key: "selected",

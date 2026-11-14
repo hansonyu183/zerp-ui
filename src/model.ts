@@ -74,3 +74,10 @@ export type { ModelBatchOperation, ModelBatchEntry } from "./model-batch";
 export type { BatchEntry, BatchJournal, BatchPersistence } from "./batch";
 
 export { workflowOperations } from "./model-workflow";
+
+export { permission } from "./model-permission";
+export type { ModelUserPermissions, ModelPermission } from "./model-permission";
+export type {
+  ModelNavigationGroup,
+  ReferenceOperations,
+} from "./reactive-model";

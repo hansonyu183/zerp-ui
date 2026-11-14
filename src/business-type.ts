@@ -27,7 +27,6 @@ export type BusinessType = {
   scale?: number;
   target?: string;
   dependsOn?: string;
-  hierarchical?: boolean;
   options?: readonly { id: string; name: string }[];
   properties?: Record<string, BusinessType>;
   element?: BusinessType;

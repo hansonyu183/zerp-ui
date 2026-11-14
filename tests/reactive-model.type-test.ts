@@ -1,5 +1,6 @@
 import {
   application,
+  permission,
   array,
   object,
   collection,
@@ -390,3 +391,18 @@ const invalidQueryFeedback: QueryFeedback = [
 ];
 void queryFeedback;
 void invalidQueryFeedback;
+
+const granted = customer();
+permission(granted, {
+  read: true,
+  fields: { name: { write: false } },
+  operations: { update: true },
+});
+// @ts-expect-error permissions bind existing field names
+permission(granted, { fields: { missing: { read: true } } });
+// @ts-expect-error arbitrary operation names are forbidden
+permission(granted, { operations: { executeSql: true } });
+// @ts-expect-error a field cannot bind collection operations
+permission(granted.name, { operations: { query: true } });
+// @ts-expect-error permission bindings require a model node
+permission({ name: "foreign DTO" }, { read: true });

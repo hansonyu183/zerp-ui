@@ -825,6 +825,14 @@ const navigation = reactive<ModelNavigation>({
 export const model = reactive(
   application("模型查询与办理", nodes, {
     owner,
+    userPermissions: { owner: { ...owner }, administrator: true },
+    navigationProjection: [
+      {
+        key: "business",
+        name: "查询与办理",
+        items: Object.values(nodes).map((node) => ({ node })),
+      },
+    ],
     brand: {
       home: "/results",
       productName: "模型业务应用",
