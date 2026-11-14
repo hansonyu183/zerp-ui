@@ -267,7 +267,8 @@ export interface BusinessModel {
     }[];
     messages: {
       id: string;
-      level: "info" | "error";
+      level: "info" | "error" | "success" | "warning";
+      target?: Target;
       text: string;
     }[];
   };

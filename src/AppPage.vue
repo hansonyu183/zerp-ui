@@ -399,7 +399,16 @@ function navigated(event: MouseEvent) {
                         "
                         @click="
                           navigated($event);
-                          if (visit && !$event.ctrlKey && !$event.metaKey && !$event.shiftKey && $event.button === 0) { $event.preventDefault(); visit(item.key); } else navigate($event);
+                          if (
+                            visit &&
+                            !$event.ctrlKey &&
+                            !$event.metaKey &&
+                            !$event.shiftKey &&
+                            $event.button === 0
+                          ) {
+                            $event.preventDefault();
+                            visit(item.key);
+                          } else navigate($event);
                         "
                         ><span
                           v-if="item.icon"
