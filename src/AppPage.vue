@@ -45,6 +45,7 @@ const props = withDefaults(
     navigation: readonly NavigationGroup[];
     navigationState: LoadState;
     selectedNavigationKey?: string | null;
+    visit?: (key: string) => void;
     pageNavigation?: readonly PageNavigationGroup[];
     page: PageDefinition;
     scope: string;
@@ -398,7 +399,7 @@ function navigated(event: MouseEvent) {
                         "
                         @click="
                           navigated($event);
-                          navigate($event);
+                          if (visit && !$event.ctrlKey && !$event.metaKey && !$event.shiftKey && $event.button === 0) { $event.preventDefault(); visit(item.key); } else navigate($event);
                         "
                         ><span
                           v-if="item.icon"

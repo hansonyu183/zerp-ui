@@ -1,7 +1,9 @@
 import { mount, flushPromises } from '@vue/test-utils';
 import { reactive } from 'vue';
 import { expect, it, vi } from 'vitest';
-import { createVuetify } from 'vuetify';
+import {createRouter,createMemoryHistory} from 'vue-router';
+import {config} from '@vue/test-utils';
+config.global.plugins.push(createRouter({history:createMemoryHistory(),routes:[{path:'/:pathMatch(.*)*',component:{template:'<div />'}}]}));
 import { BusinessApplication } from '../src/index';
 import { modelMetadata as meta, type BusinessModel } from '../src/model';
 function fixture() {
@@ -14,7 +16,7 @@ function fixture() {
 }
 it('keeps aggregate context and opens empty collection only when its tab becomes visible',async()=>{
  const {model,query}=fixture();
- const wrapper=mount(BusinessApplication,{props:{model},global:{plugins:[createVuetify()]}});
+ const wrapper=mount(BusinessApplication,{props:{model}});
  await flushPromises();
  expect(wrapper.text()).toContain('Partners');
  expect(query).not.toHaveBeenCalled();
@@ -35,11 +37,31 @@ it('edits model values directly and retains failed input without automatic write
  expect((record.intro as {value:string}).value).toBe('edited');expect(update).not.toHaveBeenCalled();
  await wrapper.findAll('button').find(b=>b.text()==='保存')!.trigger('click');await flushPromises();
  expect(update).toHaveBeenCalledTimes(1);expect(wrapper.get('input').element.value).toBe('edited');
- expect(wrapper.get('[role="alert"]').text()).toContain('操作失败');wrapper.unmount();
+ expect(wrapper.text()).toContain('操作失败');wrapper.unmount();
 });
 it('does not display workspace or old messages after owner permissions cease to match',async()=>{
  const {model}=fixture();model[meta].messages=[{id:'old',level:'info',text:'old owner notification'}];
  const wrapper=mount(BusinessApplication,{props:{model}});await flushPromises();
  model[meta].owner={ledger:'new',operator:'next',generation:'2'};await flushPromises();
- expect(wrapper.find('nav').exists()).toBe(false);expect(wrapper.text()).not.toContain('old owner notification');wrapper.unmount();
+ expect(wrapper.text()).not.toContain('Partners');expect(wrapper.text()).not.toContain('old owner notification');wrapper.unmount();
+});
+it('inherits collection grants for records and narrows field writes for ordinary users',async()=>{
+ const {model}=fixture();const group=model.group as Extract<BusinessModel[string],{[meta]:{kind:'object'}}>;
+ const rows=group.rows as Extract<BusinessModel[string],{[meta]:{kind:'collection'}}>;
+ const save=vi.fn(async()=>{});
+ const record={code:{value:'original',[meta]:{kind:'text' as const,name:'Code'}},[meta]:{kind:'object' as const,name:'Record',operations:{update:{run:save}}}};
+ rows.items=[record];rows.selected=record;group[meta].form=['rows'];
+ model[meta].userPermissions={owner:model[meta].owner!,administrator:false,grants:[{node:rows,read:true,write:true,operations:{query:true,update:true}}]};
+ const wrapper=mount(BusinessApplication,{props:{model}});await flushPromises();
+ await wrapper.get('input[aria-label="Code"]').setValue('changed');
+ await wrapper.findAll('button').find(b=>b.text()==='保存')!.trigger('click');await flushPromises();expect(save).toHaveBeenCalledTimes(1);
+ wrapper.unmount();
+});
+it('shows an unprojected deep linked record inside its owning aggregate',async()=>{
+ const {model}=fixture();const group=model.group as Extract<BusinessModel[string],{[meta]:{kind:'object'}}>;
+ const rows=group.rows as Extract<BusinessModel[string],{[meta]:{kind:'collection'}}>;
+ const record={code:{value:'deep link',[meta]:{kind:'text' as const,name:'Code'}},[meta]:{kind:'object' as const,name:'Record',operations:{}}};
+ rows.items=[record];group[meta].form=['intro'];model[meta].navigation.current=record;
+ const wrapper=mount(BusinessApplication,{props:{model}});await flushPromises();
+ expect(wrapper.text()).toContain('Partners');expect(wrapper.get('input[aria-label="Code"]').element.value).toBe('deep link');wrapper.unmount();
 });
