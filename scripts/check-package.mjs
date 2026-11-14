@@ -237,7 +237,10 @@ try {
   });
   const address = server.httpServer.address();
   assert.ok(address && typeof address !== "string");
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    headless: true,
+    downloadsPath: join(dir, "downloads"),
+  });
   const context = await browser.newContext();
   context.setDefaultTimeout(30_000);
   const page = await context.newPage();

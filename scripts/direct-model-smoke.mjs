@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { expect } from "@playwright/test";
 export async function directModelSmoke(page) {
   const callbacks = [];
@@ -83,17 +84,22 @@ export async function directModelSmoke(page) {
     });
     await page
       .getByRole("button", {
-        name: /^(stageAttachments|暂存附件)$/,
+        name: /^(stageAttachments|暂存附件|上传附件)$/,
         exact: true,
       })
       .click();
     await expect(
       page.getByRole("textbox", { name: "单据状态", exact: true }),
     ).toHaveValue("已暂存 1 个附件");
+    await page
+      .getByRole("textbox", { name: "标签值", exact: true })
+      .fill("更新标签");
+    await page.getByRole("combobox", { name: "关联值", exact: true }).click();
+    await page.getByRole("option", { name: "合成关联", exact: true }).click();
     await page.getByRole("button", { name: "提交", exact: true }).click();
     await expect(
       page.getByRole("textbox", { name: "单据状态", exact: true }),
-    ).toHaveValue("已提交");
+    ).toHaveValue("已提交：更新标签/合成关联");
     await navigation
       .getByRole("link", { name: "流程办理", exact: true })
       .click();
@@ -139,7 +145,12 @@ export async function directModelSmoke(page) {
     ).toHaveValue("20.00");
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "导出", exact: true }).click();
-    assert.equal((await download).suggestedFilename(), "synthetic-report.csv");
+    const artifact = await download;
+    assert.equal(artifact.suggestedFilename(), "synthetic-report.csv");
+    assert.equal(
+      await readFile(await artifact.path(), "utf8"),
+      "合计\n20.00\n",
+    );
     await navigation
       .getByRole("link", { name: "打印办理", exact: true })
       .click();

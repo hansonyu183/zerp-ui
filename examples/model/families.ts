@@ -42,6 +42,40 @@ const line = {
 };
 export const voucher = reactive({
   number: text("单据编号", "V001"),
+  tags: {
+    items: [text("标签值", "初始标签")],
+    [meta]: {
+      kind: "array",
+      name: "标签",
+      element: text("标签值", ""),
+      operations: {},
+    },
+  },
+  related: {
+    items: [
+      {
+        value: null as { id: string; label: string } | null,
+        [meta]: {
+          kind: "reference" as const,
+          name: "关联值",
+          options: [{ id: "R1", label: "合成关联" }],
+        },
+      },
+    ],
+    [meta]: {
+      kind: "array",
+      name: "关联列表",
+      element: {
+        value: null,
+        [meta]: {
+          kind: "reference",
+          name: "关联值",
+          options: [{ id: "R1", label: "合成关联" }],
+        },
+      },
+      operations: {},
+    },
+  },
   amount: {
     value: "20.00",
     [meta]: { kind: "decimal", name: "金额", readOnly: true },
@@ -59,7 +93,7 @@ export const voucher = reactive({
     kind: "object",
     family: "voucher",
     name: "单据办理",
-    form: ["number", "amount", "files", "status", "rows"],
+    form: ["number", "amount", "files", "status", "rows", "tags", "related"],
     operations: {
       calculate: {
         async run() {
@@ -78,7 +112,7 @@ export const voucher = reactive({
       submit: {
         async run() {
           trace("voucher.submit");
-          voucher.status.value = "已提交";
+          voucher.status.value = `已提交：${voucher.tags.items[0]!.value}/${voucher.related.items[0]!.value?.label ?? "无关联"}`;
         },
       },
       withdraw: {
