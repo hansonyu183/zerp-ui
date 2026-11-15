@@ -91,7 +91,16 @@ export async function directModelSmoke(page) {
     await navigation
       .getByRole("link", { name: "单据办理", exact: true })
       .click();
+    await expect(
+      page.getByRole("tab", { name: "表头", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("tab", { name: "单据明细", exact: true }).click();
     await page.getByRole("textbox", { name: "数量", exact: true }).fill("3");
+    await page.getByRole("tab", { name: "表头", exact: true }).click();
+    await page.getByRole("tab", { name: "单据明细", exact: true }).click();
+    await expect(
+      page.getByRole("textbox", { name: "数量", exact: true }),
+    ).toHaveValue("3");
     await page
       .getByRole("button", { name: /^(calculate|计算)$/, exact: true })
       .click();

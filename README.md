@@ -4,13 +4,13 @@
 
 ## 固定版本安装
 
-本源码版本为 **0.43.0**。正式交付状态、确切源码 SHA、CI 和工件摘要以 [#156 修正与接入验收记录](https://github.com/hansonyu183/zerp-ui/issues/156) 为准；源码版本号不代表已经发行。
+本源码版本为 **0.43.1**。正式交付状态、确切源码 SHA、CI 和工件摘要以 [#156 修正与接入验收记录](https://github.com/hansonyu183/zerp-ui/issues/156) 为准；源码版本号不代表已经发行。
 
-正式发行后，从 [ui-v0.43.0 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.43.0) 下载 `zerp-ui-0.43.0.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+正式发行后，从 [ui-v0.43.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.43.1) 下载 `zerp-ui-0.43.1.tgz` 和 `SHA256SUMS`，核对原文件后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.43.0.tgz
+pnpm add ./zerp-ui-0.43.1.tgz
 ```
 
 宿主初始化唯一一套 Vue、Vuetify 和 Router；peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化 `createVuetify`。图标字体随包分发。

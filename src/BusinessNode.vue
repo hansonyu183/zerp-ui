@@ -100,7 +100,11 @@ const runs = computed(() => {
   let fieldRun = 0,
     groupRun = 0;
   for (const entry of visible.value) {
-    const grouped = ["object", "collection"].includes(entry[1][meta].kind);
+    const metadata = entry[1][meta];
+    const grouped =
+      metadata.kind === "object" ||
+      metadata.kind === "collection" ||
+      (metadata.kind === "array" && metadata.element[meta].kind === "object");
     const previous = result.at(-1);
     if (previous?.grouped === grouped) previous.entries.push(entry);
     else

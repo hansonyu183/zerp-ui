@@ -85,6 +85,10 @@ export const voucher = reactive({
     [meta]: { kind: "attachments", name: "单据附件", multiple: true },
   },
   status: text("单据状态", "草稿"),
+  header: {
+    note: text("表头说明", "合成表头"),
+    [meta]: { kind: "object", name: "表头", operations: {} },
+  },
   rows: {
     items: [line],
     [meta]: { kind: "array", name: "单据明细", element: line, operations: {} },
@@ -93,7 +97,16 @@ export const voucher = reactive({
     kind: "object",
     family: "voucher",
     name: "单据办理",
-    form: ["number", "amount", "files", "status", "rows", "tags", "related"],
+    form: [
+      "number",
+      "amount",
+      "files",
+      "status",
+      "header",
+      "rows",
+      "tags",
+      "related",
+    ],
     operations: {
       calculate: {
         async run() {

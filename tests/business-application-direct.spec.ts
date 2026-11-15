@@ -754,3 +754,35 @@ it("uses the consumer theme preference and returns user changes to its persisten
   expect(wrapper.find(".v-theme--zerp-md1-dark").exists()).toBe(true);
   wrapper.unmount();
 });
+it("groups object-array details with sibling forms and retains direct edits across tabs", async () => {
+  const { model } = fixture();
+  const group = model.group as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "object" } }
+  >;
+  const row = {
+    quantity: { value: "1", [meta]: { kind: "text" as const, name: "数量" } },
+    [meta]: { kind: "object" as const, name: "明细行", operations: {} },
+  };
+  group.details = {
+    items: [row],
+    [meta]: { kind: "array", name: "明细", element: row, operations: {} },
+  };
+  group[meta].form = ["overview", "details"];
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([
+    "Overview",
+    "明细",
+  ]);
+  await wrapper.get('[role="tab"][data-member="details"]').trigger("click");
+  await flushPromises();
+  await wrapper.get('input[aria-label="数量"]').setValue("7");
+  expect(row.quantity.value).toBe("7");
+  await wrapper.get('[role="tab"][data-member="overview"]').trigger("click");
+  await wrapper.get('[role="tab"][data-member="details"]').trigger("click");
+  expect(
+    (wrapper.get('input[aria-label="数量"]').element as HTMLInputElement).value,
+  ).toBe("7");
+  wrapper.unmount();
+});
