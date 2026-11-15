@@ -203,6 +203,10 @@ export async function directModelSmoke(page) {
     });
     await bottomDrill.scrollIntoViewIfNeeded();
     const reportScroll = await page.evaluate(() => window.scrollY);
+    assert.ok(
+      reportScroll > 0,
+      "drilldown fixture must start from a scrolled result",
+    );
     const readsBeforeDrill = callbacks.filter(
       (name) => name === "structured.query",
     ).length;
