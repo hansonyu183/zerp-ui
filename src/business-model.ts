@@ -212,6 +212,8 @@ interface ObjectBase extends NodeBase, ObjectCapabilities {
   kind: "object";
   /** 正式记录的稳定业务身份；分组、条件和未保存记录可为 null。 */
   identity: string | null;
+  /** 当前值及所属明细已被权威确认可打印；输入、待保存或结果未知时由消费者置 false。 */
+  printable: boolean;
   /** 数组顺序就是呈现顺序；嵌套对象表达分组，不另设 form 或 Tab 配置。 */
   members: BusinessNode[];
 }
