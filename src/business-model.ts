@@ -1,322 +1,387 @@
-import type { ThemeChoice, NavigationIcon } from "./shell";
-import { nodeMetadata } from "./model-node";
-import type { PrintDocument } from "./printing";
-import type { ReportPresentation, ReportSummary } from "./report";
-import type { Interaction } from "./collaboration";
+/**
+ * 2026-11-16 目标接口，正式决定见 GitHub #152。
+ * 仅供规格和类型示例检查；尚未替换 @zerp/ui/model 或接入现有宿主。
+ * 协议属性固定，业务结构由消费者在源码中直接定义；本文件没有运行时依赖。
+ */
 
-/** Operations read and update their own model; transport and outcomes belong to the consumer. */
-type Operation = {
-  disabledReason?: string;
+/** 操作缺省时无入口；存在但 disabled 为 true 时置灰且不得调用 run。 */
+export interface Operation {
+  disabled: boolean;
+  /** 读取当前模型值，结果直接更新模型；业务有效性及迟到回写由消费者控制。 */
   run(): Promise<void>;
-};
+}
 
-type BaseObjectAction = "get" | "update" | "delete" | "reconcile";
-type FamilyActions = {
-  authentication: "signIn" | "recover";
-  account: "changePassword" | "signOut";
-  document: "submit" | "approve" | "enable" | "disable" | "stageAttachments";
-  voucher:
-    | "submit"
-    | "approve"
-    | "withdraw"
-    | "reverse"
-    | "calculate"
-    | "stageAttachments"
-    | "clone"
-    | "send"
-    | "unapprove"
-    | "complete"
-    | "uncomplete"
-    | "void"
-    | "unvoid";
-  workflow:
-    | "start"
-    | "advance"
-    | "createChild"
-    | "approveChild"
-    | "rejectChild"
-    | "retryChild"
-    | "cancelChild"
-    | "openVoucher"
-    | "audit"
-    | "cancel";
-  processing:
-    "process" | "publish" | "restore" | "validate" | "run" | "stop" | "import";
-  batch: "executeBatch" | "cancel";
-  report: "calculate" | "export";
-  output: "preview" | "print" | "confirmPrinted" | "confirmNotPrinted";
-};
-type ObjectAction = BaseObjectAction | FamilyActions[keyof FamilyActions];
-type ObjectOperations =
-  | {
-      family: "workbench";
-      /** Fixed business roles reference members of this model, not layout settings. */
-      workbench: {
-        information: ObjectNode | CollectionNode;
-        vouchers: CollectionNode;
-        reports: CollectionNode;
-        documents: CollectionNode;
-        manageReports?: CollectionNode;
-      };
-      operations: Partial<Record<BaseObjectAction, Operation>>;
-    }
-  | { family?: never; operations: Partial<Record<BaseObjectAction, Operation>> }
-  | {
-      [F in keyof FamilyActions]: {
-        family: F;
-        operations: Partial<
-          Record<BaseObjectAction | FamilyActions[F], Operation>
-        >;
-      };
-    }[keyof FamilyActions];
-type CollectionAction = "query" | "create" | "export";
-
-type Owner = {
+/** 身份、账套及本次登录批次；不能仅以账号相同判断请求仍有效。 */
+export interface Owner {
   ledger: string;
   operator: string;
   generation: string;
-};
+}
 
-type Field =
-  | {
+/** key 在同一所属对象内稳定且唯一，不随显示文案或数组重排变化。 */
+interface NodeBase {
+  key: string;
+  /** null 隐藏整个节点的对象详情/编辑呈现；不撤销列引用、打印或业务值。 */
+  label: string | null;
+  /** 业务只读事实，权限包括管理员权限均不能覆盖。 */
+  readOnly: boolean;
+}
+
+/** 日期格式只影响显示；省略时使用本地语言的年月日格式。 */
+export interface DateFormat {
+  locale?: string;
+  year?: "numeric" | "2-digit";
+  month?: "numeric" | "2-digit" | "long" | "short";
+  day?: "numeric" | "2-digit";
+}
+
+/** 日期时间的显式显示时区；原值包含时区，不由显示格式改变业务时间。 */
+export interface DateTimeFormat extends DateFormat {
+  hour?: "numeric" | "2-digit";
+  minute?: "numeric" | "2-digit";
+  second?: "numeric" | "2-digit";
+  hour12?: boolean;
+  timeZone?: string;
+}
+
+/** 仅格式化展示，不通过 Number 转换损失十进制原值精度。 */
+export interface DecimalFormat {
+  locale?: string;
+  minimumFractionDigits?: number;
+  maximumFractionDigits?: number;
+  useGrouping?: boolean;
+  /** 显示在格式化值后的业务单位，不写回 value。 */
+  unit?: string;
+}
+
+/** 已选值自带历史显示名，不要求仍存在于当前候选目录。 */
+export interface ReferenceValue {
+  id: string;
+  label: string;
+}
+
+export interface SelectOption extends ReferenceValue {
+  /** false 时可回显，但用户不能新选中。 */
+  selectable: boolean;
+}
+
+/** 每层都使用同样的候选语义；搜索保留命中项的祖先路径。 */
+export interface TreeOption extends SelectOption {
+  children: TreeOption[];
+}
+
+type ReferenceField = NodeBase & {
+  required: boolean;
+  /** 动态目录首次需要时加载；静态目录直接提供 options。 */
+  load?: Operation;
+} & (
+    | { kind: "reference"; options: SelectOption[] }
+    | { kind: "treeReference"; options: TreeOption[] }
+  ) &
+  (
+    | { multiple: false; value: ReferenceValue | null }
+    | { multiple: true; value: ReferenceValue[] }
+  );
+
+/** 字段值直接响应用户输入；引用只负责选值，没有集合 target 或资料维护入口。 */
+export type FieldNode =
+  | (NodeBase & {
+      kind: "text" | "longText" | "password";
+      value: string;
+      required: boolean;
+    })
+  | (NodeBase & {
+      kind: "date";
+      /** 空字符串表示未填；有值时采用 YYYY-MM-DD，不转换时区。 */
+      value: string;
+      required: boolean;
+      format?: DateFormat;
+    })
+  | (NodeBase & {
+      kind: "datetime";
+      /** 空字符串表示未填；有值时为包含时区的 ISO 8601 日期时间。 */
+      value: string;
+      required: boolean;
+      format?: DateTimeFormat;
+    })
+  | (NodeBase & {
+      kind: "decimal";
+      /** 十进制字符串；输入中的中间值和后端业务校验由消费者处理。 */
+      value: string;
+      required: boolean;
+      format?: DecimalFormat;
+    })
+  | (NodeBase & {
+      kind: "integer";
+      /** null 是未填，0 是有效值。 */
+      value: number | null;
+      required: boolean;
+    })
+  | (NodeBase & { kind: "boolean"; value: boolean })
+  | (NodeBase & {
+      kind: "secret";
+      required: boolean;
+      /** 区分保留原秘密、替换和清除，不将后端秘密明文放入模型。 */
       value:
         | { intent: "keep" }
         | { intent: "replace"; value: string }
         | { intent: "clear" };
-      [nodeMetadata]: {
-        kind: "secret";
-        name: string;
-        readOnly?: boolean;
-        required?: boolean;
-      };
-    }
-  | {
-      value: number | null;
-      [nodeMetadata]: {
-        kind: "integer";
-        name: string;
-        required?: boolean;
-        readOnly?: boolean;
-      };
-    }
-  | {
-      value: string | null;
-      [nodeMetadata]: {
-        kind: "enum";
-        name: string;
-        required?: boolean;
-        readOnly?: boolean;
-        options: readonly { id: string; name: string }[];
-      };
-    }
-  | {
-      value: string;
-      [nodeMetadata]: {
-        kind:
-          "text" | "longText" | "decimal" | "password" | "date" | "datetime";
-        name: string;
-        required?: boolean;
-        readOnly?: boolean;
-      };
-    }
-  | {
-      value: boolean;
-      [nodeMetadata]: {
-        kind: "boolean";
-        name: string;
-        readOnly?: boolean;
-      };
-    }
-  | {
-      value:
-        | { id: string; label: string; selectable?: boolean }
-        | { id: string; label: string; selectable?: boolean }[]
-        | null;
-      [nodeMetadata]: {
-        kind: "reference";
-        name: string;
-        readOnly?: boolean;
-        multiple?: boolean;
-        /** Entire directory, populated by load; filtering and paging stay local. */
-        options: readonly { id: string; label: string; selectable?: boolean }[];
-        dependencies?: readonly (string | number | boolean | null)[];
-        load?: Operation;
-      };
-    }
-  | {
-      value: File[];
-      [nodeMetadata]: {
-        kind: "attachments";
-        name: string;
-        readOnly?: boolean;
-        multiple?: boolean;
-      };
-    }
-  | {
-      value: PrintDocument | null;
-      [nodeMetadata]: {
-        kind: "output";
-        name: string;
-        readOnly?: boolean;
-        operations?: Partial<
-          Record<
-            "print" | "confirmPrinted" | "confirmNotPrinted" | "reconcile",
-            Operation
-          >
-        >;
-      };
-    };
+    })
+  | (NodeBase & { kind: "attachments"; multiple: boolean; value: File[] })
+  | ReferenceField;
 
-interface ObjectNode {
-  [member: string]: Node;
-  [nodeMetadata]: {
-    kind: "object";
-    name: string;
-    identity?: string;
-    /** Ordered content projection; omitted means member declaration order. */
-    form?: readonly string[];
-    readOnly?: boolean;
-  } & ObjectOperations;
+/** 对象操作的提交边界只覆盖该对象及其所属明细。 */
+export interface ObjectOperations {
+  get?: Operation;
+  update?: Operation;
+  delete?: Operation;
+  /** 查询权威结果，不重发原写入；关闭反馈不等于核实完成。 */
+  reconcile?: Operation;
 }
 
-type ReportValues = Record<string, string | number | boolean | null>;
-type CollectionNode = {
+/** 单据固定操作全集；缺省表示当前对象不提供该动作。 */
+export interface VoucherOperations {
+  submit?: Operation;
+  approve?: Operation;
+  withdraw?: Operation;
+  reverse?: Operation;
+  calculate?: Operation;
+  stageAttachments?: Operation;
+  clone?: Operation;
+  send?: Operation;
+  unapprove?: Operation;
+  complete?: Operation;
+  uncomplete?: Operation;
+  void?: Operation;
+  unvoid?: Operation;
+}
+
+interface ObjectBase extends NodeBase {
+  kind: "object";
+  /** 正式记录的稳定业务身份；分组、条件和未保存记录可为 null。 */
+  identity: string | null;
+  /** 数组顺序就是呈现顺序；嵌套对象表达分组，不另设 form 或 Tab 配置。 */
+  members: BusinessNode[];
+}
+
+/** 普通对象和单据使用同一种对象契约，单据特有属性由 family 约束。 */
+export type ObjectNode = ObjectBase &
+  (
+    | { family: "standard"; operations: ObjectOperations }
+    | {
+        family: "voucher";
+        /** 如 AA、AB；消费者定义业务类型码，UI 不按类型码猜测交互。 */
+        readonly type: string;
+        operations: ObjectOperations & VoucherOperations;
+      }
+  );
+
+/** 引用记录的直接成员 key；列名独立提供，空表也能显示标题。 */
+export interface Column {
+  key: string;
+  label: string;
+}
+
+/** 对象所属子明细，或工作台内容；不是独立业务集合。 */
+export interface RecordsNode extends NodeBase {
+  kind: "records";
+  columns: Column[];
+  /** 按稳定 identity 复用记录；无需 element 模板，也不复制已有行作为新行。 */
   items: ObjectNode[];
   selected: ObjectNode | null;
-  /** The unsaved new record itself, not a copy of an existing record's values. */
+  /** 仅改变所属模型的本地明细；最终保存由父对象 update 完成。 */
+  operations: { create?: Operation; remove?: Operation };
+}
+
+/** Collection 不属于节点联合，不能作为 ObjectNode 的子明细。 */
+export type BusinessNode = FieldNode | ObjectNode | RecordsNode;
+
+/** 有限打印样式；无 CSS、脚本、表达式或远程资源加载。 */
+interface PrintTextStyle {
+  font?: "sans-serif" | "serif" | "monospace" | "cjk-sans";
+  size?: number;
+  bold?: boolean;
+  align?: "left" | "center" | "right";
+  lineHeight?: number;
+  wrap?: "word" | "none";
+}
+
+interface PrintBox {
+  /** 同一打印区域内唯一。 */
+  key: string;
+  /** 坐标及尺寸单位为毫米，相对所属打印区域。 */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  foreground?: string;
+  background?: string;
+  border?: boolean;
+  lineWidth?: number;
+}
+
+/** 从当前记录依次按 members.key 查找；数组仅表达成员路径，不执行字符串表达式。 */
+export type FieldPath = readonly [string, ...string[]];
+
+export type PrintElement = PrintBox &
+  (
+    | ({ kind: "text"; text: string } & PrintTextStyle)
+    | ({ kind: "field"; path: FieldPath } & PrintTextStyle)
+    | { kind: "image"; src: string; alt: string }
+    | { kind: "line" | "rect" }
+  );
+
+/** JSON 模板，在 UI 绑定数据后生成现有打印器接收的有限文档。 */
+export interface PrintTemplate {
+  label: string;
+  page: {
+    width: number;
+    height: number;
+    rotation?: 0 | 90 | 180 | 270;
+    margin: number;
+  };
+  /** 页眉页脚固定预留高度；每页重复，不占用正文分页空间。 */
+  header: { height: number; items: PrintElement[] };
+  footer: { height: number; items: PrintElement[] };
+  body: (
+    | {
+        /** 单条记录区域；用于 itemPrintTemple，字段相对当前记录。 */
+        kind: "record";
+        height: number;
+        items: PrintElement[];
+      }
+    | {
+        kind: "records";
+        /** [] 表示当前 Collection.items；非空路径指向当前记录的 RecordsNode。 */
+        path: readonly string[];
+        headerHeight: number;
+        rowHeight: number;
+        columns: {
+          path: FieldPath;
+          label: string;
+          width: number;
+          align?: "left" | "center" | "right";
+        }[];
+      }
+  )[];
+}
+
+/** 独立查询和写入的业务集合；普通资料与 AA/AB 等单据共用。 */
+export interface Collection {
+  /** 在 BusinessModel.members 中的稳定集合键。 */
+  key: string;
+  label: string;
+  columns: Column[];
+  /** 查询条件与 query 操作分开；输入不自动触发后端查询。 */
+  conditions: ObjectNode;
+  items: ObjectNode[];
+  selected: ObjectNode | null;
+  /** 新增记录本身，由 create 回调直接构造其完整字段及回调。 */
   draft: ObjectNode | null;
-  query: ObjectNode;
   page: number;
   pageSize: number;
   total: number;
-  [nodeMetadata]: {
-    kind: "collection";
-    name: string;
-    /** Record structure and available operations, also readable when items is empty. */
-    element: ObjectNode;
-    list: readonly string[];
-    /** Finite result facts. Presentation rows refer to record metadata.identity. */
-    report?: {
-      summary?: ReportSummary<ReportValues>;
-      presentation?: ReportPresentation<ReportValues, string>;
-      cells?: readonly {
-        row: ObjectNode;
-        field: string;
-        kind: "record" | "detail" | "select";
-        target: Target;
-        label: string;
-        disabledReason?: string;
+  operations: { query?: Operation; create?: Operation; export?: Operation };
+  /** 自动产生单条记录打印入口；缺省不显示。拼写沿用用户确认的接口。 */
+  itemPrintTemple?: PrintTemplate;
+  /** 自动打印当前页 items，不追加查询；缺省不显示。 */
+  printTemple?: PrintTemplate;
+}
+
+/** 权限仍需同时满足节点业务限制；全体操作名封闭。 */
+type OperationPermissions = Partial<
+  Record<
+    | keyof ObjectOperations
+    | keyof VoucherOperations
+    | "query"
+    | "create"
+    | "export"
+    | "remove"
+    | "load"
+    | "print"
+    | "itemPrint",
+    boolean
+  >
+>;
+
+/** Collection 授权界定独立业务边界，边界内节点继承并可进一步收窄。 */
+export type UserPermissions = { owner: Owner } & (
+  | { administrator: true; grants?: never }
+  | {
+      administrator: false;
+      grants: {
+        node: Collection | BusinessNode;
+        read: boolean;
+        write: boolean;
+        operations: OperationPermissions;
       }[];
+    }
+);
+
+/** 匿名及恢复阶段不能携带已授权身份；owner 和权限归属还须在运行时核对。 */
+export type Session =
+  | { state: "anonymous" | "recovering"; owner: null; userPermissions: null }
+  | {
+      state: "ready" | "password-required";
+      owner: Owner;
+      userPermissions: UserPermissions;
     };
-    operations: Partial<Record<CollectionAction, Operation>>;
-  };
-};
 
-type ArrayNode = {
-  items: Node[];
-  selected?: Node | null;
-  [nodeMetadata]: {
-    kind: "array";
-    name: string;
-    readOnly?: boolean;
-    element: Node;
-    /** Local value edits; they do not establish a separate persistence boundary. */
-    operations: Partial<Record<"create" | "remove", Operation>>;
-  };
-};
-type InteractionNode = {
-  value: Record<string, string | boolean>;
-  [nodeMetadata]: {
-    kind: "interactions";
-    name: string;
-    readOnly?: boolean;
-    items: readonly (
-      | Exclude<Interaction<Target>, { kind: "related" | "download" }>
-      | {
-          kind: "related" | "download";
-          id: string;
-          label: string;
-          target: Target;
-        }
-    )[];
-  };
-};
-type Node = Field | ObjectNode | CollectionNode | ArrayNode | InteractionNode;
-type Target = ObjectNode | CollectionNode;
+/** 工作台使用固定布局，不进入独立业务集合，不接受列数或组件配置。 */
+export interface Workbench {
+  /** 首次进入工作台时统一读取四块内容，失败可显式重试。 */
+  load?: Operation;
+  information: RecordsNode;
+  vouchers: RecordsNode;
+  reports: RecordsNode;
+  masters: RecordsNode;
+}
 
-type Permission = {
-  node: Node;
-  read: boolean;
-  write?: boolean;
-  /** Collection grants may also authorize their records' object operations. */
-  operations?: Partial<
-    Record<ObjectAction | CollectionAction | "remove", boolean>
-  >;
-};
-
-/**
- * Directly defined target contract for BusinessApplication, independent of examples.
- *
- * Business member names are open; node kinds and operation names are closed.
- * Inputs live directly in field values. No editor baseline, frozen request,
- * persistence port, component, template or parallel page definition is required.
- *
- * All business families share direct values and no-argument operations.
- * Family discriminants restrict operations without selecting consumer layouts.
- * @see https://github.com/hansonyu183/zerp-ui/issues/152
- */
+/** 登录前整体传入；登录、退出、再次登录保持同一响应式根对象。 */
 export interface BusinessModel {
-  [businessMember: string]: Node;
-  [nodeMetadata]: {
-    kind: "application";
-    name: string;
-    brand: {
-      productName: string;
-      companyName: string;
-    };
-    /** Consumer owns persistence; the host only renders and reports the chosen theme. */
-    theme?: { value: ThemeChoice; change(value: ThemeChoice): void };
-    owner: Owner | null;
-    authentication?: ObjectNode;
-    account?: {
-      name: string;
-      profile?: ObjectNode;
-      password?: ObjectNode;
-      signOut?: Operation;
-    };
-    session?: {
-      state: "anonymous" | "ready" | "recovering" | "password-required";
-      message?: string;
-    };
-    /** null means authorization is not ready; it never grants workspace access. */
-    userPermissions:
-      | ({ owner: Owner } & (
-          | { administrator: true; grants?: never }
-          | { administrator: false; grants: Permission[] }
-        ))
-      | null;
-    navigation: {
-      current: Target | null;
-      href(node: Target): string;
-      visit(node: Target): void;
-    };
-    /** Only these targets participate in global navigation. */
-    navigationProjection: {
-      key: string;
-      name: string;
-      ungrouped?: boolean;
-      items: {
-        node: Target;
-        icon?: NavigationIcon;
-        /** A collapsible secondary business category within this group. */
-        section?: { key: string; caption: string };
-      }[];
-    }[];
-    messages: {
-      id: string;
-      level: "info" | "error" | "success" | "warning";
-      target?: Target;
-      text: string;
-    }[];
+  kind: "application";
+  label: string;
+  brand: { productName: string; companyName: string };
+  /** 静态定义的独立集合，不按后端 schema/bindings 动态生成。 */
+  members: Record<string, Collection>;
+  workbench?: Workbench;
+  /** 省略时默认 MD3 浅色；选择持久化由消费者负责。 */
+  theme?: {
+    value: { preset: "md1" | "md2" | "md3"; mode: "light" | "dark" };
+    change(value: {
+      preset: "md1" | "md2" | "md3";
+      mode: "light" | "dark";
+    }): void;
   };
+  authentication: {
+    form: ObjectNode;
+    operations: { signIn: Operation; recover: Operation };
+  };
+  account: {
+    label: string;
+    profile: ObjectNode;
+    password: ObjectNode;
+    operations: { changePassword: Operation; signOut: Operation };
+  };
+  session: Session;
+  navigation: {
+    /** null 表示工作台；未配置时进入首个获权集合，无获权集合时显示空工作区。 */
+    current: Collection | null;
+    groups: {
+      key: string;
+      label: string;
+      /** 仅允许引用根级 members 中的集合，不提升其记录或子明细。 */
+      items: Collection[];
+    }[];
+    href(collection: Collection): string;
+    visit(collection: Collection): void;
+  };
+  /** 统一反馈；登出清理，关闭消息不代表业务结果已核实。 */
+  messages: {
+    id: string;
+    level: "info" | "success" | "warning" | "error";
+    text: string;
+    /** 反馈定位不产生新的全局导航目标。 */
+    target: Collection | BusinessNode | null;
+  }[];
 }
