@@ -189,11 +189,9 @@ export async function uiPreferencesSmoke(page, options = {}) {
     expect(Math.abs(restored.height - baseline.height)).toBeLessThan(1);
     expect(Math.abs(restored.width - baseline.width)).toBeLessThan(1);
   }
-  const referenceForm = feedbackDialog
-    .locator(".zerp-direct-form")
-    .filter({
-      has: page.getByRole("combobox", { name: "表单引用", exact: true }),
-    });
+  const referenceForm = feedbackDialog.locator(".zerp-direct-form").filter({
+    has: page.getByRole("combobox", { name: "表单引用", exact: true }),
+  });
   await stableReferenceFailure("表单引用", referenceForm);
   await feedbackDialog
     .getByRole("tab", { name: "联系人", exact: true })
