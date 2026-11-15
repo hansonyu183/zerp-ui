@@ -61,3 +61,56 @@ export async function directPresentationSmoke(page) {
     overlayAndFocus: true,
   };
 }
+
+export async function workbenchPresentationSmoke(page) {
+  const workbench = page.getByRole("region", { name: "工作台", exact: true });
+  const cards = workbench.locator(".zerp-workbench-grid > section");
+  await expect(cards).toHaveCount(4);
+  const rects = () =>
+    cards.evaluateAll((items) =>
+      items.map((item) => {
+        const { x, y, width, height } = item.getBoundingClientRect();
+        return { x, y, width, height };
+      }),
+    );
+  const desktop = await rects();
+  expect(desktop[0].width).toBeGreaterThan(desktop[1].width * 2.9);
+  expect(desktop[0].y + desktop[0].height).toBeLessThan(desktop[1].y + 1);
+  expect(Math.abs(desktop[1].y - desktop[2].y)).toBeLessThan(1);
+  expect(Math.abs(desktop[1].width - desktop[3].width)).toBeLessThan(1);
+  const darkToggle = page.getByRole("button", {
+    name: "切换明暗模式",
+    exact: true,
+  });
+  await darkToggle.click();
+  for (const preset of [1, 2, 3]) {
+    await page.getByRole("button", { name: "主题预设", exact: true }).click();
+    await page
+      .getByRole("menuitemradio", {
+        name: `Material Design ${preset}`,
+        exact: true,
+      })
+      .click();
+    await expect(cards.first()).toHaveClass(
+      new RegExp(`v-theme--zerp-md${preset}-dark`),
+    );
+    await expect(
+      page.getByRole("menu", { name: "主题预设", exact: true }),
+    ).toBeHidden();
+  }
+  await darkToggle.click();
+  await expect(cards.first()).toHaveClass(/v-theme--zerp-md3-light/);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobile = await rects();
+  for (let i = 1; i < mobile.length; i++) {
+    expect(mobile[i].y).toBeGreaterThanOrEqual(
+      mobile[i - 1].y + mobile[i - 1].height,
+    );
+    expect(Math.abs(mobile[i].x - mobile[0].x)).toBeLessThan(1);
+    expect(Math.abs(mobile[i].width - mobile[0].width)).toBeLessThan(1);
+  }
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+}

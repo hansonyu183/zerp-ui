@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { directPresentationSmoke } from "./direct-presentation-smoke.mjs";
+import {
+  directPresentationSmoke,
+  workbenchPresentationSmoke,
+} from "./direct-presentation-smoke.mjs";
 import { readFile } from "node:fs/promises";
 import { expect } from "@playwright/test";
 export async function directModelSmoke(page) {
@@ -62,6 +65,8 @@ export async function directModelSmoke(page) {
     await page.getByRole("button", { name: "关闭", exact: true }).click();
 
     await navigation.getByText("业务", { exact: true }).click();
+    await navigation.getByRole("link", { name: "工作台", exact: true }).click();
+    await workbenchPresentationSmoke(page);
     await navigation
       .getByRole("link", { name: "资料办理", exact: true })
       .click();
@@ -270,7 +275,9 @@ export async function directModelSmoke(page) {
     await expect(
       navigation.getByRole("link", { name: "单据办理", exact: true }),
     ).toHaveCount(0);
-    await page.getByRole("tab", { name: "客户", exact: true }).click();
+    await expect(
+      page.getByRole("tab", { name: "客户", exact: true }),
+    ).toHaveCount(0);
     await page.getByRole("button", { name: "查看", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "保存", exact: true }),
