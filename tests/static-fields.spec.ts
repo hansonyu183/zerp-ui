@@ -130,6 +130,31 @@ async function openReference(label: string) {
   input.click();
   await flushPromises();
 }
+it("keeps password inputs masked when they become read-only", async () => {
+  const password: FieldNode = {
+    kind: "password",
+    key: "password",
+    label: "密码",
+    value: "synthetic-password",
+    readOnly: false,
+    required: false,
+  };
+  const { model, collection } = fixture([password]);
+  const wrapper = await show(model);
+  const input = () => wrapper.get('input[aria-label="密码"]');
+  expect(input().attributes("type")).toBe("password");
+
+  collection.conditions.members[0]!.readOnly = true;
+  await flushPromises();
+  expect(input().attributes("readonly")).toBeDefined();
+  expect(input().attributes("type")).toBe("password");
+
+  collection.conditions.members[0]!.readOnly = false;
+  collection.conditions.readOnly = true;
+  await flushPromises();
+  expect(input().attributes("readonly")).toBeDefined();
+  expect(input().attributes("type")).toBe("password");
+});
 function reference(
   kind: "reference" | "treeReference",
   multiple: boolean,

@@ -169,8 +169,11 @@ it("retries a failed complete directory without losing historical selections", a
   await flushPromises();
   expect(document.body.textContent).toContain("读取候选失败");
   expect(document.body.textContent).toContain("历史");
+  await w.get('button[aria-label="引用错误详情"]').trigger("click");
+  await flushPromises();
   await click(new DOMWrapper(document.body), "重试引用");
   expect(document.body.textContent).toContain("新候选");
+  expect(w.props("modelValue")).toEqual({ id: "old", label: "历史" });
   expect(load).toHaveBeenCalledTimes(2);
   w.unmount();
 });

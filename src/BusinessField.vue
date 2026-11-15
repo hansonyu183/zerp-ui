@@ -182,10 +182,10 @@ function setValue(value: unknown) {
           : node.value
       "
       :type="
-        disabled
-          ? 'text'
-          : node.kind === 'password'
-            ? 'password'
+        node.kind === 'password'
+          ? 'password'
+          : disabled
+            ? 'text'
             : node.kind === 'date'
               ? 'date'
               : node.kind === 'integer'
