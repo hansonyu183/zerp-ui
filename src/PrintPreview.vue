@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { printMarkup, type PrintDocument } from "./printing";
 import { VBtn } from "vuetify/components";
 import Feedback from "./Feedback.vue";
@@ -8,6 +8,7 @@ const props = defineProps<{
   document: PrintDocument;
   allowed: boolean;
   disabled?: boolean;
+  confirmResult?: boolean;
 }>();
 const emit = defineEmits<{ opened: [] }>();
 const frame = ref<HTMLIFrameElement>(),
@@ -50,6 +51,7 @@ async function loaded() {
       );
       if (!fonts.length) throw Error("font");
     }
+    await preview.fonts.ready;
     await Promise.all(Array.from(preview.images, (image) => image.decode()));
     if (
       generation === loadGeneration &&
@@ -64,6 +66,10 @@ async function loaded() {
       error.value = "打印字体或位图不可用，请安装指定字体或重新生成位图。";
   }
 }
+onBeforeUnmount(() => {
+  ++loadGeneration;
+  ready.value = false;
+});
 function print() {
   if (!props.allowed || props.disabled || !ready.value || !markup.value) return;
   try {
@@ -84,7 +90,9 @@ function print() {
     >
       打开打印窗口
     </VBtn>
-    <p>打印后请选择“已打印”或“未打印”。关闭窗口不会登记。</p>
+    <p v-if="confirmResult !== false">
+      打印后请选择“已打印”或“未打印”。关闭窗口不会登记。
+    </p>
     <iframe
       v-if="markup"
       :key="markup"
