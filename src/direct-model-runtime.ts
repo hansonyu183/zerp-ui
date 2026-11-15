@@ -351,7 +351,9 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     readable,
     writable,
     editable,
-    independent: (node) => boundary(node) === node,
+    independent: (node) =>
+      boundary(node) === node ||
+      (!isCollection(node) && node.kind === "object" && editable(node)),
     allowed,
     operations,
     run,

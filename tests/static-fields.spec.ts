@@ -191,6 +191,21 @@ it("loads reference directories once, retries a failed load, and searches locall
   await openReference("选择客户");
   expect(load).toHaveBeenCalledTimes(1);
   expect(document.body.textContent).toContain("目录读取失败");
+  expect(
+    wrapper.get(".zerp-reference").find(".v-input__details").exists(),
+  ).toBe(false);
+  const referenceInput = wrapper.get('input[aria-label="选择客户"]');
+  const descriptions =
+    referenceInput.attributes("aria-describedby")?.split(" ") ?? [];
+  expect(
+    descriptions.some((id) =>
+      document.getElementById(id)?.textContent?.includes("目录读取失败"),
+    ),
+  ).toBe(true);
+  await new DOMWrapper(
+    document.querySelector('button[aria-label="选择客户错误详情"]')!,
+  ).trigger("click");
+  await flushPromises();
   await clickText("重试引用");
   expect(load).toHaveBeenCalledTimes(2);
   await clickText("下一页引用");
@@ -465,6 +480,9 @@ it("keeps generated output printing separate from explicit physical-result confi
   collection.items = [row];
   collection.total = 1;
   const wrapper = await show(model);
+  expect(
+    wrapper.findAll("button").filter((button) => button.text() === "打印"),
+  ).toHaveLength(0);
   const iframe = wrapper.get('iframe[title="打印预览"]');
   expect(printed.run).not.toHaveBeenCalled();
   expect(confirmed.run).not.toHaveBeenCalled();

@@ -138,6 +138,80 @@ export async function uiPreferencesSmoke(page, options = {}) {
       "success-error-appearance-and-dismissal-preserve-field-and-row-geometry",
     result: "passed",
   });
+  await keyword.fill("引用反馈");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await page.getByRole("button", { name: "编辑", exact: true }).click();
+  const feedbackDialog = page
+    .getByRole("dialog")
+    .filter({ hasText: "表单引用" });
+  async function stableReferenceFailure(label, container) {
+    const control = feedbackDialog.getByRole("combobox", {
+      name: label,
+      exact: true,
+    });
+    await control.scrollIntoViewIfNeeded();
+    await settleLayout(page);
+    const baseline = await container.boundingBox();
+    await control.click();
+    const detailsButton = page.getByRole("button", {
+      name: `${label}错误详情`,
+      exact: true,
+    });
+    await expect(detailsButton).toBeVisible();
+    const details = page.getByRole("note", {
+      name: `${label}错误详情`,
+      exact: true,
+    });
+    if (!(await details.isVisible())) await detailsButton.click();
+    await expect(details).toBeVisible();
+    await expect(control).toHaveAttribute("aria-invalid", "true");
+    const description = await control.getAttribute("aria-describedby");
+    expect(description).toBeTruthy();
+    await expect(
+      page.locator(`[id="${description.split(" ").at(-1)}"]`),
+    ).toContainText("目录读取失败");
+    const messages = details.locator(".zerp-field-error-messages");
+    await expect(messages).toHaveCSS("overflow-y", "auto");
+    expect(
+      await messages.evaluate(
+        (element) => element.scrollHeight > element.clientHeight,
+      ),
+    ).toBe(true);
+    await stable(container, baseline);
+    await details
+      .getByRole("button", { name: "重试引用", exact: true })
+      .click();
+    await expect(details).toBeHidden();
+    await expect(control).not.toHaveAttribute("aria-invalid", "true");
+    if ((await control.getAttribute("aria-expanded")) === "true")
+      await control.press("Escape");
+    const restored = await container.boundingBox();
+    expect(Math.abs(restored.height - baseline.height)).toBeLessThan(1);
+    expect(Math.abs(restored.width - baseline.width)).toBeLessThan(1);
+  }
+  const referenceForm = feedbackDialog
+    .locator(".zerp-direct-form")
+    .filter({
+      has: page.getByRole("combobox", { name: "表单引用", exact: true }),
+    });
+  await stableReferenceFailure("表单引用", referenceForm);
+  await feedbackDialog
+    .getByRole("tab", { name: "联系人", exact: true })
+    .click();
+  const ownedRow = feedbackDialog
+    .getByRole("table")
+    .locator("tbody tr")
+    .first();
+  await stableReferenceFailure("明细引用", ownedRow);
+  await feedbackDialog
+    .getByRole("button", { name: "关闭", exact: true })
+    .click();
+  assertions.push({
+    clauses: ["UI-SHELL-05", "UI-DESKTOP-03"],
+    check: "long-reference-load-error-preserves-form-and-owned-row-geometry",
+    result: "passed",
+  });
+
   await page
     .getByRole("link", { name: "合成业务示例：首页", exact: true })
     .click();

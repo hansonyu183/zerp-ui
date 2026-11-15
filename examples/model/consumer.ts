@@ -110,6 +110,43 @@ const groups: Extract<FieldNode, { kind: "treeReference" }> = reactive({
     },
   ],
 });
+// A finite synthetic failure/retry case exercised through the installed public UI.
+function feedbackReference(
+  key: string,
+  label: string,
+): Extract<FieldNode, { kind: "reference" }> {
+  let attempt = 0;
+  const field: Extract<FieldNode, { kind: "reference" }> = reactive({
+    kind: "reference",
+    key,
+    label,
+    readOnly: false,
+    required: false,
+    multiple: false,
+    value: null,
+    options: [],
+    load: operation(async () => {
+      const owner = JSON.stringify(model.session.owner);
+      await Promise.resolve();
+      if (
+        model.session.state !== "ready" ||
+        JSON.stringify(model.session.owner) !== owner
+      )
+        return;
+      if (++attempt === 1)
+        throw Error(
+          "目录读取失败：" +
+            "合成目录暂不可用，请重试以重新读取候选；这是一条用于检验有限滚动区域的合成长消息。\n".repeat(
+              50,
+            ),
+        );
+      field.options = [
+        { id: "ready", label: "重试后的候选", selectable: true },
+      ];
+    }),
+  });
+  return field;
+}
 const lines: RecordsNode = reactive({
   kind: "records",
   key: "contacts",
@@ -231,6 +268,7 @@ const itemTemplate: PrintTemplate = reactive({
 const customers: Collection = reactive({
   key: "customers",
   label: "客户",
+  icon: "catalog",
   columns: [
     { key: "code", label: "编号" },
     { key: "name", label: "客户名称" },
@@ -278,6 +316,16 @@ customers.operations.query = operation(async () => {
   )
     return;
   if (filter.value === "失败") throw Error("合成查询失败");
+  const feedbackCase = filter.value === "引用反馈";
+  customer.members = customer.members.filter(
+    (node) => node.key !== "feedback-reference",
+  );
+  if (feedbackCase)
+    customer.members.push(feedbackReference("feedback-reference", "表单引用"));
+  lines.columns = [
+    { key: "contact", label: "姓名" },
+    ...(feedbackCase ? [{ key: "feedback-role", label: "角色" }] : []),
+  ];
   const facts = JSON.parse(savedCustomerFacts.value) as {
     name: string;
     credit: string;
@@ -296,6 +344,9 @@ customers.operations.query = operation(async () => {
       text("contact", "联系人姓名", values[0] ?? ""),
     ]),
   );
+  if (feedbackCase)
+    for (const row of lines.items)
+      row.members.push(feedbackReference("feedback-role", "明细引用"));
   customer.identity = "C1";
   customers.items = [customer];
   customers.total = 1;
@@ -379,6 +430,7 @@ const voucher: ObjectNode = reactive({
 const vouchers: Collection = reactive({
   key: "vouchers",
   label: "单据",
+  icon: "voucher",
   columns: [
     { key: "number", label: "单据编号" },
     { key: "status", label: "单据状态" },

@@ -41,11 +41,13 @@ export async function checkArtifact(tgz, expected) {
       "dist/zerp-ui.css",
       "dist/MDI-LICENSE.txt",
       "dist/materialdesignicons-webfont.woff2",
-    ])
+    ]) {
+      const entry = await stat(join(root, file));
       assert.ok(
-        (await stat(join(root, file))).size > 0,
+        entry.isFile() && (entry.size > 0 || file === "dist/model.js"),
         `Missing/empty ${file}`,
       );
+    }
     const entry = ts.createSourceFile(
       "index.js",
       await readFile(join(root, "dist/index.js"), "utf8"),

@@ -82,6 +82,7 @@ const navigation = computed<NavigationGroup[]>(() =>
         items: group.items.map((node, index) => ({
           key: `${group.key}:${index}`,
           caption: node.label,
+          icon: node.icon,
           to: props.model.navigation.href(node),
         })),
       })),

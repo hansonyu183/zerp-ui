@@ -2,7 +2,7 @@
 
 由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
-共 51 条：30 条有自动断言映射（均为部分覆盖），21 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
+共 51 条：31 条有自动断言映射（均为部分覆盖），20 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
 
 验证策略：流程条款由任务审查；消费者专属条款由真实消费者验收；文案及常规 UI 语义审查由 Agent 按现有要求判断，不逐项询问用户；仅业务含义不明或需改变已确认要求时，在完成其余开发后按 UI-GOV-06 留一份交付清单。本库检查使用合成模型，不是实际 OIT/ZERP API/E2E。定向检查不是数学证明或全状态穷举。
 
@@ -28,11 +28,11 @@
 | UI-SHELL-02 | 无自动断言 | 未断言所有顶栏子项顺序、品牌内容和首页跳转。 |
 | UI-SHELL-03 | 无自动断言 | 未定向检查慢业务读取时账户可达、窄屏文字收起与账户全部入口。 |
 | UI-SHELL-04 | 无自动断言 | 主标题几何及业务名重复需检查；语义重复待人工审查。 |
-| UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full) | 仅成功/失败代表路径；消息更新、警告/状态、字段校验、长消息滚动未覆盖几何。 |
+| UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback) | 已覆盖成功/失败消息及长引用读取错误在表单/所属明细行的几何和重试；其他消息更新、警告/状态、其他字段校验路径尚未穷举。 |
 | UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay) | 保存失败与反馈关闭不改模型事实；未知结果核实和消费者禁用需新宿主定向测试覆盖，不能用普通刷新替代核实。 |
 | UI-DESKTOP-01 | [package-layout](#package-layout) | 仅代表表格存在/字号；字段完整性与超宽策略未穷举，尽量避免横滚处理方式由 Agent 按现有要求判断，见Q3。 |
 | UI-DESKTOP-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 第二操作列有断言；排序必须在相关表头且不占筛选栏尚无定向证据。 |
-| UI-DESKTOP-03 | 无自动断言 | 表格内编辑简洁模式及字段校验前后行高尚无公开浏览器断言。 |
+| UI-DESKTOP-03 | [package-reference-feedback](#package-reference-feedback) | 表格内编辑简洁模式及字段校验前后行高尚无公开浏览器断言。 |
 | UI-MOBILE-01 | [package-layout](#package-layout)、[unit-actions](#unit-actions) | 仅代表卡片字段和无横溢；合计、完整身份、选择、适用明细尚未全部验证。 |
 | UI-MOBILE-02 | 无自动断言 | 流式短字段同排、长值换行、名称和值同行尚无几何断言；样本由 Agent 按现有要求选择，见Q3。 |
 | UI-MOBILE-03 | 无自动断言 | 首行左右对齐/缺省稳定、全选文字/数量/半选/禁用尚无直接宿主定向证据。 |
@@ -155,6 +155,12 @@
 [tests/business-model-reactivity.spec.ts](../tests/business-model-reactivity.spec.ts) · source/public-entry
 
 定位：`keeps query, page and new-record input`。有序成员/列/权限响应式和跨导航输入保持。
+
+### package-reference-feedback
+
+[scripts/ui-preferences-smoke.mjs](../scripts/ui-preferences-smoke.mjs) · tgz/browser
+
+定位：`long-reference-load-error-preserves-form-and-owned-row-geometry`。长引用读取错误通过字段浮层呈现，表单和所属明细行四维几何稳定；可访问错误描述、限定滚动及重试恢复。
 
 ## 执行与维护
 

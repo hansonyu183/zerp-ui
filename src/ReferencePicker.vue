@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { VAutocomplete, VBtn, VListItem } from "vuetify/components";
-import { computed, ref, shallowRef, watch, onBeforeUnmount } from "vue";
+import { computed, ref, shallowRef, watch, onBeforeUnmount, useId } from "vue";
+import FieldFeedback from "./FieldFeedback.vue";
 import type { ReferenceAdapter, ReferenceValue } from "./contracts";
 import { message } from "./clone";
 import {
@@ -27,6 +28,19 @@ const emit = defineEmits<{
   pending: [value: boolean];
 }>();
 const disabled = computed(() => props.disabled || !!props.disabledReason);
+const feedbackId = `${useId()}-reference-feedback`;
+const focused = ref(false);
+const feedback = computed(() =>
+  [error.value || props.disabledReason].filter(
+    (text): text is string => !!text,
+  ),
+);
+const describedBy = computed(
+  () =>
+    [props.descriptionId, feedback.value.length ? feedbackId : undefined]
+      .filter(Boolean)
+      .join(" ") || undefined,
+);
 const open = ref(false),
   search = ref(""),
   keyword = ref(""),
@@ -206,71 +220,88 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <VAutocomplete
-    v-model:menu="open"
-    v-model:search="search"
-    class="zerp-reference"
-    :label="label"
-    :aria-label="label"
-    :model-value="multiple ? shown : (shown[0] ?? null)"
-    :items="items"
-    item-title="label"
-    item-value="id"
-    :item-props="
-      (item) => ({
-        disabled: item.selectable === false && !(tree && item.children?.length),
-      })
-    "
-    return-object
-    no-filter
-    :multiple="multiple"
-    :chips="multiple"
-    :closable-chips="multiple"
-    clearable
-    :disabled="disabled"
-    :loading="busy"
-    :error="invalid || !!error"
-    :error-messages="error"
-    :messages="disabledReason"
-    :aria-describedby="descriptionId"
-    :aria-invalid="invalid || error ? 'true' : undefined"
-    :menu-props="{ maxHeight: 360 }"
-    @click:control="open = !disabled"
-    @update:model-value="choose"
-  >
-    <template v-if="tree" #item="{ item, props: itemProps }">
-      <VListItem
-        v-bind="itemProps"
-        :title="undefined"
-        class="zerp-reference-tree-item"
-      >
-        <template #title>
-          <span :style="{ paddingInlineStart: `${(item.depth ?? 0) * 16}px` }">
-            <VBtn
-              v-if="item.children?.length"
-              size="small"
-              variant="text"
-              :aria-label="`${expanded.has(item.id) ? '收起' : '展开'}${item.label}`"
-              :aria-expanded="!!keyword || expanded.has(item.id)"
-              :icon="expanded.has(item.id) || keyword ? '$expand' : '$next'"
-              @click.stop="toggle(item.id)"
-            />
-            {{ item.label }}
-          </span>
-        </template>
-      </VListItem>
-    </template>
-    <template #append-item>
-      <VListItem v-if="error"
-        ><VBtn @click.stop="load">重试引用</VBtn></VListItem
-      >
-      <VListItem v-if="filtered.length > 20" class="zerp-reference-pagination">
-        <VBtn :disabled="page === 1" @click.stop="page--">上一页引用</VBtn>
-        <span aria-label="引用当前页">{{ page }}</span>
-        <VBtn :disabled="page * 20 >= filtered.length" @click.stop="page++"
-          >下一页引用</VBtn
+  <div class="zerp-field-input">
+    <VAutocomplete
+      v-model:menu="open"
+      v-model:search="search"
+      class="zerp-reference"
+      :label="label"
+      :aria-label="label"
+      :model-value="multiple ? shown : (shown[0] ?? null)"
+      :items="items"
+      item-title="label"
+      item-value="id"
+      :item-props="
+        (item) => ({
+          disabled:
+            item.selectable === false && !(tree && item.children?.length),
+        })
+      "
+      return-object
+      no-filter
+      :multiple="multiple"
+      :chips="multiple"
+      :closable-chips="multiple"
+      clearable
+      :disabled="disabled"
+      :loading="busy"
+      :error="invalid || !!error"
+      hide-details
+      :aria-describedby="describedBy"
+      @update:focused="focused = $event"
+      :aria-invalid="invalid || error ? 'true' : undefined"
+      :menu-props="{ maxHeight: 360 }"
+      @click:control="open = !disabled"
+      @update:model-value="choose"
+    >
+      <template v-if="tree" #item="{ item, props: itemProps }">
+        <VListItem
+          v-bind="itemProps"
+          :title="undefined"
+          class="zerp-reference-tree-item"
         >
-      </VListItem>
-    </template>
-  </VAutocomplete>
+          <template #title>
+            <span
+              :style="{ paddingInlineStart: `${(item.depth ?? 0) * 16}px` }"
+            >
+              <VBtn
+                v-if="item.children?.length"
+                size="small"
+                variant="text"
+                :aria-label="`${expanded.has(item.id) ? '收起' : '展开'}${item.label}`"
+                :aria-expanded="!!keyword || expanded.has(item.id)"
+                :icon="expanded.has(item.id) || keyword ? '$expand' : '$next'"
+                @click.stop="toggle(item.id)"
+              />
+              {{ item.label }}
+            </span>
+          </template>
+        </VListItem>
+      </template>
+      <template #append-item>
+        <VListItem
+          v-if="filtered.length > 20"
+          class="zerp-reference-pagination"
+        >
+          <VBtn :disabled="page === 1" @click.stop="page--">上一页引用</VBtn>
+          <span aria-label="引用当前页">{{ page }}</span>
+          <VBtn :disabled="page * 20 >= filtered.length" @click.stop="page++"
+            >下一页引用</VBtn
+          >
+        </VListItem>
+      </template>
+    </VAutocomplete>
+    <FieldFeedback
+      :id="feedbackId"
+      :label="label"
+      :messages="feedback"
+      :focused="focused"
+    >
+      <template #actions
+        ><VBtn v-if="error" :disabled="busy" @click.stop="load"
+          >重试引用</VBtn
+        ></template
+      >
+    </FieldFeedback>
+  </div>
 </template>

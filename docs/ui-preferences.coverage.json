@@ -90,6 +90,12 @@
       "anchor": "keeps query, page and new-record input",
       "surface": "source/public-entry",
       "assertion": "有序成员/列/权限响应式和跨导航输入保持"
+    },
+    "package-reference-feedback": {
+      "file": "scripts/ui-preferences-smoke.mjs",
+      "anchor": "long-reference-load-error-preserves-form-and-owned-row-geometry",
+      "surface": "tgz/browser",
+      "assertion": "长引用读取错误通过字段浮层呈现，表单和所属明细行四维几何稳定；可访问错误描述、限定滚动及重试恢复"
     }
   },
   "clauses": [
@@ -191,8 +197,12 @@
     },
     {
       "id": "UI-SHELL-05",
-      "checks": ["package-feedback", "package-full"],
-      "remaining": "仅成功/失败代表路径；消息更新、警告/状态、字段校验、长消息滚动未覆盖几何。",
+      "checks": [
+        "package-feedback",
+        "package-full",
+        "package-reference-feedback"
+      ],
+      "remaining": "已覆盖成功/失败消息及长引用读取错误在表单/所属明细行的几何和重试；其他消息更新、警告/状态、其他字段校验路径尚未穷举。",
       "requirementSha256": "9594e2dc174041e0c668e5e8b68268824e6eaa56affa241a49154cb717381209"
     },
     {
@@ -215,7 +225,7 @@
     },
     {
       "id": "UI-DESKTOP-03",
-      "checks": [],
+      "checks": ["package-reference-feedback"],
       "remaining": "表格内编辑简洁模式及字段校验前后行高尚无公开浏览器断言。",
       "requirementSha256": "8841b35c9e76dddebffbb1283b7c0b2b4ee57b47ce9ed58ceacd997045b808bc"
     },
