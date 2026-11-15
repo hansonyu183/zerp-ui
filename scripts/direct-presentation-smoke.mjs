@@ -18,6 +18,7 @@ export async function directPresentationSmoke(page) {
   await expect(table.locator("thead th").nth(1)).toHaveText("操作");
   await expect(table).toHaveCSS("font-size", "12px");
   const view = table.getByRole("button", { name: "编辑", exact: true });
+  expect((await view.boundingBox()).height).toBeGreaterThanOrEqual(32);
   await view.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -42,6 +43,7 @@ export async function directPresentationSmoke(page) {
   await expect(page.getByRole("article", { name: "记录 1" })).toBeVisible();
   const mobileEdit = page.getByRole("button", { name: "编辑", exact: true });
   await expect(mobileEdit).toContainText("编辑");
+  expect((await mobileEdit.boundingBox()).height).toBeGreaterThanOrEqual(48);
   await mobileEdit.click();
   await expect(field).toHaveCSS("font-size", "16px");
   const mobileBox = await dialog.boundingBox();

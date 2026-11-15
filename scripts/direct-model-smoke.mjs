@@ -50,8 +50,18 @@ export async function directModelSmoke(page) {
     await category.fill("分类45");
     await page.getByRole("option", { name: "分类45", exact: true }).click();
     assert.equal(callbacks.filter((name) => name === "catalog.load").length, 1);
+    const nameBeforeFeedback = await page
+      .getByRole("textbox", { name: "客户名称", exact: true })
+      .boundingBox();
     await page.getByRole("button", { name: "保存", exact: true }).click();
     await page.getByText("已保存：合成客户更新", { exact: true }).waitFor();
+    const nameAfterFeedback = await page
+      .getByRole("textbox", { name: "客户名称", exact: true })
+      .boundingBox();
+    assert.ok(
+      Math.abs(nameBeforeFeedback.y - nameAfterFeedback.y) < 1,
+      "success feedback must not move the editor",
+    );
     await page.getByRole("button", { name: "关闭", exact: true }).click();
     await page
       .getByRole("textbox", { name: "关键词", exact: true })
