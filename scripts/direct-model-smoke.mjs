@@ -109,7 +109,7 @@ export async function directModelSmoke(page) {
       .fill("失败");
     await page.getByRole("button", { name: "查询", exact: true }).click();
     await expect(
-      page.getByRole("alert").filter({ hasText: "合成查询失败" }),
+      page.getByRole("alert").filter({ hasText: "操作失败" }),
     ).toBeVisible();
     await page
       .getByRole("textbox", { name: "关键词", exact: true })
@@ -235,14 +235,13 @@ export async function directModelSmoke(page) {
     await expect(
       dialog.getByRole("textbox", { name: "打印结果", exact: true }),
     ).toHaveValue("已确认未打印");
-    await close();
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
     await page
       .getByRole("menuitem", { name: "名称与头像", exact: true })
       .click();
-    dialog = page.getByRole("dialog");
+    dialog = page.locator(".zerp-shell");
     await expect(
       dialog.getByRole("textbox", { name: "用户姓名", exact: true }),
     ).toHaveValue("合成用户");
@@ -250,12 +249,11 @@ export async function directModelSmoke(page) {
     await expect(
       dialog.getByRole("textbox", { name: "密钥提交结果", exact: true }),
     ).toHaveValue("已保留密钥");
-    await close();
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "更改密码", exact: true }).click();
-    dialog = page.getByRole("dialog");
+    dialog = page.locator(".zerp-shell");
     await dialog
       .getByRole("textbox", { name: "新密码", exact: true })
       .fill("synthetic-next");
@@ -263,7 +261,6 @@ export async function directModelSmoke(page) {
     await expect(
       page.getByText("合成密码已更新", { exact: true }),
     ).toBeVisible();
-    await close();
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();

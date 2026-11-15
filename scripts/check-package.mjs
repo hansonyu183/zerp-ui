@@ -174,6 +174,10 @@ run(
   ],
   consumer,
 );
+await cp(
+  join(root, "examples/model-contract/static-application.type-test.ts"),
+  join(consumer, "static-application.type-test.ts"),
+);
 const libraryRequire = createRequire(require.resolve("@zerp/ui/style.css"));
 for (const name of Object.keys(pkg.peerDependencies)) {
   assert.equal(

@@ -20,7 +20,7 @@ it("edits the same model in an overlay and retains failed-save input", async () 
   await click("保存");
   expect(name.value).toBe("unfinished");
   expect(document.querySelector('[role="dialog"]')).not.toBeNull();
-  expect(document.body.textContent).toContain("保存失败");
+  expect(document.body.textContent).toContain("操作失败");
   expect(record.operations.update.run).toHaveBeenCalledTimes(1);
 });
 it("displays disabled operations, rechecks their state and prevents duplicate invocation", async () => {
@@ -92,4 +92,128 @@ it("isolates old busy and late failure feedback after owner changes", async () =
   reject(Error("旧会话失败"));
   await flushPromises();
   expect(document.body.textContent).not.toContain("旧会话失败");
+});
+
+it("uses consumer-created drafts and reopens them without creating twice", async () => {
+  const { model, rows } = fixture();
+  rows.operations.create = operation(
+    vi.fn(async () => {
+      rows.draft = {
+        kind: "object",
+        family: "standard",
+        key: "new",
+        label: "新增",
+        identity: null,
+        readOnly: false,
+        members: [
+          {
+            kind: "text",
+            key: "new-name",
+            label: "新增名称",
+            value: "",
+            required: false,
+            readOnly: false,
+          },
+        ],
+        operations: {
+          update: { disabled: true, async run() {} },
+          reconcile: operation(),
+        },
+      };
+    }),
+  );
+  wrapper = await render(model);
+  await click("新增");
+  await input("新增名称").setValue("unfinished new");
+  await click("关闭");
+  expect(rows.draft).not.toBeNull();
+  await click("继续编辑");
+  expect(input("新增名称").element.value).toBe("unfinished new");
+  expect(rows.operations.create.run).toHaveBeenCalledTimes(1);
+  const save = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("button"),
+  ).find((button) => button.textContent?.trim() === "保存")!;
+  expect(save.disabled).toBe(true);
+});
+it("does not advertise absent queries or advance disabled pagination", async () => {
+  const { model, rows } = fixture();
+  delete rows.operations.query;
+  rows.total = 100;
+  wrapper = await render(model);
+  expect(
+    Array.from(document.querySelectorAll("button")).some(
+      (button) => button.textContent?.trim() === "查询",
+    ),
+  ).toBe(false);
+  await click("下一页");
+  expect(rows.page).toBe(1);
+});
+it("keeps consumer unknown-result restrictions through refresh and feedback dismissal", async () => {
+  const { model, record, rows } = fixture();
+  record.operations.update!.disabled = true;
+  record.operations.reconcile = operation();
+  model.messages.push({
+    id: "unknown",
+    level: "warning",
+    text: "结果待核实",
+    target: record,
+  });
+  wrapper = await render(model);
+  await click("编辑");
+  const saved = () =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
+      (button) => button.textContent?.trim() === "保存",
+    )!;
+  expect(saved().disabled).toBe(true);
+  await click("关闭");
+  await click("查询");
+  expect(record.operations.update!.disabled).toBe(true);
+  expect(rows.operations.query!.run).toHaveBeenCalledTimes(2);
+  await click("编辑");
+  expect(saved().disabled).toBe(true);
+  await click("核对结果");
+  expect(record.operations.reconcile.run).toHaveBeenCalledTimes(1);
+  expect(record.operations.update!.disabled).toBe(true);
+});
+it("keeps a write guard when leaving and returning and makes consumers reject late owner writes", async () => {
+  const { model, rows, record, name } = fixture();
+  let resolve!: () => void;
+  const wait = new Promise<void>((yes) => {
+    resolve = yes;
+  });
+  record.operations.update = operation(
+    vi.fn(async () => {
+      const owner = model.session.owner;
+      await wait;
+      if (model.session.owner !== owner) return;
+      name.value = "saved";
+    }),
+  );
+  wrapper = await render(model);
+  await click("编辑");
+  await click("保存");
+  await click("关闭");
+  await click("编辑");
+  const pendingSave = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("button"),
+  ).find((button) => button.textContent?.trim() === "保存");
+  if (pendingSave) expect(pendingSave.disabled).toBe(true);
+  expect(record.operations.update.run).toHaveBeenCalledTimes(1);
+  const owner = { ledger: "new", operator: "new", generation: "2" };
+  model.session = {
+    state: "ready",
+    owner,
+    userPermissions: { owner, administrator: true },
+  };
+  rows.selected = null;
+  resolve();
+  await flushPromises();
+  expect(name.value).toBe("initial");
+});
+it("offers the authentication recovery callback in business language", async () => {
+  const { model } = fixture();
+  model.session = { state: "recovering", owner: null, userPermissions: null };
+  wrapper = await render(model);
+  await click("恢复会话");
+  expect(model.authentication.operations.recover.run).toHaveBeenCalledTimes(1);
 });

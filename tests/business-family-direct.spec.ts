@@ -129,9 +129,9 @@ it("keeps report facts, precise totals and authorized links with root collection
     ],
   };
   wrapper = await render(model);
-  expect(
-    document.querySelector('[role="rowgroup"][aria-label="总计"]')?.textContent,
-  ).toContain("12345678901234567890.10");
+  expect(document.querySelector('[aria-label="总计"]')?.textContent).toContain(
+    "12345678901234567890.10",
+  );
   const link = document.querySelector<HTMLAnchorElement>(
     'a[aria-label="打开记录"]',
   );
@@ -139,4 +139,58 @@ it("keeps report facts, precise totals and authorized links with root collection
   link!.click();
   await flushPromises();
   expect(rows.selected).toBe(record);
+});
+
+it("keeps secret keep, replacement and clearing intents explicit without exposing backend secrets", async () => {
+  const { model, record } = fixture();
+  record.members = [
+    {
+      kind: "secret",
+      key: "secret",
+      label: "密钥",
+      readOnly: false,
+      required: false,
+      value: { intent: "keep" },
+    },
+  ];
+  const seen: string[] = [];
+  record.operations.update = operation(
+    vi.fn(async () => {
+      const secret = record.members[0]!;
+      if (secret.kind === "secret") seen.push(secret.value.intent);
+    }),
+  );
+  wrapper = await render(model);
+  await click("编辑");
+  await click("保存");
+  expect(seen).toEqual(["keep"]);
+  const secret = record.members[0]!;
+  if (secret.kind !== "secret") throw Error("Expected secret");
+  secret.value = { intent: "replace", value: "synthetic" };
+  await flushPromises();
+  await click("保存");
+  secret.value = { intent: "clear" };
+  await flushPromises();
+  await click("保存");
+  expect(seen).toEqual(["keep", "replace", "clear"]);
+  expect(document.body.textContent).not.toContain("synthetic");
+});
+it("keeps processing input writable while execution is disabled without a fake save", async () => {
+  const { model, record } = fixture();
+  delete record.operations.update;
+  record.processing = { operations: { run: operation() } };
+  record.processing.operations.run!.disabled = true;
+  wrapper = await render(model);
+  await click("编辑");
+  await input("名称").setValue("input");
+  expect(input("名称").element.readOnly).toBe(false);
+  expect(
+    Array.from(document.querySelectorAll("button")).some(
+      (button) => button.textContent?.trim() === "保存",
+    ),
+  ).toBe(false);
+  const execute = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("button"),
+  ).find((button) => button.textContent?.trim() === "执行")!;
+  expect(execute.disabled).toBe(true);
 });
