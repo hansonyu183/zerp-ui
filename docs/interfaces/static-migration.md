@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Symbol 应用元数据、任意根业务成员 | BusinessModel 固定属性，members 仅 Collection | 同一根引用，认证前构造、授权后按需读取 |
 | 认证/账户对象级操作 | authentication.form/operations，account.profile/password/operations | 匿名、恢复、强制改密、账户入口不等待当前页查询 |
-| 根对象聚合及 navigationProjection | navigation.groups/current 仅指向根 Collection | 权限裁剪、空组隐藏、正常链接、工作台/首个获权集合回退 |
+| 根对象聚合及 navigationProjection | navigation.groups/current 仅指向根 Collection | 权限裁剪、空组隐藏、正常链接、工作台/首个获权集合回退；href/visit(null) 通过消费者同步首页路由 |
 | CollectionNode.element/list/query | Collection.columns/conditions/items/selected/draft | 空表标题、分页、覆盖式查看/编辑/新增、失败保留输入 |
 | ObjectNode.form、对象命名属性 | ObjectNode.members 有序数组 | 直接更新模型，null label 隐藏整节点，零/单/多组 Material Tab |
 | array element 模板及所属明细 | RecordsNode.columns/items/selected/create/remove | 本地增删、直接编辑、随父保存，不建立独立提交 |
