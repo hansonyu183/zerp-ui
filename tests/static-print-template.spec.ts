@@ -97,4 +97,201 @@ describe("finite model print template binding", () => {
         ),
     ).toHaveLength(3);
   });
+  it("refuses unauthorized and secret bindings instead of leaking raw values", () => {
+    const denied = collection.items[0]!.members[0]!;
+    expect(() =>
+      bindPrintTemplate(template, collection, (node) => node !== denied),
+    ).toThrow("无权读取");
+    const single = row("formal");
+    single.members = [
+      {
+        key: "secret",
+        label: "密码",
+        kind: "secret",
+        readOnly: true,
+        required: false,
+        value: { intent: "keep" },
+      },
+    ];
+    const secretTemplate: PrintTemplate = {
+      ...template,
+      body: [
+        {
+          kind: "record",
+          height: 10,
+          items: [
+            {
+              kind: "field",
+              path: ["secret"],
+              key: "value",
+              x: 0,
+              y: 0,
+              width: 30,
+              height: 5,
+            },
+          ],
+        },
+      ],
+    };
+    expect(() => bindPrintTemplate(secretTemplate, single, () => true)).toThrow(
+      "字段不可打印",
+    );
+    expect(() =>
+      bindPrintTemplate(
+        {
+          ...secretTemplate,
+          body: [
+            {
+              kind: "record",
+              height: 10,
+              items: [
+                {
+                  kind: "field",
+                  path: ["missing"],
+                  key: "value",
+                  x: 0,
+                  y: 0,
+                  width: 30,
+                  height: 5,
+                },
+              ],
+            },
+          ],
+        },
+        single,
+        () => true,
+      ),
+    ).toThrow("字段不存在");
+  });
+  it("fails oversized bands, impossible rows, invalid colors and remote images", () => {
+    expect(() =>
+      bindPrintTemplate(
+        {
+          ...template,
+          body: [
+            {
+              kind: "records",
+              path: [],
+              headerHeight: 5,
+              rowHeight: 99,
+              columns: [{ path: ["amount"], label: "金额", width: 50 }],
+            },
+          ],
+        },
+        collection,
+        () => true,
+      ),
+    ).toThrow("无法放入纸张");
+    const single = row("formal");
+    expect(() =>
+      bindPrintTemplate(
+        { ...template, body: [{ kind: "record", height: 99, items: [] }] },
+        single,
+        () => true,
+      ),
+    ).toThrow("无法放入纸张");
+    expect(() =>
+      bindPrintTemplate(
+        {
+          ...template,
+          header: {
+            height: 5,
+            items: [
+              {
+                kind: "text",
+                key: "bad",
+                text: "bad",
+                foreground: "red",
+                x: 0,
+                y: 0,
+                width: 30,
+                height: 5,
+              },
+            ],
+          },
+        },
+        collection,
+        () => true,
+      ),
+    ).toThrow("打印颜色无效");
+    expect(() =>
+      bindPrintTemplate(
+        {
+          ...template,
+          header: {
+            height: 5,
+            items: [
+              {
+                kind: "image",
+                key: "bad",
+                src: "https://example.com/image.png",
+                alt: "",
+                x: 0,
+                y: 0,
+                width: 30,
+                height: 5,
+              },
+            ],
+          },
+        },
+        collection,
+        () => true,
+      ),
+    ).toThrow("内嵌位图");
+  });
+  it("binds local detail rows and rejects collection header fields or unsaved roots", () => {
+    const single = row("formal");
+    single.members.push({
+      kind: "records",
+      key: "lines",
+      label: "明细",
+      readOnly: false,
+      columns: collection.columns,
+      items: collection.items,
+      selected: null,
+      operations: {},
+    });
+    const detailTemplate: PrintTemplate = {
+      ...template,
+      body: [
+        {
+          kind: "records",
+          path: ["lines"],
+          headerHeight: 5,
+          rowHeight: 10,
+          columns: [{ path: ["amount"], label: "金额", width: 50 }],
+        },
+      ],
+    };
+    expect(
+      bindPrintTemplate(detailTemplate, single, () => true).pages,
+    ).toHaveLength(2);
+    expect(() =>
+      bindPrintTemplate(
+        {
+          ...template,
+          header: {
+            height: 5,
+            items: [
+              {
+                kind: "field",
+                path: ["amount"],
+                key: "bad",
+                x: 0,
+                y: 0,
+                width: 30,
+                height: 5,
+              },
+            ],
+          },
+        },
+        collection,
+        () => true,
+      ),
+    ).toThrow("不能绑定记录字段");
+    single.identity = null;
+    expect(() => bindPrintTemplate(detailTemplate, single, () => true)).toThrow(
+      "正式记录",
+    );
+  });
 });
