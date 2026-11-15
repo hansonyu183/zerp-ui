@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch, onMounted, toRaw } from "vue";
+import { computed, inject, ref, watch, toRaw } from "vue";
 import { VBtn } from "vuetify/components";
 import type { Collection, ObjectNode } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
@@ -78,12 +78,34 @@ const preview = computed(() => {
     return { error: cause instanceof Error ? cause.message : "打印模板无效。" };
   }
 });
-onMounted(() => {
-  if (props.autoOpen && available.value) open.value = true;
-});
-watch([runtime.scope, () => props.collection, () => props.record], () => {
-  open.value = false;
-});
+let autoOpened = false;
+watch(
+  runtime.scope,
+  () => {
+    open.value = false;
+    autoOpened = true;
+  },
+  { flush: "sync" },
+);
+watch(
+  [() => props.collection, () => props.record],
+  () => {
+    open.value = false;
+    autoOpened = false;
+  },
+  { flush: "sync" },
+);
+watch(
+  [() => props.autoOpen, available, template],
+  ([requested, ready, configured]) => {
+    if (!requested) autoOpened = false;
+    else if (ready && configured && !autoOpened) {
+      autoOpened = true;
+      open.value = true;
+    }
+  },
+  { immediate: true, flush: "post" },
+);
 </script>
 <template>
   <template v-if="template && permitted">
