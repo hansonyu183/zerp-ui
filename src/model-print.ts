@@ -38,6 +38,11 @@ export function bindPrintTemplate(
   if (!readable(source)) throw Error("没有读取打印内容的权限。");
   const record = "kind" in source ? source : null;
   if (record && record.identity === null) throw Error("只能打印正式记录。");
+  const roots = record
+    ? [record]
+    : (source as Collection).items.filter(readable);
+  if (roots.some((row) => row.identity === null || !row.printable))
+    throw Error("记录尚未确认保存，请保存或核实后再打印。");
   function resolve(current: ObjectNode, path: readonly string[]): BusinessNode {
     if (!readable(current)) throw Error("没有读取打印记录的权限。");
     let node: BusinessNode = current;

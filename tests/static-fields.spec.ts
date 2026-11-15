@@ -36,6 +36,7 @@ const object = (
   key,
   label: key,
   identity: null,
+  printable: false,
   readOnly: false,
   members,
   operations: {},
@@ -265,6 +266,7 @@ it("generates permission-controlled current-page printing without querying more 
   const { model, collection } = fixture();
   const row = object("formal", [text("code", "current-only")]);
   row.identity = "formal";
+  row.printable = true;
   collection.items = [row];
   collection.total = 999;
   collection.printTemple = template;
@@ -314,6 +316,10 @@ it("generates permission-controlled current-page printing without querying more 
   expect(print).toHaveBeenCalledTimes(1);
   expect(query).toHaveBeenCalledTimes(1);
   expect(model.messages).toHaveLength(0);
+  collection.items[0]!.printable = false;
+  await flushPromises();
+  expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
+  expect(print).toHaveBeenCalledTimes(1);
 });
 it("never offers single-record printing for an unsaved draft", async () => {
   const { model, collection } = fixture();
@@ -451,6 +457,7 @@ it("keeps generated output printing separate from explicit physical-result confi
     },
   ]);
   row.identity = "formal";
+  row.printable = true;
   collection.selected = row;
   collection.items = [row];
   collection.total = 1;
@@ -474,4 +481,91 @@ it("keeps generated output printing separate from explicit physical-result confi
   expect(nativePrint).toHaveBeenCalledTimes(1);
   expect(printed.run).toHaveBeenCalledTimes(1);
   expect(confirmed.run).not.toHaveBeenCalled();
+});
+
+it("blocks edited and uncertain values from printing until consumer confirms the same formal record", async () => {
+  const { model, collection } = fixture();
+  const facts = reactive({ accepted: "saved", state: "confirmed" });
+  const row = object("正式记录", [text("code", "saved")]);
+  row.identity = "formal";
+  Object.defineProperty(row, "printable", {
+    get() {
+      return (
+        facts.state === "confirmed" &&
+        (this.members[0] as { value: string }).value === facts.accepted
+      );
+    },
+    enumerable: true,
+  });
+  let attempt = 0;
+  row.operations.update = op(
+    vi.fn(async () => {
+      attempt++;
+      if (attempt === 1) throw Error("保存失败");
+      if (attempt === 2) {
+        facts.state = "unknown";
+        return;
+      }
+      facts.accepted = (
+        collection.selected!.members[0] as { value: string }
+      ).value;
+      facts.state = "confirmed";
+    }),
+  );
+  collection.items = [row];
+  collection.selected = row;
+  collection.total = 1;
+  collection.printTemple = template;
+  const wrapper = await show(model);
+  const pagePrint = () =>
+    wrapper.findAll("button").find((button) => button.text() === "当前页打印")!;
+  expect(pagePrint().attributes("disabled")).toBeUndefined();
+  await wrapper
+    .get('[role="dialog"] input[aria-label="code"]')
+    .setValue("unsaved");
+  expect(collection.selected!.printable).toBe(false);
+  await clickText("关闭");
+  expect(pagePrint().attributes("disabled")).toBeDefined();
+  expect(wrapper.text()).toContain("当前页有未确认保存的记录");
+  expect(collection.operations.query!.run).toHaveBeenCalledTimes(1);
+  await wrapper.get('button[aria-label="编辑"]').trigger("click");
+  await flushPromises();
+  await clickText("保存");
+  expect(pagePrint().attributes("disabled")).toBeDefined();
+  await clickText("保存");
+  expect(facts.state).toBe("unknown");
+  expect(pagePrint().attributes("disabled")).toBeDefined();
+  await clickText("保存");
+  expect(collection.selected!.printable).toBe(true);
+  expect(pagePrint().attributes("disabled")).toBeUndefined();
+  expect(collection.operations.query!.run).toHaveBeenCalledTimes(1);
+});
+
+it("disables a previously confirmed current-page print while a row operation is pending", async () => {
+  const { model, collection } = fixture();
+  const row = object("正式记录", [text("code", "saved")]);
+  row.identity = "formal";
+  row.printable = true;
+  let finish: () => void = () => {};
+  row.operations.update = op(
+    vi.fn(async () => {
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    }),
+  );
+  collection.items = [row];
+  collection.selected = row;
+  collection.total = 1;
+  collection.printTemple = template;
+  const wrapper = await show(model);
+  const pagePrint = () =>
+    wrapper.findAll("button").find((button) => button.text() === "当前页打印")!;
+  expect(pagePrint().attributes("disabled")).toBeUndefined();
+  await clickText("保存");
+  expect(pagePrint().attributes("disabled")).toBeDefined();
+  expect(wrapper.text()).toContain("正在处理，请稍后打印");
+  finish();
+  await flushPromises();
+  expect(pagePrint().attributes("disabled")).toBeUndefined();
 });
