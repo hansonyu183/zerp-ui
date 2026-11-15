@@ -39,6 +39,7 @@ export interface DirectRuntime {
   readable(node: Node): boolean;
   writable(node: Node): boolean;
   independent(node: Node): boolean;
+  editable(node: Node): boolean;
   allowed(node: Node, action: string, publicAuth?: boolean): boolean;
   operations(node: Node): Record<string, Operation>;
   run(node: Node, action: string, publicAuth?: boolean): Promise<void>;
@@ -210,6 +211,27 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       permitted(node, action)
     );
   }
+  function editable(node: Node) {
+    const readOnlyActions = new Set([
+      "get",
+      "delete",
+      "reconcile",
+      "export",
+      "preview",
+      "print",
+      "confirmPrinted",
+      "confirmNotPrinted",
+      "audit",
+      "openVoucher",
+      "load",
+    ]);
+    return (
+      writable(node) &&
+      Object.keys(operations(node)).some(
+        (action) => !readOnlyActions.has(action) && allowed(node, action),
+      )
+    );
+  }
   async function execute(
     key: object,
     op: Operation,
@@ -330,6 +352,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     ancestors,
     readable,
     writable,
+    editable,
     independent: (node) => boundary(node) === node,
     allowed,
     operations,

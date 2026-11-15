@@ -26,6 +26,7 @@ function object(key: string, label = key): ObjectNode {
     key,
     label,
     identity: null,
+    printable: false,
     readOnly: false,
     members: [],
     operations: {},
@@ -110,8 +111,9 @@ it("keeps the same root through anonymous authentication and isolates mismatched
   await flushPromises();
   expect(signIn).toHaveBeenCalledTimes(1);
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
-  if (model.session.owner)
-    model.session.owner = { ...model.session.owner, generation: "3" };
+  const currentSession = () => model.session;
+  const owner = currentSession().owner;
+  if (owner) model.session.owner = { ...owner, generation: "3" };
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
   wrapper.unmount();
@@ -189,6 +191,7 @@ it("edits the selected record directly, preserves failed input, and prevents dis
   const { model, collection } = fixture();
   const row = object("customer", "客户详情");
   row.identity = "c1";
+  row.printable = true;
   row.members = [
     {
       kind: "text",
@@ -241,6 +244,7 @@ it("hides null-label detail nodes while preserving explicit list columns and ord
   const { model, collection } = fixture();
   const row = object("customer", "客户详情");
   row.identity = "c1";
+  row.printable = true;
   const hidden = {
     kind: "text" as const,
     key: "code",
@@ -331,8 +335,10 @@ it("edits owned detail rows in a compact desktop table and saves through the par
   const { model, collection } = fixture();
   const parent = object("customer", "客户详情");
   parent.identity = "c1";
+  parent.printable = true;
   const child = object("line", "明细");
   child.identity = "l1";
+  child.printable = true;
   child.members = [
     {
       kind: "text",
@@ -386,6 +392,7 @@ it("discards failure feedback when a pending operation is replaced on the same b
   const { model, collection } = fixture();
   const row = object("customer", "客户详情");
   row.identity = "c1";
+  row.printable = true;
   let rejectOld: (reason: Error) => void = () => {};
   row.operations.update = operation(
     vi.fn(
@@ -417,6 +424,7 @@ it("opens processing-only records for direct input and executes supplied actions
   const { model, collection } = fixture();
   const row = object("process", "处理");
   row.identity = "p1";
+  row.printable = true;
   row.members = [
     {
       kind: "text",
@@ -466,6 +474,7 @@ it("reports a missing explicit column member with a stable collection, record, a
   const { model, collection } = fixture();
   const row = object("customer", "客户详情");
   row.identity = "missing-1";
+  row.printable = true;
   collection.items = [row];
   collection.total = 1;
   const wrapper = mount(BusinessApplication, { props: { model } });
@@ -561,5 +570,217 @@ it("uses the consumer homepage URL and notifies its null navigation callback whi
   expect(visit).toHaveBeenCalledWith(null);
   expect(model.navigation.current).toBeNull();
   expect(wrapper.text()).toContain("重要信息");
+  wrapper.unmount();
+});
+it("keeps qualified workflow row actions directly visible while ordinary actions retain the three-item limit", async () => {
+  const { model, collection } = fixture();
+  const row = object("workflow", "流程");
+  row.identity = "w1";
+  row.printable = true;
+  row.members = [
+    {
+      kind: "text",
+      key: "code",
+      label: "编号",
+      readOnly: false,
+      required: false,
+      value: "w1",
+    },
+  ];
+  const start = operation(),
+    advance = operation(),
+    approveChild = operation(),
+    rejectChild = operation();
+  row.workflow = { operations: { start, advance, approveChild, rejectChild } };
+  collection.items = [row];
+  collection.total = 1;
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  for (const label of ["启动", "推进", "批准子项", "拒绝子项"])
+    expect(
+      wrapper.get("table").find(`button[aria-label="${label}"]`).exists(),
+    ).toBe(true);
+  await wrapper
+    .get("table")
+    .get('button[aria-label="批准子项"]')
+    .trigger("click");
+  await flushPromises();
+  expect(approveChild.run).toHaveBeenCalledTimes(1);
+  collection.items[0]!.workflow = undefined;
+  collection.items[0]!.processing = {
+    operations: {
+      process: operation(),
+      validate: operation(),
+      run: operation(),
+      stop: operation(),
+    },
+  };
+  await flushPromises();
+  const labels = wrapper
+    .get("table")
+    .findAll("button[aria-label]")
+    .map((button) => button.attributes("aria-label"));
+  expect(
+    labels.filter((label) =>
+      ["编辑", "处理", "校验", "运行", "停止"].includes(label),
+    ),
+  ).toHaveLength(3);
+  wrapper.unmount();
+});
+it("offers single-record printing for an independently fetched formal selection outside the current page", async () => {
+  const { model, collection } = fixture();
+  const row = object("external", "外部记录");
+  row.identity = "external-1";
+  row.printable = true;
+  row.readOnly = true;
+  row.members = [
+    {
+      kind: "text",
+      key: "code",
+      label: "编号",
+      readOnly: true,
+      required: false,
+      value: "outside",
+    },
+  ];
+  collection.selected = row;
+  collection.itemPrintTemple = {
+    label: "记录打印",
+    page: { width: 100, height: 100, margin: 5 },
+    header: { height: 0, items: [] },
+    footer: { height: 0, items: [] },
+    body: [
+      {
+        kind: "record",
+        height: 20,
+        items: [
+          {
+            kind: "field",
+            key: "code",
+            path: ["code"],
+            x: 0,
+            y: 0,
+            width: 20,
+            height: 10,
+          },
+        ],
+      },
+    ],
+  };
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  const dialog = wrapper.get('[role="dialog"]');
+  expect(
+    dialog.findAll("button").some((button) => button.text() === "单条打印"),
+  ).toBe(true);
+  expect(collection.items).toHaveLength(0);
+  wrapper.unmount();
+});
+it("captures report scroll before navigation clears the old page and restores it without another query", async () => {
+  const { model, collection, query } = fixture();
+  collection.report = {};
+  model.navigation.current = collection;
+  const other: Collection = {
+    ...collection,
+    key: "other",
+    label: "其他",
+    conditions: object("other-conditions", "条件"),
+    report: undefined,
+  };
+  model.members.other = other;
+  model.navigation.groups[0]!.items.push(other);
+  const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const descriptor = Object.getOwnPropertyDescriptor(window, "scrollY");
+  const frame = globalThis.requestAnimationFrame;
+  globalThis.requestAnimationFrame = (callback) => {
+    callback(0);
+    return 1;
+  };
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  try {
+    await flushPromises();
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      value: 640,
+    });
+    model.navigation.visit(model.members.other!);
+    await flushPromises();
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+    model.navigation.visit(collection);
+    await flushPromises();
+    expect(scroll).toHaveBeenLastCalledWith(0, 640);
+    expect(query).toHaveBeenCalledTimes(2);
+  } finally {
+    wrapper.unmount();
+    scroll.mockRestore();
+    globalThis.requestAnimationFrame = frame;
+    if (descriptor) Object.defineProperty(window, "scrollY", descriptor);
+  }
+});
+it("keeps authorized preview and print reachable from a read-only output view while hiding write confirmations", async () => {
+  const { model, collection } = fixture();
+  const row = object("output", "输出");
+  row.identity = "o1";
+  row.printable = true;
+  row.readOnly = true;
+  const output: import("../src/model").OutputNode = {
+    kind: "output",
+    key: "preview",
+    label: "输出预览",
+    readOnly: true,
+    value: null,
+    operations: { print: operation(), confirmPrinted: operation() },
+  };
+  row.members = [output];
+  row.output = {
+    operations: {
+      preview: operation(
+        vi.fn(async () => {
+          const current = collection.items[0]!
+            .members[0] as import("../src/model").OutputNode;
+          current.value = {
+            id: "o1",
+            title: "合成输出",
+            width: 100,
+            height: 100,
+            pages: [{ key: "p1", items: [] }],
+          };
+        }),
+      ),
+    },
+  };
+  collection.items = [row];
+  collection.total = 1;
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  await wrapper.get("table").get('button[aria-label="查看"]').trigger("click");
+  await flushPromises();
+  const dialog = wrapper.get('[role="dialog"]');
+  const preview = dialog
+    .findAll("button")
+    .find((button) => button.text() === "预览");
+  expect(preview).toBeDefined();
+  await preview!.trigger("click");
+  await flushPromises();
+  expect(dialog.find("iframe").exists()).toBe(true);
+  await dialog.get("iframe").trigger("load");
+  await flushPromises();
+  expect(
+    dialog.findAll("button").some((button) => button.text() === "确认已打印"),
+  ).toBe(false);
+  const print = dialog
+    .findAll("button")
+    .find((button) => button.text() === "打印");
+  expect(print).toBeDefined();
+  expect(print!.attributes("disabled")).toBeUndefined();
   wrapper.unmount();
 });
