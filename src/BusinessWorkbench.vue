@@ -90,10 +90,22 @@ function visit(
     return;
   visitTarget(event, target.target);
 }
+const activated = new WeakSet<object>();
 watch(
-  () => props.node,
-  (node) => {
-    void runtime.run(node, "get");
+  [() => props.node, sections],
+  () => {
+    // A root reader owns orchestration. Otherwise each displayed independent role activates once.
+    const nodes = runtime.operations(props.node).get
+      ? [props.node]
+      : sections.value.map((section) => section.node);
+    for (const node of nodes) {
+      if (activated.has(toRaw(node))) continue;
+      activated.add(toRaw(node));
+      void runtime.run(
+        node,
+        node[meta].kind === "collection" ? "query" : "get",
+      );
+    }
   },
   { immediate: true },
 );

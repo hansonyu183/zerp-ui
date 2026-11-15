@@ -34,11 +34,18 @@ function fixture() {
   };
   const group = {
     intro: { value: "hello", [meta]: { kind: "text", name: "Introduction" } },
+    overview: {
+      summary: {
+        value: "hello",
+        [meta]: { kind: "text", name: "Introduction" },
+      },
+      [meta]: { kind: "object", name: "Overview", operations: {} },
+    },
     rows,
     [meta]: {
       kind: "object",
       name: "Partners",
-      form: ["intro", "rows"],
+      form: ["overview", "rows"],
       operations: {},
     },
   };

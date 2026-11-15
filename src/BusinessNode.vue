@@ -5,11 +5,11 @@ import {
   ref,
   watch,
   toRaw,
-  useId,
   onMounted,
+  onBeforeUnmount,
   nextTick,
 } from "vue";
-import { VBtn, VTabs, VTab } from "vuetify/components";
+import { VBtn } from "vuetify/components";
 import { nodeMetadata as meta } from "./model-node";
 import {
   directRuntimeKey,
@@ -32,7 +32,48 @@ const props = withDefaults(
 import BusinessField from "./BusinessField.vue";
 import BusinessCollection from "./BusinessCollection.vue";
 import RecordDialog from "./RecordDialog.vue";
+import BusinessGroups from "./BusinessGroups.vue";
 const runtime = inject(directRuntimeKey)!;
+const initialScope = runtime.scope.value;
+const initialModel = toRaw(runtime.model());
+const isReport = computed(() => runtime.report(props.node));
+let scrollFrame: number | undefined;
+onMounted(() => {
+  const position = isReport.value && runtime.reportViews.get(toRaw(props.node));
+  if (
+    isReport.value &&
+    !position &&
+    !runtime.operations(props.node)[
+      props.node[meta].kind === "collection" ? "query" : "get"
+    ]
+  )
+    runtime.reportViews.set(toRaw(props.node), { left: 0, top: 0 });
+  if (position)
+    scrollFrame = requestAnimationFrame(() =>
+      window.scrollTo(position.left, position.top),
+    );
+});
+onBeforeUnmount(() => {
+  if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame);
+  if (!isReport.value || !runtime.reportViews.has(toRaw(props.node))) return;
+  if (
+    initialScope !== runtime.scope.value ||
+    initialModel !== toRaw(runtime.model()) ||
+    !runtime.contains(props.node) ||
+    !runtime.readable(props.node)
+  )
+    return;
+  runtime.reportViews.set(toRaw(props.node), {
+    left: window.scrollX,
+    top: window.scrollY,
+  });
+});
+watch(
+  () => runtime.readable(props.node),
+  (readable) => {
+    if (!readable) runtime.reportViews.delete(toRaw(props.node));
+  },
+);
 const info = computed(() => props.node[meta]);
 
 const field = computed(() => props.node as Extract<Node, { value: unknown }>);
@@ -53,38 +94,16 @@ const visible = computed(() => {
   }
   return projected.filter(([, n]) => props.publicAuth || runtime.readable(n));
 });
-const active = ref("");
-const tabId = useId();
-const visited = ref(new Set<string>());
-watch(
-  active,
-  (key) => {
-    if (key) visited.value.add(key);
-  },
-  { flush: "sync" },
-);
-const aggregate = computed(() =>
-  visible.value.some(([, n]) =>
-    ["object", "collection"].includes(n[meta].kind),
-  ),
-);
-watch(
-  [visible, () => props.focus],
-  () => {
-    const focused = visible.value.find(
-      ([, n]) =>
-        props.focus &&
-        (n === props.focus || runtime.ancestors(props.focus).includes(n)),
-    );
-    if (focused) {
-      active.value = focused[0];
-      return;
-    }
-    if (!visible.value.some(([key]) => key === active.value))
-      active.value = visible.value[0]?.[0] ?? "";
-  },
-  { immediate: true },
-);
+const runs = computed(() => {
+  const result: { grouped: boolean; entries: [string, Node][] }[] = [];
+  for (const entry of visible.value) {
+    const grouped = ["object", "collection"].includes(entry[1][meta].kind);
+    const previous = result.at(-1);
+    if (previous?.grouped === grouped) previous.entries.push(entry);
+    else result.push({ grouped, entries: [entry] });
+  }
+  return result;
+});
 const actions = computed(() =>
   Object.entries(runtime.operations(props.node)).filter(
     ([key]) =>
@@ -139,7 +158,10 @@ async function query(page = 1) {
 watch(
   () => props.node,
   () => {
-    if (props.autoRead !== false)
+    if (
+      props.autoRead !== false &&
+      !(isReport.value && runtime.reportViews.has(toRaw(props.node)))
+    )
       void run(info.value.kind === "collection" ? "query" : "get");
   },
   { immediate: true },
@@ -148,72 +170,44 @@ watch(
 <template>
   <section v-if="publicAuth || runtime.readable(node)" :aria-label="info.name">
     <template v-if="info.kind === 'object'">
-      <template v-if="aggregate">
-        <VTabs
-          v-if="visible.length > 1"
-          v-model="active"
-          show-arrows
-          :aria-label="info.name"
-        >
-          <VTab
-            v-for="([key, child], index) in visible"
-            :key="key"
-            :value="key"
-            :id="`${tabId}-tab-${index}`"
-            :aria-controls="`${tabId}-panel-${index}`"
-            :data-member="key"
-            @focus="active = key"
-            >{{ child[meta].name }}</VTab
-          >
-        </VTabs>
-        <template v-for="([key, child], index) in visible" :key="key">
-          <div
-            v-if="visited.has(key)"
-            v-show="active === key"
-            :id="`${tabId}-panel-${index}`"
-            :role="visible.length > 1 ? 'tabpanel' : undefined"
-            :aria-labelledby="
-              visible.length > 1 ? `${tabId}-tab-${index}` : undefined
-            "
-            :class="{ 'zerp-form-panel': visible.length > 1 }"
-          >
-            <BusinessNode
-              :node="child"
-              :focus="focus"
-              :public-auth="publicAuth"
-              :read-only="child[meta].kind === 'collection' ? false : readOnly"
-              :filter="filter"
-            />
-          </div>
-        </template>
-      </template>
-      <div
-        v-else
-        class="zerp-direct-form"
-        :class="{
-          'zerp-direct-form--short': visible.length <= 3,
-          'zerp-direct-form--filter': filter,
-        }"
-      >
-        <BusinessNode
-          v-for="[key, child] in visible"
-          :key="key"
-          :node="child"
+      <template v-for="run in runs" :key="run.entries[0]![0]">
+        <BusinessGroups
+          v-if="run.grouped"
+          :entries="run.entries"
+          :name="info.name"
           :focus="focus"
           :public-auth="publicAuth"
-          :auto-read="false"
           :read-only="readOnly"
-          :class="{
-            'zerp-direct-form-wide': [
-              'longText',
-              'array',
-              'collection',
-              'output',
-              'interactions',
-            ].includes(child[meta].kind),
-          }"
+          :filter="filter"
         />
-      </div>
+        <div
+          v-else
+          class="zerp-direct-form"
+          :class="{
+            'zerp-direct-form--short': run.entries.length <= 3,
+            'zerp-direct-form--filter': filter,
+          }"
+        >
+          <BusinessNode
+            v-for="[key, child] in run.entries"
+            :key="key"
+            :node="child"
+            :focus="focus"
+            :public-auth="publicAuth"
+            :auto-read="false"
+            :read-only="readOnly"
+            :class="{
+              'zerp-direct-form-wide': [
+                'longText',
+                'array',
+                'collection',
+                'output',
+                'interactions',
+              ].includes(child[meta].kind),
+            }"
+          />
+        </div>
+      </template>
     </template>
     <template v-else-if="info.kind === 'collection'">
       <BusinessNode :node="collection.query" :auto-read="false" filter />

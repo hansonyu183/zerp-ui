@@ -11,7 +11,7 @@ export const businessRowActions = {
   calculate: ["计算", "mdi-calculator-variant-outline"],
   start: ["启动", "mdi-play-outline"],
   advance: ["推进", "mdi-arrow-right-circle-outline"],
-  createChild: ["新增子项", "mdi-plus-box-outline"],
+  createChild: ["新增", "mdi-plus-box-outline"],
   approveChild: ["批准子项", "mdi-check-outline"],
   rejectChild: ["拒绝子项", "mdi-close-outline"],
   retryChild: ["重试子项", "mdi-refresh"],
