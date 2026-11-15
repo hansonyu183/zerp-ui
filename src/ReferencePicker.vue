@@ -14,6 +14,7 @@ const props = defineProps<{
   label: string;
   parent?: ReferenceValue | null;
   multiple?: boolean;
+  tree?: boolean;
   disabled?: boolean;
   disabledReason?: string;
   descriptionId?: string;
@@ -32,7 +33,12 @@ const open = ref(false),
   page = ref(1),
   busy = ref(false),
   error = ref("");
-const candidates = shallowRef<readonly ReferenceValue[]>([]);
+type TreeValue = ReferenceValue & {
+  children?: readonly TreeValue[];
+  depth?: number;
+};
+const candidates = shallowRef<readonly TreeValue[]>([]);
+const expanded = ref(new Set<string>());
 const selected = computed<readonly ReferenceValue[]>(() =>
   Array.isArray(props.modelValue)
     ? props.modelValue
@@ -49,13 +55,38 @@ const shown = computed(() =>
       value.id,
   })),
 );
-const filtered = computed(() =>
-  candidates.value.filter((value) =>
-    value.label
-      .toLocaleLowerCase()
-      .includes(keyword.value.trim().toLocaleLowerCase()),
-  ),
-);
+const filtered = computed(() => {
+  const text = keyword.value.trim().toLocaleLowerCase();
+  if (!props.tree)
+    return candidates.value.filter((value) =>
+      value.label.toLocaleLowerCase().includes(text),
+    );
+  const matches = (node: TreeValue): boolean =>
+    node.label.toLocaleLowerCase().includes(text) ||
+    !!node.children?.some(matches);
+  const result: TreeValue[] = [];
+  function visit(
+    nodes: readonly TreeValue[],
+    depth: number,
+    inherited = false,
+  ) {
+    for (const node of nodes) {
+      const ownMatch = !!text && node.label.toLocaleLowerCase().includes(text);
+      if (text && !inherited && !matches(node)) continue;
+      result.push({ ...node, depth });
+      if (node.children && (text || expanded.value.has(node.id)))
+        visit(node.children, depth + 1, inherited || ownMatch);
+    }
+  }
+  visit(candidates.value, 0);
+  return result;
+});
+function toggle(id: string) {
+  const next = new Set(expanded.value);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  expanded.value = next;
+}
 const items = computed(() => {
   const result = filtered.value.slice((page.value - 1) * 20, page.value * 20);
   for (const value of shown.value)
@@ -146,6 +177,7 @@ watch(
     );
     open.value = false;
     candidates.value = [];
+    expanded.value = new Set();
     busy.value = false;
     error.value = "";
     search.value = keyword.value = "";
@@ -184,7 +216,11 @@ onBeforeUnmount(() => {
     :items="items"
     item-title="label"
     item-value="id"
-    :item-props="(item) => ({ disabled: item.selectable === false })"
+    :item-props="
+      (item) => ({
+        disabled: item.selectable === false && !(tree && item.children?.length),
+      })
+    "
     return-object
     no-filter
     :multiple="multiple"
@@ -202,6 +238,30 @@ onBeforeUnmount(() => {
     @click:control="open = !disabled"
     @update:model-value="choose"
   >
+    <template v-if="tree" #item="{ item, props: itemProps }">
+      <VListItem
+        v-bind="itemProps"
+        :title="undefined"
+        class="zerp-reference-tree-item"
+      >
+        <template #title>
+          <span
+            :style="{ paddingInlineStart: `${(item.raw.depth ?? 0) * 16}px` }"
+          >
+            <VBtn
+              v-if="item.raw.children?.length"
+              size="small"
+              variant="text"
+              :aria-label="`${expanded.has(item.raw.id) ? '收起' : '展开'}${item.raw.label}`"
+              :aria-expanded="!!keyword || expanded.has(item.raw.id)"
+              :icon="expanded.has(item.raw.id) || keyword ? '$expand' : '$next'"
+              @click.stop="toggle(item.raw.id)"
+            />
+            {{ item.raw.label }}
+          </span>
+        </template>
+      </VListItem>
+    </template>
     <template #append-item>
       <VListItem v-if="error"
         ><VBtn @click.stop="load">重试引用</VBtn></VListItem

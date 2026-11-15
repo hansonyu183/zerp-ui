@@ -8,6 +8,7 @@ const props = defineProps<{
   document: PrintDocument;
   allowed: boolean;
   disabled?: boolean;
+  confirmResult?: boolean;
 }>();
 const emit = defineEmits<{ opened: [] }>();
 const frame = ref<HTMLIFrameElement>(),
@@ -84,7 +85,9 @@ function print() {
     >
       打开打印窗口
     </VBtn>
-    <p>打印后请选择“已打印”或“未打印”。关闭窗口不会登记。</p>
+    <p v-if="confirmResult !== false">
+      打印后请选择“已打印”或“未打印”。关闭窗口不会登记。
+    </p>
     <iframe
       v-if="markup"
       :key="markup"
