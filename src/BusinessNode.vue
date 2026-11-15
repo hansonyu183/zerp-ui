@@ -134,6 +134,7 @@ watch(
   { immediate: true },
 );
 const initialScope = runtime.scope.value;
+const initialNode = props.node;
 let scrollFrame: number | undefined;
 onMounted(() => {
   const saved =
@@ -148,12 +149,13 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame);
   if (
-    isCollection(props.node) &&
-    props.node.report &&
+    isCollection(initialNode) &&
+    initialNode.report &&
     initialScope === runtime.scope.value &&
-    runtime.readable(props.node)
+    runtime.readable(initialNode) &&
+    runtime.model().navigation.current === initialNode
   )
-    runtime.reportViews.set(toRaw(props.node), {
+    runtime.reportViews.set(toRaw(initialNode), {
       left: window.scrollX,
       top: window.scrollY,
     });
@@ -240,14 +242,17 @@ onBeforeUnmount(() => {
         <BusinessNode
           :node="detail"
           :read-only="
-            collection.draft === detail ? false : detailMode === 'read'
+            collection.draft === detail
+              ? false
+              : detailMode === 'read' || !runtime.editable(detail)
           "
         />
         <TemplatePrint
           v-if="
             collection.draft !== detail &&
-            collection.items.includes(detail) &&
-            detailMode === 'read'
+            (collection.items.includes(detail) ||
+              collection.selected === detail) &&
+            (detailMode === 'read' || !runtime.editable(detail))
           "
           :collection="collection"
           :record="detail"

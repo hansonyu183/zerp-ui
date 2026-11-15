@@ -87,25 +87,7 @@ function key(row: Values) {
 function actions(row: Values): RowAction[] {
   const source = original(row);
   if (!source || !runtime.readable(source)) return [];
-  const readOnlyActions = new Set([
-    "get",
-    "delete",
-    "reconcile",
-    "export",
-    "preview",
-    "print",
-    "confirmPrinted",
-    "confirmNotPrinted",
-    "audit",
-    "openVoucher",
-  ]);
-  const canEdit =
-    runtime.writable(source) &&
-    Object.keys(runtime.operations(source)).some(
-      (action) =>
-        !readOnlyActions.has(action) && runtime.allowed(source, action),
-    );
-  const result: RowAction[] = [canEdit ? "edit" : "view"];
+  const result: RowAction[] = [runtime.editable(source) ? "edit" : "view"];
   if (props.node.itemPrintTemple && runtime.allowed(props.node, "itemPrint"))
     result.push("print");
   const available = new Set([
@@ -131,6 +113,9 @@ function actions(row: Values): RowAction[] {
       result.push(action as RowAction);
   return result;
 }
+function showAllActions(row: Values) {
+  return !!original(row)?.workflow;
+}
 function reasons(row: Values): Partial<Record<RowAction, string>> {
   const source = original(row);
   if (!source) return {};
@@ -139,11 +124,19 @@ function reasons(row: Values): Partial<Record<RowAction, string>> {
       .filter(
         (action) =>
           runtime.busy.value.has(toRaw(source)) ||
+          (action === "print" &&
+            !!props.node.itemPrintTemple &&
+            (!source.printable || source.identity === null)) ||
           (action !== "edit" &&
             action !== "view" &&
             runtime.operations(source)[action]?.disabled),
       )
-      .map((action) => [action, "当前不可用"]),
+      .map((action) => [
+        action,
+        action === "print" && !source.printable
+          ? "保存或核实当前记录后打印"
+          : "当前不可用",
+      ]),
   );
 }
 function select(action: RowAction, row: Values) {
@@ -302,6 +295,7 @@ function visit(value: ReportCell<CollectionTarget>, row: Values) {
     :actions="actions"
     :action-labels="labels"
     :disabled-actions="reasons"
+    :show-all-actions="showAllActions"
     empty-caption="暂无记录"
     @page="emit('page', $event)"
     @action="select"
