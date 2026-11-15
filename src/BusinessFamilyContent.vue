@@ -29,14 +29,24 @@ function readable(target: CollectionTarget) {
         runtime.readable(target.record)))
   );
 }
-const interactions = computed<readonly Interaction<CollectionTarget>[]>(
+type Intent = {
+  kind: "visit" | "download";
+  target: CollectionTarget;
+  blocked(): boolean;
+};
+const interactions = computed<readonly Interaction<Intent>[]>(
   () =>
-    questions.value?.items.flatMap((item): Interaction<CollectionTarget>[] => {
+    questions.value?.items.flatMap((item): Interaction<Intent>[] => {
       if (item.kind === "download")
         return runtime.allowed(item.target.collection, "export")
           ? [
               {
                 ...item,
+                target: {
+                  kind: "download",
+                  target: item.target,
+                  blocked: () => !!item.disabled,
+                },
                 disabled:
                   item.disabled ||
                   runtime.operations(item.target.collection).export?.disabled ||
@@ -44,7 +54,19 @@ const interactions = computed<readonly Interaction<CollectionTarget>[]>(
               },
             ]
           : [];
-      if (item.kind === "related") return readable(item.target) ? [item] : [];
+      if (item.kind === "related")
+        return readable(item.target)
+          ? [
+              {
+                ...item,
+                target: {
+                  kind: "visit",
+                  target: item.target,
+                  blocked: () => !!item.disabled,
+                },
+              },
+            ]
+          : [];
       if (item.kind === "menu" || item.kind === "tree")
         return [
           {
@@ -53,9 +75,21 @@ const interactions = computed<readonly Interaction<CollectionTarget>[]>(
               .filter((entry) => readable(entry.target))
               .map((entry) => ({
                 ...entry,
-                children: entry.children?.filter((child) =>
-                  readable(child.target),
-                ),
+                target: {
+                  kind: "visit" as const,
+                  target: entry.target,
+                  blocked: () => !!entry.disabled,
+                },
+                children: entry.children
+                  ?.filter((child) => readable(child.target))
+                  .map((child) => ({
+                    ...child,
+                    target: {
+                      kind: "visit" as const,
+                      target: child.target,
+                      blocked: () => !!child.disabled,
+                    },
+                  })),
               })),
           },
         ];
@@ -66,13 +100,11 @@ function answer(id: string, value: string | boolean) {
   if (!props.readOnly && questions.value && runtime.writable(props.node))
     questions.value.value[id] = value;
 }
-function visit(target: CollectionTarget) {
-  if (!runtime.readable(props.node) || !readable(target)) return;
-  const download = questions.value?.items.some(
-    (item) =>
-      item.kind === "download" && item.target === target && !item.disabled,
-  );
-  if (download) void runtime.run(target.collection, "export");
+function visit(intent: Intent) {
+  const { target } = intent;
+  if (intent.blocked() || !runtime.readable(props.node) || !readable(target))
+    return;
+  if (intent.kind === "download") void runtime.run(target.collection, "export");
   else {
     if (target.record) target.collection.selected = target.record;
     runtime.model().navigation.visit(target.collection);
