@@ -315,7 +315,12 @@ export async function directModelSmoke(page) {
     await expect(
       page.getByRole("tab", { name: "客户", exact: true }),
     ).toHaveCount(0);
-    await page.getByRole("button", { name: "查看", exact: true }).click();
+    await page.getByRole("link", { name: "查看", exact: true }).click();
+    await expect(
+      page
+        .getByRole("dialog")
+        .getByRole("textbox", { name: "客户名称", exact: true }),
+    ).not.toBeEditable();
     await expect(
       page.getByRole("button", { name: "保存", exact: true }),
     ).toHaveCount(0);
