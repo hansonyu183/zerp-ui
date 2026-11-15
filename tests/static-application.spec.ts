@@ -524,3 +524,42 @@ it("lets a readonly collection user enter query criteria while preserving narrow
   expect(input.attributes("readonly")).toBeDefined();
   wrapper.unmount();
 });
+it("uses the consumer homepage URL and notifies its null navigation callback while preserving modified links", async () => {
+  const { model, collection } = fixture();
+  const records = (key: string) => ({
+    kind: "records" as const,
+    key,
+    label: key,
+    readOnly: true,
+    columns: [],
+    items: [],
+    selected: null,
+    operations: {},
+  });
+  model.workbench = {
+    information: records("重要信息"),
+    vouchers: records("单据"),
+    reports: records("报表"),
+    masters: records("资料"),
+  };
+  model.navigation.current = collection;
+  model.navigation.href = (node) =>
+    node ? "/custom/customers" : "/custom/home";
+  const visit = vi.fn((node: Collection | null) => {
+    model.navigation.current = node;
+  });
+  model.navigation.visit = visit;
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  const home = wrapper.get('a[aria-label="合成：首页"]');
+  expect(home.attributes("href")).toBe("/custom/home");
+  await home.trigger("click", { ctrlKey: true });
+  expect(visit).not.toHaveBeenCalled();
+  expect(model.navigation.current).toBe(collection);
+  await home.trigger("click");
+  await flushPromises();
+  expect(visit).toHaveBeenCalledWith(null);
+  expect(model.navigation.current).toBeNull();
+  expect(wrapper.text()).toContain("重要信息");
+  wrapper.unmount();
+});

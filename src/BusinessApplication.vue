@@ -106,7 +106,7 @@ function visitKey(key: string) {
 const brand = computed(() => ({
   productName: props.model.brand.productName,
   enterpriseName: props.model.brand.companyName,
-  home: "/",
+  home: props.model.navigation.href(null),
   mark: {
     kind: "text" as const,
     text: props.model.brand.productName.slice(0, 1),
@@ -207,10 +207,10 @@ async function accountAction(action: AccountIntent) {
   if (runtime.readable(node)) accountView.value = node;
 }
 function goHome(event: MouseEvent) {
-  const a = (event.target as Element).closest("a");
+  const a = (event.target as Element).closest("a.zerp-shell-brand");
   if (
     !a ||
-    a.getAttribute("href") !== "/" ||
+    event.defaultPrevented ||
     event.button !== 0 ||
     event.ctrlKey ||
     event.metaKey ||
@@ -220,7 +220,7 @@ function goHome(event: MouseEvent) {
     return;
   event.preventDefault();
   accountView.value = null;
-  props.model.navigation.current = null;
+  props.model.navigation.visit(null);
 }
 watch(
   [() => props.model, runtime.scope, () => props.model.session.state],
