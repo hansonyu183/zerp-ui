@@ -75,7 +75,17 @@ const actions = computed(() =>
   Object.entries(runtime.operations(props.node)).filter(
     ([key]) =>
       key !== "query" &&
-      (!props.readOnly || ["get", "reconcile", "load"].includes(key)) &&
+      (!props.readOnly ||
+        [
+          "get",
+          "reconcile",
+          "load",
+          "preview",
+          "print",
+          "export",
+          "audit",
+          "openVoucher",
+        ].includes(key)) &&
       runtime.allowed(props.node, key, props.publicAuth),
   ),
 );

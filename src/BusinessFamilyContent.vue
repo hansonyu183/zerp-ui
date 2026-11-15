@@ -133,7 +133,7 @@ function visit(intent: Intent) {
       v-if="output.value"
       :document="output.value"
       :allowed="runtime.allowed(node, 'print')"
-      :disabled="readOnly || busy || runtime.operations(node).print?.disabled"
+      :disabled="busy || runtime.operations(node).print?.disabled"
       @opened="runtime.run(node, 'print')"
     />
     <p v-else>尚未生成预览</p>

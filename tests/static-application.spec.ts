@@ -723,3 +723,64 @@ it("captures report scroll before navigation clears the old page and restores it
     if (descriptor) Object.defineProperty(window, "scrollY", descriptor);
   }
 });
+it("keeps authorized preview and print reachable from a read-only output view while hiding write confirmations", async () => {
+  const { model, collection } = fixture();
+  const row = object("output", "输出");
+  row.identity = "o1";
+  row.printable = true;
+  row.readOnly = true;
+  const output: import("../src/model").OutputNode = {
+    kind: "output",
+    key: "preview",
+    label: "输出预览",
+    readOnly: true,
+    value: null,
+    operations: { print: operation(), confirmPrinted: operation() },
+  };
+  row.members = [output];
+  row.output = {
+    operations: {
+      preview: operation(
+        vi.fn(async () => {
+          const current = collection.items[0]!
+            .members[0] as import("../src/model").OutputNode;
+          current.value = {
+            id: "o1",
+            title: "合成输出",
+            width: 100,
+            height: 100,
+            pages: [{ key: "p1", items: [] }],
+          };
+        }),
+      ),
+    },
+  };
+  collection.items = [row];
+  collection.total = 1;
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  await wrapper.get("table").get('button[aria-label="查看"]').trigger("click");
+  await flushPromises();
+  const dialog = wrapper.get('[role="dialog"]');
+  const preview = dialog
+    .findAll("button")
+    .find((button) => button.text() === "预览");
+  expect(preview).toBeDefined();
+  await preview!.trigger("click");
+  await flushPromises();
+  expect(dialog.find("iframe").exists()).toBe(true);
+  await dialog.get("iframe").trigger("load");
+  await flushPromises();
+  expect(
+    dialog.findAll("button").some((button) => button.text() === "确认已打印"),
+  ).toBe(false);
+  const print = dialog
+    .findAll("button")
+    .find((button) => button.text() === "打印");
+  expect(print).toBeDefined();
+  expect(print!.attributes("disabled")).toBeUndefined();
+  wrapper.unmount();
+});

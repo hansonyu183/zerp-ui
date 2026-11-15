@@ -217,6 +217,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       "delete",
       "reconcile",
       "export",
+      "preview",
       "print",
       "confirmPrinted",
       "confirmNotPrinted",
