@@ -464,6 +464,10 @@ const shortcut = (
 let generation = 0;
 function resetBusiness() {
   clearFamilyInputs();
+  for (const { role } of workbenchSeeds) {
+    model.workbench![role].items = [];
+    model.workbench![role].selected = null;
+  }
   for (const collection of Object.values(model.members)) {
     collection.items = [];
     collection.selected = null;
@@ -588,7 +592,23 @@ export const model: BusinessModel = reactive({
   messages: [],
   workbench: {
     load: operation(async () => {
+      const requestOwner = JSON.stringify(model.session.owner);
       trace("workbench.load");
+      await Promise.resolve();
+      if (
+        model.session.state !== "ready" ||
+        JSON.stringify(model.session.owner) !== requestOwner
+      )
+        return;
+      const permissions = model.session.userPermissions;
+      for (const { role, items } of workbenchSeeds) {
+        const block = model.workbench![role];
+        if (
+          permissions.administrator ||
+          permissions.grants.some((grant) => grant.node === block && grant.read)
+        )
+          block.items = items;
+      }
     }),
     information: shortcut("information", "重要信息", null),
     vouchers: shortcut("vouchers", "单据", vouchers),
@@ -596,6 +616,10 @@ export const model: BusinessModel = reactive({
     masters: shortcut("masters", "资料", customers),
   },
 });
+const workbenchSeeds = (
+  ["information", "vouchers", "reports", "masters"] as const
+).map((role) => ({ role, items: model.workbench![role].items }));
+for (const { role } of workbenchSeeds) model.workbench![role].items = [];
 bindFamilyQueries(() => model.session.owner);
 router.afterEach((to) => {
   model.navigation.current =
