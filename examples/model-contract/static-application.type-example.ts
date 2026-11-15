@@ -1,5 +1,5 @@
 /**
- * 2026-11-16 合成目标示例，仅供编译；不是当前 @zerp/ui 的可运行消费者。
+ * 2026-11-16 合成目标示例，仅供编译；仅参加编译；可运行消费者另见 examples/model。
  * 业务回调仅声明，不访问 API。所有集合、字段和回调均在源码中直接定义。
  */
 import { reactive } from "vue";
@@ -11,7 +11,7 @@ import type {
   PrintTemplate,
   UserPermissions,
   Workbench,
-} from "../../docs/interfaces/business-model";
+} from "@zerp/ui/model";
 
 // 消费者实现这些回调；模型构造不调用回调、不读取服务端 schema。
 declare function signIn(): Promise<void>;

@@ -1,4 +1,4 @@
-/** 目标接口的定向编译检查；不导入或执行宿主、示例或任何业务回调。 */
+/** 唯一公开 model 入口的定向编译检查；不导入或执行宿主、示例或任何业务回调。 */
 import type {
   BusinessModel,
   Collection,
@@ -8,7 +8,7 @@ import type {
   PrintTemplate,
   RecordsNode,
   Session,
-} from "../../docs/interfaces/business-model";
+} from "@zerp/ui/model";
 
 declare const object: ObjectNode;
 declare const collection: Collection;
