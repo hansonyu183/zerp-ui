@@ -10,7 +10,7 @@ model 入口仅导出类型，没有 Vue/Vuetify/CSS 运行时依赖。完整静
 
 ## 对象与集合
 
-`ObjectNode` 的 `family` 固定区分 `standard` 和 `voucher`；单据额外提供只读 `type` 和封闭单据操作。AA、AB 使用同一类型，不建立 VoucherNode 或 VoucherCollection 平行接口。`Collection` 不属于 BusinessNode，只承载独立业务边界；根 `members` 的属性键与集合 `key` 一致，导航只引用其中的原对象。
+`ObjectNode` 的 `family` 固定区分 `standard` 和 `voucher`；单据额外提供只读 `type` 和封闭单据操作。AA、AB 使用同一类型，不建立 VoucherNode 或 VoucherCollection 平行接口。`Collection` 不属于 BusinessNode，只承载独立业务边界；根 `members` 的属性键与集合 `key` 一致，导航只引用其中的原对象。集合可提供既有有限 `NavigationIcon`：home、catalog、settings、report、voucher、workflow；宿主将该业务语义传给统一外壳，未知语义省略 icon 并保留文字，不接受任意图标名。
 
 对象 `members` 数组决定字段和分组的顺序，同一对象内 `key` 唯一。`label: null` 隐藏整个节点的详情/编辑呈现，不隐藏它的业务值，也不阻止显式 columns 或打印路径引用；权限拒绝优先于任何显示投影。columns 的 key 直接引用记录成员，标题始终采用列自己的 label；不从首条记录推断空集合结构。数据行缺少声明的列成员是模型错误，应显示可定位的反馈，不静默猜测字段。
 

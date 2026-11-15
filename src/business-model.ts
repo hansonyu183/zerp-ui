@@ -1,5 +1,7 @@
 /** 唯一公开静态响应式模型；接口决定见 #152，迁移及有限能力补齐见 #159。 */
 import type { PrintDocument } from "./printing";
+import type { NavigationIcon } from "./shell";
+export type { NavigationIcon } from "./shell";
 import type { Interaction } from "./collaboration";
 import type { ReportPresentation, ReportSummary } from "./report";
 
@@ -348,6 +350,8 @@ export interface PrintTemplate {
 
 /** 独立查询和写入的业务集合；普通资料与 AA/AB 等单据共用。 */
 export interface Collection {
+  /** 已知业务语义的有限图标；未知语义省略并保留文字。 */
+  icon?: NavigationIcon;
   /** 在 BusinessModel.members 中的稳定集合键。 */
   key: string;
   label: string;

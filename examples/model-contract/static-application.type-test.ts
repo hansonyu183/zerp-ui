@@ -140,3 +140,8 @@ void [
   executableTemplate,
   arbitraryTemplate,
 ];
+
+// prettier-ignore
+// @ts-expect-error 图标只使用有限业务语义，不接受任意 MDI 图标名。
+const invalidCollectionIcon = { ...collection, icon: "mdi-home" } satisfies Collection;
+void invalidCollectionIcon;

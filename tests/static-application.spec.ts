@@ -778,6 +778,11 @@ it("keeps authorized preview and print reachable from a read-only output view wh
   await preview!.trigger("click");
   await flushPromises();
   expect(dialog.find("iframe").exists()).toBe(true);
+  const previewFrame = dialog.get("iframe").element as HTMLIFrameElement;
+  Object.defineProperty(previewFrame.contentDocument!, "fonts", {
+    value: { ready: Promise.resolve() },
+    configurable: true,
+  });
   await dialog.get("iframe").trigger("load");
   await flushPromises();
   expect(
@@ -785,7 +790,7 @@ it("keeps authorized preview and print reachable from a read-only output view wh
   ).toBe(false);
   const print = dialog
     .findAll("button")
-    .find((button) => button.text() === "打印");
+    .find((button) => button.text() === "打开打印窗口");
   expect(print).toBeDefined();
   expect(print!.attributes("disabled")).toBeUndefined();
   wrapper.unmount();
@@ -868,6 +873,11 @@ it("keeps explicit nested output confirmation writable in a view while enforcing
     .find((button) => button.text() === "预览")!
     .trigger("click");
   await flushPromises();
+  const previewFrame = dialog.get("iframe").element as HTMLIFrameElement;
+  Object.defineProperty(previewFrame.contentDocument!, "fonts", {
+    value: { ready: Promise.resolve() },
+    configurable: true,
+  });
   await dialog.get("iframe").trigger("load");
   await flushPromises();
   expect(confirmed.run).not.toHaveBeenCalled();
@@ -886,5 +896,122 @@ it("keeps explicit nested output confirmation writable in a view while enforcing
   ).readOnly = true;
   await flushPromises();
   expect(confirmation()).toBeUndefined();
+  wrapper.unmount();
+});
+it("keeps a nested object own update boundary editable from a view-only parent without granting business read-only overrides", async () => {
+  const { model, collection } = fixture();
+  const parent = object("parent", "父对象");
+  parent.identity = "p1";
+  const child = object("child", "子对象");
+  child.identity = "nested-1";
+  const direct = {
+    kind: "text" as const,
+    key: "code",
+    label: "父字段",
+    readOnly: false,
+    required: false,
+    value: "parent",
+  };
+  const nested = {
+    kind: "text" as const,
+    key: "nested",
+    label: "子字段",
+    readOnly: false,
+    required: false,
+    value: "child",
+  };
+  child.members = [nested];
+  const update = vi.fn(async () => {});
+  child.operations.update = operation(update);
+  parent.members = [direct, child];
+  collection.items = [parent];
+  collection.selected = parent;
+  collection.total = 1;
+  const owner = model.session.owner!;
+  model.session = {
+    state: "ready",
+    owner,
+    userPermissions: {
+      owner,
+      administrator: false,
+      grants: [
+        {
+          node: collection,
+          read: true,
+          write: true,
+          operations: { query: true, update: true },
+        },
+      ],
+    },
+  };
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  const dialog = wrapper.get('[role="dialog"]');
+  expect(
+    dialog.get('input[aria-label="父字段"]').attributes("readonly"),
+  ).toBeDefined();
+  expect(
+    dialog.get('input[aria-label="子字段"]').attributes("readonly"),
+  ).toBeUndefined();
+  await dialog.get('input[aria-label="子字段"]').setValue("changed");
+  await dialog
+    .findAll("button")
+    .find((button) => button.text() === "保存")!
+    .trigger("click");
+  await flushPromises();
+  expect(update).toHaveBeenCalledTimes(1);
+  expect((collection.selected!.members[0] as { value: string }).value).toBe(
+    "parent",
+  );
+  expect(collection.selected!.operations.update).toBeUndefined();
+  const currentChild = collection.selected!.members[1] as ObjectNode;
+  expect((currentChild.members[0] as { value: string }).value).toBe("changed");
+  currentChild.readOnly = true;
+  await flushPromises();
+  expect(
+    dialog.get('input[aria-label="子字段"]').attributes("readonly"),
+  ).toBeDefined();
+  expect(
+    dialog.findAll("button").some((button) => button.text() === "保存"),
+  ).toBe(false);
+  currentChild.readOnly = false;
+  if (!model.session.userPermissions.administrator)
+    model.session.userPermissions.grants[0]!.write = false;
+  await flushPromises();
+  expect(
+    dialog.get('input[aria-label="子字段"]').attributes("readonly"),
+  ).toBeDefined();
+  wrapper.unmount();
+});
+it("projects known finite collection icons and keeps collections with unknown semantics as text links", async () => {
+  const { model, collection } = fixture();
+  collection.icon = "catalog";
+  const unknown: Collection = {
+    ...collection,
+    key: "custom",
+    label: "未知业务",
+    icon: undefined,
+    conditions: object("custom-conditions"),
+    items: [],
+  };
+  model.members.custom = unknown;
+  model.navigation.groups[0]!.items.push(unknown);
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  const knownLink = wrapper
+    .findAll("a")
+    .find((link) => link.text().endsWith("客户"))!;
+  const unknownLink = wrapper
+    .findAll("a")
+    .find((link) => link.text() === "未知业务")!;
+  expect(knownLink.find(".zerp-ui-icon").text()).toBe("\u{F0219}");
+  expect(unknownLink.exists()).toBe(true);
+  expect(unknownLink.find(".zerp-ui-icon").exists()).toBe(false);
   wrapper.unmount();
 });

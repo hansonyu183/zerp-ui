@@ -76,6 +76,11 @@ const actions = computed(() =>
     ([key]) =>
       key !== "query" &&
       !(
+        key === "print" &&
+        !isCollection(props.node) &&
+        props.node.kind === "output"
+      ) &&
+      !(
         key === "load" &&
         !isCollection(props.node) &&
         ["reference", "treeReference"].includes(props.node.kind)
