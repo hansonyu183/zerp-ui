@@ -14,6 +14,17 @@ export async function directPresentationSmoke(page) {
   const panelId = await customers.getAttribute("aria-controls");
   expect(panelId).toBeTruthy();
   await expect(page.locator(`[id="${panelId}"]`)).toBeVisible();
+  const firstFilter = await page
+    .getByRole("textbox", { name: "关键词", exact: true })
+    .boundingBox();
+  const fourthFilter = await page
+    .getByRole("textbox", { name: "状态条件", exact: true })
+    .boundingBox();
+  const fifthFilter = await page
+    .getByRole("textbox", { name: "联系条件", exact: true })
+    .boundingBox();
+  expect(Math.abs(firstFilter.y - fourthFilter.y)).toBeLessThan(2);
+  expect(fifthFilter.y).toBeGreaterThan(firstFilter.y);
   const table = page.getByRole("table").filter({ hasText: "合成客户甲" });
   await expect(table.locator("thead th").nth(1)).toHaveText("操作");
   await expect(table).toHaveCSS("font-size", "12px");
@@ -37,6 +48,14 @@ export async function directPresentationSmoke(page) {
   const codeBox = await code.boundingBox();
   const nameBox = await field.boundingBox();
   expect(Math.abs(codeBox.y - nameBox.y)).toBeLessThan(2);
+  const thirdField = await dialog
+    .getByRole("textbox", { name: "额度", exact: true })
+    .boundingBox();
+  const fourthField = await dialog
+    .getByRole("combobox", { name: "客户分类", exact: true })
+    .boundingBox();
+  expect(Math.abs(codeBox.y - thirdField.y)).toBeLessThan(2);
+  expect(fourthField.y).toBeGreaterThan(codeBox.y);
   await dialog.getByRole("button", { name: "关闭", exact: true }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });

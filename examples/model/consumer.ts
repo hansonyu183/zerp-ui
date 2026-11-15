@@ -67,6 +67,10 @@ const customers = {
   draft: null,
   query: {
     keyword: { value: "", [meta]: { kind: "text", name: "关键词" } },
+    region: { value: "", [meta]: { kind: "text", name: "地区条件" } },
+    owner: { value: "", [meta]: { kind: "text", name: "负责人条件" } },
+    status: { value: "", [meta]: { kind: "text", name: "状态条件" } },
+    contact: { value: "", [meta]: { kind: "text", name: "联系条件" } },
     [meta]: { kind: "object", name: "查询条件", operations: {} },
   },
   page: 1,
