@@ -18,14 +18,14 @@ export interface DirectRuntime {
  operations(node:Node):Record<string,Operation>;
  run(node:Node,action:string,publicAuth?:boolean):Promise<void>;
  runAccount(action?:'signOut'|'changePassword'):Promise<void>;
- runWorkbench():Promise<void>; invalidate(scopeChanged?:boolean):void;
+ runWorkbench(once?:boolean):Promise<void>; invalidate(scopeChanged?:boolean):void;
 }
 export function createDirectRuntime(model:()=>BusinessModel):DirectRuntime {
  const ownerKey=(owner:Owner|null)=>owner ? JSON.stringify([owner.ledger,owner.operator,owner.generation]):'';
  const scope=computed(()=>ownerKey(model().session.owner));
  const ready=computed(()=> {const s=model().session; return (s.state==='ready'||s.state==='password-required') && ownerKey(s.userPermissions.owner)===scope.value;});
  const busy=ref(new Set<object>()),error=ref('');
- const executions=new Map<object,symbol>(); const reportViews=new Map<object,{left:number;top:number}>(); let epoch=0;
+ const executions=new Map<object,symbol>(); const reportViews=new Map<object,{left:number;top:number}>(); let epoch=0; const workbenchLoads=new WeakMap<object,Set<string>>();
  function paths() {
   const result=new Map<object,Node[]>();
   function walk(node:Node,parents:Node[]) {
@@ -64,7 +64,8 @@ export function createDirectRuntime(model:()=>BusinessModel):DirectRuntime {
  }
  function operations(node:Node):Record<string,Operation> {
   if(same(node,model().authentication.form)) return model().authentication.operations;
-  if(same(node,model().account.password)) return {...node.operations,changePassword:model().account.operations.changePassword};
+  if(same(node,model().account.password)) return {...model().account.password.operations,changePassword:model().account.operations.changePassword};
+  if(!isCollection(node)&&node.kind==='object') return {...node.document?.operations,...node.workflow?.operations,...node.processing?.operations,...node.batch?.operations,...node.report?.operations,...node.output?.operations,...node.operations};
   return 'operations' in node ? node.operations as Record<string,Operation> : 'load' in node && node.load ? {load:node.load} : {};
  }
  const reads=new Set(['get','query','export','preview','reconcile','load','print','itemPrint']);
@@ -88,11 +89,11 @@ export function createDirectRuntime(model:()=>BusinessModel):DirectRuntime {
   try {await op.run();} catch {if(start===epoch&&owner===scope.value&&valid()) error.value='操作失败，请检查业务信息后重试。';}
   finally {if(executions.get(key)===execution){executions.delete(key);busy.value.delete(key);}}
  }
- async function run(node:Node,action:string,publicAuth=false) {const op=operations(node)[action]; if(op) await execute(node,op,()=>allowed(node,action,publicAuth));}
+ async function run(node:Node,action:string,publicAuth=false) {const op=operations(node)[action]; if(op) await execute(node,{get disabled(){return op.disabled;},async run(){await op.run();if(isCollection(node)&&node.report&&['get','query'].includes(action))reportViews.set(toRaw(node),{left:0,top:0});}},()=>allowed(node,action,publicAuth));}
  async function runAccount(action:'signOut'|'changePassword'='signOut') {
   const account=model().account; await execute(account,account.operations[action],()=>ready.value);
  }
- async function runWorkbench() {const w=model().workbench; if(w?.load) await execute(w,w.load,()=>ready.value&&[w.information,w.vouchers,w.reports,w.masters].some(readable));}
+ async function runWorkbench(once=false) {const w=model().workbench;if(!w?.load)return;const key=toRaw(w),loaded=workbenchLoads.get(key)??new Set<string>();if(once&&loaded.has(scope.value))return;if(!ready.value||![w.information,w.vouchers,w.reports,w.masters].some(readable)||w.load.disabled)return;loaded.add(scope.value);workbenchLoads.set(key,loaded);await execute(w,w.load,()=>ready.value&&[w.information,w.vouchers,w.reports,w.masters].some(readable));}
  function invalidate(scopeChanged=false) {
   epoch++;error.value='';
   if(scopeChanged){reportViews.clear();executions.clear();busy.value.clear();}

@@ -8,7 +8,7 @@ const props=defineProps<{node:Workbench}>();const runtime=inject(directRuntimeKe
 const sections=computed(()=>(['information','vouchers','reports','masters']as const).map(role=>({role,node:props.node[role]})).filter(section=>runtime.readable(section.node)));
 function caption(collection:RecordsNode,row:ObjectNode){return collection.columns.flatMap(column=>{const field=row.members.find(node=>node.key===column.key);if(!field||!runtime.readable(field)||!('value'in field)||['secret','password','attachments'].includes(field.kind))return [];try{return [formatField(field as FieldNode)];}catch(error){return [error instanceof Error?error.message:'格式错误'];}}).filter(Boolean).join(' · ');}
 const activated=new Set<string>();
-watch([runtime.scope,()=>sections.value.length,()=>props.node.load?.disabled],()=>{const owner=runtime.scope.value;if(!sections.value.length||!runtime.ready.value||activated.has(owner)||!props.node.load||props.node.load.disabled)return;activated.add(owner);void runtime.runWorkbench();},{immediate:true});
+watch([runtime.scope,()=>sections.value.length,()=>props.node.load?.disabled],()=>{const owner=runtime.scope.value;if(!sections.value.length||!runtime.ready.value||activated.has(owner)||!props.node.load||props.node.load.disabled)return;activated.add(owner);void runtime.runWorkbench(true);},{immediate:true});
 </script>
 <template>
  <section class="zerp-workbench" aria-label="工作台">
