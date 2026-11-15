@@ -4,14 +4,14 @@
 
 ## 固定版本安装
 
-当前源码准备 **0.44.0 候选版本**，尚未正式发行。已发布版本为 [ui-v0.43.1](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.43.1)，使用旧模型协议；从该 Release 下载 `zerp-ui-0.43.1.tgz` 与 `SHA256SUMS` 后安装：
+当前版本为 [ui-v0.44.0](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.44.0)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.44.0.tgz` 与 `SHA256SUMS`，核对摘要后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.43.1.tgz
+pnpm add ./zerp-ui-0.44.0.tgz
 ```
 
-新契约请使用本任务生成、核对摘要的 0.44.0 候选 tgz；版本号不表示发布完成。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，通过 `createShellThemes()` 初始化 `createVuetify`。
+0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，通过 `createShellThemes()` 初始化 `createVuetify`。
 
 ## 公开入口与迁移
 
