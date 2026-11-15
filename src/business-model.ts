@@ -490,8 +490,9 @@ export interface BusinessModel {
       /** 仅允许引用根级 members 中的集合，不提升其记录或子明细。 */
       items: Collection[];
     }[];
-    href(collection: Collection): string;
-    visit(collection: Collection): void;
+    /** null 为首页；消费者同时同步所属 Router，不扩大业务导航目标。 */
+    href(collection: Collection | null): string;
+    visit(collection: Collection | null): void;
   };
   /** 统一反馈；登出清理，关闭消息不代表业务结果已核实。 */
   messages: {
