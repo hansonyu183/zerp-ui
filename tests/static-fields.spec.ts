@@ -185,6 +185,9 @@ it("loads reference directories once, retries a failed load, and searches locall
   const wrapper = await show(model);
   expect(wrapper.text()).toContain("历史客户");
   expect(load).not.toHaveBeenCalled();
+  expect(
+    wrapper.findAll("button").some((button) => button.text() === "load"),
+  ).toBe(false);
   await openReference("选择客户");
   expect(load).toHaveBeenCalledTimes(1);
   expect(document.body.textContent).toContain("目录读取失败");
@@ -568,4 +571,63 @@ it("disables a previously confirmed current-page print while a row operation is 
   finish();
   await flushPromises();
   expect(pagePrint().attributes("disabled")).toBeUndefined();
+});
+it("opens a requested row print after its pending read and does not reopen a closed preview", async () => {
+  const { model, collection } = fixture();
+  const row = object("正式记录", [text("code", "saved")]);
+  row.identity = "formal";
+  row.printable = true;
+  let finishRead: () => void = () => {};
+  row.operations.get = op(
+    vi.fn(async () => {
+      await new Promise<void>((resolve) => {
+        finishRead = resolve;
+      });
+    }),
+  );
+  collection.items = [row];
+  collection.total = 1;
+  collection.itemPrintTemple = {
+    ...template,
+    label: "单条合成打印",
+    body: [
+      {
+        kind: "record",
+        height: 10,
+        items: [
+          {
+            kind: "field",
+            key: "code",
+            path: ["code"],
+            x: 0,
+            y: 0,
+            width: 50,
+            height: 5,
+          },
+        ],
+      },
+    ],
+  };
+  const wrapper = await show(model);
+  await wrapper.get('button[aria-label="打印"]').trigger("click");
+  await flushPromises();
+  expect(row.operations.get.run).toHaveBeenCalledTimes(1);
+  expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
+  finishRead();
+  await flushPromises();
+  expect(
+    wrapper.get('iframe[title="打印预览"]').attributes("srcdoc"),
+  ).toContain("saved");
+  const printDialog = wrapper.get('[role="dialog"][aria-label="单条合成打印"]');
+  await printDialog
+    .findAll("button")
+    .find((button) => button.text() === "关闭")!
+    .trigger("click");
+  await flushPromises();
+  expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
+  collection.selected!.printable = false;
+  await flushPromises();
+  collection.selected!.printable = true;
+  await flushPromises();
+  expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
 });
