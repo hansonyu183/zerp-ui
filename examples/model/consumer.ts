@@ -38,6 +38,7 @@ const object = (
 ): ObjectNode =>
   reactive({
     kind: "object",
+    printable: false,
     family: "standard",
     key,
     label,
@@ -143,12 +144,30 @@ const customer = object("customer", "客户", [
   lines,
 ]);
 customer.identity = "C1";
+// These facts stand in for the synthetic backend's authoritative record.
+const currentCustomerFacts = () =>
+  JSON.stringify({
+    name: name.value,
+    credit: credit.value,
+    category: category.value,
+    groups: groups.value,
+    contacts: lines.items.map((row) =>
+      row.members.map((member) => ("value" in member ? member.value : null)),
+    ),
+  });
+let savedCustomerFacts = currentCustomerFacts();
+Object.defineProperty(customer, "printable", {
+  enumerable: true,
+  get: () =>
+    customer.identity !== null && currentCustomerFacts() === savedCustomerFacts,
+});
 customer.operations.get = operation(async () => {
   trace("customer.get");
 });
 customer.operations.update = operation(async () => {
   trace("customer.update");
   if (name.value === "失败") throw Error("合成保存失败，请修改名称后重试。");
+  savedCustomerFacts = currentCustomerFacts();
   model.messages.push({
     id: String(Date.now()),
     level: "success",
@@ -289,6 +308,7 @@ const quantity: FieldNode = reactive({
 const voucherStatus = text("status", "单据状态", "草稿", true);
 const voucher: ObjectNode = reactive({
   kind: "object",
+  printable: false,
   family: "voucher",
   type: "AA",
   key: "voucher-1",
@@ -505,7 +525,16 @@ export const model: BusinessModel = reactive({
   navigation: {
     current: null,
     groups: [
-      { key: "business", label: "业务", items: [customers, vouchers, empty] },
+      {
+        key: "business",
+        label: "业务",
+        items: [
+          customers,
+          vouchers,
+          empty,
+          ...Object.values(familyCollections),
+        ],
+      },
     ],
     href(collection) {
       return collection

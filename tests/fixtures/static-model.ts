@@ -30,6 +30,7 @@ export const object = (
 ): ObjectNode =>
   reactive({
     kind: "object",
+    printable: false,
     family: "standard",
     key,
     label,

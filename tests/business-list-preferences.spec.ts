@@ -38,3 +38,23 @@ it("keeps null-label values available for explicit column references", async () 
   await click("编辑");
   expect(document.querySelector('input[aria-label="名称"]')).toBeNull();
 });
+
+it("keeps all qualified workflow actions directly reachable while ordinary rows use the menu", async () => {
+  const { model, record } = fixture();
+  const run = async () => {};
+  record.workflow = {
+    operations: {
+      start: { disabled: false, run },
+      advance: { disabled: false, run },
+      approveChild: { disabled: false, run },
+      rejectChild: { disabled: false, run },
+    },
+  };
+  wrapper = await render(model);
+  for (const label of ["启动", "推进", "批准子项", "拒绝子项"])
+    expect(
+      document.querySelector(`button[aria-label="${label}"]`),
+      label,
+    ).not.toBeNull();
+  expect(document.querySelector('button[aria-label="更多操作"]')).toBeNull();
+});

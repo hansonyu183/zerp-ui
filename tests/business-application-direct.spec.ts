@@ -100,6 +100,7 @@ it("uses consumer-created drafts and reopens them without creating twice", async
     vi.fn(async () => {
       rows.draft = {
         kind: "object",
+        printable: false,
         family: "standard",
         key: "new",
         label: "新增",
@@ -217,3 +218,32 @@ it("offers the authentication recovery callback in business language", async () 
   await click("恢复会话");
   expect(model.authentication.operations.recover.run).toHaveBeenCalledTimes(1);
 });
+
+it.each(["info", "success", "warning", "error"] as const)(
+  "keeps %s message dismissal separate from consumer restrictions and reconciliation",
+  async (level) => {
+    const { model, record } = fixture();
+    record.operations.update!.disabled = true;
+    record.operations.reconcile = operation();
+    model.messages.push({
+      id: "pending",
+      level,
+      text: "业务结果待核实",
+      target: record,
+    });
+    wrapper = await render(model);
+    const label =
+      level === "error"
+        ? "关闭错误提示"
+        : level === "warning"
+          ? "关闭警告提示"
+          : "关闭状态提示";
+    await click(label);
+    expect(model.messages).toHaveLength(1);
+    expect(record.operations.update!.disabled).toBe(true);
+    await click("编辑");
+    await click("核对结果");
+    expect(record.operations.reconcile.run).toHaveBeenCalledTimes(1);
+    expect(record.operations.update!.disabled).toBe(true);
+  },
+);

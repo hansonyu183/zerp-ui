@@ -6,7 +6,7 @@ import {
 } from "./direct-presentation-smoke.mjs";
 
 // Public UI only, run by check-package against a physically installed tgz.
-export async function uiPreferencesSmoke(page) {
+export async function uiPreferencesSmoke(page, options = {}) {
   const assertions = [];
   await expect(page.locator(".zerp-auth-page")).toHaveClass(
     /v-theme--zerp-md3-light/,
@@ -61,7 +61,8 @@ export async function uiPreferencesSmoke(page) {
     check: "default-and-independent-theme-transitions",
     result: "passed",
   });
-  const presentation = await directPresentationSmoke(page);
+  const presentation =
+    options.layout === false ? undefined : await directPresentationSmoke(page);
   assertions.push({
     clauses: [
       "UI-THEME-05",
@@ -138,7 +139,7 @@ export async function uiPreferencesSmoke(page) {
     result: "passed",
   });
   await page.getByRole("link", { name: "合成业务示例 示例企业" }).click();
-  await workbenchPresentationSmoke(page);
+  if (options.workbench !== false) await workbenchPresentationSmoke(page);
   assertions.push({
     clauses: ["UI-WORK-01", "UI-THEME-02"],
     check: "workbench-layout-and-theme",

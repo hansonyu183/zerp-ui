@@ -29,7 +29,7 @@ const legacyOperation = { ...operation, disabledReason: "旧协议", } satisfies
 const wrongAction = { ...object, family: "standard", operations: { approve: operation }, } satisfies ObjectNode;
 // prettier-ignore
 // @ts-expect-error 单据必须显式提供 type。
-const missingVoucherType: ObjectNode = { kind: "object", family: "voucher", key: "AA", label: "单据", identity: null, readOnly: false, members: [], operations: {}, };
+const missingVoucherType: ObjectNode = { kind: "object", printable: false, family: "voucher", key: "AA", label: "单据", identity: null, readOnly: false, members: [], operations: {}, };
 // prettier-ignore
 // @ts-expect-error members 必须是有序节点数组。
 const legacyMembers = { ...object, members: { arbitrary: object }, } satisfies ObjectNode;

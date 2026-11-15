@@ -40,6 +40,7 @@ declare const visit: BusinessModel["navigation"]["visit"];
 /** 新记录结构示例，不是 element，也不在登录前安装为业务数据。 */
 export const customerDraft = reactive({
   kind: "object",
+  printable: false,
   family: "standard",
   key: "customer-draft",
   label: "客户",
@@ -89,6 +90,7 @@ export const customerDraft = reactive({
     },
     {
       kind: "object",
+      printable: false,
       family: "standard",
       key: "settlement",
       label: "结算",
@@ -133,6 +135,7 @@ export const customerDraft = reactive({
 /** AA 共用 ObjectNode；type 表达业务类型，不是独立的 VoucherNode 接口。 */
 export const aaDraft = reactive({
   kind: "object",
+  printable: false,
   family: "voucher",
   type: "AA",
   key: "aa-draft",
@@ -184,6 +187,7 @@ export const aaDraft = reactive({
 /** addLine 创建的子明细结构；不同新行要建立不同节点，不能共享本对象。 */
 export const aaLine = reactive({
   kind: "object",
+  printable: false,
   family: "standard",
   key: "aa-line-local-1",
   label: "明细行",
@@ -216,6 +220,7 @@ export const aaLine = reactive({
 /** AB 底层相同，但字段、业务回调及当前可用动作不同。 */
 export const abDraft = reactive({
   kind: "object",
+  printable: false,
   family: "voucher",
   type: "AB",
   key: "ab-draft",
@@ -325,6 +330,7 @@ const customers = reactive<Collection>({
   ],
   conditions: {
     kind: "object",
+    printable: false,
     family: "standard",
     key: "customer-conditions",
     label: "查询条件",
@@ -366,6 +372,7 @@ const aa = reactive<Collection>({
   ],
   conditions: {
     kind: "object",
+    printable: false,
     family: "standard",
     key: "aa-conditions",
     label: "查询条件",
@@ -394,6 +401,7 @@ const ab = reactive<Collection>({
   ],
   conditions: {
     kind: "object",
+    printable: false,
     family: "standard",
     key: "ab-conditions",
     label: "查询条件",
@@ -461,6 +469,7 @@ const workbench = reactive<Workbench>({
 /** 工作台行的 get 可调用消费者导航；它本身不成为全局导航目标。 */
 export const voucherShortcut = {
   kind: "object",
+  printable: false,
   family: "standard",
   key: "shortcut-aa",
   label: "采购订单",
@@ -495,6 +504,7 @@ export const model: BusinessModel = reactive({
   authentication: {
     form: {
       kind: "object",
+      printable: false,
       family: "standard",
       key: "signin",
       label: "登录",
@@ -539,6 +549,7 @@ export const model: BusinessModel = reactive({
     label: "",
     profile: {
       kind: "object",
+      printable: false,
       family: "standard",
       key: "profile",
       label: "个人资料",
@@ -558,6 +569,7 @@ export const model: BusinessModel = reactive({
     },
     password: {
       kind: "object",
+      printable: false,
       family: "standard",
       key: "password",
       label: "修改密码",

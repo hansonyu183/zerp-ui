@@ -191,6 +191,6 @@ it("keeps processing input writable while execution is disabled without a fake s
   ).toBe(false);
   const execute = Array.from(
     document.querySelectorAll<HTMLButtonElement>("button"),
-  ).find((button) => button.textContent?.trim() === "执行")!;
+  ).find((button) => button.textContent?.trim() === "运行")!;
   expect(execute.disabled).toBe(true);
 });
