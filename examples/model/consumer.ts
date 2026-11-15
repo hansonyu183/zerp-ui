@@ -508,7 +508,9 @@ export const model: BusinessModel = reactive({
       { key: "business", label: "业务", items: [customers, vouchers, empty] },
     ],
     href(collection) {
-      return `/business/${encodeURIComponent(collection.key)}`;
+      return collection
+        ? `/business/${encodeURIComponent(collection.key)}`
+        : "/";
     },
     visit(collection) {
       model.navigation.current = collection;

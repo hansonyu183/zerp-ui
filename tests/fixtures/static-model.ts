@@ -83,7 +83,7 @@ export function fixture() {
       current: rows,
       groups: [{ key: "main", label: "业务", items: [rows] }],
       href(collection) {
-        return `/${collection.key}`;
+        return collection ? `/${collection.key}` : "/";
       },
       visit(collection) {
         model.navigation.current = collection;
