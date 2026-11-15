@@ -112,8 +112,12 @@ it("keeps the same root through anonymous authentication and isolates mismatched
   expect(signIn).toHaveBeenCalledTimes(1);
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
   const currentSession = () => model.session;
-  const owner = currentSession().owner;
-  if (owner) model.session.owner = { ...owner, generation: "3" };
+  const session = currentSession();
+  if (session.state === "ready" || session.state === "password-required")
+    model.session = {
+      ...session,
+      owner: { ...session.owner, generation: "3" },
+    };
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
   wrapper.unmount();
@@ -624,8 +628,10 @@ it("keeps qualified workflow row actions directly visible while ordinary actions
     .findAll("button[aria-label]")
     .map((button) => button.attributes("aria-label"));
   expect(
-    labels.filter((label) =>
-      ["编辑", "处理", "校验", "运行", "停止"].includes(label),
+    labels.filter(
+      (label) =>
+        label !== undefined &&
+        ["编辑", "处理", "校验", "运行", "停止"].includes(label),
     ),
   ).toHaveLength(3);
   wrapper.unmount();
@@ -782,5 +788,103 @@ it("keeps authorized preview and print reachable from a read-only output view wh
     .find((button) => button.text() === "打印");
   expect(print).toBeDefined();
   expect(print!.attributes("disabled")).toBeUndefined();
+  wrapper.unmount();
+});
+it("keeps explicit nested output confirmation writable in a view while enforcing grants and business read-only", async () => {
+  const { model, collection } = fixture();
+  const row = object("output", "输出");
+  row.identity = "o1";
+  row.printable = true;
+  const confirmed = operation(),
+    notPrinted = operation();
+  const output: import("../src/model").OutputNode = {
+    kind: "output",
+    key: "preview",
+    label: "输出预览",
+    readOnly: false,
+    value: null,
+    operations: {
+      print: operation(),
+      confirmPrinted: confirmed,
+      confirmNotPrinted: notPrinted,
+    },
+  };
+  row.members = [output];
+  row.output = {
+    operations: {
+      preview: operation(
+        vi.fn(async () => {
+          const node = collection.items[0]!
+            .members[0] as import("../src/model").OutputNode;
+          node.value = {
+            id: "o1",
+            title: "合成输出",
+            width: 100,
+            height: 100,
+            pages: [{ key: "p1", items: [] }],
+          };
+        }),
+      ),
+    },
+  };
+  collection.items = [row];
+  collection.total = 1;
+  const owner = model.session.owner!;
+  model.session = {
+    state: "ready",
+    owner,
+    userPermissions: {
+      owner,
+      administrator: false,
+      grants: [
+        {
+          node: collection,
+          read: true,
+          write: true,
+          operations: {
+            query: true,
+            preview: true,
+            print: true,
+            confirmPrinted: true,
+            confirmNotPrinted: true,
+          },
+        },
+      ],
+    },
+  };
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  await wrapper.get("table").get('button[aria-label="查看"]').trigger("click");
+  await flushPromises();
+  const dialog = wrapper.get('[role="dialog"]');
+  const confirmation = () =>
+    dialog.findAll("button").find((button) => button.text() === "确认已打印");
+  expect(confirmation()).toBeDefined();
+  await dialog
+    .findAll("button")
+    .find((button) => button.text() === "预览")!
+    .trigger("click");
+  await flushPromises();
+  await dialog.get("iframe").trigger("load");
+  await flushPromises();
+  expect(confirmed.run).not.toHaveBeenCalled();
+  expect(notPrinted.run).not.toHaveBeenCalled();
+  await confirmation()!.trigger("click");
+  await flushPromises();
+  expect(confirmed.run).toHaveBeenCalledTimes(1);
+  if (!model.session.userPermissions.administrator)
+    model.session.userPermissions.grants[0]!.write = false;
+  await flushPromises();
+  expect(confirmation()).toBeUndefined();
+  if (!model.session.userPermissions.administrator)
+    model.session.userPermissions.grants[0]!.write = true;
+  (
+    collection.items[0]!.members[0] as import("../src/model").OutputNode
+  ).readOnly = true;
+  await flushPromises();
+  expect(confirmation()).toBeUndefined();
   wrapper.unmount();
 });
