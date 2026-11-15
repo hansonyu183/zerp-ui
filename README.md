@@ -37,7 +37,7 @@ API、DTO、业务规则、权限计算、Session、Router 和凭证归消费者
 
 多组内容使用 Material Tab，单组直接展示；已访问的组保留输入与查询上下文。查看、编辑和新增采用覆盖式容器，列表保持挂载；关闭只改变呈现，不撤销模型值或核实未知业务结果。
 
-工作台以 `family: "workbench"` 标识固定业务族，`workbench` 引用同一对象成员中的 `information`、`vouchers`、`reports`、`documents` 节点，分别呈现重要信息横栏及三类入口；`manageReports` 可引用独立报表偏好集合。角色名称仅表达业务语义，消费者不配置列数、组件或模板。全局导航可提供语义 `icon`、二级 `section` 及直属 `ungrouped` 事实。
+工作台以 `family: "workbench"` 标识固定业务族，`workbench` 引用同一对象成员中的 `information`、`vouchers`、`reports`、`documents` 节点，分别呈现重要信息横栏及三类入口；`manageReports` 可引用独立报表偏好集合。角色名称仅表达业务语义，消费者不配置列数、组件或模板。全局导航可提供语义 `icon`、二级 `section` 及直属 `ungrouped` 事实。工作台根对象提供 `get` 时由它统一读取四类内容；没有根级 `get` 时，库在对应角色首次可见时执行该节点的 `get/query`，同一节点只激活一次。报表偏好不随工作台预取。
 
 ## 独立消费者与验证
 
