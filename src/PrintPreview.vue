@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { printMarkup, type PrintDocument } from "./printing";
 import { VBtn } from "vuetify/components";
 import Feedback from "./Feedback.vue";
@@ -51,6 +51,7 @@ async function loaded() {
       );
       if (!fonts.length) throw Error("font");
     }
+    await preview.fonts.ready;
     await Promise.all(Array.from(preview.images, (image) => image.decode()));
     if (
       generation === loadGeneration &&
@@ -65,6 +66,10 @@ async function loaded() {
       error.value = "打印字体或位图不可用，请安装指定字体或重新生成位图。";
   }
 }
+onBeforeUnmount(() => {
+  ++loadGeneration;
+  ready.value = false;
+});
 function print() {
   if (!props.allowed || props.disabled || !ready.value || !markup.value) return;
   try {

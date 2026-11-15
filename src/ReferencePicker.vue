@@ -245,19 +245,17 @@ onBeforeUnmount(() => {
         class="zerp-reference-tree-item"
       >
         <template #title>
-          <span
-            :style="{ paddingInlineStart: `${(item.raw.depth ?? 0) * 16}px` }"
-          >
+          <span :style="{ paddingInlineStart: `${(item.depth ?? 0) * 16}px` }">
             <VBtn
-              v-if="item.raw.children?.length"
+              v-if="item.children?.length"
               size="small"
               variant="text"
-              :aria-label="`${expanded.has(item.raw.id) ? '收起' : '展开'}${item.raw.label}`"
-              :aria-expanded="!!keyword || expanded.has(item.raw.id)"
-              :icon="expanded.has(item.raw.id) || keyword ? '$expand' : '$next'"
-              @click.stop="toggle(item.raw.id)"
+              :aria-label="`${expanded.has(item.id) ? '收起' : '展开'}${item.label}`"
+              :aria-expanded="!!keyword || expanded.has(item.id)"
+              :icon="expanded.has(item.id) || keyword ? '$expand' : '$next'"
+              @click.stop="toggle(item.id)"
             />
-            {{ item.raw.label }}
+            {{ item.label }}
           </span>
         </template>
       </VListItem>
