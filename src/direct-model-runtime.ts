@@ -128,13 +128,18 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     if (!readable(node)) return false;
     const chain = [...ancestors(node), node];
     if (chain.some((n) => !isCollection(n) && n.readOnly)) return false;
+    const collection = chain.find(isCollection);
+    if (collection && chain.some((n) => same(n, collection.conditions)))
+      return (
+        allowed(collection, "query") &&
+        chain
+          .slice(chain.indexOf(collection) + 1)
+          .every((n) => grant(n)?.write !== false)
+      );
     if (chain.some((n) => grant(n)?.write === false)) return false;
     if (accountNode(node)) return true;
     const p = model().session.userPermissions!;
     if (p.administrator) return true;
-    const collection = chain.find(isCollection);
-    if (collection && chain.some((n) => same(n, collection.conditions)))
-      return allowed(collection, "query");
     return grant(boundary(node))?.write === true;
   }
   function operations(node: Node): Record<string, Operation> {
