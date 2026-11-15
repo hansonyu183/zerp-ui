@@ -672,3 +672,52 @@ it("labels the authentication recovery operation in business language", async ()
   expect(recover).toHaveBeenCalledOnce();
   wrapper.unmount();
 });
+it("keeps a nested collection deep link focused through the selected parent record", async () => {
+  const { model } = fixture();
+  type Node = BusinessModel[string];
+  type ObjectNode = Extract<Node, { [meta]: { kind: "object" } }>;
+  type CollectionNode = Extract<Node, { [meta]: { kind: "collection" } }>;
+  const childQuery = vi.fn(async () => {});
+  const children: CollectionNode = {
+    items: [],
+    selected: null,
+    draft: null,
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    query: {
+      [meta]: { kind: "object", name: "Child filters", operations: {} },
+    },
+    [meta]: {
+      kind: "collection",
+      name: "Contacts",
+      list: ["name"],
+      element: {
+        name: { value: "", [meta]: { kind: "text", name: "Contact name" } },
+        [meta]: { kind: "object", name: "Contact", operations: {} },
+      },
+      operations: { query: { run: childQuery } },
+    },
+  };
+  const parent: ObjectNode = {
+    name: { value: "Parent", [meta]: { kind: "text", name: "Parent name" } },
+    children,
+    [meta]: {
+      kind: "object",
+      name: "Parent",
+      form: ["name", "children"],
+      operations: {},
+    },
+  };
+  const group = model.group as ObjectNode;
+  const rows = group.rows as CollectionNode;
+  rows.items = [parent];
+  rows.selected = rows.items[0]!;
+  model[meta].navigation.current = rows.selected.children as CollectionNode;
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  expect(wrapper.findAll("th").map((x) => x.text())).toContain("Contact name");
+  expect(childQuery).toHaveBeenCalledOnce();
+  expect(wrapper.find('input[aria-label="Parent name"]').exists()).toBe(false);
+  wrapper.unmount();
+});

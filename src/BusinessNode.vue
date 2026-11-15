@@ -150,7 +150,7 @@ watch(
         :can-query="canQuery"
         @page="query"
       />
-      <BusinessNode v-if="detail" :node="detail" />
+      <BusinessNode v-if="detail" :node="detail" :focus="focus" />
     </template>
     <template v-else-if="info.kind === 'array' && 'items' in node"
       ><div

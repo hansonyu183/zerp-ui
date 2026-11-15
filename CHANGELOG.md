@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.42.2
+
+- Preserve nested collection deep-link focus through the selected parent record (#155).
+
 ## 0.42.1
 
 - 补齐直接模型恢复会话、单据及流程操作的中文文案；不改变操作语义。
