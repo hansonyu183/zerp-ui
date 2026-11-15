@@ -183,16 +183,17 @@ export async function uiPreferencesSmoke(page, options = {}) {
       .click();
     await expect(details).toBeHidden();
     await expect(control).not.toHaveAttribute("aria-invalid", "true");
-    await page.keyboard.press("Escape");
-    await stable(container, baseline);
+    if ((await control.getAttribute("aria-expanded")) === "true")
+      await control.press("Escape");
+    const restored = await container.boundingBox();
+    expect(Math.abs(restored.height - baseline.height)).toBeLessThan(1);
+    expect(Math.abs(restored.width - baseline.width)).toBeLessThan(1);
   }
-  const formReference = feedbackDialog.getByRole("combobox", {
-    name: "表单引用",
-    exact: true,
-  });
   const referenceForm = feedbackDialog
     .locator(".zerp-direct-form")
-    .filter({ has: formReference });
+    .filter({
+      has: page.getByRole("combobox", { name: "表单引用", exact: true }),
+    });
   await stableReferenceFailure("表单引用", referenceForm);
   await feedbackDialog
     .getByRole("tab", { name: "联系人", exact: true })
