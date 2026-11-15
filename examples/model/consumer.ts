@@ -10,6 +10,7 @@ import type {
   RecordsNode,
 } from "@zerp/ui/model";
 import { router } from "./router";
+import { familyCollections, reports } from "./families";
 
 export const trace = (name: string) => console.log(`synthetic-call:${name}`);
 const operation = (run: () => Promise<void>): Operation => ({
@@ -463,7 +464,7 @@ export const model: BusinessModel = reactive({
   kind: "application",
   label: "静态业务模型",
   brand: { productName: "合成业务示例", companyName: "示例企业" },
-  members: { customers, vouchers, empty },
+  members: { customers, vouchers, empty, ...familyCollections },
   authentication: {
     form: object("login", "登录", [loginName, loginPassword]),
     operations: {
@@ -521,7 +522,7 @@ export const model: BusinessModel = reactive({
     }),
     information: shortcut("information", "重要信息", null),
     vouchers: shortcut("vouchers", "单据", vouchers),
-    reports: shortcut("reports", "报表", empty),
+    reports: shortcut("reports", "报表", reports),
     masters: shortcut("masters", "资料", customers),
   },
 });

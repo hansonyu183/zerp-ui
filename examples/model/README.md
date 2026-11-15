@@ -1,9 +1,9 @@
-# 直接业务模型消费者
+# 可运行静态模型消费者
 
-本例直接定义公开 `BusinessModel`，以 `modelMetadata` Symbol 保存元数据；App.vue 仅绑定 `BusinessApplication :model="model"`。Vue 提供响应式包装，Router 负责 URL 与模型导航同步。
+`consumer.ts` 在登录前直接定义完整响应式 BusinessModel，通过唯一公开 BusinessApplication 绑定。`families.ts` 提供合成的资料、单据、流程、处理、批次、脚本问题、结构化报表及有限文档输出。业务回调全部为本地合成行为，没有公司数据或真实 API。
 
-聚合按有序投影显示概览和客户集合。查询与保存使用合成回调，输入直接更新模型值；回调记录以 `synthetic-call:` 输出，可由独立 tgz 验收记录。模型构造不调用任何业务接口。未使用旧模型工厂、编辑副本、冻结请求或前端持久化恢复日志。
+普通用户使用登录名 viewer，其他合成登录名作为管理员；不校验真实密码。退出清理业务状态，下一次登录沿用同一根引用。消费者负责 owner 回写有效性，库隔离迟到 UI 反馈。此例用于包验收，不作为认证安全实现。
 
-运行及构建命令见根 package.json。纯类型示例仍独立保留在 `examples/model-contract`，不导入到本运行消费者。真实产品/API、正式发行和部署证据必须分别核对。
+运行和构建命令从根 package.json 的 dev:model/build:model/check:package 读取。check:package 将同一个 tgz 物理安装到新目录，构建同一消费者并通过浏览器公开行为验收，不使用源码别名、私有 VM 或开发端接口。
 
-`families.ts` 包含直接业务族合成模型：资料提交/审批、单据值数组计算和附件暂存、流程推进、批次项结果、查询计算与 CSV 下载、有限打印文档及确认结果。`direct-model-smoke.mjs` 从公开宿主操作这些控件，核对模型产生的可见业务结果，并记录实际回调；这不是物理打印、真实 API 或后端并发恢复证据。
+只参加编译的完整静态对象另见 ../model-contract；其中声明的回调不可用作运行实现。真实 ZERP/OIT 集成、公司领域规则和正式发行不在本例范围内。

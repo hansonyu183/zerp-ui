@@ -15,7 +15,11 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
-import { directModelSmoke as smoke } from "./direct-model-smoke.mjs";
+import { directModelSmoke } from "./direct-model-smoke.mjs";
+import { uiPreferencesSmoke } from "./ui-preferences-smoke.mjs";
+const smoke = process.argv.includes("--ui-preferences")
+  ? uiPreferencesSmoke
+  : directModelSmoke;
 const exampleName = "model";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceBase = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -127,7 +131,7 @@ for (const name of [
   );
 }
 await cp(
-  join(root, "examples/model-contract/model.type-example.ts"),
+  join(root, "examples/model-contract/static-application.type-example.ts"),
   join(consumer, "business-model.type-example.ts"),
 );
 await writeFile(
@@ -166,7 +170,7 @@ run(
   [
     "--input-type=module",
     "--eval",
-    "import assert from 'node:assert/strict'; import * as model from '@zerp/ui/model'; assert.deepEqual(Object.keys(model), ['modelMetadata']); assert.equal(typeof model.modelMetadata, 'symbol');",
+    "import assert from 'node:assert/strict'; import * as model from '@zerp/ui/model'; assert.deepEqual(Object.keys(model), []);",
   ],
   consumer,
 );
@@ -274,6 +278,9 @@ try {
     });
   };
   observe(page);
+  await page.addInitScript(() => {
+    window.print = () => {};
+  });
   await page.goto(`http://127.0.0.1:${address.port}`);
   const printEvidenceRoot = join(
     root,
@@ -304,6 +311,9 @@ try {
     const exampleContext = await browser.newContext();
     const examplePage = await exampleContext.newPage();
     observe(examplePage);
+    await examplePage.addInitScript(() => {
+      window.print = () => {};
+    });
     await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
     builtScenarioEvidence = await smoke(examplePage, {
       ...printEvidence,
