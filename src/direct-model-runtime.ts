@@ -219,8 +219,6 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       "export",
       "preview",
       "print",
-      "confirmPrinted",
-      "confirmNotPrinted",
       "audit",
       "openVoucher",
       "load",

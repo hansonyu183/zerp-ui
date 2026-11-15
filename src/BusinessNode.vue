@@ -76,6 +76,7 @@ const actions = computed(() =>
     ([key]) =>
       key !== "query" &&
       (!props.readOnly ||
+        (!isCollection(props.node) && props.node.kind === "output") ||
         [
           "get",
           "reconcile",
