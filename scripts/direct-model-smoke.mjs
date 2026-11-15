@@ -103,14 +103,14 @@ export async function directModelSmoke(page) {
     await settlement.click();
     await contacts.click();
     await expect(contact).toHaveValue("更新联系人");
-    await expect(
-      dialog.getByRole("button", { name: "单条打印", exact: true }),
-    ).toBeDisabled();
+    const rowPrint = page
+      .getByRole("table")
+      .getByRole("button", { name: "打印", exact: true });
+    await expect(rowPrint).toBeDisabled();
     await dialog.getByRole("button", { name: "保存", exact: true }).click();
-    await expect(
-      dialog.getByRole("button", { name: "单条打印", exact: true }),
-    ).toBeEnabled();
-    await dialog.getByRole("button", { name: "单条打印", exact: true }).click();
+    await expect(rowPrint).toBeEnabled();
+    await close();
+    await rowPrint.click();
     const itemPreview = page.getByRole("dialog", {
       name: "客户打印",
       exact: true,

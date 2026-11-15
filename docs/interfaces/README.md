@@ -1,8 +1,8 @@
 # 静态响应式业务模型接口
 
-正式决定及实施状态维护于 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。本目录说明 2026-11-16 用户确认的接口及 #159 的有限能力补齐；唯一声明源为 src/../../src/business-model.ts，经 @zerp/ui/model 导出。
+正式决定及实施状态维护于 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。本目录说明 2026-11-16 用户确认的接口及 #159 的有限能力补齐；唯一声明源为 src/business-model.ts，经 @zerp/ui/model 导出。
 
-- [完整类型](../../src/../../src/business-model.ts)：固定普通属性、字段、统一对象、所属明细、独立集合、打印、权限、工作台及应用生命周期。
+- [完整类型](../../src/business-model.ts)：固定普通属性、字段、统一对象、所属明细、独立集合、打印、权限、工作台及应用生命周期。
 - [完整合成对象](../../examples/model-contract/static-application.type-example.ts)：直接定义客户、AA、AB、子明细、引用、格式、模板、工作台及完整匿名应用，附有普通用户权限映射。
 - [类型验收](../../examples/model-contract/static-application.type-test.ts)：拒绝旧属性、错误值和错误操作层级，只参加编译。
 
