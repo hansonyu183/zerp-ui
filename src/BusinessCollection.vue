@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, inject, toRaw } from "vue";
 import DataList from "./DataList.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
+import Feedback from "./Feedback.vue";
 import type { Column } from "./contracts";
 import { businessRowActions, type RowAction } from "./row-action";
 import type { ReportCell, ReportPresentation } from "./report";
@@ -48,6 +50,19 @@ function display(node: Node | undefined): Values[string] {
     return error instanceof Error ? error.message : "格式错误";
   }
 }
+const modelError = computed(() =>
+  props.node.items
+    .filter((row) => runtime.readable(row))
+    .flatMap((row) =>
+      props.node.columns
+        .filter((column) => !field(row, column.key))
+        .map(
+          (column) =>
+            `${props.node.label} / ${row.identity ?? row.key} / ${column.key}：列引用的成员不存在`,
+        ),
+    )
+    .join("\n"),
+);
 const projected = computed(() => {
   const originals = new Map<Values, ObjectNode>();
   const rows = props.node.items
@@ -72,11 +87,25 @@ function key(row: Values) {
 function actions(row: Values): RowAction[] {
   const source = original(row);
   if (!source || !runtime.readable(source)) return [];
-  const result: RowAction[] = [
-    runtime.allowed(source, "update") && runtime.writable(source)
-      ? "edit"
-      : "view",
-  ];
+  const readOnlyActions = new Set([
+    "get",
+    "delete",
+    "reconcile",
+    "export",
+    "preview",
+    "print",
+    "confirmPrinted",
+    "confirmNotPrinted",
+    "audit",
+    "openVoucher",
+  ]);
+  const canEdit =
+    runtime.writable(source) &&
+    Object.keys(runtime.operations(source)).some(
+      (action) =>
+        !readOnlyActions.has(action) && runtime.allowed(source, action),
+    );
+  const result: RowAction[] = [canEdit ? "edit" : "view"];
   if (props.node.itemPrintTemple && runtime.allowed(props.node, "itemPrint"))
     result.push("print");
   const available = new Set([
@@ -256,6 +285,9 @@ function visit(value: ReportCell<CollectionTarget>, row: Values) {
 }
 </script>
 <template>
+  <FeedbackRegion
+    ><Feedback :message="modelError" kind="error"
+  /></FeedbackRegion>
   <DataList
     :columns="columns"
     :result="{ items: projected.rows, total: node.total }"

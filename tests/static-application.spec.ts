@@ -413,3 +413,153 @@ it("discards failure feedback when a pending operation is replaced on the same b
   expect(wrapper.text()).not.toContain("操作失败");
   wrapper.unmount();
 });
+it("opens processing-only records for direct input and executes supplied actions without a manufactured update", async () => {
+  const { model, collection } = fixture();
+  const row = object("process", "处理");
+  row.identity = "p1";
+  row.members = [
+    {
+      kind: "text",
+      key: "code",
+      label: "编号",
+      readOnly: false,
+      required: true,
+      value: "before",
+    },
+  ];
+  const process = vi.fn(async () => {}),
+    validate = vi.fn(async () => {});
+  row.processing = {
+    operations: { process: operation(process), validate: operation(validate) },
+  };
+  collection.items = [row];
+  collection.total = 1;
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  const edit = wrapper.find('button[aria-label="编辑"]');
+  expect(edit.exists()).toBe(true);
+  await edit.trigger("click");
+  await flushPromises();
+  const dialog = wrapper.get('[role="dialog"]');
+  const input = dialog.get('input[aria-label="编号"]');
+  expect(input.attributes("readonly")).toBeUndefined();
+  await input.setValue("edited");
+  expect((collection.selected!.members[0] as { value: string }).value).toBe(
+    "edited",
+  );
+  expect(
+    dialog.findAll("button").some((button) => button.text() === "保存"),
+  ).toBe(false);
+  await dialog
+    .findAll("button")
+    .find((button) => button.text() === "处理")!
+    .trigger("click");
+  await flushPromises();
+  expect(process).toHaveBeenCalledTimes(1);
+  expect(validate).not.toHaveBeenCalled();
+  wrapper.unmount();
+});
+it("reports a missing explicit column member with a stable collection, record, and field location", async () => {
+  const { model, collection } = fixture();
+  const row = object("customer", "客户详情");
+  row.identity = "missing-1";
+  collection.items = [row];
+  collection.total = 1;
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  expect(wrapper.text()).toContain(
+    "客户 / missing-1 / code：列引用的成员不存在",
+  );
+  expect(wrapper.get("table").text()).toContain("编号");
+  wrapper.unmount();
+});
+it("lets a readonly collection user enter query criteria while preserving narrower field write restrictions", async () => {
+  const { model, collection } = fixture();
+  collection.conditions.members = [
+    {
+      kind: "text",
+      key: "name",
+      label: "查询名称",
+      readOnly: false,
+      required: false,
+      value: "",
+    },
+  ];
+  const owner = model.session.owner!;
+  model.session = {
+    state: "ready",
+    owner,
+    userPermissions: {
+      owner,
+      administrator: false,
+      grants: [
+        {
+          node: collection,
+          read: true,
+          write: false,
+          operations: { query: true },
+        },
+      ],
+    },
+  };
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  const input = wrapper.get('input[aria-label="查询名称"]');
+  expect(input.attributes("readonly")).toBeUndefined();
+  await input.setValue("客户");
+  expect((collection.conditions.members[0] as { value: string }).value).toBe(
+    "客户",
+  );
+  if (!model.session.userPermissions.administrator)
+    model.session.userPermissions.grants.push({
+      node: collection.conditions.members[0]!,
+      read: true,
+      write: false,
+      operations: {},
+    });
+  await flushPromises();
+  expect(input.attributes("readonly")).toBeDefined();
+  wrapper.unmount();
+});
+it("uses the consumer homepage URL and notifies its null navigation callback while preserving modified links", async () => {
+  const { model, collection } = fixture();
+  const records = (key: string) => ({
+    kind: "records" as const,
+    key,
+    label: key,
+    readOnly: true,
+    columns: [],
+    items: [],
+    selected: null,
+    operations: {},
+  });
+  model.workbench = {
+    information: records("重要信息"),
+    vouchers: records("单据"),
+    reports: records("报表"),
+    masters: records("资料"),
+  };
+  model.navigation.current = collection;
+  model.navigation.href = (node) =>
+    node ? "/custom/customers" : "/custom/home";
+  const visit = vi.fn((node: Collection | null) => {
+    model.navigation.current = node;
+  });
+  model.navigation.visit = visit;
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  const home = wrapper.get('a[aria-label="合成：首页"]');
+  expect(home.attributes("href")).toBe("/custom/home");
+  await home.trigger("click", { ctrlKey: true });
+  expect(visit).not.toHaveBeenCalled();
+  expect(model.navigation.current).toBe(collection);
+  await home.trigger("click");
+  await flushPromises();
+  expect(visit).toHaveBeenCalledWith(null);
+  expect(model.navigation.current).toBeNull();
+  expect(wrapper.text()).toContain("重要信息");
+  wrapper.unmount();
+});
