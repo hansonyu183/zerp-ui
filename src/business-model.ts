@@ -1,8 +1,7 @@
-/**
- * 2026-11-16 目标接口，正式决定见 GitHub #152。
- * 仅供规格和类型示例检查；尚未替换 @zerp/ui/model 或接入现有宿主。
- * 协议属性固定，业务结构由消费者在源码中直接定义；本文件没有运行时依赖。
- */
+/** 唯一公开静态响应式模型；接口决定见 #152，迁移及有限能力补齐见 #159。 */
+import type { PrintDocument } from "./printing";
+import type { Interaction } from "./collaboration";
+import type { ReportPresentation, ReportSummary } from "./report";
 
 /** 操作缺省时无入口；存在但 disabled 为 true 时置灰且不得调用 run。 */
 export interface Operation {
@@ -156,7 +155,60 @@ export interface VoucherOperations {
   unvoid?: Operation;
 }
 
-interface ObjectBase extends NodeBase {
+/** 固定业务能力保留各自操作词汇；不改变 standard/voucher 的对象种类。 */
+export interface ObjectCapabilities {
+  document?: {
+    operations: Partial<
+      Record<
+        "submit" | "approve" | "enable" | "disable" | "stageAttachments",
+        Operation
+      >
+    >;
+  };
+  workflow?: {
+    operations: Partial<
+      Record<
+        | "start"
+        | "advance"
+        | "createChild"
+        | "approveChild"
+        | "rejectChild"
+        | "retryChild"
+        | "cancelChild"
+        | "openVoucher"
+        | "audit"
+        | "cancel",
+        Operation
+      >
+    >;
+  };
+  processing?: {
+    operations: Partial<
+      Record<
+        | "process"
+        | "publish"
+        | "restore"
+        | "validate"
+        | "run"
+        | "stop"
+        | "import",
+        Operation
+      >
+    >;
+  };
+  batch?: { operations: Partial<Record<"executeBatch" | "cancel", Operation>> };
+  report?: { operations: Partial<Record<"calculate" | "export", Operation>> };
+  output?: {
+    operations: Partial<
+      Record<
+        "preview" | "print" | "confirmPrinted" | "confirmNotPrinted",
+        Operation
+      >
+    >;
+  };
+}
+
+interface ObjectBase extends NodeBase, ObjectCapabilities {
   kind: "object";
   /** 正式记录的稳定业务身份；分组、条件和未保存记录可为 null。 */
   identity: string | null;
@@ -194,7 +246,33 @@ export interface RecordsNode extends NodeBase {
 }
 
 /** Collection 不属于节点联合，不能作为 ObjectNode 的子明细。 */
-export type BusinessNode = FieldNode | ObjectNode | RecordsNode;
+/** 局部关联入口始终归属于根集合；选中记录不成为全局导航目标。 */
+export interface CollectionTarget {
+  collection: Collection;
+  record?: ObjectNode;
+}
+
+/** 复用有限文档输出；预览和打印不自动确认实体结果。 */
+export interface OutputNode extends NodeBase {
+  kind: "output";
+  value: PrintDocument | null;
+  operations: Partial<
+    Record<
+      "print" | "confirmPrinted" | "confirmNotPrinted" | "reconcile",
+      Operation
+    >
+  >;
+}
+
+/** 有限脚本问题与局部目录，无任意命令或组件/render 扩展点。 */
+export interface InteractionNode extends NodeBase {
+  kind: "interactions";
+  value: Record<string, string | boolean>;
+  items: readonly Interaction<CollectionTarget>[];
+}
+
+export type BusinessNode =
+  FieldNode | ObjectNode | RecordsNode | OutputNode | InteractionNode;
 
 /** 有限打印样式；无 CSS、脚本、表达式或远程资源加载。 */
 interface PrintTextStyle {
@@ -284,6 +362,22 @@ export interface Collection {
   operations: { query?: Operation; create?: Operation; export?: Operation };
   /** 自动产生单条记录打印入口；缺省不显示。拼写沿用用户确认的接口。 */
   itemPrintTemple?: PrintTemplate;
+  /** 读取结果的有限呈现事实；数值及合计仍归消费者。 */
+  report?: {
+    summary?: ReportSummary<Record<string, string | number | boolean | null>>;
+    presentation?: ReportPresentation<
+      Record<string, string | number | boolean | null>,
+      string
+    >;
+    cells?: readonly {
+      row: ObjectNode;
+      field: string;
+      kind: "record" | "detail" | "select";
+      target: CollectionTarget;
+      label: string;
+      disabled: boolean;
+    }[];
+  };
   /** 自动打印当前页 items，不追加查询；缺省不显示。 */
   printTemple?: PrintTemplate;
 }
@@ -293,6 +387,29 @@ type OperationPermissions = Partial<
   Record<
     | keyof ObjectOperations
     | keyof VoucherOperations
+    | "enable"
+    | "disable"
+    | "start"
+    | "advance"
+    | "createChild"
+    | "approveChild"
+    | "rejectChild"
+    | "retryChild"
+    | "cancelChild"
+    | "openVoucher"
+    | "audit"
+    | "cancel"
+    | "process"
+    | "publish"
+    | "restore"
+    | "validate"
+    | "run"
+    | "stop"
+    | "import"
+    | "executeBatch"
+    | "preview"
+    | "confirmPrinted"
+    | "confirmNotPrinted"
     | "query"
     | "create"
     | "export"
