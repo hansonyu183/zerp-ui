@@ -1,4 +1,4 @@
-/** 目标接口的定向编译检查；不导入或执行宿主、示例或任何业务回调。 */
+/** 唯一公开 model 入口的定向编译检查；不导入或执行宿主、示例或任何业务回调。 */
 import type {
   BusinessModel,
   Collection,
@@ -8,7 +8,7 @@ import type {
   PrintTemplate,
   RecordsNode,
   Session,
-} from "../../docs/interfaces/business-model";
+} from "@zerp/ui/model";
 
 declare const object: ObjectNode;
 declare const collection: Collection;
@@ -29,7 +29,7 @@ const legacyOperation = { ...operation, disabledReason: "旧协议", } satisfies
 const wrongAction = { ...object, family: "standard", operations: { approve: operation }, } satisfies ObjectNode;
 // prettier-ignore
 // @ts-expect-error 单据必须显式提供 type。
-const missingVoucherType: ObjectNode = { kind: "object", family: "voucher", key: "AA", label: "单据", identity: null, readOnly: false, members: [], operations: {}, };
+const missingVoucherType: ObjectNode = { kind: "object", printable: false, family: "voucher", key: "AA", label: "单据", identity: null, readOnly: false, members: [], operations: {}, };
 // prettier-ignore
 // @ts-expect-error members 必须是有序节点数组。
 const legacyMembers = { ...object, members: { arbitrary: object }, } satisfies ObjectNode;

@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import * as api from "../src/index";
+import * as model from "../src/model";
 
 it("offers only the model application and no retired assembly APIs", () => {
   const components = Object.entries(api)
@@ -25,4 +26,8 @@ it("offers only the model application and no retired assembly APIs", () => {
   expect(api).not.toHaveProperty("configurationBlock");
   expect(api).not.toHaveProperty("snapshotPage");
   expect(api).not.toHaveProperty("renderBlock");
+});
+
+it("keeps the model entry free of runtime metadata and UI values", () => {
+  expect(Object.keys(model)).toEqual([]);
 });
