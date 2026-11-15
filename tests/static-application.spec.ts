@@ -327,3 +327,58 @@ it("suppresses stale query feedback after a session change and lets the consumer
   expect(collection.total).toBe(0);
   wrapper.unmount();
 });
+it("edits owned detail rows in a compact desktop table and saves through the parent boundary only", async () => {
+  const { model, collection } = fixture();
+  const parent = object("customer", "客户详情");
+  parent.identity = "c1";
+  const child = object("line", "明细");
+  child.identity = "l1";
+  child.members = [
+    {
+      kind: "text",
+      key: "name",
+      label: "名称",
+      readOnly: false,
+      required: false,
+      value: "原值",
+    },
+  ];
+  const save = vi.fn(async () => {});
+  parent.operations.update = operation(save);
+  parent.members = [
+    {
+      kind: "records",
+      key: "lines",
+      label: "联系明细",
+      readOnly: false,
+      columns: [{ key: "name", label: "名称" }],
+      items: [child],
+      selected: null,
+      operations: { create: operation(), remove: operation() },
+    },
+  ];
+  collection.items = [parent];
+  collection.selected = parent;
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  const dialog = wrapper.get('[role="dialog"]');
+  expect(dialog.findAll("th").map((header) => header.text())).toContain("名称");
+  await dialog.get('input[aria-label="名称"]').setValue("修改后");
+  expect(save).not.toHaveBeenCalled();
+  await dialog
+    .findAll("button")
+    .find((button) => button.text() === "保存")!
+    .trigger("click");
+  await flushPromises();
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(
+    (
+      (collection.selected!.members[0] as { items: ObjectNode[] }).items[0]!
+        .members[0] as { value: string }
+    ).value,
+  ).toBe("修改后");
+  wrapper.unmount();
+});

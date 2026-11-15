@@ -26,6 +26,7 @@ import type {
 } from "./business-model";
 import BusinessField from "./BusinessField.vue";
 import BusinessCollection from "./BusinessCollection.vue";
+import BusinessRecords from "./BusinessRecords.vue";
 import RecordDialog from "./RecordDialog.vue";
 import BusinessGroups from "./BusinessGroups.vue";
 import TemplatePrint from "./TemplatePrint.vue";
@@ -157,10 +158,6 @@ onBeforeUnmount(() => {
       top: window.scrollY,
     });
 });
-function localSelected(row: ObjectNode) {
-  if (props.readOnly || !runtime.writable(props.node)) return;
-  records.value.selected = row;
-}
 </script>
 <template>
   <section
@@ -259,24 +256,11 @@ function localSelected(row: ObjectNode) {
         <VBtn @click="closeDetail">关闭</VBtn>
       </RecordDialog>
     </template>
-    <template v-else-if="node.kind === 'records'">
-      <div
-        v-for="(row, index) in records.items.filter((item) =>
-          runtime.readable(item),
-        )"
-        :key="row.identity ?? row.key"
-      >
-        <input
-          v-if="runtime.allowed(node, 'remove')"
-          type="radio"
-          :aria-label="`选择第 ${index + 1} 项`"
-          :checked="records.selected === row"
-          :disabled="readOnly || !runtime.writable(node)"
-          @change="localSelected(row)"
-        />
-        <BusinessNode :node="row" :auto-read="false" :read-only="readOnly" />
-      </div>
-    </template>
+    <BusinessRecords
+      v-else-if="node.kind === 'records'"
+      :node="records"
+      :read-only="readOnly"
+    />
     <BusinessFamilyContent
       v-else-if="node.kind === 'output' || node.kind === 'interactions'"
       :node="node"
