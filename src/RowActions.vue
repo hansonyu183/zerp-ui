@@ -9,7 +9,7 @@ import {
   VMenu,
   VTooltip,
 } from "vuetify/components";
-import type { ListAction } from "./contracts";
+import { businessRowActions, type RowAction as ListAction } from "./row-action";
 const props = defineProps<{
   actions: readonly ListAction[];
   reasons?: Readonly<Partial<Record<ListAction, string>>>;
@@ -22,6 +22,7 @@ const props = defineProps<{
     disabled?: boolean;
   }[];
   viewHref?: string;
+  showAll?: boolean;
 }>();
 const emit = defineEmits<{
   action: [action: ListAction];
@@ -30,15 +31,20 @@ const emit = defineEmits<{
 const menu = ref(false);
 const { xs, width } = useDisplay();
 const primaryCount = computed(() =>
-  xs.value
-    ? width.value < 360 && props.actions.length > 2
-      ? 1
-      : 2
-    : props.entries?.length
-      ? 1
-      : 3,
+  props.showAll
+    ? props.actions.length + (props.entries?.length ?? 0)
+    : xs.value
+      ? width.value < 360 && props.actions.length > 2
+        ? 1
+        : 2
+      : props.entries?.length
+        ? 1
+        : 3,
 );
 const captions: Record<ListAction, string> = {
+  ...(Object.fromEntries(
+    Object.entries(businessRowActions).map(([key, value]) => [key, value[0]]),
+  ) as Record<keyof typeof businessRowActions, string>),
   view: "查看",
   send: "送审",
   withdraw: "反送审",
@@ -54,6 +60,9 @@ const captions: Record<ListAction, string> = {
   delete: "删除",
 };
 const icons: Record<ListAction, string> = {
+  ...(Object.fromEntries(
+    Object.entries(businessRowActions).map(([key, value]) => [key, value[1]]),
+  ) as Record<keyof typeof businessRowActions, string>),
   view: "mdi-eye-outline",
   send: "mdi-send-outline",
   withdraw: "mdi-email-arrow-left-outline",
@@ -142,7 +151,10 @@ function activate(
   <div
     v-if="items.length"
     class="zerp-row-actions"
-    :class="{ 'zerp-row-actions--mobile': xs }"
+    :class="{
+      'zerp-row-actions--mobile': xs,
+      'zerp-row-actions--all': showAll,
+    }"
   >
     <VTooltip
       v-for="item in items.slice(0, primaryCount)"
@@ -220,6 +232,10 @@ function activate(
   display: flex;
   align-items: center;
   white-space: nowrap;
+}
+.zerp-row-actions--all {
+  flex-wrap: wrap;
+  white-space: normal;
 }
 .zerp-row-actions--mobile :deep(.v-btn) {
   padding-inline: 4px;
