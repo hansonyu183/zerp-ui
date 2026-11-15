@@ -27,3 +27,15 @@
 用户确认将单据整合到 ObjectNode，通过 family/type 表达差异；独立集合统一使用 Collection，不再定义 VoucherNode/VoucherCollection。ObjectNode 的有序 members 数组取代 form；Collection 不属于节点，RecordsNode 表达随父保存的明细；全局导航仅指向根级集合。字段采用可空 label、Operation 使用必需 disabled，引用只负责候选选值；格式、强类型 JSON 自动打印及独立工作台一并纳入目标。
 
 本决定取代早期目标中的 Symbol、对象 form、集合 element/list/query 及独立记录导航约定。正式规格见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)，完整声明及合成示例见 [接口工件](../interfaces/README.md)。本轮只完成接口工件与编译验收，未迁移公开包或宿主；旧实现仅是现行运行时，不增加双契约兼容入口。
+
+## #159 实施：唯一静态模型与有限能力保留
+
+[#159](https://github.com/hansonyu183/zerp-ui/issues/159) 将上述目标落实到唯一公开声明及宿主：固定普通属性取代 Symbol，根 members 只包含 Collection，对象与单据共用 ObjectNode，所属明细使用 RecordsNode。类型源统一为 src/business-model.ts，由 @zerp/ui/model 仅以类型导出；临时目标声明副本删除。私有旧页面/运行时只供既有回归，不参与新模型检测、转换或 fallback。
+
+本次采用保留完整静态结构、按权限裁剪组件的策略；这使撤权后的再次增权和同根对象再次登录可以恢复新获权结构。消费者清理会话业务数据并检查异步回写有效性；库隔离旧 busy、选择、候选呈现与反馈，不持有冻结请求、编辑基线或原请求日志。
+
+既有资料审批、流程、处理、批次、报表、脚本交互及有限输出通过封闭能力补齐，不因新接口暂未表达而删除。对象种类仍只有 standard/voucher；补齐及能力对应见 [迁移清单](../interfaces/static-migration.md) 和 #159 的父规格回写。导航 href/visit 接受 Collection | null，null 专指首页并由消费者同步 Router；记录选中留在所属集合，引用字段不附带维护跳转。
+
+本地候选、独立安装、CI、正式发行与真实产品接入分别验收；具体源码、命令、tgz 摘要及未完成项维护于 #159/#160/#161/#162，不将本 ADR 或历史记录当成验收通过证明。原 ZERP/oit-go 保持只读，不正式发行或连接生产写入。
+
+自动模板打印另使用消费者的 `ObjectNode.printable` 事实确认当前值及所属明细。记录身份不能证明输入已经保存；消费者从有效权威结果派生此事实，未知结果和未保存输入不具备资格。单条及当前页在预览/调用前重检，当前页有未确认的获权记录时不静默漏行。库不为此恢复编辑基线、第二份权威快照或自动查询。必要接口补齐及原因已回写 #152/#159。
