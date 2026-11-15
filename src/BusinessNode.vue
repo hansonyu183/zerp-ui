@@ -75,6 +75,11 @@ const actions = computed(() =>
   Object.entries(runtime.operations(props.node)).filter(
     ([key]) =>
       key !== "query" &&
+      !(
+        key === "load" &&
+        !isCollection(props.node) &&
+        ["reference", "treeReference"].includes(props.node.kind)
+      ) &&
       (!props.readOnly ||
         (!isCollection(props.node) && props.node.kind === "output") ||
         [
