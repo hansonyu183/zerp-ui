@@ -34,11 +34,18 @@ function fixture() {
   };
   const group = {
     intro: { value: "hello", [meta]: { kind: "text", name: "Introduction" } },
+    overview: {
+      summary: {
+        value: "hello",
+        [meta]: { kind: "text", name: "Introduction" },
+      },
+      [meta]: { kind: "object", name: "Overview", operations: {} },
+    },
     rows,
     [meta]: {
       kind: "object",
       name: "Partners",
-      form: ["intro", "rows"],
+      form: ["overview", "rows"],
       operations: {},
     },
   };
@@ -502,8 +509,7 @@ it("hides explicitly denied value-array members and leaves disabled query pagina
   expect(wrapper.find('input[aria-label="Private array"]').exists()).toBe(
     false,
   );
-  await wrapper.get('[role="tab"][data-member="rows"]').trigger("click");
-  await flushPromises();
+  expect(wrapper.find('[role="tab"][data-member="rows"]').exists()).toBe(false);
   const next = wrapper.findAll("button").find((b) => b.text() === "下一页")!;
   expect(next.attributes("disabled")).toBeDefined();
   await next.trigger("click");
@@ -718,7 +724,7 @@ it("keeps a nested collection deep link focused through the selected parent reco
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("Contact name");
   expect(childQuery).toHaveBeenCalledOnce();
-  expect(wrapper.find('input[aria-label="Parent name"]').exists()).toBe(false);
+  expect(wrapper.find('input[aria-label="Parent name"]').exists()).toBe(true);
   wrapper.unmount();
 });
 

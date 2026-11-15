@@ -12,6 +12,7 @@ import {
 import { businessRowActions, type RowAction as ListAction } from "./row-action";
 const props = defineProps<{
   actions: readonly ListAction[];
+  labels?: Readonly<Partial<Record<ListAction, string>>>;
   reasons?: Readonly<Partial<Record<ListAction, string>>>;
   disabled?: boolean;
   busy?: boolean;
@@ -41,7 +42,7 @@ const primaryCount = computed(() =>
         ? 1
         : 3,
 );
-const captions: Record<ListAction, string> = {
+const defaultCaptions: Record<ListAction, string> = {
   ...(Object.fromEntries(
     Object.entries(businessRowActions).map(([key, value]) => [key, value[0]]),
   ) as Record<keyof typeof businessRowActions, string>),
@@ -59,6 +60,7 @@ const captions: Record<ListAction, string> = {
   disable: "停用",
   delete: "删除",
 };
+const captions = computed(() => ({ ...defaultCaptions, ...props.labels }));
 const icons: Record<ListAction, string> = {
   ...(Object.fromEntries(
     Object.entries(businessRowActions).map(([key, value]) => [key, value[1]]),
@@ -114,7 +116,7 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
 const items = computed(() => [
   ...props.actions.map((action) => ({
     key: `action:${action}`,
-    label: captions[action],
+    label: captions.value[action],
     icon: icons[action],
     href: action === "view" ? props.viewHref : undefined,
     disabled: props.disabled || props.busy || !!props.reasons?.[action],

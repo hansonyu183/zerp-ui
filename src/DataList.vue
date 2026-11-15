@@ -43,6 +43,7 @@ const props = defineProps<{
   selectable?: (row: R) => boolean;
   actions?: (row: R) => readonly A[];
   showAllActions?: (row: R) => boolean;
+  actionLabels?: Readonly<Partial<Record<ListAction, string>>>;
   disabledActions?: (row: R) => Readonly<Partial<Record<ListAction, string>>>;
   viewHref?: (row: R) => string | undefined;
   rowLinks?: (row: R) => readonly RecordLink[];
@@ -403,6 +404,7 @@ function display(row: Partial<R>, column: Column<R>) {
                   v-if="hasActions"
                   :actions="rowActions[index]!"
                   :show-all="showAllActions?.(row)"
+                  :labels="actionLabels"
                   :reasons="disabledActions?.(row)"
                   :entries="cellActions(row)"
                   :busy="loading"
@@ -447,6 +449,7 @@ function display(row: Partial<R>, column: Column<R>) {
                   v-else-if="entry.kind === 'actions'"
                   :actions="rowActions[index]!"
                   :show-all="showAllActions?.(row)"
+                  :labels="actionLabels"
                   :reasons="disabledActions?.(row)"
                   :entries="cellActions(row)"
                   :disabled="disabled"

@@ -26,9 +26,13 @@ export interface DirectRuntime {
   ready: ComputedRef<boolean>;
   busy: Ref<Set<object>>;
   error: Ref<string>;
+  reportViews: Map<object, { left: number; top: number }>;
+  contains(node: Node): boolean;
+  report(node: Node): boolean;
   ancestors(node: Node): Node[];
   readable(node: Node): boolean;
   writable(node: Node): boolean;
+  independent(node: Node): boolean;
   allowed(node: Node, action: string, publicAuth?: boolean): boolean;
   operations(node: Node): Record<string, Action>;
   run(node: Node, action: string, publicAuth?: boolean): Promise<void>;
@@ -49,6 +53,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   const busy = ref(new Set<object>());
   const executions = new Map<object, symbol>();
   const error = ref("");
+  const reportViews = new Map<object, { left: number; top: number }>();
   let epoch = 0;
   function paths(): Map<object, Node[]> {
     const result = new Map<object, Node[]>();
@@ -186,6 +191,19 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       ? (node[meta].operations as Record<string, Action>)
       : {};
   }
+  function report(node: Node): boolean {
+    return (
+      (node[meta].kind === "object" &&
+        (node as ObjectNode)[meta].family === "report") ||
+      (node[meta].kind === "collection" &&
+        (!!(node as CollectionNode)[meta].report ||
+          ancestors(node).some(
+            (parent) =>
+              parent[meta].kind === "object" &&
+              (parent as ObjectNode)[meta].family === "report",
+          )))
+    );
+  }
   async function run(node: Node, action: string, publicAuth = false) {
     const op = operations(node)[action];
     if (
@@ -203,6 +221,14 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     error.value = "";
     try {
       await op.run();
+      if (
+        ["get", "query"].includes(action) &&
+        report(node) &&
+        start === epoch &&
+        owner === scope.value &&
+        readable(node)
+      )
+        reportViews.set(toRaw(node), { left: 0, top: 0 });
     } catch {
       if (start === epoch && owner === scope.value)
         error.value = "操作失败，请检查业务信息后重试。";
@@ -243,9 +269,13 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   }
   function invalidate(scopeChanged = false) {
     if (scopeChanged) {
+      reportViews.clear();
       executions.clear();
       busy.value.clear();
     }
+    for (const node of reportViews.keys())
+      if (!paths().has(node) || !readable(node as Node))
+        reportViews.delete(node);
     epoch++;
     error.value = "";
   }
@@ -255,9 +285,13 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     ready,
     busy,
     error,
+    reportViews,
+    report,
+    contains: (node: Node) => paths().has(toRaw(node)),
     ancestors,
     readable,
     writable,
+    independent: (node: Node) => boundary(node) === node,
     allowed,
     operations,
     run,
@@ -281,7 +315,7 @@ export const labels: Record<string, string> = {
   reverse: "冲销",
   start: "启动",
   advance: "推进",
-  createChild: "创建子项",
+  createChild: "新增",
   approveChild: "批准子项",
   rejectChild: "拒绝子项",
   retryChild: "重试子项",
