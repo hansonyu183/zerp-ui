@@ -9,9 +9,10 @@ import {
   VMenu,
   VTooltip,
 } from "vuetify/components";
-import type { ListAction } from "./contracts";
+import { businessRowActions, type RowAction as ListAction } from "./row-action";
 const props = defineProps<{
   actions: readonly ListAction[];
+  labels?: Readonly<Partial<Record<ListAction, string>>>;
   reasons?: Readonly<Partial<Record<ListAction, string>>>;
   disabled?: boolean;
   busy?: boolean;
@@ -22,6 +23,7 @@ const props = defineProps<{
     disabled?: boolean;
   }[];
   viewHref?: string;
+  showAll?: boolean;
 }>();
 const emit = defineEmits<{
   action: [action: ListAction];
@@ -30,15 +32,20 @@ const emit = defineEmits<{
 const menu = ref(false);
 const { xs, width } = useDisplay();
 const primaryCount = computed(() =>
-  xs.value
-    ? width.value < 360 && props.actions.length > 2
-      ? 1
-      : 2
-    : props.entries?.length
-      ? 1
-      : 3,
+  props.showAll
+    ? props.actions.length + (props.entries?.length ?? 0)
+    : xs.value
+      ? width.value < 360 && props.actions.length > 2
+        ? 1
+        : 2
+      : props.entries?.length
+        ? 1
+        : 3,
 );
-const captions: Record<ListAction, string> = {
+const defaultCaptions: Record<ListAction, string> = {
+  ...(Object.fromEntries(
+    Object.entries(businessRowActions).map(([key, value]) => [key, value[0]]),
+  ) as Record<keyof typeof businessRowActions, string>),
   view: "查看",
   send: "送审",
   withdraw: "反送审",
@@ -53,7 +60,11 @@ const captions: Record<ListAction, string> = {
   disable: "停用",
   delete: "删除",
 };
+const captions = computed(() => ({ ...defaultCaptions, ...props.labels }));
 const icons: Record<ListAction, string> = {
+  ...(Object.fromEntries(
+    Object.entries(businessRowActions).map(([key, value]) => [key, value[1]]),
+  ) as Record<keyof typeof businessRowActions, string>),
   view: "mdi-eye-outline",
   send: "mdi-send-outline",
   withdraw: "mdi-email-arrow-left-outline",
@@ -105,7 +116,7 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
 const items = computed(() => [
   ...props.actions.map((action) => ({
     key: `action:${action}`,
-    label: captions[action],
+    label: captions.value[action],
     icon: icons[action],
     href: action === "view" ? props.viewHref : undefined,
     disabled: props.disabled || props.busy || !!props.reasons?.[action],
@@ -142,7 +153,10 @@ function activate(
   <div
     v-if="items.length"
     class="zerp-row-actions"
-    :class="{ 'zerp-row-actions--mobile': xs }"
+    :class="{
+      'zerp-row-actions--mobile': xs,
+      'zerp-row-actions--all': showAll,
+    }"
   >
     <VTooltip
       v-for="item in items.slice(0, primaryCount)"
@@ -220,6 +234,10 @@ function activate(
   display: flex;
   align-items: center;
   white-space: nowrap;
+}
+.zerp-row-actions--all {
+  flex-wrap: wrap;
+  white-space: normal;
 }
 .zerp-row-actions--mobile :deep(.v-btn) {
   padding-inline: 4px;

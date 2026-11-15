@@ -34,11 +34,18 @@ function fixture() {
   };
   const group = {
     intro: { value: "hello", [meta]: { kind: "text", name: "Introduction" } },
+    overview: {
+      summary: {
+        value: "hello",
+        [meta]: { kind: "text", name: "Introduction" },
+      },
+      [meta]: { kind: "object", name: "Overview", operations: {} },
+    },
     rows,
     [meta]: {
       kind: "object",
       name: "Partners",
-      form: ["intro", "rows"],
+      form: ["overview", "rows"],
       operations: {},
     },
   };
@@ -502,8 +509,7 @@ it("hides explicitly denied value-array members and leaves disabled query pagina
   expect(wrapper.find('input[aria-label="Private array"]').exists()).toBe(
     false,
   );
-  await wrapper.get('[role="tab"][data-member="rows"]').trigger("click");
-  await flushPromises();
+  expect(wrapper.find('[role="tab"][data-member="rows"]').exists()).toBe(false);
   const next = wrapper.findAll("button").find((b) => b.text() === "下一页")!;
   expect(next.attributes("disabled")).toBeDefined();
   await next.trigger("click");
@@ -718,7 +724,7 @@ it("keeps a nested collection deep link focused through the selected parent reco
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("Contact name");
   expect(childQuery).toHaveBeenCalledOnce();
-  expect(wrapper.find('input[aria-label="Parent name"]').exists()).toBe(false);
+  expect(wrapper.find('input[aria-label="Parent name"]').exists()).toBe(true);
   wrapper.unmount();
 });
 
@@ -746,5 +752,37 @@ it("uses the consumer theme preference and returns user changes to its persisten
   await flushPromises();
   expect(change).toHaveBeenCalledWith({ preset: "md1", mode: "dark" });
   expect(wrapper.find(".v-theme--zerp-md1-dark").exists()).toBe(true);
+  wrapper.unmount();
+});
+it("groups object-array details with sibling forms and retains direct edits across tabs", async () => {
+  const { model } = fixture();
+  const group = model.group as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "object" } }
+  >;
+  const row = {
+    quantity: { value: "1", [meta]: { kind: "text" as const, name: "数量" } },
+    [meta]: { kind: "object" as const, name: "明细行", operations: {} },
+  };
+  group.details = {
+    items: [row],
+    [meta]: { kind: "array", name: "明细", element: row, operations: {} },
+  };
+  group[meta].form = ["overview", "details"];
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([
+    "Overview",
+    "明细",
+  ]);
+  await wrapper.get('[role="tab"][data-member="details"]').trigger("click");
+  await flushPromises();
+  await wrapper.get('input[aria-label="数量"]').setValue("7");
+  expect(row.quantity.value).toBe("7");
+  await wrapper.get('[role="tab"][data-member="overview"]').trigger("click");
+  await wrapper.get('[role="tab"][data-member="details"]').trigger("click");
+  expect(
+    (wrapper.get('input[aria-label="数量"]').element as HTMLInputElement).value,
+  ).toBe("7");
   wrapper.unmount();
 });

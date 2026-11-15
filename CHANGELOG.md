@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.43.1
+
+- 将对象数组明细与同级对象纳入 Material Tab，保留模型投影顺序、直接编辑及切换输入；修复 OIT 复杂单据验收发现的表头/明细分组遗漏。
+
+## 0.43.0
+
+- 恢复直接模型的 Material Tab、响应式表单和覆盖式查看/编辑/新增，保留列表及模型输入上下文。
+- 行操作按真实权限和业务资格呈现，保持桌面第二列、语义图标及手机卡片短文字。
+- 增加工作台固定业务角色，恢复桌面 1+3 与手机纵排；导航保留二级分类及直属入口，统一顶栏与主题。
+- 同一 tgz 独立安装验证桌面/手机几何、键盘、主题、工作台和业务交互；正式发行与 OIT 隔离接入证据见 #156。
+
 ## 0.42.3
 
 - Restore consumer-owned theme preferences through the direct BusinessModel metadata; authentication and workspace share the selected theme.

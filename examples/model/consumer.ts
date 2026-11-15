@@ -10,6 +10,7 @@ import {
   output,
   structuredReport,
   analysisDetail,
+  workbench,
 } from "./families";
 
 const trace = (name: string) => console.log(`synthetic-call:${name}`);
@@ -66,6 +67,10 @@ const customers = {
   draft: null,
   query: {
     keyword: { value: "", [meta]: { kind: "text", name: "关键词" } },
+    region: { value: "", [meta]: { kind: "text", name: "地区条件" } },
+    owner: { value: "", [meta]: { kind: "text", name: "负责人条件" } },
+    status: { value: "", [meta]: { kind: "text", name: "状态条件" } },
+    contact: { value: "", [meta]: { kind: "text", name: "联系条件" } },
     [meta]: { kind: "object", name: "查询条件", operations: {} },
   },
   page: 1,
@@ -249,6 +254,7 @@ const source = {
   output,
   structuredReport,
   analysisDetail,
+  workbench,
   [meta]: {
     kind: "application",
     name: "直接业务模型",
@@ -286,6 +292,7 @@ const source = {
         name: "业务",
         items: [
           { node: directory },
+          { node: workbench },
           { node: document },
           { node: voucher },
           { node: workflow },

@@ -4,13 +4,13 @@
 
 ## 固定版本安装
 
-本源码版本为 **0.42.3**。正式交付状态、确切源码 SHA、CI 和工件摘要以 [#155 接入验收记录](https://github.com/hansonyu183/zerp-ui/issues/155) 为准；源码版本号不代表已经发行。
+本源码版本为 **0.43.1**。正式交付状态、确切源码 SHA、CI 和工件摘要以 [#156 修正与接入验收记录](https://github.com/hansonyu183/zerp-ui/issues/156) 为准；源码版本号不代表已经发行。
 
-正式发行后，从 [ui-v0.42.3 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.42.3) 下载 `zerp-ui-0.42.3.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+正式发行后，从 [ui-v0.43.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.43.1) 下载 `zerp-ui-0.43.1.tgz` 和 `SHA256SUMS`，核对原文件后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.42.3.tgz
+pnpm add ./zerp-ui-0.43.1.tgz
 ```
 
 宿主初始化唯一一套 Vue、Vuetify 和 Router；peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化 `createVuetify`。图标字体随包分发。
@@ -35,13 +35,17 @@ API、DTO、业务规则、权限计算、Session、Router 和凭证归消费者
 
 全局导航仅来自 `navigationProjection` 的有序分组及节点引用。未投影的子集合保留在所属内容中，不成为额外主导航；消费者通过 `navigation.href`、`visit` 与 `current` 同步 Router。模型构造和导航遍历不执行业务查询。
 
+多组内容使用 Material Tab，单组直接展示；已访问的组保留输入与查询上下文。查看、编辑和新增采用覆盖式容器，列表保持挂载；关闭只改变呈现，不撤销模型值或核实未知业务结果。
+
+工作台以 `family: "workbench"` 标识固定业务族，`workbench` 引用同一对象成员中的 `information`、`vouchers`、`reports`、`documents` 节点，分别呈现重要信息横栏及三类入口；`manageReports` 可引用独立报表偏好集合。角色名称仅表达业务语义，消费者不配置列数、组件或模板。全局导航可提供语义 `icon`、二级 `section` 及直属 `ungrouped` 事实。工作台根对象提供 `get` 时由它统一读取四类内容；没有根级 `get` 时，库在对应角色首次可见时执行该节点的 `get/query`，同一节点只激活一次。报表偏好不随工作台预取。
+
 ## 独立消费者与验证
 
 [运行消费者](examples/model/README.md) 直接定义合成模型，仅绑定 BusinessApplication；[纯类型示例](examples/model-contract/README.md) 保持独立，不作为运行应用导入。
 
 运行、构建、定向测试及 tgz 独立安装命令从 package.json scripts 读取。正式发行在干净确切源码提交上运行 `check:release`，只 pack 一次，将同一 tgz 安装到全新消费者，核对公开类型、原生 Node 导入、声明、样式/字体、唯一宿主实例及实际交互。工件和逐命令退出码写入 `.scratch/release/<SHA>/evidence.json`。
 
-正式发行下载原包后执行 `node scripts/check-release.mjs --tgz <下载包>`，核对与原先工件相同的 SHA-256 并重验消费者，不重新打包替代原件。合成消费者、对应 SHA CI、正式公开下载及产品实际接入分别报告。真实 oit-go 接入和整体验收属于 [#155](https://github.com/hansonyu183/zerp-ui/issues/155)，本库不修改原 ZERP、不写生产、不复制公司数据。
+正式发行下载原包后执行 `node scripts/check-release.mjs --tgz <下载包>`，核对与原先工件相同的 SHA-256 并重验消费者，不重新打包替代原件。合成消费者、对应 SHA CI、正式公开下载及产品实际接入分别报告。本版真实 oit-go 接入和隔离验收属于 [#156](https://github.com/hansonyu183/zerp-ui/issues/156)，本库不修改原 ZERP、不写生产、不复制公司数据。
 
 ## 本机运行数据
 

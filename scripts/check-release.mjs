@@ -15,7 +15,7 @@ assert.equal(
 );
 const sourceSHA = git("rev-parse", "HEAD");
 const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
-assert.equal(pkg.version, "0.42.3");
+assert.equal(pkg.version, "0.43.1");
 const dir = join(root, ".scratch", "release", sourceSHA);
 await mkdir(dir, { recursive: true });
 const commands = [];
@@ -46,7 +46,7 @@ run("pnpm", ["test:reactivity"]);
 if (artifactIndex < 0)
   run("pnpm", ["test", "--exclude", "tests/business-model-reactivity.spec.ts"]);
 const slices = [
-  { issue: 154, name: "model", build: "build:model", flag: ["--model"] },
+  { issue: 156, name: "model", build: "build:model", flag: ["--model"] },
 ];
 for (const slice of slices) run("pnpm", [slice.build]);
 if (artifactIndex < 0) run("pnpm", ["pack", "--pack-destination", dir]);

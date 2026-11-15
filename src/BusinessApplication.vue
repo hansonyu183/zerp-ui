@@ -6,8 +6,10 @@ import {
   createDirectRuntime,
   directRuntimeKey,
   type Target,
+  type ObjectNode,
 } from "./direct-model-runtime";
 import BusinessNode from "./BusinessNode.vue";
+import BusinessWorkbench from "./BusinessWorkbench.vue";
 import AppPage from "./AppPage.vue";
 import AuthFrame from "./AuthFrame.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
@@ -54,9 +56,12 @@ const navigation = computed<NavigationGroup[]>(() =>
   groups.value.map((g) => ({
     key: g.key,
     caption: g.name,
+    ungrouped: g.ungrouped,
     items: g.items.map((item, index) => ({
       key: `${g.key}:${index}`,
       caption: item.node[meta].name,
+      icon: item.icon,
+      section: item.section,
       to: options.value.navigation.href(item.node),
     })),
   })),
@@ -145,7 +150,24 @@ const page = computed<PageDefinition>(() => {
     [snapshotPage]: () => ({
       title: node?.[meta].name ?? "工作台",
       render: () => [
-        node ? h(BusinessNode, { node, focus }) : h("p", "暂无可用内容。"),
+        node
+          ? node[meta].kind === "object" &&
+            node[meta].family === "workbench" &&
+            node === focus
+            ? h(BusinessWorkbench, { node: node as ObjectNode })
+            : h(BusinessNode, {
+                node:
+                  node[meta].kind === "object" &&
+                  node[meta].family === "workbench"
+                    ? ((focus &&
+                        [...runtime.ancestors(focus), focus].find(
+                          (child) => runtime.ancestors(child).at(-1) === node,
+                        )) ??
+                      node)
+                    : node,
+                focus,
+              })
+          : h("p", "暂无可用内容。"),
         feedback(),
       ],
     }),

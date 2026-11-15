@@ -15,6 +15,7 @@ import { VBtn, VCard, VCheckboxBtn, VTable } from "vuetify/components";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
 import RowActions from "./RowActions.vue";
+import type { RowAction as ListAction } from "./row-action";
 import type { RecordLink } from "./shell";
 import {
   validateReportColumns,
@@ -27,13 +28,7 @@ import type {
   ReportPresentation,
   ReportAppearance,
 } from "./report";
-import type {
-  Column,
-  Page,
-  CrudAction,
-  ListAction,
-  ListSort,
-} from "./contracts";
+import type { Column, Page, CrudAction, ListSort } from "./contracts";
 const props = defineProps<{
   columns: readonly Column<R>[];
   labels?: (
@@ -47,6 +42,8 @@ const props = defineProps<{
   selectedKeys?: readonly (string | number)[];
   selectable?: (row: R) => boolean;
   actions?: (row: R) => readonly A[];
+  showAllActions?: (row: R) => boolean;
+  actionLabels?: Readonly<Partial<Record<ListAction, string>>>;
   disabledActions?: (row: R) => Readonly<Partial<Record<ListAction, string>>>;
   viewHref?: (row: R) => string | undefined;
   rowLinks?: (row: R) => readonly RecordLink[];
@@ -406,6 +403,8 @@ function display(row: Partial<R>, column: Column<R>) {
                 <RowActions
                   v-if="hasActions"
                   :actions="rowActions[index]!"
+                  :show-all="showAllActions?.(row)"
+                  :labels="actionLabels"
                   :reasons="disabledActions?.(row)"
                   :entries="cellActions(row)"
                   :busy="loading"
@@ -449,6 +448,8 @@ function display(row: Partial<R>, column: Column<R>) {
                 <RowActions
                   v-else-if="entry.kind === 'actions'"
                   :actions="rowActions[index]!"
+                  :show-all="showAllActions?.(row)"
+                  :labels="actionLabels"
                   :reasons="disabledActions?.(row)"
                   :entries="cellActions(row)"
                   :disabled="disabled"

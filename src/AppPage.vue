@@ -68,7 +68,7 @@ defineExpose<AppPageHandle>({
   requestLeave: () =>
     pageContent.value?.requestLeave() ?? Promise.resolve(false),
 });
-const { mobile, xs } = useDisplay();
+const { mobile } = useDisplay();
 const navigationId = useId();
 const overlayId = `zerp-shell-overlays-${useId().replace(/:/g, "-")}`;
 const layout = useTemplateRef<InstanceType<typeof VLayout>>("layout");
@@ -175,7 +175,7 @@ function navigated(event: MouseEvent) {
       >
         <FeedbackHost>
           <ModelNotices />
-          <VAppBar name="app-bar" :order="0" :height="xs ? 56 : 48">
+          <VAppBar name="app-bar" :order="0" :height="48">
             <div class="zerp-shell-toolbar">
               <VBtn
                 ref="navigationToggle"
@@ -351,13 +351,6 @@ function navigated(event: MouseEvent) {
                   :is="group.ungrouped ? 'div' : 'details'"
                   v-for="{ group, sections } in navigationGroups"
                   :key="group.key"
-                  :open="
-                    group.ungrouped
-                      ? undefined
-                      : group.items.some(
-                          (item) => item.key === selectedNavigationKey,
-                        )
-                  "
                 >
                   <summary v-if="!group.ungrouped">{{ group.caption }}</summary>
                   <component
@@ -404,6 +397,7 @@ function navigated(event: MouseEvent) {
                             !$event.ctrlKey &&
                             !$event.metaKey &&
                             !$event.shiftKey &&
+                            !$event.altKey &&
                             $event.button === 0
                           ) {
                             $event.preventDefault();

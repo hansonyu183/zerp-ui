@@ -2,10 +2,12 @@
 import { computed, inject, toRaw } from "vue";
 import DataList from "./DataList.vue";
 import type { Column } from "./contracts";
+import { businessRowActions, type RowAction } from "./row-action";
 import type { ReportCell, ReportPresentation } from "./report";
 import { nodeMetadata as meta } from "./model-node";
 import {
   directRuntimeKey,
+  labels,
   type Node,
   type CollectionNode,
   type ObjectNode,
@@ -17,7 +19,10 @@ const props = defineProps<{
   loading: boolean;
   canQuery: boolean;
 }>();
-const emit = defineEmits<{ page: [page: number] }>();
+const emit = defineEmits<{
+  page: [page: number];
+  open: [mode: "read" | "edit"];
+}>();
 const runtime = inject(directRuntimeKey)!;
 const columns = computed<Column<Values>[]>(() =>
   props.node[meta].list
@@ -188,10 +193,74 @@ function visit(value: ReportCell<Target>, row: Values) {
   );
   if (current) runtime.model()[meta].navigation.visit(value.target);
 }
-function select(_action: string, row: Values) {
+function editingOperation(source: ObjectNode) {
+  const operations = runtime.operations(source);
+  if (!runtime.writable(source)) return;
+  return Object.entries(operations).find(
+    ([key]) =>
+      !["get", "delete", "reconcile"].includes(key) &&
+      runtime.allowed(source, key),
+  )?.[1];
+}
+function actions(row: Values): RowAction[] {
   const source = original(row);
-  if (source && props.node.items.includes(source) && runtime.readable(source))
+  if (!source || !runtime.readable(source)) return [];
+  const editable = !!editingOperation(source);
+  const result: RowAction[] = editable ? ["edit"] : ["view"];
+  const available = new Set<string>([
+    ...Object.keys(businessRowActions),
+    "delete",
+    "enable",
+    "disable",
+    "send",
+    "withdraw",
+    "complete",
+    "uncomplete",
+    "void",
+    "unvoid",
+  ]);
+  for (const action of Object.keys(runtime.operations(source))) {
+    if (available.has(action) && runtime.allowed(source, action))
+      result.push(action as RowAction);
+  }
+  return result;
+}
+function reasons(row: Values): Partial<Record<RowAction, string>> {
+  const source = original(row);
+  if (!source) return {};
+  return Object.fromEntries(
+    actions(row)
+      .map((action) => [
+        action,
+        runtime.busy.value.has(toRaw(source))
+          ? "正在处理"
+          : action === "edit"
+            ? undefined
+            : runtime.operations(source)[action]?.disabledReason,
+      ])
+      .filter((entry): entry is [RowAction, string] => !!entry[1]),
+  );
+}
+function select(action: RowAction, row: Values) {
+  const source = original(row);
+  if (
+    !source ||
+    !props.node.items.includes(source) ||
+    !actions(row).includes(action) ||
+    reasons(row)[action]
+  )
+    return;
+  if (action === "view" || action === "edit") {
     props.node.selected = source;
+    emit("open", action === "edit" ? "edit" : "read");
+  } else void runtime.run(source, action);
+}
+function viewHref(row: Values) {
+  const source = original(row);
+  return source ? runtime.model()[meta].navigation.href(source) : undefined;
+}
+function showAllActions(row: Values) {
+  return original(row)?.[meta].family === "workflow";
 }
 </script>
 <template>
@@ -206,7 +275,11 @@ function select(_action: string, row: Values) {
     :summary="summary"
     :presentation="presentation"
     :cell="cell"
-    :actions="() => ['view']"
+    :actions="actions"
+    :action-labels="labels"
+    :view-href="viewHref"
+    :disabled-actions="reasons"
+    :show-all-actions="showAllActions"
     empty-caption="暂无记录"
     @page="emit('page', $event)"
     @action="select"

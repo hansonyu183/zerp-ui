@@ -1,4 +1,4 @@
-import type { ThemeChoice } from "./shell";
+import type { ThemeChoice, NavigationIcon } from "./shell";
 import { nodeMetadata } from "./model-node";
 import type { PrintDocument } from "./printing";
 import type { ReportPresentation, ReportSummary } from "./report";
@@ -48,6 +48,18 @@ type FamilyActions = {
 };
 type ObjectAction = BaseObjectAction | FamilyActions[keyof FamilyActions];
 type ObjectOperations =
+  | {
+      family: "workbench";
+      /** Fixed business roles reference members of this model, not layout settings. */
+      workbench: {
+        information: ObjectNode | CollectionNode;
+        vouchers: CollectionNode;
+        reports: CollectionNode;
+        documents: CollectionNode;
+        manageReports?: CollectionNode;
+      };
+      operations: Partial<Record<BaseObjectAction, Operation>>;
+    }
   | { family?: never; operations: Partial<Record<BaseObjectAction, Operation>> }
   | {
       [F in keyof FamilyActions]: {
@@ -292,7 +304,13 @@ export interface BusinessModel {
     navigationProjection: {
       key: string;
       name: string;
-      items: { node: Target }[];
+      ungrouped?: boolean;
+      items: {
+        node: Target;
+        icon?: NavigationIcon;
+        /** A collapsible secondary business category within this group. */
+        section?: { key: string; caption: string };
+      }[];
     }[];
     messages: {
       id: string;

@@ -85,6 +85,10 @@ export const voucher = reactive({
     [meta]: { kind: "attachments", name: "单据附件", multiple: true },
   },
   status: text("单据状态", "草稿"),
+  header: {
+    note: text("表头说明", "合成表头"),
+    [meta]: { kind: "object", name: "表头", operations: {} },
+  },
   rows: {
     items: [line],
     [meta]: { kind: "array", name: "单据明细", element: line, operations: {} },
@@ -93,7 +97,16 @@ export const voucher = reactive({
     kind: "object",
     family: "voucher",
     name: "单据办理",
-    form: ["number", "amount", "files", "status", "rows", "tags", "related"],
+    form: [
+      "number",
+      "amount",
+      "files",
+      "status",
+      "header",
+      "rows",
+      "tags",
+      "related",
+    ],
     operations: {
       calculate: {
         async run() {
@@ -258,14 +271,32 @@ const sale = reactive({
     operations: {},
   },
 } satisfies BusinessModel[string]);
+const reportRows = [
+  sale,
+  ...Array.from({ length: 29 }, (_, index) =>
+    reactive({
+      name: text("销售名称", `合成销售${index + 2}`),
+      amount: { value: "0.00", [meta]: { kind: "decimal", name: "销售金额" } },
+      [meta]: {
+        kind: "object",
+        identity: `sale-${index + 2}`,
+        name: "销售记录",
+        operations: {},
+      },
+    } satisfies BusinessModel[string]),
+  ),
+];
 export const structuredReport = reactive({
-  items: [sale],
+  items: reportRows,
   selected: null,
   draft: null,
-  query: { [meta]: { kind: "object", name: "报表条件", operations: {} } },
+  query: {
+    period: text("查询期间", "2026-11"),
+    [meta]: { kind: "object", name: "报表条件", operations: {} },
+  },
   page: 1,
-  pageSize: 20,
-  total: 1,
+  pageSize: 30,
+  total: 60,
   [meta]: {
     kind: "collection",
     name: "结构化报表",
@@ -313,6 +344,13 @@ export const structuredReport = reactive({
           field: "amount",
           kind: "record",
           label: "打开合成凭证",
+          target: analysisDetail,
+        },
+        {
+          row: reportRows.at(-1)!,
+          field: "name",
+          kind: "record",
+          label: "打开底部凭证",
           target: analysisDetail,
         },
       ],
@@ -382,5 +420,67 @@ export const output = reactive({
         },
       },
     },
+  },
+} satisfies BusinessModel[string]);
+
+// Finite business roles keep workbench presentation in the library.
+type WorkbenchCollection = Extract<
+  BusinessModel[string],
+  { [meta]: { kind: "collection" } }
+>;
+function shortcuts(
+  name: string,
+  target: Extract<BusinessModel[string], { [meta]: { kind: "object" } }>,
+): WorkbenchCollection {
+  const row = {
+    title: text("名称", target[meta].name),
+    [meta]: {
+      kind: "object" as const,
+      name: "入口",
+      identity: name,
+      operations: {},
+    },
+  };
+  return {
+    items: [row],
+    selected: null,
+    draft: null,
+    query: { [meta]: { kind: "object", name: "查询", operations: {} } },
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    [meta]: {
+      kind: "collection",
+      name,
+      element: row,
+      list: ["title"],
+      operations: {},
+      report: {
+        cells: [{ row, field: "title", kind: "record", target, label: "打开" }],
+      },
+    },
+  };
+}
+const information = {
+  notice: {
+    ...text("通知", "今日有一条合成提醒"),
+    [meta]: { kind: "text" as const, name: "通知", readOnly: true },
+  },
+  [meta]: { kind: "object" as const, name: "重要信息", operations: {} },
+};
+const vouchers = shortcuts("单据", voucher);
+const reports = shortcuts("报表", report);
+const documents = shortcuts("资料", document);
+export const workbench = reactive({
+  information,
+  vouchers,
+  reports,
+  documents,
+  [meta]: {
+    kind: "object",
+    name: "工作台",
+    family: "workbench",
+    workbench: { information, vouchers, reports, documents },
+    operations: {},
   },
 } satisfies BusinessModel[string]);
