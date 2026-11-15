@@ -721,3 +721,30 @@ it("keeps a nested collection deep link focused through the selected parent reco
   expect(wrapper.find('input[aria-label="Parent name"]').exists()).toBe(false);
   wrapper.unmount();
 });
+
+it("uses the consumer theme preference and returns user changes to its persistence port", async () => {
+  const { model } = fixture();
+  const change = vi.fn(
+    (value: { preset: "md1" | "md2" | "md3"; mode: "light" | "dark" }) => {
+      model[meta].theme!.value = value;
+    },
+  );
+  model[meta].theme = { value: { preset: "md2", mode: "dark" }, change };
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  expect(wrapper.find(".v-theme--zerp-md2-dark").exists()).toBe(true);
+  await wrapper.get('button[aria-label="主题预设"]').trigger("click");
+  await flushPromises();
+  const preset = document.querySelector(
+    '[role="menuitemradio"][aria-label="Material Design 1"]',
+  );
+  expect(preset).not.toBeNull();
+  (preset as HTMLElement).click();
+  await flushPromises();
+  expect(change).toHaveBeenCalledWith({ preset: "md1", mode: "dark" });
+  expect(wrapper.find(".v-theme--zerp-md1-dark").exists()).toBe(true);
+  wrapper.unmount();
+});

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.42.3
+
+- Restore consumer-owned theme preferences through the direct BusinessModel metadata; authentication and workspace share the selected theme.
+
 ## 0.42.2
 
 - Preserve nested collection deep-link focus through the selected parent record (#155).

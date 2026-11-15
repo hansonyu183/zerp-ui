@@ -1,3 +1,4 @@
+import type { ThemeChoice } from "./shell";
 import { nodeMetadata } from "./model-node";
 import type { PrintDocument } from "./printing";
 import type { ReportPresentation, ReportSummary } from "./report";
@@ -261,6 +262,8 @@ export interface BusinessModel {
       productName: string;
       companyName: string;
     };
+    /** Consumer owns persistence; the host only renders and reports the chosen theme. */
+    theme?: { value: ThemeChoice; change(value: ThemeChoice): void };
     owner: Owner | null;
     authentication?: ObjectNode;
     account?: {

@@ -17,6 +17,7 @@ import {
   defaultThemeChoice,
   type NavigationGroup,
   type AccountIntent,
+  type ThemeChoice,
 } from "./shell";
 defineOptions({ inheritAttrs: false });
 defineSlots<{}>();
@@ -24,7 +25,12 @@ const props = defineProps<{ model: BusinessModel }>();
 const runtime = createDirectRuntime(() => props.model);
 provide(directRuntimeKey, runtime);
 const options = computed(() => props.model[meta]);
-const theme = ref(defaultThemeChoice);
+const localTheme = ref(defaultThemeChoice);
+const theme = computed(() => options.value.theme?.value ?? localTheme.value);
+function changeTheme(value: ThemeChoice) {
+  if (options.value.theme) options.value.theme.change(value);
+  else localTheme.value = value;
+}
 const groups = computed(() =>
   options.value.navigationProjection
     .map((group) => ({
@@ -189,7 +195,7 @@ watch(current, () => runtime.invalidate(), { flush: "sync" });
     :footer="options.name"
     :account="options.account ? { label: options.account.name } : undefined"
     :theme="theme"
-    @update:theme="theme = $event"
+    @update:theme="changeTheme"
     @account-action="accountAction"
   />
 </template>
