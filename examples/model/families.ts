@@ -384,3 +384,65 @@ export const output = reactive({
     },
   },
 } satisfies BusinessModel[string]);
+
+// Finite business roles keep workbench presentation in the library.
+type WorkbenchCollection = Extract<
+  BusinessModel[string],
+  { [meta]: { kind: "collection" } }
+>;
+function shortcuts(
+  name: string,
+  target: Extract<BusinessModel[string], { [meta]: { kind: "object" } }>,
+): WorkbenchCollection {
+  const row = {
+    title: text("名称", target[meta].name),
+    [meta]: {
+      kind: "object" as const,
+      name: "入口",
+      identity: name,
+      operations: {},
+    },
+  };
+  return {
+    items: [row],
+    selected: null,
+    draft: null,
+    query: { [meta]: { kind: "object", name: "查询", operations: {} } },
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    [meta]: {
+      kind: "collection",
+      name,
+      element: row,
+      list: ["title"],
+      operations: {},
+      report: {
+        cells: [{ row, field: "title", kind: "record", target, label: "打开" }],
+      },
+    },
+  };
+}
+const information = {
+  notice: {
+    ...text("通知", "今日有一条合成提醒"),
+    [meta]: { kind: "text" as const, name: "通知", readOnly: true },
+  },
+  [meta]: { kind: "object" as const, name: "重要信息", operations: {} },
+};
+const vouchers = shortcuts("单据", voucher);
+const reports = shortcuts("报表", report);
+const documents = shortcuts("资料", document);
+export const workbench = reactive({
+  information,
+  vouchers,
+  reports,
+  documents,
+  [meta]: {
+    kind: "object",
+    name: "工作台",
+    family: "workbench",
+    workbench: { information, vouchers, reports, documents },
+    operations: {},
+  },
+} satisfies BusinessModel[string]);

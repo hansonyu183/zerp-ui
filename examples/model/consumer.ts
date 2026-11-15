@@ -10,6 +10,7 @@ import {
   output,
   structuredReport,
   analysisDetail,
+  workbench,
 } from "./families";
 
 const trace = (name: string) => console.log(`synthetic-call:${name}`);
@@ -249,6 +250,7 @@ const source = {
   output,
   structuredReport,
   analysisDetail,
+  workbench,
   [meta]: {
     kind: "application",
     name: "直接业务模型",
@@ -286,6 +288,7 @@ const source = {
         name: "业务",
         items: [
           { node: directory },
+          { node: workbench },
           { node: document },
           { node: voucher },
           { node: workflow },
