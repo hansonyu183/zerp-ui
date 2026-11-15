@@ -438,7 +438,7 @@ it("preserves explicit navigation semantics and never groups by displayed names 
   try {
     const root = wrapper.get("nav > details");
     expect(root.get("summary").text()).toBe("基础资料");
-    expect(root.attributes("open")).toBeDefined();
+    expect(root.attributes("open")).toBeUndefined();
     const groups = wrapper.findAll(".zerp-navigation-section");
     expect(groups).toHaveLength(0);
     expect(wrapper.findAll("nav a").map((link) => link.text())).toEqual(
