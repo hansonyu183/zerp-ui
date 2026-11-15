@@ -93,7 +93,14 @@ const interactions = computed<readonly Interaction<Intent>[]>(
               })),
           },
         ];
-      return [item];
+      if (
+        item.kind === "message" ||
+        item.kind === "confirm" ||
+        item.kind === "input" ||
+        item.kind === "grid"
+      )
+        return [item];
+      return [];
     }) ?? [],
 );
 function answer(id: string, value: string | boolean) {
