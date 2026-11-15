@@ -32,7 +32,8 @@ const available = computed(
     permitted.value &&
     (props.record
       ? props.record.identity !== null &&
-        props.collection.items.includes(props.record) &&
+        (props.collection.items.includes(props.record) ||
+          props.collection.selected === props.record) &&
         props.collection.draft !== props.record
       : props.collection.items.some((row) => runtime.readable(row))),
 );
