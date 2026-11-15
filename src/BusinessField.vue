@@ -80,6 +80,8 @@ function setValue(value: unknown) {
 <template>
   <div v-if="metadata.kind === 'secret'">
     <VSelect
+      density="compact"
+      hide-details
       :label="metadata.name"
       :aria-label="metadata.name"
       :model-value="secret.value.intent"
@@ -92,6 +94,8 @@ function setValue(value: unknown) {
       @update:model-value="setSecretIntent"
     />
     <VTextField
+      density="compact"
+      hide-details
       v-if="secret.value.intent === 'replace'"
       :label="`新的${metadata.name}`"
       :aria-label="`新的${metadata.name}`"
@@ -103,6 +107,8 @@ function setValue(value: unknown) {
     />
   </div>
   <VCheckbox
+    density="compact"
+    hide-details
     v-else-if="metadata.kind === 'boolean'"
     :label="metadata.name"
     :model-value="Boolean(node.value)"
@@ -121,6 +127,8 @@ function setValue(value: unknown) {
     @update:model-value="setValue"
   />
   <VFileInput
+    density="compact"
+    hide-details
     v-else-if="metadata.kind === 'attachments'"
     :label="metadata.name"
     :model-value="node.value as File[]"
@@ -134,6 +142,8 @@ function setValue(value: unknown) {
     :read-only="disabled"
   />
   <VSelect
+    density="compact"
+    hide-details
     v-else-if="metadata.kind === 'enum'"
     :label="metadata.name"
     :aria-label="metadata.name"
@@ -145,6 +155,8 @@ function setValue(value: unknown) {
     @update:model-value="setValue"
   />
   <VTextarea
+    density="compact"
+    hide-details
     v-else-if="metadata.kind === 'longText'"
     :label="metadata.name"
     :aria-label="metadata.name"
@@ -153,6 +165,8 @@ function setValue(value: unknown) {
     @update:model-value="setValue"
   />
   <VTextField
+    density="compact"
+    hide-details
     v-else
     :label="metadata.name"
     :aria-label="metadata.name"
