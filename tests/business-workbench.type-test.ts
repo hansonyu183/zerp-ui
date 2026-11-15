@@ -1,62 +1,27 @@
-import { modelMetadata as meta, type BusinessModel } from "../src/model";
-type ObjectNode = Extract<
-  BusinessModel[string],
-  { [meta]: { kind: "object" } }
->;
-type CollectionNode = Extract<
-  BusinessModel[string],
-  { [meta]: { kind: "collection" } }
->;
-declare const information: ObjectNode;
-declare const shortcuts: CollectionNode;
-const workbench: ObjectNode = {
-  information,
-  shortcuts,
-  [meta]: {
-    kind: "object",
-    name: "Overview",
-    family: "workbench",
-    operations: {},
-    workbench: {
-      information,
-      vouchers: shortcuts,
-      reports: shortcuts,
-      documents: shortcuts,
-      manageReports: shortcuts,
-    },
-  },
-};
-const collectionInformation: ObjectNode = {
-  information: shortcuts,
-  [meta]: {
-    kind: "object",
-    name: "Overview",
-    family: "workbench",
-    operations: {},
-    workbench: {
-      information: shortcuts,
-      vouchers: shortcuts,
-      reports: shortcuts,
-      documents: shortcuts,
-    },
-  },
-};
-const invalid: ObjectNode = {
-  // @ts-expect-error the fixed workbench family must identify its business roles
-  [meta]: {
-    kind: "object",
-    name: "Missing roles",
-    family: "workbench",
-    operations: {},
-  },
-};
-const arbitraryLayout: ObjectNode = {
-  [meta]: {
-    kind: "object",
-    name: "Not a layout API",
-    operations: {},
-    // @ts-expect-error model objects cannot select arbitrary layouts
-    layout: "cards",
-  },
-};
-void [workbench, collectionInformation, invalid, arbitraryLayout];
+import type {
+  BusinessModel,
+  Workbench,
+  RecordsNode,
+  Collection,
+} from "@zerp/ui/model";
+declare const rows: RecordsNode;
+declare const collection: Collection;
+declare const workbench: Workbench;
+declare const model: BusinessModel;
+const complete = {
+  information: rows,
+  vouchers: rows,
+  reports: rows,
+  masters: rows,
+  load: { disabled: false, async run() {} },
+} satisfies Workbench;
+// prettier-ignore
+// @ts-expect-error Workbench is a fixed four-block structure.
+const arbitrary = { ...workbench, columns: 3 } satisfies Workbench;
+// prettier-ignore
+// @ts-expect-error Workbench blocks are owned records, not independent collections.
+const independent = { ...workbench, vouchers: collection } satisfies Workbench;
+// prettier-ignore
+// @ts-expect-error Workbench cannot become a global collection target.
+model.navigation.current = workbench;
+void [complete, arbitrary, independent];

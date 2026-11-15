@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 
-async function settleLayout(page) {
+export async function settleLayout(page) {
   await page.evaluate(async () => {
     await document.fonts.ready;
     await Promise.all(
@@ -19,17 +19,6 @@ async function settleLayout(page) {
 // Runs against the independently installed public package; no model or VM access.
 export async function directPresentationSmoke(page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  const tabs = page.getByRole("tablist", { name: "往来资料", exact: true });
-  const overview = tabs.getByRole("tab", { name: "概览", exact: true });
-  const customers = tabs.getByRole("tab", { name: "客户", exact: true });
-  await expect(overview).toHaveAttribute("aria-selected", "true");
-  await overview.focus();
-  await overview.press("ArrowRight");
-  await page.keyboard.press("Enter");
-  await expect(customers).toHaveAttribute("aria-selected", "true");
-  const panelId = await customers.getAttribute("aria-controls");
-  expect(panelId).toBeTruthy();
-  await expect(page.locator(`[id="${panelId}"]`)).toBeVisible();
   const firstFilter = await page
     .getByRole("textbox", { name: "关键词", exact: true })
     .boundingBox();
@@ -93,11 +82,9 @@ export async function directPresentationSmoke(page) {
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await overview.click();
   return {
     desktop: true,
     mobile: true,
-    materialTabs: true,
     overlayAndFocus: true,
   };
 }

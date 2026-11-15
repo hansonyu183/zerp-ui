@@ -44,8 +44,18 @@ watch([() => props.focused, () => props.messages.join("；")], () => {
       role="note"
       :aria-label="`${label}错误详情`"
     >
-      <VCardText>{{ messages.join("；") }}</VCardText>
+      <VCardText class="zerp-field-error-messages">{{
+        messages.join("；")
+      }}</VCardText>
+      <slot name="actions" />
       <VBtn type="button" variant="text" @click="open = false">关闭</VBtn>
     </VCard>
   </VMenu>
 </template>
+
+<style scoped>
+.zerp-field-error-messages {
+  max-block-size: min(40vh, 240px);
+  overflow-y: auto;
+}
+</style>

@@ -6,19 +6,26 @@ import {
   type Ref,
   type InjectionKey,
 } from "vue";
-import type { BusinessModel } from "./business-model";
-import { nodeMetadata as meta } from "./model-node";
-export type Node = BusinessModel[string];
-export type ObjectNode = Extract<Node, { [meta]: { kind: "object" } }>;
-export type CollectionNode = Extract<Node, { [meta]: { kind: "collection" } }>;
-export type Target = ObjectNode | CollectionNode;
-export type Action = { disabledReason?: string; run(): Promise<void> };
-export function members(node: Node): [string, Node][] {
-  if (node[meta].kind !== "object") return [];
-  const object = node as ObjectNode;
-  return (object[meta].form ?? Object.keys(object)).flatMap((key) =>
-    object[key] ? [[key, object[key]] as [string, Node]] : [],
-  );
+import type {
+  BusinessModel,
+  BusinessNode,
+  Collection,
+  ObjectNode,
+  Operation,
+  Owner,
+} from "./business-model";
+export type { ObjectNode } from "./business-model";
+export type CollectionNode = Collection;
+export type Node = BusinessNode | Collection;
+export type Target = ObjectNode | Collection;
+export type Action = Operation;
+export function isCollection(node: Node): node is Collection {
+  return "conditions" in node;
+}
+export function members(node: Node): [string, BusinessNode][] {
+  return !isCollection(node) && node.kind === "object"
+    ? node.members.map((child) => [child.key, child])
+    : [];
 }
 export interface DirectRuntime {
   model: () => BusinessModel;
@@ -28,246 +35,301 @@ export interface DirectRuntime {
   error: Ref<string>;
   reportViews: Map<object, { left: number; top: number }>;
   contains(node: Node): boolean;
-  report(node: Node): boolean;
   ancestors(node: Node): Node[];
   readable(node: Node): boolean;
   writable(node: Node): boolean;
   independent(node: Node): boolean;
+  editable(node: Node): boolean;
   allowed(node: Node, action: string, publicAuth?: boolean): boolean;
-  operations(node: Node): Record<string, Action>;
+  operations(node: Node): Record<string, Operation>;
   run(node: Node, action: string, publicAuth?: boolean): Promise<void>;
-  runAccount(): Promise<void>;
+  runAccount(action?: "signOut" | "changePassword"): Promise<void>;
+  runWorkbench(once?: boolean): Promise<void>;
   invalidate(scopeChanged?: boolean): void;
 }
 export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
-  const ownerKey = (owner: BusinessModel[typeof meta]["owner"] | undefined) =>
+  const ownerKey = (owner: Owner | null) =>
     owner
       ? JSON.stringify([owner.ledger, owner.operator, owner.generation])
       : "";
-  const scope = computed(() => ownerKey(model()[meta].owner));
-  const ready = computed(
-    () =>
-      !!model()[meta].owner &&
-      ownerKey(model()[meta].userPermissions?.owner) === scope.value,
-  );
-  const busy = ref(new Set<object>());
+  const scope = computed(() => ownerKey(model().session.owner));
+  const ready = computed(() => {
+    const s = model().session;
+    return (
+      (s.state === "ready" || s.state === "password-required") &&
+      ownerKey(s.userPermissions.owner) === scope.value
+    );
+  });
+  const busy = ref(new Set<object>()),
+    error = ref("");
   const executions = new Map<object, symbol>();
-  const error = ref("");
   const reportViews = new Map<object, { left: number; top: number }>();
   let epoch = 0;
-  function paths(): Map<object, Node[]> {
+  const workbenchLoads = new WeakMap<object, Set<string>>();
+  function paths() {
     const result = new Map<object, Node[]>();
     function walk(node: Node, parents: Node[]) {
       if (result.has(toRaw(node))) return;
       result.set(toRaw(node), parents);
-      if (node[meta].kind === "object")
-        for (const child of Object.values(node))
-          walk(child, [...parents, node]);
-      else if (node[meta].kind === "array") {
-        const a = node as Extract<Node, { [meta]: { kind: "array" } }>;
-        walk(a[meta].element, [...parents, node]);
-        for (const item of a.items) walk(item, [...parents, node]);
-      } else if (node[meta].kind === "collection") {
-        const c = node as CollectionNode;
-        walk(c.query, [...parents, node]);
-        walk(c[meta].element, [...parents, node]);
-        for (const item of [...c.items, c.selected, c.draft])
+      if (isCollection(node)) {
+        walk(node.conditions, [...parents, node]);
+        for (const item of [...node.items, node.selected, node.draft])
           if (item) walk(item, [...parents, node]);
-      }
+      } else if (node.kind === "object")
+        for (const child of node.members) walk(child, [...parents, node]);
+      else if (node.kind === "records")
+        for (const item of node.items) walk(item, [...parents, node]);
     }
-    for (const node of Object.values(model())) walk(node, []);
+    for (const node of Object.values(model().members)) walk(node, []);
+    const w = model().workbench;
+    if (w)
+      for (const node of [w.information, w.vouchers, w.reports, w.masters])
+        walk(node, []);
     for (const node of [
-      model()[meta].authentication,
-      model()[meta].account?.profile,
-      model()[meta].account?.password,
+      model().authentication.form,
+      model().account.profile,
+      model().account.password,
     ])
-      if (node) walk(node, []);
+      walk(node, []);
     return result;
   }
   function ancestors(node: Node) {
     return paths().get(toRaw(node)) ?? [];
   }
+  const same = (a: object, b: object) => toRaw(a) === toRaw(b);
   function grant(node: Node) {
-    const p = model()[meta].userPermissions;
+    const p = model().session.userPermissions;
     return p && !p.administrator
-      ? p.grants.find((x) => toRaw(x.node) === toRaw(node))
+      ? p.grants.find((g) => same(g.node, node))
       : undefined;
   }
   function boundary(node: Node): Node {
-    const parent = ancestors(node).at(-1);
-    if (node[meta].kind === "collection") return node;
-    if (
-      node[meta].kind === "object" &&
-      parent?.[meta].kind !== "collection" &&
-      parent?.[meta].kind !== "array" &&
-      Object.keys((node as ObjectNode)[meta].operations).length
-    )
-      return node;
-    return parent ? boundary(parent) : node;
+    return [...ancestors(node), node][0]!;
+  }
+  function accountNode(node: Node) {
+    return [model().account.profile, model().account.password].some(
+      (account) =>
+        same(account, node) || ancestors(node).some((n) => same(n, account)),
+    );
   }
   function readable(node: Node): boolean {
-    if (!node || !ready.value) return false;
-    if (model()[meta].session?.state === "password-required") {
-      const password = model()[meta].account?.password;
-      if (
-        !password ||
-        (node !== password && !ancestors(node).includes(password))
-      )
-        return false;
-    }
-    if (model()[meta].session?.state === "recovering") return false;
-    const p = model()[meta].userPermissions!;
-    if (p.administrator) return true;
-    const b = boundary(node);
-    const chain = [...ancestors(node), node];
-    const within = chain.slice(Math.max(0, chain.indexOf(b)));
-    if (within.some((n) => grant(n)?.read === false)) return false;
-    if (grant(b)?.read === true) return true;
+    if (!ready.value || !paths().has(toRaw(node))) return false;
     if (
-      b === node &&
-      node[meta].kind === "object" &&
-      Object.keys((node as ObjectNode)[meta].operations).length === 0
+      model().session.state === "password-required" &&
+      ![...ancestors(node), node].some((n) => same(n, model().account.password))
     )
-      return Object.values(node).some(
-        (child) =>
-          ["object", "collection"].includes(child[meta].kind) &&
-          readable(child),
-      );
-    return false;
+      return false;
+    const chain = [...ancestors(node), node];
+    if (chain.some((n) => grant(n)?.read === false)) return false;
+    if (accountNode(node)) return true;
+    const p = model().session.userPermissions!;
+    return p.administrator || grant(boundary(node))?.read === true;
   }
   function writable(node: Node): boolean {
     if (!readable(node)) return false;
+    const chain = [...ancestors(node), node];
+    if (chain.some((n) => !isCollection(n) && n.readOnly)) return false;
+    const collection = chain.find(isCollection);
+    if (collection && chain.some((n) => same(n, collection.conditions)))
+      return (
+        allowed(collection, "query") &&
+        chain
+          .slice(chain.indexOf(collection) + 1)
+          .every((n) => grant(n)?.write !== false)
+      );
+    if (chain.some((n) => grant(n)?.write === false)) return false;
+    if (accountNode(node)) return true;
+    const p = model().session.userPermissions!;
+    if (p.administrator) return true;
+    return grant(boundary(node))?.write === true;
+  }
+  function operations(node: Node): Record<string, Operation> {
+    if (same(node, model().authentication.form))
+      return model().authentication.operations;
+    if (same(node, model().account.password))
+      return {
+        ...model().account.password.operations,
+        changePassword: model().account.operations.changePassword,
+      };
+    if (!isCollection(node) && node.kind === "object")
+      return {
+        ...node.document?.operations,
+        ...node.workflow?.operations,
+        ...node.processing?.operations,
+        ...node.batch?.operations,
+        ...node.report?.operations,
+        ...node.output?.operations,
+        ...node.operations,
+      };
+    return "operations" in node
+      ? (node.operations as Record<string, Operation>)
+      : "load" in node && node.load
+        ? { load: node.load }
+        : {};
+  }
+  const reads = new Set([
+    "get",
+    "query",
+    "export",
+    "preview",
+    "reconcile",
+    "load",
+    "print",
+    "itemPrint",
+  ]);
+  function permitted(node: Node, action: string) {
+    const chain = [...ancestors(node), node];
+    const p = model().session.userPermissions!;
+    if (p.administrator) return true;
     if (
-      [...ancestors(node), node].some(
-        (n) => "readOnly" in n[meta] && n[meta].readOnly,
+      chain.some(
+        (n) => Reflect.get(grant(n)?.operations ?? {}, action) === false,
       )
     )
       return false;
-    const p = model()[meta].userPermissions!;
-    if (p.administrator) return true;
-    const chain = [...ancestors(node), node];
-    const queryOwner = chain.find(
-      (n, i) =>
-        n[meta].kind === "collection" &&
-        (n as CollectionNode).query === chain[i + 1],
-    );
-    if (queryOwner)
-      return (
-        allowed(queryOwner, "query") &&
-        chain
-          .slice(chain.indexOf(queryOwner) + 1)
-          .every((n) => grant(n)?.write !== false)
-      );
-    const b = boundary(node);
+    if (accountNode(node)) return true;
     return (
-      !!b &&
-      grant(b)?.write === true &&
-      [...ancestors(node), node].every((n) => grant(n)?.write !== false)
+      Reflect.get(grant(boundary(node))?.operations ?? {}, action) === true
     );
   }
-  function allowed(node: Node, action: string, publicAuth = false) {
-    if (!operations(node)[action]) return false;
+  function allowed(node: Node, action: string, publicAuth = false): boolean {
+    const automatic =
+      isCollection(node) &&
+      ((action === "print" && node.printTemple) ||
+        (action === "itemPrint" && node.itemPrintTemple));
+    if (!operations(node)[action] && !automatic) return false;
     if (publicAuth)
       return (
-        (!model()[meta].owner && ["signIn", "recover"].includes(action)) ||
-        (model()[meta].session?.state === "recovering" && action === "recover")
+        same(node, model().authentication.form) &&
+        ((model().session.state === "anonymous" &&
+          ["signIn", "recover"].includes(action)) ||
+          (model().session.state === "recovering" && action === "recover"))
       );
-    if (!readable(node)) return false;
-    if (
-      !["get", "query", "export", "preview", "reconcile"].includes(action) &&
-      !writable(node)
-    )
-      return false;
-    const p = model()[meta].userPermissions!;
-    if (p.administrator) return true;
-    const b = boundary(node);
     return (
-      Reflect.get(grant(b)?.operations ?? {}, action) === true &&
-      Reflect.get(grant(node)?.operations ?? {}, action) !== false
+      readable(node) &&
+      (reads.has(action) || writable(node)) &&
+      permitted(node, action)
     );
   }
-  function operations(node: Node): Record<string, Action> {
-    return "operations" in node[meta]
-      ? (node[meta].operations as Record<string, Action>)
-      : {};
-  }
-  function report(node: Node): boolean {
+  function editable(node: Node) {
+    const readOnlyActions = new Set([
+      "get",
+      "delete",
+      "reconcile",
+      "export",
+      "preview",
+      "print",
+      "audit",
+      "openVoucher",
+      "load",
+    ]);
     return (
-      (node[meta].kind === "object" &&
-        (node as ObjectNode)[meta].family === "report") ||
-      (node[meta].kind === "collection" &&
-        (!!(node as CollectionNode)[meta].report ||
-          ancestors(node).some(
-            (parent) =>
-              parent[meta].kind === "object" &&
-              (parent as ObjectNode)[meta].family === "report",
-          )))
+      writable(node) &&
+      Object.keys(operations(node)).some(
+        (action) => !readOnlyActions.has(action) && allowed(node, action),
+      )
     );
   }
-  async function run(node: Node, action: string, publicAuth = false) {
-    const op = operations(node)[action];
-    if (
-      !op ||
-      op.disabledReason ||
-      busy.value.has(toRaw(node)) ||
-      !allowed(node, action, publicAuth)
-    )
-      return;
-    const start = epoch;
-    const owner = scope.value;
-    const execution = Symbol();
-    executions.set(toRaw(node), execution);
-    busy.value.add(toRaw(node));
+  async function execute(
+    key: object,
+    op: Operation,
+    valid: () => boolean,
+    propagate = false,
+  ) {
+    key = toRaw(key);
+    if (op.disabled || busy.value.has(key) || !valid()) return;
+    const start = epoch,
+      owner = scope.value,
+      execution = Symbol();
+    executions.set(key, execution);
+    busy.value.add(key);
     error.value = "";
     try {
       await op.run();
-      if (
-        ["get", "query"].includes(action) &&
-        report(node) &&
-        start === epoch &&
-        owner === scope.value &&
-        readable(node)
-      )
-        reportViews.set(toRaw(node), { left: 0, top: 0 });
-    } catch {
-      if (start === epoch && owner === scope.value)
+    } catch (cause) {
+      if (start === epoch && owner === scope.value && valid())
         error.value = "操作失败，请检查业务信息后重试。";
+      if (propagate) throw cause;
     } finally {
-      if (executions.get(toRaw(node)) === execution) {
-        executions.delete(toRaw(node));
-        busy.value.delete(toRaw(node));
+      if (executions.get(key) === execution) {
+        executions.delete(key);
+        busy.value.delete(key);
       }
     }
   }
-  async function runAccount() {
-    const account = model()[meta].account;
-    const op = account?.signOut;
+  async function run(node: Node, action: string, publicAuth = false) {
+    const op = operations(node)[action],
+      owner = scope.value,
+      start = epoch,
+      identity = "identity" in node ? node.identity : node.key;
+    const valid = () =>
+      operations(node)[action] === op &&
+      ("identity" in node ? node.identity : node.key) === identity &&
+      allowed(node, action, publicAuth);
+    if (op)
+      await execute(
+        node,
+        {
+          get disabled() {
+            return op.disabled;
+          },
+          async run() {
+            await op.run();
+            if (
+              start === epoch &&
+              owner === scope.value &&
+              valid() &&
+              isCollection(node) &&
+              node.report &&
+              ["get", "query"].includes(action)
+            )
+              reportViews.set(toRaw(node), { left: 0, top: 0 });
+          },
+        },
+        valid,
+        action === "load",
+      );
+  }
+  async function runAccount(action: "signOut" | "changePassword" = "signOut") {
+    const account = model().account,
+      op = account.operations[action];
+    await execute(
+      account,
+      op,
+      () =>
+        ready.value &&
+        model().account === account &&
+        account.operations[action] === op,
+    );
+  }
+  async function runWorkbench(once = false) {
+    const w = model().workbench;
+    if (!w?.load) return;
+    const key = toRaw(w),
+      loaded = workbenchLoads.get(key) ?? new Set<string>();
+    if (once && loaded.has(scope.value)) return;
     if (
-      !account ||
-      !op ||
-      op.disabledReason ||
-      !model()[meta].owner ||
-      busy.value.has(toRaw(account))
+      !ready.value ||
+      ![w.information, w.vouchers, w.reports, w.masters].some(readable) ||
+      w.load.disabled
     )
       return;
-    const start = epoch,
-      owner = scope.value;
-    const execution = Symbol();
-    executions.set(toRaw(account), execution);
-    busy.value.add(toRaw(account));
-    try {
-      await op.run();
-    } catch {
-      if (start === epoch && owner === scope.value)
-        error.value = "退出失败，请重试。";
-    } finally {
-      if (executions.get(toRaw(account)) === execution) {
-        executions.delete(toRaw(account));
-        busy.value.delete(toRaw(account));
-      }
-    }
+    loaded.add(scope.value);
+    workbenchLoads.set(key, loaded);
+    const operation = w.load;
+    await execute(
+      w,
+      operation,
+      () =>
+        ready.value &&
+        model().workbench === w &&
+        w.load === operation &&
+        [w.information, w.vouchers, w.reports, w.masters].some(readable),
+    );
   }
   function invalidate(scopeChanged = false) {
+    epoch++;
+    error.value = "";
     if (scopeChanged) {
       reportViews.clear();
       executions.clear();
@@ -276,8 +338,6 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     for (const node of reportViews.keys())
       if (!paths().has(node) || !readable(node as Node))
         reportViews.delete(node);
-    epoch++;
-    error.value = "";
   }
   return {
     model,
@@ -286,20 +346,22 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     busy,
     error,
     reportViews,
-    report,
-    contains: (node: Node) => paths().has(toRaw(node)),
+    contains: (node) => paths().has(toRaw(node)),
     ancestors,
     readable,
     writable,
-    independent: (node: Node) => boundary(node) === node,
+    editable,
+    independent: (node) =>
+      boundary(node) === node ||
+      (!isCollection(node) && node.kind === "object" && editable(node)),
     allowed,
     operations,
     run,
     runAccount,
+    runWorkbench,
     invalidate,
   };
 }
-
 export const directRuntimeKey: InjectionKey<DirectRuntime> = Symbol(
   "direct-business-model",
 );
@@ -308,7 +370,7 @@ export const labels: Record<string, string> = {
   update: "保存",
   delete: "删除",
   reconcile: "核对结果",
-  remove: "删除选中项",
+  remove: "移除",
   calculate: "计算",
   stageAttachments: "上传附件",
   withdraw: "撤回",
@@ -341,7 +403,7 @@ export const labels: Record<string, string> = {
   approve: "审批",
   enable: "启用",
   disable: "停用",
-  clone: "复制",
+  clone: "克隆",
   send: "发送",
   unapprove: "取消审批",
   complete: "完成",
@@ -351,6 +413,7 @@ export const labels: Record<string, string> = {
   executeBatch: "执行批次",
   preview: "预览",
   print: "打印",
+  itemPrint: "打印",
   confirmPrinted: "确认已打印",
   confirmNotPrinted: "确认未打印",
 };

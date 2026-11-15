@@ -1,194 +1,62 @@
-import { modelMetadata as meta, type BusinessModel } from "../src/model";
-
-type Node = BusinessModel[string];
-type ObjectNode = Extract<Node, { [meta]: { kind: "object" } }>;
-type CollectionNode = Extract<Node, { [meta]: { kind: "collection" } }>;
-type TextField = Extract<Node, { value: string }>;
-type BooleanField = Extract<Node, { value: boolean }>;
-
-const field: TextField = {
-  value: "input",
-  [meta]: { kind: "text", name: "Name" },
-};
-const record: ObjectNode = {
-  name: field,
-  id: field,
-  operations: field,
-  items: field,
-  history: field,
-  "external.code": field,
-  [meta]: {
-    kind: "object",
-    name: "Any record",
-    form: ["id", "name"],
-    operations: {
-      update: {
-        async run() {
-          field.value = "backend result";
-        },
-      },
-      reconcile: { disabledReason: "Backend restriction", async run() {} },
-    },
-  },
-};
-const collection: CollectionNode = {
-  items: [record],
-  selected: record,
-  draft: null,
-  query: record,
-  page: 1,
-  pageSize: 20,
-  total: 1,
-  [meta]: {
-    kind: "collection",
-    name: "Any collection",
-    element: record,
-    list: ["name"],
-    operations: {
-      query: { async run() {} },
-      create: { async run() {} },
-      export: { async run() {} },
-    },
-  },
-};
-const aggregate: ObjectNode = {
-  records: collection,
-  description: field,
-  nested: record,
-  [meta]: {
-    kind: "object",
-    name: "Aggregate",
-    form: ["nested", "records", "description"],
-    operations: {},
-  },
-};
-const owner = { ledger: "demo", operator: "demo", generation: "1" };
-const model: BusinessModel = {
-  arbitraryBusiness: aggregate,
-  anotherBusiness: collection,
-  [meta]: {
-    kind: "application",
-    name: "Application",
-    brand: { productName: "Product", companyName: "Company" },
-    owner,
-    userPermissions: {
-      owner,
-      administrator: false,
-      grants: [
-        { node: aggregate, read: true },
-        {
-          node: collection,
-          read: true,
-          write: true,
-          operations: { query: true, update: true },
-        },
-      ],
-    },
-    navigation: {
-      current: aggregate,
-      href: () => "/aggregate",
-      visit(node) {
-        model[meta].navigation.current = node;
-      },
-    },
-    navigationProjection: [
-      { key: "business", name: "Business", items: [{ node: aggregate }] },
-    ],
-    messages: [],
-  },
-};
-
-// A completely different business tree needs no extra UI interface.
-const otherBusiness: BusinessModel = {
-  unrelatedName: record,
-  [meta]: { ...model[meta], userPermissions: null },
-};
-
-const wrongText: TextField = {
-  // @ts-expect-error text and decimal values are strings
-  value: 42,
-  [meta]: { kind: "text", name: "Wrong" },
-};
-const wrongBoolean: BooleanField = {
-  // @ts-expect-error boolean values cannot be strings
-  value: "false",
-  [meta]: { kind: "boolean", name: "Wrong" },
-};
-const arbitraryAction: ObjectNode[typeof meta]["operations"] = {
-  // @ts-expect-error arbitrary commands cannot become UI operations
-  executeSql: { async run() {} },
-};
-const wrongCollectionAction: CollectionNode[typeof meta]["operations"] = {
-  // @ts-expect-error record updates do not belong to the collection
-  update: { async run() {} },
-};
-const wrongObjectAction: ObjectNode[typeof meta]["operations"] = {
-  // @ts-expect-error collection queries do not belong to an object
-  query: { async run() {} },
-};
-const missingElement: CollectionNode = {
-  ...collection,
-  // @ts-expect-error even an empty collection must provide its record structure
-  [meta]: { kind: "collection", name: "Empty", list: ["name"], operations: {} },
-};
-const wrongElement: CollectionNode = {
-  ...collection,
-  [meta]: {
-    ...collection[meta],
-    // @ts-expect-error collection elements are object models, not scalar fields
-    element: field,
-  },
-};
-const oldRequestProtocol: ObjectNode[typeof meta]["operations"] = {
-  update: {
-    // @ts-expect-error operations do not require a frozen request parameter
-    async run(_request: { requestId: string }) {},
-  },
-};
-const componentConfiguration: BusinessModel = {
-  ...model,
-  // @ts-expect-error the application accepts model nodes, not component mappings
-  component: () => null,
-};
-const layoutConfiguration: ObjectNode[typeof meta] = {
-  ...record[meta],
-  // @ts-expect-error layout is owned by the UI library
-  layout: "tabs",
-};
-const invalidNavigation: BusinessModel[typeof meta]["navigation"] = {
-  ...model[meta].navigation,
-  // @ts-expect-error navigation refers to a model object, not a string command
-  current: "arbitraryBusiness.records",
-};
-const invalidPermission: NonNullable<
-  BusinessModel[typeof meta]["userPermissions"]
-> = {
-  owner,
-  administrator: false,
-  grants: [
-    {
-      node: record,
-      read: true,
-      operations: {
-        // @ts-expect-error permissions cannot authorize arbitrary commands
-        executeSql: true,
-      },
-    },
-  ],
-};
-
+// These checks also compile from a physically independent installed tarball.
+import type {
+  BusinessModel,
+  Collection,
+  ObjectNode,
+  Operation,
+  RecordsNode,
+  FieldNode,
+} from "@zerp/ui/model";
+// prettier-ignore
+// @ts-expect-error Symbol metadata is no longer a public protocol.
+import { modelMetadata } from "@zerp/ui/model";
+declare const model: BusinessModel;
+declare const collection: Collection;
+declare const object: ObjectNode;
+declare const records: RecordsNode;
+const operation: Operation = { disabled: false, async run() {} };
+// prettier-ignore
+// @ts-expect-error disabled is required.
+const missingDisabled: Operation = { async run() {} };
+// prettier-ignore
+// @ts-expect-error Old disabledReason has no compatibility path.
+const oldOperation = { ...operation, disabledReason: "old", } satisfies Operation;
+// prettier-ignore
+// @ts-expect-error Global navigation accepts root collections only.
+model.navigation.current = object;
+// prettier-ignore
+// @ts-expect-error Root members cannot be objects.
+model.members.object = object;
+// prettier-ignore
+// @ts-expect-error Owned records cannot submit independently.
+const recordsSave = { ...records, operations: { update: operation }, } satisfies RecordsNode;
+// prettier-ignore
+// @ts-expect-error Object members are an ordered array.
+const unordered = { ...object, members: { name: object } } satisfies ObjectNode;
+// prettier-ignore
+// @ts-expect-error Collections are not object child nodes.
+const childCollection = { ...object, members: [collection], } satisfies ObjectNode;
+// prettier-ignore
+// @ts-expect-error element templates no longer exist.
+const oldElement = { ...collection, element: object } satisfies Collection;
+// prettier-ignore
+// @ts-expect-error form projections no longer exist.
+const oldForm = { ...object, form: [] } satisfies ObjectNode;
+// prettier-ignore
+// @ts-expect-error Explicit columns require labels, even with no rows.
+const missingColumnLabel = { ...collection, columns: [{ key: "name" }], } satisfies Collection;
+// prettier-ignore
+// @ts-expect-error Single reference values cannot be arrays.
+const badReference = { kind: "reference", key: "r", label: "引用", required: false, readOnly: false, multiple: false, options: [], value: [], } satisfies FieldNode;
 void [
-  otherBusiness,
-  wrongText,
-  wrongBoolean,
-  arbitraryAction,
-  wrongCollectionAction,
-  wrongObjectAction,
-  missingElement,
-  wrongElement,
-  oldRequestProtocol,
-  componentConfiguration,
-  layoutConfiguration,
-  invalidNavigation,
-  invalidPermission,
+  modelMetadata,
+  missingDisabled,
+  oldOperation,
+  recordsSave,
+  unordered,
+  childCollection,
+  oldElement,
+  oldForm,
+  missingColumnLabel,
+  badReference,
 ];

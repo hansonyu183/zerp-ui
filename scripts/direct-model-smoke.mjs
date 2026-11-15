@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
+import { expect } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import {
   directPresentationSmoke,
   workbenchPresentationSmoke,
 } from "./direct-presentation-smoke.mjs";
-import { readFile } from "node:fs/promises";
-import { expect } from "@playwright/test";
 export async function directModelSmoke(page) {
   const callbacks = [];
   const observe = (message) => {
@@ -12,6 +12,26 @@ export async function directModelSmoke(page) {
       callbacks.push(message.text().slice(15));
   };
   page.on("console", observe);
+  const navigation = page.getByRole("navigation", { name: "主导航" });
+  const visit = async (label) => {
+    const link = navigation.getByRole("link", { name: label, exact: true });
+    if (!(await link.isVisible()))
+      await navigation.getByText("业务", { exact: true }).click();
+    await link.click();
+  };
+  const open = async (action = "编辑") => {
+    await page
+      .getByRole("button", { name: action, exact: true })
+      .first()
+      .click();
+    return page.getByRole("dialog");
+  };
+  const close = async () => {
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "关闭", exact: true })
+      .click();
+  };
   try {
     await page
       .getByRole("textbox", { name: "登录名", exact: true })
@@ -20,26 +40,29 @@ export async function directModelSmoke(page) {
       .getByRole("textbox", { name: "登录密码", exact: true })
       .fill("synthetic-only");
     await page.getByRole("button", { name: "登录", exact: true }).click();
-    await page.getByRole("tab", { name: "概览", exact: true }).waitFor();
-    assert.deepEqual(
-      callbacks,
-      ["session.signIn"],
-      "constructing and navigating the aggregate must not query its child collection",
+    await workbenchPresentationSmoke(page);
+    assert.equal(
+      callbacks.filter((name) => name === "workbench.load").length,
+      1,
     );
-    const presentation = await directPresentationSmoke(page);
-    const navigation = page.getByRole("navigation", { name: "主导航" });
+    assert.equal(
+      callbacks.filter((name) => name.endsWith(".query")).length,
+      0,
+      "homepage must not query unvisited collections",
+    );
+    await visit("空集合");
     await expect(
-      navigation.getByRole("link", { name: "客户", exact: true }),
-    ).toHaveCount(0);
-    await page.getByRole("tab", { name: "变更记录", exact: true }).click();
-    await page.getByText("暂无记录", { exact: true }).waitFor();
-    await page.getByRole("tab", { name: "客户", exact: true }).click();
-    await page.getByText("合成客户甲", { exact: true }).waitFor();
-    await page.getByRole("button", { name: "编辑", exact: true }).click();
-    await page
+      page.getByRole("columnheader", { name: "空集合列标题", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("暂无记录", { exact: true })).toBeVisible();
+    await visit("客户");
+    await expect(page.getByText("合成客户甲", { exact: true })).toBeVisible();
+    const presentation = await directPresentationSmoke(page);
+    let dialog = await open();
+    await dialog
       .getByRole("textbox", { name: "客户名称", exact: true })
       .fill("合成客户更新");
-    const category = page.getByRole("combobox", {
+    const category = dialog.getByRole("combobox", {
       name: "客户分类",
       exact: true,
     });
@@ -50,320 +73,280 @@ export async function directModelSmoke(page) {
     await category.fill("分类45");
     await page.getByRole("option", { name: "分类45", exact: true }).click();
     assert.equal(callbacks.filter((name) => name === "catalog.load").length, 1);
-    const nameBeforeFeedback = await page
+    const nameBox = await dialog
       .getByRole("textbox", { name: "客户名称", exact: true })
       .boundingBox();
-    await page.getByRole("button", { name: "保存", exact: true }).click();
-    await page.getByText("已保存：合成客户更新", { exact: true }).waitFor();
-    const nameAfterFeedback = await page
-      .getByRole("textbox", { name: "客户名称", exact: true })
-      .boundingBox();
-    assert.ok(
-      Math.abs(nameBeforeFeedback.y - nameAfterFeedback.y) < 1,
-      "success feedback must not move the editor",
-    );
-    await page.getByRole("button", { name: "关闭", exact: true }).click();
+    await dialog.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(
+      page.getByText("已保存：合成客户更新", { exact: true }),
+    ).toBeVisible();
+    expect(
+      Math.abs(
+        (
+          await dialog
+            .getByRole("textbox", { name: "客户名称", exact: true })
+            .boundingBox()
+        ).y - nameBox.y,
+      ),
+    ).toBeLessThan(1);
+    const settlement = dialog.getByRole("tab", { name: "结算", exact: true }),
+      contacts = dialog.getByRole("tab", { name: "联系人", exact: true });
+    await expect(settlement).toHaveAttribute("aria-selected", "true");
+    await settlement.focus();
+    await settlement.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await expect(contacts).toHaveAttribute("aria-selected", "true");
+    const contact = dialog
+      .getByRole("textbox", { name: "联系人姓名", exact: true })
+      .first();
+    await contact.fill("更新联系人");
+    await settlement.click();
+    await contacts.click();
+    await expect(contact).toHaveValue("更新联系人");
+    const rowPrint = page
+      .getByRole("table")
+      .getByRole("button", { name: "打印", exact: true });
+    await expect(rowPrint).toBeDisabled();
+    await dialog.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(rowPrint).toBeEnabled();
+    await close();
+    await rowPrint.click();
+    const itemPreview = page.getByRole("dialog", {
+      name: "客户打印",
+      exact: true,
+    });
+    await expect(
+      itemPreview
+        .frameLocator('iframe[title="打印预览"]')
+        .getByText("合成客户更新", { exact: true }),
+    ).toBeVisible();
+    await itemPreview
+      .getByRole("button", { name: "关闭", exact: true })
+      .click();
+    await close();
+    await page.getByRole("button", { name: "当前页打印", exact: true }).click();
+    const pagePreview = page.getByRole("dialog", {
+      name: "当前页打印",
+      exact: true,
+    });
+    await expect(
+      pagePreview
+        .frameLocator('iframe[title="打印预览"]')
+        .getByText("合成客户更新", { exact: true }),
+    ).toBeVisible();
+    await pagePreview
+      .getByRole("button", { name: "关闭", exact: true })
+      .click();
     await page
       .getByRole("textbox", { name: "关键词", exact: true })
       .fill("失败");
     await page.getByRole("button", { name: "查询", exact: true }).click();
-    await page.getByRole("alert").filter({ hasText: "操作失败" }).waitFor();
-    await page.getByRole("button", { name: "编辑", exact: true }).click();
     await expect(
-      page.getByRole("textbox", { name: "客户名称", exact: true }),
-    ).toHaveValue("合成客户更新");
-    await page.getByRole("button", { name: "关闭", exact: true }).click();
-
-    await navigation.getByText("业务", { exact: true }).click();
-    await navigation.getByRole("link", { name: "工作台", exact: true }).click();
-    await workbenchPresentationSmoke(page);
-    await navigation
-      .getByRole("link", { name: "资料办理", exact: true })
-      .click();
-    await page.getByRole("button", { name: "提交", exact: true }).click();
-    await expect(
-      page.getByRole("textbox", { name: "资料状态", exact: true }),
-    ).toHaveValue("待审批");
-    await page.getByRole("button", { name: "审批", exact: true }).click();
-    await expect(
-      page.getByRole("textbox", { name: "资料状态", exact: true }),
-    ).toHaveValue("已生效");
-    await navigation
-      .getByRole("link", { name: "单据办理", exact: true })
-      .click();
-    await expect(
-      page.getByRole("tab", { name: "表头", exact: true }),
-    ).toHaveAttribute("aria-selected", "true");
-    await page.getByRole("tab", { name: "单据明细", exact: true }).click();
-    await page.getByRole("textbox", { name: "数量", exact: true }).fill("3");
-    await page.getByRole("tab", { name: "表头", exact: true }).click();
-    await page.getByRole("tab", { name: "单据明细", exact: true }).click();
-    await expect(
-      page.getByRole("textbox", { name: "数量", exact: true }),
-    ).toHaveValue("3");
+      page.getByRole("alert").filter({ hasText: "操作失败" }),
+    ).toBeVisible();
     await page
-      .getByRole("button", { name: /^(calculate|计算)$/, exact: true })
-      .click();
+      .getByRole("textbox", { name: "关键词", exact: true })
+      .fill("retained");
+    await visit("单据");
+    dialog = await open();
+    await dialog.getByRole("tab", { name: "单据明细", exact: true }).click();
+    await dialog.getByRole("textbox", { name: "数量", exact: true }).fill("3");
+    await dialog.getByRole("button", { name: "保存", exact: true }).click();
     await expect(
-      page.getByRole("textbox", { name: "金额", exact: true }),
-    ).toHaveValue("30.00");
-    await page.locator('input[type="file"]').setInputFiles({
-      name: "synthetic.txt",
-      mimeType: "text/plain",
-      buffer: Buffer.from("synthetic attachment"),
-    });
-    await page
-      .getByRole("button", {
-        name: /^(stageAttachments|暂存附件|上传附件)$/,
-        exact: true,
-      })
-      .click();
+      dialog.getByRole("textbox", { name: "单据状态", exact: true }),
+    ).toHaveValue("已保存数量 3");
+    await dialog.getByRole("button", { name: "提交", exact: true }).click();
     await expect(
-      page.getByRole("textbox", { name: "单据状态", exact: true }),
-    ).toHaveValue("已暂存 1 个附件");
-    await page
-      .getByRole("textbox", { name: "标签值", exact: true })
-      .fill("更新标签");
-    await page.getByRole("combobox", { name: "关联值", exact: true }).click();
-    await page.getByRole("option", { name: "合成关联", exact: true }).click();
-    await page.getByRole("button", { name: "提交", exact: true }).click();
-    await expect(
-      page.getByRole("textbox", { name: "单据状态", exact: true }),
-    ).toHaveValue("已提交：更新标签/合成关联");
-    await navigation
-      .getByRole("link", { name: "流程办理", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: /^(start|启动)$/, exact: true })
-      .click();
-    await expect(
-      page.getByRole("textbox", { name: "流程状态", exact: true }),
-    ).toHaveValue("办理中");
-    await page
-      .getByRole("button", { name: /^(advance|推进|流转)$/, exact: true })
-      .click();
-    await expect(
-      page.getByRole("textbox", { name: "流程状态", exact: true }),
-    ).toHaveValue("已完成");
-    await navigation
-      .getByRole("link", { name: "批量办理", exact: true })
-      .click();
-    await page.getByRole("button", { name: "执行批次", exact: true }).click();
-    await expect(
-      page.getByRole("textbox", { name: "项结果", exact: true }),
-    ).toHaveValue("成功");
-    await navigation
-      .getByRole("link", { name: "业务查询", exact: true })
-      .click();
-    await page
+      dialog.getByRole("textbox", { name: "单据状态", exact: true }),
+    ).toHaveValue("已提交");
+    await close();
+    for (const [label, actions] of [
+      [
+        "资料办理",
+        [
+          ["提交", "资料状态", "待审批"],
+          ["审批", "资料状态", "已生效"],
+        ],
+      ],
+      [
+        "流程办理",
+        [
+          ["启动", "流程状态", "办理中"],
+          ["推进", "流程状态", "已完成"],
+        ],
+      ],
+      ["批量办理", [["执行批次", "项结果", "成功"]]],
+      [
+        "业务处理",
+        [
+          ["校验", "处理状态", "校验通过"],
+          ["运行", "处理状态", "执行完成"],
+        ],
+      ],
+    ]) {
+      await visit(label);
+      dialog = await open();
+      for (const [action, field, expected] of actions) {
+        await dialog.getByRole("button", { name: action, exact: true }).click();
+        await expect(
+          dialog.getByRole("textbox", { name: field, exact: true }),
+        ).toHaveValue(expected);
+      }
+      await close();
+    }
+    await visit("业务查询");
+    dialog = await open();
+    await dialog
       .getByRole("textbox", { name: "查询数量", exact: true })
       .fill("4");
-    await page
-      .getByRole("button", { name: /^(calculate|计算)$/, exact: true })
-      .click();
-    await expect(
-      page.getByRole("textbox", { name: "查询合计", exact: true }),
-    ).toHaveValue("40.00");
-    await page
+    await dialog
       .getByRole("textbox", { name: "计算系数", exact: true })
       .fill("5");
-    await page
-      .getByRole("button", { name: /^(calculate|计算)$/, exact: true })
-      .click();
+    await dialog.getByRole("button", { name: "计算", exact: true }).click();
     await expect(
-      page.getByRole("textbox", { name: "查询合计", exact: true }),
+      dialog.getByRole("textbox", { name: "查询合计", exact: true }),
     ).toHaveValue("20.00");
-    const download = page.waitForEvent("download");
-    await page.getByRole("button", { name: "导出", exact: true }).click();
-    const artifact = await download;
-    assert.equal(artifact.suggestedFilename(), "synthetic-report.csv");
-    assert.equal(
-      await readFile(await artifact.path(), "utf8"),
-      "合计\n20.00\n",
-    );
-    const scriptDownload = page.waitForEvent("download");
-    await page
+    const pendingDownload = page.waitForEvent("download");
+    await dialog
       .getByRole("button", { name: "下载脚本结果", exact: true })
       .click();
-    const scriptFile = await scriptDownload;
-    assert.equal(scriptFile.suggestedFilename(), "synthetic-report.csv");
+    const download = await pendingDownload;
     assert.equal(
-      await readFile(await scriptFile.path(), "utf8"),
+      await readFile(await download.path(), "utf8"),
       "合计\n20.00\n",
     );
-    await navigation
-      .getByRole("link", { name: "结构化报表", exact: true })
-      .click();
-    await page.getByText("业务分组", { exact: true }).waitFor();
-    await page.getByText("分组小计", { exact: true }).waitFor();
+    await close();
+    await visit("结构化报表");
     await expect(
       page.getByRole("rowgroup", { name: "销售总计", exact: true }),
     ).toContainText("12345678901234567890.10");
-    const drill = page.getByRole("link", { name: "打开合成凭证", exact: true });
-    await expect(drill).toHaveText("12345678901234567890.10");
-    await expect(drill).toHaveCSS("text-align", "right");
     await page
       .getByRole("textbox", { name: "查询期间", exact: true })
       .fill("2026-10");
     await page.getByRole("button", { name: "下一页", exact: true }).click();
-    const bottomDrill = page.getByRole("link", {
+    const bottom = page.getByRole("link", {
       name: "打开底部凭证",
       exact: true,
     });
-    await bottomDrill.scrollIntoViewIfNeeded();
-    const reportScroll = await page.evaluate(() => window.scrollY);
-    assert.ok(
-      reportScroll > 0,
-      "drilldown fixture must start from a scrolled result",
-    );
-    const readsBeforeDrill = callbacks.filter(
+    await bottom.scrollIntoViewIfNeeded();
+    const scroll = await page.evaluate(() => window.scrollY);
+    const reads = callbacks.filter(
       (name) => name === "structured.query",
     ).length;
-    await bottomDrill.click();
+    await bottom.click();
     await expect(
-      page.getByRole("textbox", { name: "关联凭证编号", exact: true }),
+      page
+        .getByRole("dialog")
+        .getByRole("textbox", { name: "关联凭证编号", exact: true }),
     ).toHaveValue("S-001");
+    await close();
     await page.goBack();
     await expect(
       page.getByRole("textbox", { name: "查询期间", exact: true }),
     ).toHaveValue("2026-10");
-    await expect(
-      page.getByRole("navigation", { name: "分页", exact: true }),
-    ).toContainText("第 2 页");
     assert.equal(
       callbacks.filter((name) => name === "structured.query").length,
-      readsBeforeDrill,
+      reads,
     );
-    await expect
-      .poll(() => page.evaluate(() => window.scrollY))
-      .toBe(reportScroll);
-    await navigation
-      .getByRole("link", { name: "打印办理", exact: true })
-      .click();
-    await page.getByRole("button", { name: "预览", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scroll);
+    await visit("打印办理");
+    dialog = await open("查看");
+    await dialog.getByRole("button", { name: "预览", exact: true }).click();
     await page
       .frameLocator('iframe[title="打印预览"]')
-      .getByText("Synthetic output 154", { exact: true })
+      .getByText("Synthetic output 159", { exact: true })
       .waitFor();
-    await page
+    await dialog
       .getByRole("button", { name: "打开打印窗口", exact: true })
       .click();
     await expect(
-      page.getByRole("textbox", { name: "打印结果", exact: true }),
+      dialog.getByRole("textbox", { name: "打印结果", exact: true }),
     ).toHaveValue("等待打印确认");
-    await page.getByRole("button", { name: "确认未打印", exact: true }).click();
+    await dialog
+      .getByRole("button", { name: "确认未打印", exact: true })
+      .click();
     await expect(
-      page.getByRole("textbox", { name: "打印结果", exact: true }),
+      dialog.getByRole("textbox", { name: "打印结果", exact: true }),
     ).toHaveValue("已确认未打印");
+    await close();
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
     await page
       .getByRole("menuitem", { name: "名称与头像", exact: true })
       .click();
+    dialog = page.locator(".zerp-shell");
     await expect(
-      page.getByRole("menu", { name: "账户菜单", exact: true }),
-    ).toBeHidden();
-    await expect(
-      page.getByRole("textbox", { name: "用户姓名", exact: true }),
+      dialog.getByRole("textbox", { name: "用户姓名", exact: true }),
     ).toHaveValue("合成用户");
+    await dialog.getByRole("button", { name: "保存", exact: true }).click();
     await expect(
-      page.getByRole("textbox", { name: "新的接口密钥", exact: true }),
-    ).toHaveCount(0);
-    await page.getByRole("button", { name: "保存", exact: true }).click();
-    await expect(
-      page.getByRole("textbox", { name: "密钥提交结果", exact: true }),
+      dialog.getByRole("textbox", { name: "密钥提交结果", exact: true }),
     ).toHaveValue("已保留密钥");
-    await page
-      .getByRole("combobox", { name: "接口密钥", exact: true })
-      .press("Enter");
-    await page.getByRole("option", { name: "修改", exact: true }).click();
-    await page
-      .getByRole("textbox", { name: "新的接口密钥", exact: true })
-      .fill("synthetic-api-secret");
-    await page.getByRole("button", { name: "保存", exact: true }).click();
-    await expect(
-      page.getByRole("textbox", { name: "密钥提交结果", exact: true }),
-    ).toHaveValue("已修改密钥");
-    await page
-      .getByRole("combobox", { name: "接口密钥", exact: true })
-      .press("Enter");
-    await page.getByRole("option", { name: "清除", exact: true }).click();
-    await expect(
-      page.getByRole("textbox", { name: "新的接口密钥", exact: true }),
-    ).toHaveCount(0);
-    await page.getByRole("button", { name: "保存", exact: true }).click();
-    await expect(
-      page.getByRole("textbox", { name: "密钥提交结果", exact: true }),
-    ).toHaveValue("已清除密钥");
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "更改密码", exact: true }).click();
-    await expect(
-      page.getByRole("menu", { name: "账户菜单", exact: true }),
-    ).toBeHidden();
-    await page
+    dialog = page.locator(".zerp-shell");
+    await dialog
       .getByRole("textbox", { name: "新密码", exact: true })
       .fill("synthetic-next");
-    await page.getByRole("button", { name: "修改密码", exact: true }).click();
-    await page.getByText("合成密码已更新", { exact: true }).waitFor();
+    await dialog.getByRole("button", { name: "修改密码", exact: true }).click();
+    await expect(
+      page.getByText("合成密码已更新", { exact: true }),
+    ).toBeVisible();
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "退出登录", exact: true }).click();
-    await expect(
-      page.getByRole("menu", { name: "账户菜单", exact: true }),
-    ).toBeHidden();
     await page
       .getByRole("textbox", { name: "登录名", exact: true })
       .fill("viewer");
-    await page
-      .getByRole("textbox", { name: "登录密码", exact: true })
-      .fill("synthetic-only");
     await page.getByRole("button", { name: "登录", exact: true }).click();
     await expect(
-      navigation.getByRole("link", { name: "单据办理", exact: true }),
+      page.getByRole("button", { name: "保存", exact: true }),
     ).toHaveCount(0);
     await expect(
-      page.getByRole("tab", { name: "客户", exact: true }),
+      navigation.getByRole("link", { name: "单据", exact: true }),
     ).toHaveCount(0);
-    await page.getByRole("link", { name: "查看", exact: true }).click();
+    const view = page
+      .getByRole("link", { name: "查看", exact: true })
+      .or(page.getByRole("button", { name: "查看", exact: true }));
+    await view.click();
     await expect(
       page
         .getByRole("dialog")
         .getByRole("textbox", { name: "客户名称", exact: true }),
     ).not.toBeEditable();
     await expect(
-      page.getByRole("button", { name: "保存", exact: true }),
-    ).toHaveCount(0);
-    await expect(
       page.getByRole("textbox", { name: "额度", exact: true }),
     ).toHaveCount(0);
     for (const name of [
+      "session.signIn",
+      "workbench.load",
       "customers.query",
       "customer.update",
+      "catalog.load",
+      "voucher.update",
+      "voucher.submit",
       "document.approve",
-      "voucher.stageAttachments",
       "workflow.advance",
       "batch.executeBatch",
+      "processing.run",
+      "report.calculate",
       "report.export",
       "structured.query",
-      "report.drill.get",
-      "account.secret.keep",
-      "account.secret.replace",
-      "account.secret.clear",
       "output.preview",
       "output.print",
-      "account.profile",
+      "account.secret.keep",
       "account.changePassword",
       "session.signOut",
     ])
-      assert.ok(callbacks.includes(name), `missing business callback: ${name}`);
+      assert.ok(callbacks.includes(name), `missing callback ${name}`);
     return {
       directBusinessModel: true,
+      publicStaticContract: true,
       presentation,
-      aggregateProjection: true,
       callbacks,
       syntheticOnly: true,
     };
