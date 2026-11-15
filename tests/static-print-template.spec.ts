@@ -8,6 +8,7 @@ const row = (id: string): ObjectNode => ({
   readOnly: false,
   family: "standard",
   identity: id,
+  printable: true,
   operations: {},
   members: [
     {
@@ -293,5 +294,23 @@ describe("finite model print template binding", () => {
     expect(() => bindPrintTemplate(detailTemplate, single, () => true)).toThrow(
       "正式记录",
     );
+  });
+  it("rejects unconfirmed formal values without dropping current-page rows", () => {
+    const dirty = row("dirty");
+    dirty.printable = false;
+    expect(() =>
+      bindPrintTemplate(
+        { ...template, body: [{ kind: "record", height: 10, items: [] }] },
+        dirty,
+        () => true,
+      ),
+    ).toThrow("尚未确认保存");
+    expect(() =>
+      bindPrintTemplate(
+        template,
+        { ...collection, items: [row("saved"), dirty] },
+        () => true,
+      ),
+    ).toThrow("尚未确认保存");
   });
 });
