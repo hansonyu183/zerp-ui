@@ -203,6 +203,10 @@ export async function directModelSmoke(page) {
     });
     await bottomDrill.scrollIntoViewIfNeeded();
     const reportScroll = await page.evaluate(() => window.scrollY);
+    assert.ok(
+      reportScroll > 0,
+      "drilldown fixture must start from a scrolled result",
+    );
     const readsBeforeDrill = callbacks.filter(
       (name) => name === "structured.query",
     ).length;
@@ -315,7 +319,12 @@ export async function directModelSmoke(page) {
     await expect(
       page.getByRole("tab", { name: "客户", exact: true }),
     ).toHaveCount(0);
-    await page.getByRole("button", { name: "查看", exact: true }).click();
+    await page.getByRole("link", { name: "查看", exact: true }).click();
+    await expect(
+      page
+        .getByRole("dialog")
+        .getByRole("textbox", { name: "客户名称", exact: true }),
+    ).not.toBeEditable();
     await expect(
       page.getByRole("button", { name: "保存", exact: true }),
     ).toHaveCount(0);
