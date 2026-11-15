@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { directPresentationSmoke } from "./direct-presentation-smoke.mjs";
 import { readFile } from "node:fs/promises";
 import { expect } from "@playwright/test";
 export async function directModelSmoke(page) {
@@ -22,6 +23,7 @@ export async function directModelSmoke(page) {
       ["session.signIn"],
       "constructing and navigating the aggregate must not query its child collection",
     );
+    const presentation = await directPresentationSmoke(page);
     const navigation = page.getByRole("navigation", { name: "主导航" });
     await expect(
       navigation.getByRole("link", { name: "客户", exact: true }),
@@ -30,7 +32,7 @@ export async function directModelSmoke(page) {
     await page.getByText("暂无记录", { exact: true }).waitFor();
     await page.getByRole("tab", { name: "客户", exact: true }).click();
     await page.getByText("合成客户甲", { exact: true }).waitFor();
-    await page.getByRole("button", { name: "查看", exact: true }).click();
+    await page.getByRole("button", { name: "编辑", exact: true }).click();
     await page
       .getByRole("textbox", { name: "客户名称", exact: true })
       .fill("合成客户更新");
@@ -47,15 +49,19 @@ export async function directModelSmoke(page) {
     assert.equal(callbacks.filter((name) => name === "catalog.load").length, 1);
     await page.getByRole("button", { name: "保存", exact: true }).click();
     await page.getByText("已保存：合成客户更新", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "关闭", exact: true }).click();
     await page
       .getByRole("textbox", { name: "关键词", exact: true })
       .fill("失败");
     await page.getByRole("button", { name: "查询", exact: true }).click();
     await page.getByRole("alert").filter({ hasText: "操作失败" }).waitFor();
+    await page.getByRole("button", { name: "编辑", exact: true }).click();
     await expect(
       page.getByRole("textbox", { name: "客户名称", exact: true }),
     ).toHaveValue("合成客户更新");
+    await page.getByRole("button", { name: "关闭", exact: true }).click();
 
+    await navigation.getByText("业务", { exact: true }).click();
     await navigation
       .getByRole("link", { name: "资料办理", exact: true })
       .click();
@@ -176,7 +182,6 @@ export async function directModelSmoke(page) {
     await expect(
       page.getByRole("textbox", { name: "关联凭证编号", exact: true }),
     ).toHaveValue("S-001");
-    await navigation.getByText("业务", { exact: true }).click();
     await navigation
       .getByRole("link", { name: "打印办理", exact: true })
       .click();
@@ -295,6 +300,7 @@ export async function directModelSmoke(page) {
       assert.ok(callbacks.includes(name), `missing business callback: ${name}`);
     return {
       directBusinessModel: true,
+      presentation,
       aggregateProjection: true,
       callbacks,
       syntheticOnly: true,
