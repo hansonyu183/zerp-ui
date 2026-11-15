@@ -183,10 +183,37 @@ export async function directModelSmoke(page) {
     const drill = page.getByRole("link", { name: "打开合成凭证", exact: true });
     await expect(drill).toHaveText("12345678901234567890.10");
     await expect(drill).toHaveCSS("text-align", "right");
-    await drill.click();
+    await page
+      .getByRole("textbox", { name: "查询期间", exact: true })
+      .fill("2026-10");
+    await page.getByRole("button", { name: "下一页", exact: true }).click();
+    const bottomDrill = page.getByRole("link", {
+      name: "打开底部凭证",
+      exact: true,
+    });
+    await bottomDrill.scrollIntoViewIfNeeded();
+    const reportScroll = await page.evaluate(() => window.scrollY);
+    const readsBeforeDrill = callbacks.filter(
+      (name) => name === "structured.query",
+    ).length;
+    await bottomDrill.click();
     await expect(
       page.getByRole("textbox", { name: "关联凭证编号", exact: true }),
     ).toHaveValue("S-001");
+    await page.goBack();
+    await expect(
+      page.getByRole("textbox", { name: "查询期间", exact: true }),
+    ).toHaveValue("2026-10");
+    await expect(
+      page.getByRole("navigation", { name: "分页", exact: true }),
+    ).toContainText("第 2 页");
+    assert.equal(
+      callbacks.filter((name) => name === "structured.query").length,
+      readsBeforeDrill,
+    );
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBe(reportScroll);
     await navigation
       .getByRole("link", { name: "打印办理", exact: true })
       .click();
