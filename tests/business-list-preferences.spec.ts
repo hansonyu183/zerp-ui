@@ -89,7 +89,7 @@ it("projects record operations into the second column and does not save when ent
   wrapper.unmount();
 });
 
-it("keeps read access when editing is disabled and removes revoked row operations", async () => {
+it("keeps input access when saving is disabled and removes revoked row operations", async () => {
   const { model, submit } = fixture();
   type Collection = Extract<
     BusinessModel[string],
@@ -101,8 +101,8 @@ it("keeps read access when editing is disabled and removes revoked row operation
   const wrapper = mount(BusinessApplication, { props: { model } });
   await flushPromises();
   const row = wrapper.get("tbody tr");
-  expect(row.find('[aria-label="查看"]').exists()).toBe(true);
-  expect(row.get('[aria-label="编辑"]').attributes("disabled")).toBeDefined();
+  expect(row.find('[aria-label="查看"]').exists()).toBe(false);
+  expect(row.get('[aria-label="编辑"]').attributes("disabled")).toBeUndefined();
   const owner = model[meta].owner!;
   model[meta].userPermissions = {
     owner,
@@ -158,7 +158,7 @@ it("keeps short mobile action labels and all workflow actions directly reachable
     await flushPromises();
     const workflowCard = wrapper.get('article[aria-label="记录 1"]');
     expect(workflowCard.find('[aria-label="更多操作"]').exists()).toBe(false);
-    for (const label of ["启动", "推进", "新增子项", "查看记录"])
+    for (const label of ["启动", "推进", "新增", "查看记录"])
       expect(workflowCard.get(`[aria-label="${label}"]`).text()).toBe(label);
   } finally {
     wrapper.unmount();
