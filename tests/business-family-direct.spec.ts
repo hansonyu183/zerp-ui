@@ -194,3 +194,56 @@ it("keeps processing input writable while execution is disabled without a fake s
   ).find((button) => button.textContent?.trim() === "运行")!;
   expect(execute.disabled).toBe(true);
 });
+
+it("keeps a preview-only output record actionable without manufacturing update", async () => {
+  const { model, record } = fixture();
+  delete record.operations.update;
+  record.members = [
+    {
+      kind: "output",
+      key: "sheet",
+      label: "打印内容",
+      readOnly: false,
+      value: null,
+      operations: { print: operation() },
+    },
+  ];
+  record.output = {
+    operations: {
+      preview: operation(
+        vi.fn(async () => {
+          const output = record.members[0]!;
+          if (output.kind === "output")
+            output.value = {
+              id: "preview",
+              title: "Preview",
+              width: 100,
+              height: 100,
+              pages: [
+                {
+                  key: "1",
+                  items: [
+                    {
+                      kind: "text",
+                      key: "t",
+                      x: 0,
+                      y: 0,
+                      width: 90,
+                      height: 10,
+                      text: "Preview",
+                    },
+                  ],
+                },
+              ],
+            };
+        }),
+      ),
+    },
+  };
+  wrapper = await render(model);
+  await click("编辑");
+  await click("预览");
+  expect(record.output.operations.preview!.run).toHaveBeenCalledTimes(1);
+  expect(document.querySelector('iframe[title="打印预览"]')).not.toBeNull();
+  expect(record.operations.update).toBeUndefined();
+});

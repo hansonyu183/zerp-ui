@@ -235,6 +235,7 @@ export async function directModelSmoke(page) {
     await expect(
       dialog.getByRole("textbox", { name: "打印结果", exact: true }),
     ).toHaveValue("已确认未打印");
+    await close();
     await page
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();

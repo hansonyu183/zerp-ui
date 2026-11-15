@@ -5,6 +5,7 @@ import type {
   InteractionNode,
   ObjectNode,
   Operation,
+  Owner,
   OutputNode,
 } from "@zerp/ui/model";
 const trace = (name: string) => console.log(`synthetic-call:${name}`);
@@ -337,3 +338,21 @@ export const familyCollections = {
   details,
   outputs,
 };
+
+// Synthetic backend seeds are not preloaded into the anonymous application model.
+export function bindFamilyQueries(owner: () => Owner | null) {
+  for (const rows of Object.values(familyCollections)) {
+    const seed = rows.items;
+    const query = rows.operations.query;
+    rows.items = [];
+    rows.total = 0;
+    rows.operations.query = operation(async () => {
+      const requestOwner = owner();
+      if (!requestOwner) return;
+      await query?.run();
+      if (owner() !== requestOwner) return;
+      rows.items = seed;
+      rows.total = rows === structuredReport ? 60 : seed.length;
+    });
+  }
+}

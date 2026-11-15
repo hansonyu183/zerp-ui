@@ -1,4 +1,4 @@
-import { reactive } from "vue";
+import { reactive, ref } from "vue";
 import type {
   BusinessModel,
   Collection,
@@ -10,7 +10,7 @@ import type {
   RecordsNode,
 } from "@zerp/ui/model";
 import { router } from "./router";
-import { familyCollections, reports } from "./families";
+import { bindFamilyQueries, familyCollections, reports } from "./families";
 
 export const trace = (name: string) => console.log(`synthetic-call:${name}`);
 const operation = (run: () => Promise<void>): Operation => ({
@@ -133,6 +133,7 @@ lines.operations.remove = operation(async () => {
     lines.items.splice(lines.items.indexOf(lines.selected), 1);
   lines.selected = null;
 });
+const settlementAccount = text("account", "结算账户", "合成账户");
 const customer = object("customer", "客户", [
   text("code", "编号", "C1", true),
   name,
@@ -140,7 +141,7 @@ const customer = object("customer", "客户", [
   category,
   groups,
   text("internal", null, "隐藏内部值"),
-  object("settlement", "结算", [text("account", "结算账户", "合成账户")]),
+  object("settlement", "结算", [settlementAccount]),
   lines,
 ]);
 customer.identity = "C1";
@@ -149,17 +150,19 @@ const currentCustomerFacts = () =>
   JSON.stringify({
     name: name.value,
     credit: credit.value,
+    account: settlementAccount.value,
     category: category.value,
     groups: groups.value,
     contacts: lines.items.map((row) =>
       row.members.map((member) => ("value" in member ? member.value : null)),
     ),
   });
-let savedCustomerFacts = currentCustomerFacts();
+const savedCustomerFacts = ref(currentCustomerFacts());
 Object.defineProperty(customer, "printable", {
   enumerable: true,
   get: () =>
-    customer.identity !== null && currentCustomerFacts() === savedCustomerFacts,
+    customer.identity !== null &&
+    currentCustomerFacts() === savedCustomerFacts.value,
 });
 customer.operations.get = operation(async () => {
   trace("customer.get");
@@ -167,7 +170,7 @@ customer.operations.get = operation(async () => {
 customer.operations.update = operation(async () => {
   trace("customer.update");
   if (name.value === "失败") throw Error("合成保存失败，请修改名称后重试。");
-  savedCustomerFacts = currentCustomerFacts();
+  savedCustomerFacts.value = currentCustomerFacts();
   model.messages.push({
     id: String(Date.now()),
     level: "success",
@@ -438,14 +441,21 @@ function resetBusiness() {
     collection.draft = null;
     collection.total = 0;
     collection.page = 1;
+    for (const condition of collection.conditions.members)
+      if ("value" in condition && typeof condition.value === "string")
+        condition.value = "";
   }
   filter.value = "";
-  name.value = "合成客户甲";
-  credit.value = "12345678901234567890.125";
+  name.value = "";
+  settlementAccount.value = "";
+  lines.items = [];
+  customer.identity = null;
+  credit.value = "";
   category.options = [];
-  category.value = { id: "retired", label: "历史分类" };
+  category.value = null;
   groups.value = [];
   secret.value = { intent: "keep" };
+  secretStatus.value = "";
   nextPassword.value = "";
   loginPassword.value = "";
   model.messages = [];
@@ -557,6 +567,7 @@ export const model: BusinessModel = reactive({
     masters: shortcut("masters", "资料", customers),
   },
 });
+bindFamilyQueries(() => model.session.owner);
 router.afterEach((to) => {
   model.navigation.current =
     Object.values(model.members).find(
