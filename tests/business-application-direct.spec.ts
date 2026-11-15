@@ -645,3 +645,30 @@ it("shows fresh messages on atomic model-owner replacement while retaining old-m
   expect(wrapper.text()).not.toContain("Old owner message");
   wrapper.unmount();
 });
+it("labels the authentication recovery operation in business language", async () => {
+  const { model } = fixture();
+  const recover = vi.fn(async () => {});
+  const auth: NonNullable<BusinessModel[typeof meta]["authentication"]> = {
+    [meta]: {
+      kind: "object",
+      name: "登录",
+      family: "authentication",
+      operations: { recover: { run: recover } },
+    },
+  };
+  model.authentication = auth;
+  model[meta].authentication = auth;
+  model[meta].owner = null;
+  model[meta].userPermissions = null;
+  model[meta].session = { state: "recovering" };
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  const button = wrapper
+    .findAll("button")
+    .find((button) => button.text() === "恢复会话");
+  expect(button).toBeDefined();
+  await button!.trigger("click");
+  await flushPromises();
+  expect(recover).toHaveBeenCalledOnce();
+  wrapper.unmount();
+});
