@@ -1,5 +1,21 @@
 import { expect } from "@playwright/test";
 
+async function settleLayout(page) {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.playState === "running" &&
+            animation.effect?.getTiming().iterations !== Infinity,
+        )
+        .map((animation) => animation.finished.catch(() => {})),
+    );
+  });
+}
+
 // Runs against the independently installed public package; no model or VM access.
 export async function directPresentationSmoke(page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -33,6 +49,7 @@ export async function directPresentationSmoke(page) {
   await view.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
+  await settleLayout(page);
   const field = dialog.getByRole("textbox", { name: "客户名称", exact: true });
   await expect(field).toBeEditable();
   const barBox = await page.locator(".v-app-bar").boundingBox();
@@ -44,6 +61,7 @@ export async function directPresentationSmoke(page) {
   await expect(view).toBeFocused();
   await table.getByRole("button", { name: "编辑", exact: true }).click();
   await expect(field).toBeEditable();
+  await settleLayout(page);
   const code = dialog.getByRole("textbox", { name: "编号", exact: true });
   const codeBox = await code.boundingBox();
   const nameBox = await field.boundingBox();
@@ -64,6 +82,7 @@ export async function directPresentationSmoke(page) {
   await expect(mobileEdit).toContainText("编辑");
   expect((await mobileEdit.boundingBox()).height).toBeGreaterThanOrEqual(48);
   await mobileEdit.click();
+  await settleLayout(page);
   await expect(field).toHaveCSS("font-size", "16px");
   const mobileBox = await dialog.boundingBox();
   const mobileBar = await page.locator(".v-app-bar").boundingBox();
@@ -87,6 +106,7 @@ export async function workbenchPresentationSmoke(page) {
   const workbench = page.getByRole("region", { name: "工作台", exact: true });
   const cards = workbench.locator(".zerp-workbench-grid > section");
   await expect(cards).toHaveCount(4);
+  await settleLayout(page);
   const rects = () =>
     cards.evaluateAll((items) =>
       items.map((item) => {
@@ -122,6 +142,7 @@ export async function workbenchPresentationSmoke(page) {
   await darkToggle.click();
   await expect(cards.first()).toHaveClass(/v-theme--zerp-md3-light/);
   await page.setViewportSize({ width: 390, height: 844 });
+  await settleLayout(page);
   const mobile = await rects();
   for (let i = 1; i < mobile.length; i++) {
     expect(mobile[i].y).toBeGreaterThanOrEqual(
