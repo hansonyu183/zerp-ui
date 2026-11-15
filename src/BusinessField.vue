@@ -83,11 +83,19 @@ function setValue(value: unknown) {
         ? [value]
         : [];
   else if (node.kind === "reference" || node.kind === "treeReference") {
-    if (node.multiple) node.value = Array.isArray(value) ? value : [];
-    else
+    if (node.multiple)
       node.value = Array.isArray(value)
+        ? value.map((item: ReferenceValue) => ({
+            id: item.id,
+            label: item.label,
+          }))
+        : [];
+    else {
+      const item = Array.isArray(value)
         ? null
         : (value as ReferenceValue | null);
+      node.value = item ? { id: item.id, label: item.label } : null;
+    }
   } else if (node.kind !== "secret")
     node.value = value == null ? "" : String(value);
 }
