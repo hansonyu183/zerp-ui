@@ -10,7 +10,12 @@ import type {
   RecordsNode,
 } from "@zerp/ui/model";
 import { router } from "./router";
-import { bindFamilyQueries, familyCollections, reports } from "./families";
+import {
+  bindFamilyQueries,
+  clearFamilyInputs,
+  familyCollections,
+  reports,
+} from "./families";
 
 export const trace = (name: string) => console.log(`synthetic-call:${name}`);
 const operation = (run: () => Promise<void>): Operation => ({
@@ -264,11 +269,34 @@ const customers: Collection = reactive({
   },
 });
 customers.operations.query = operation(async () => {
-  const owner = model.session.owner;
+  const owner = JSON.stringify(model.session.owner);
   trace("customers.query");
   await Promise.resolve();
-  if (model.session.owner !== owner) return;
+  if (
+    JSON.stringify(model.session.owner) !== owner ||
+    model.session.state !== "ready"
+  )
+    return;
   if (filter.value === "失败") throw Error("合成查询失败");
+  const facts = JSON.parse(savedCustomerFacts.value) as {
+    name: string;
+    credit: string;
+    account: string;
+    category: { id: string; label: string } | null;
+    groups: { id: string; label: string }[];
+    contacts: string[][];
+  };
+  name.value = facts.name;
+  credit.value = facts.credit;
+  settlementAccount.value = facts.account;
+  category.value = facts.category;
+  groups.value = facts.groups;
+  lines.items = facts.contacts.map((values, index) =>
+    object(`contact-${index + 1}`, "联系人", [
+      text("contact", "联系人姓名", values[0] ?? ""),
+    ]),
+  );
+  customer.identity = "C1";
   customers.items = [customer];
   customers.total = 1;
 });
@@ -435,6 +463,7 @@ const shortcut = (
 });
 let generation = 0;
 function resetBusiness() {
+  clearFamilyInputs();
   for (const collection of Object.values(model.members)) {
     collection.items = [];
     collection.selected = null;

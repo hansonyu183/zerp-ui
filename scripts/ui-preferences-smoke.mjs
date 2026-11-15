@@ -138,7 +138,9 @@ export async function uiPreferencesSmoke(page, options = {}) {
       "success-error-appearance-and-dismissal-preserve-field-and-row-geometry",
     result: "passed",
   });
-  await page.getByRole("link", { name: "合成业务示例 示例企业" }).click();
+  await page
+    .getByRole("link", { name: "合成业务示例：首页", exact: true })
+    .click();
   if (options.workbench !== false) await workbenchPresentationSmoke(page);
   assertions.push({
     clauses: ["UI-WORK-01", "UI-THEME-02"],

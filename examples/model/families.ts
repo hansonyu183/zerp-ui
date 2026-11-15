@@ -347,10 +347,10 @@ export function bindFamilyQueries(owner: () => Owner | null) {
     rows.items = [];
     rows.total = 0;
     rows.operations.query = operation(async () => {
-      const requestOwner = owner();
-      if (!requestOwner) return;
+      if (!owner()) return;
+      const requestOwner = JSON.stringify(owner());
       await query?.run();
-      if (owner() !== requestOwner) return;
+      if (JSON.stringify(owner()) !== requestOwner) return;
       if (rows === structuredReport) {
         details.items = [detailRecord];
         details.total = 1;
@@ -359,4 +359,12 @@ export function bindFamilyQueries(owner: () => Owner | null) {
       rows.total = rows === structuredReport ? 60 : seed.length;
     });
   }
+}
+
+export function clearFamilyInputs() {
+  quantity.value = "2";
+  questions.value = {};
+  result.value = "0.00";
+  sheet.value = null;
+  outputResult.value = "未确认";
 }
