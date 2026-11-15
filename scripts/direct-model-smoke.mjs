@@ -19,9 +19,9 @@ export async function directModelSmoke(page) {
       await navigation.getByText("业务", { exact: true }).click();
     await link.click();
   };
-  const open = async () => {
+  const open = async (action = "编辑") => {
     await page
-      .getByRole("button", { name: "编辑", exact: true })
+      .getByRole("button", { name: action, exact: true })
       .first()
       .click();
     return page.getByRole("dialog");
@@ -103,7 +103,40 @@ export async function directModelSmoke(page) {
     await settlement.click();
     await contacts.click();
     await expect(contact).toHaveValue("更新联系人");
+    await expect(
+      dialog.getByRole("button", { name: "单条打印", exact: true }),
+    ).toBeDisabled();
+    await dialog.getByRole("button", { name: "保存", exact: true }).click();
+    await expect(
+      dialog.getByRole("button", { name: "单条打印", exact: true }),
+    ).toBeEnabled();
+    await dialog.getByRole("button", { name: "单条打印", exact: true }).click();
+    const itemPreview = page.getByRole("dialog", {
+      name: "客户打印",
+      exact: true,
+    });
+    await expect(
+      itemPreview
+        .frameLocator('iframe[title="打印预览"]')
+        .getByText("合成客户更新", { exact: true }),
+    ).toBeVisible();
+    await itemPreview
+      .getByRole("button", { name: "关闭", exact: true })
+      .click();
     await close();
+    await page.getByRole("button", { name: "当前页打印", exact: true }).click();
+    const pagePreview = page.getByRole("dialog", {
+      name: "当前页打印",
+      exact: true,
+    });
+    await expect(
+      pagePreview
+        .frameLocator('iframe[title="打印预览"]')
+        .getByText("合成客户更新", { exact: true }),
+    ).toBeVisible();
+    await pagePreview
+      .getByRole("button", { name: "关闭", exact: true })
+      .click();
     await page
       .getByRole("textbox", { name: "关键词", exact: true })
       .fill("失败");
@@ -217,7 +250,7 @@ export async function directModelSmoke(page) {
     );
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scroll);
     await visit("打印办理");
-    dialog = await open();
+    dialog = await open("查看");
     await dialog.getByRole("button", { name: "预览", exact: true }).click();
     await page
       .frameLocator('iframe[title="打印预览"]')

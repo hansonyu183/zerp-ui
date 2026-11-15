@@ -241,9 +241,23 @@ it("keeps a preview-only output record actionable without manufacturing update",
     },
   };
   wrapper = await render(model);
-  await click("编辑");
+  await click("查看");
   await click("预览");
   expect(record.output.operations.preview!.run).toHaveBeenCalledTimes(1);
   expect(document.querySelector('iframe[title="打印预览"]')).not.toBeNull();
+  expect(record.operations.update).toBeUndefined();
+});
+
+it("keeps explicit writable output confirmations reachable without fake CRUD save", async () => {
+  const { model, record } = fixture();
+  delete record.operations.update;
+  const confirmed = operation();
+  record.output = {
+    operations: { preview: operation(), confirmNotPrinted: confirmed },
+  };
+  wrapper = await render(model);
+  await click("编辑");
+  await click("确认未打印");
+  expect(confirmed.run).toHaveBeenCalledTimes(1);
   expect(record.operations.update).toBeUndefined();
 });

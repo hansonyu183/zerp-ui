@@ -351,6 +351,10 @@ export function bindFamilyQueries(owner: () => Owner | null) {
       if (!requestOwner) return;
       await query?.run();
       if (owner() !== requestOwner) return;
+      if (rows === structuredReport) {
+        details.items = [detailRecord];
+        details.total = 1;
+      }
       rows.items = seed;
       rows.total = rows === structuredReport ? 60 : seed.length;
     });
