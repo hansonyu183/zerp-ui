@@ -218,3 +218,22 @@ it("keeps a closed new record and its unknown-result restrictions reachable with
   expect(create).not.toHaveBeenCalled();
   wrapper.unmount();
 });
+it("keeps the active group and its read when the projection order changes", async () => {
+  const { model, query } = fixture();
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  await flushPromises();
+  await wrapper.get('[role="tab"][data-member="rows"]').trigger("click");
+  await flushPromises();
+  expect(query).toHaveBeenCalledTimes(1);
+  const group = model.group as Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "object" } }
+  >;
+  group[meta].form = ["rows", "overview"];
+  await flushPromises();
+  expect(
+    wrapper.get('[role="tab"][data-member="rows"]').attributes("aria-selected"),
+  ).toBe("true");
+  expect(query).toHaveBeenCalledTimes(1);
+  wrapper.unmount();
+});

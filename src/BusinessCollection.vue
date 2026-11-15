@@ -195,13 +195,10 @@ function visit(value: ReportCell<Target>, row: Values) {
 }
 function editingOperation(source: ObjectNode) {
   const operations = runtime.operations(source);
-  if (operations.update)
-    return runtime.allowed(source, "update") ? operations.update : undefined;
   if (!runtime.writable(source)) return;
   return Object.entries(operations).find(
-    ([key, operation]) =>
+    ([key]) =>
       !["get", "delete", "reconcile"].includes(key) &&
-      !operation.disabledReason &&
       runtime.allowed(source, key),
   )?.[1];
 }
@@ -210,8 +207,6 @@ function actions(row: Values): RowAction[] {
   if (!source || !runtime.readable(source)) return [];
   const editable = !!editingOperation(source);
   const result: RowAction[] = editable ? ["edit"] : ["view"];
-  if (editable && editingOperation(source)?.disabledReason)
-    result.unshift("view");
   const available = new Set<string>([
     ...Object.keys(businessRowActions),
     "delete",
@@ -239,10 +234,9 @@ function reasons(row: Values): Partial<Record<RowAction, string>> {
         action,
         runtime.busy.value.has(toRaw(source))
           ? "正在处理"
-          : (action === "edit"
-              ? editingOperation(source)
-              : runtime.operations(source)[action]
-            )?.disabledReason,
+          : action === "edit"
+            ? undefined
+            : runtime.operations(source)[action]?.disabledReason,
       ])
       .filter((entry): entry is [RowAction, string] => !!entry[1]),
   );

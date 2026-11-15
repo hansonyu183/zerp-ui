@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, toRaw, watch } from "vue";
+import { computed, inject, toRaw, watchEffect } from "vue";
 import {
   VCard,
   VCardTitle,
@@ -91,24 +91,26 @@ function visit(
   visitTarget(event, target.target);
 }
 const activated = new WeakSet<object>();
-watch(
-  [() => props.node, sections],
-  () => {
-    // A root reader owns orchestration. Otherwise each displayed independent role activates once.
-    const nodes = runtime.operations(props.node).get
-      ? [props.node]
-      : sections.value.map((section) => section.node);
-    for (const node of nodes) {
-      if (activated.has(toRaw(node))) continue;
-      activated.add(toRaw(node));
-      void runtime.run(
-        node,
-        node[meta].kind === "collection" ? "query" : "get",
-      );
-    }
-  },
-  { immediate: true },
-);
+watchEffect(() => {
+  // A root reader owns orchestration. Otherwise each displayed independent role activates once.
+  const nodes = runtime.operations(props.node).get
+    ? [props.node]
+    : sections.value.map((section) => section.node);
+  for (const node of nodes) {
+    const action = node[meta].kind === "collection" ? "query" : "get";
+    const operation = runtime.operations(node)[action];
+    if (
+      activated.has(toRaw(node)) ||
+      !operation ||
+      operation.disabledReason ||
+      runtime.busy.value.has(toRaw(node)) ||
+      !runtime.allowed(node, action)
+    )
+      continue;
+    activated.add(toRaw(node));
+    void runtime.run(node, action);
+  }
+});
 </script>
 <template>
   <section class="zerp-workbench" :aria-label="node[meta].name">

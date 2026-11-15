@@ -325,3 +325,96 @@ it("keeps scalar fields together while tabbing only contiguous structural groups
   expect(dialog.get('input[aria-label="名称"]').isVisible()).toBe(true);
   wrapper.unmount();
 });
+it("opens writable inputs while execution is disabled, even if update is denied", async () => {
+  const { model } = fixture();
+  type Collection = Extract<
+    BusinessModel[string],
+    { [meta]: { kind: "collection" } }
+  >;
+  const rows = model.rows as Collection;
+  const record = rows.items[0]!;
+  const process = vi.fn(async () => {});
+  record[meta] = {
+    kind: "object",
+    name: "办理",
+    family: "processing",
+    operations: {
+      update: { run: async () => {} },
+      process: { run: process, disabledReason: "请填写名称" },
+    },
+  };
+  model[meta].userPermissions = {
+    owner: model[meta].owner!,
+    administrator: false,
+    grants: [
+      { node: rows, read: true, write: true, operations: { process: true } },
+    ],
+  };
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  await wrapper.get('tbody [aria-label="编辑"]').trigger("click");
+  await flushPromises();
+  const dialog = wrapper.get('[role="dialog"]');
+  await dialog.get('input[aria-label="名称"]').setValue("ready");
+  const action = dialog.findAll("button").find((b) => b.text() === "处理")!;
+  expect(action.attributes("disabled")).toBeDefined();
+  expect(action.attributes("title")).toBe("请填写名称");
+  expect(dialog.findAll("button").some((b) => b.text() === "保存")).toBe(false);
+  expect((record.name as { value: string }).value).toBe("ready");
+  expect(process).not.toHaveBeenCalled();
+  wrapper.unmount();
+});
+it.each(["root", "role"])(
+  "activates a %s workbench reader after its initial restriction clears",
+  async (reader) => {
+    const { model } = fixture();
+    type Collection = Extract<
+      BusinessModel[string],
+      { [meta]: { kind: "collection" } }
+    >;
+    type ObjectNode = Extract<
+      BusinessModel[string],
+      { [meta]: { kind: "object" } }
+    >;
+    const rows = model.rows as Collection;
+    const load = vi.fn(async () => {});
+    rows[meta].operations.query = { run: load, disabledReason: "准备中" };
+    const information: ObjectNode = {
+      [meta]: { kind: "object", name: "提醒", operations: {} },
+    };
+    const dashboard: ObjectNode = {
+      information,
+      rows,
+      [meta]: {
+        kind: "object",
+        name: "工作台",
+        family: "workbench",
+        operations:
+          reader === "root"
+            ? { get: { run: load, disabledReason: "准备中" } }
+            : {},
+        workbench: {
+          information,
+          vouchers: rows,
+          reports: rows,
+          documents: rows,
+        },
+      },
+    };
+    model.dashboard = dashboard;
+    model[meta].navigation.current = dashboard;
+    const wrapper = mount(BusinessApplication, { props: { model } });
+    await flushPromises();
+    expect(load).not.toHaveBeenCalled();
+    if (reader === "root")
+      delete (model.dashboard as ObjectNode)[meta].operations.get!
+        .disabledReason;
+    else delete rows[meta].operations.query!.disabledReason;
+    await flushPromises();
+    expect(load).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+  },
+);

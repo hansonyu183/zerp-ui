@@ -95,12 +95,20 @@ const visible = computed(() => {
   return projected.filter(([, n]) => props.publicAuth || runtime.readable(n));
 });
 const runs = computed(() => {
-  const result: { grouped: boolean; entries: [string, Node][] }[] = [];
+  const result: { key: string; grouped: boolean; entries: [string, Node][] }[] =
+    [];
+  let fieldRun = 0,
+    groupRun = 0;
   for (const entry of visible.value) {
     const grouped = ["object", "collection"].includes(entry[1][meta].kind);
     const previous = result.at(-1);
     if (previous?.grouped === grouped) previous.entries.push(entry);
-    else result.push({ grouped, entries: [entry] });
+    else
+      result.push({
+        key: grouped ? `groups-${groupRun++}` : `fields-${fieldRun++}`,
+        grouped,
+        entries: [entry],
+      });
   }
   return result;
 });
@@ -170,7 +178,7 @@ watch(
 <template>
   <section v-if="publicAuth || runtime.readable(node)" :aria-label="info.name">
     <template v-if="info.kind === 'object'">
-      <template v-for="run in runs" :key="run.entries[0]![0]">
+      <template v-for="run in runs" :key="run.key">
         <BusinessGroups
           v-if="run.grouped"
           :entries="run.entries"
