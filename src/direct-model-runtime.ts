@@ -235,7 +235,12 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   async function run(node: Node, action: string, publicAuth = false) {
     const op = operations(node)[action],
       owner = scope.value,
-      start = epoch;
+      start = epoch,
+      identity = "identity" in node ? node.identity : node.key;
+    const valid = () =>
+      operations(node)[action] === op &&
+      ("identity" in node ? node.identity : node.key) === identity &&
+      allowed(node, action, publicAuth);
     if (op)
       await execute(
         node,
@@ -248,7 +253,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
             if (
               start === epoch &&
               owner === scope.value &&
-              readable(node) &&
+              valid() &&
               isCollection(node) &&
               node.report &&
               ["get", "query"].includes(action)
@@ -256,13 +261,21 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
               reportViews.set(toRaw(node), { left: 0, top: 0 });
           },
         },
-        () => allowed(node, action, publicAuth),
+        valid,
         action === "load",
       );
   }
   async function runAccount(action: "signOut" | "changePassword" = "signOut") {
-    const account = model().account;
-    await execute(account, account.operations[action], () => ready.value);
+    const account = model().account,
+      op = account.operations[action];
+    await execute(
+      account,
+      op,
+      () =>
+        ready.value &&
+        model().account === account &&
+        account.operations[action] === op,
+    );
   }
   async function runWorkbench(once = false) {
     const w = model().workbench;
@@ -278,11 +291,14 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       return;
     loaded.add(scope.value);
     workbenchLoads.set(key, loaded);
+    const operation = w.load;
     await execute(
       w,
-      w.load,
+      operation,
       () =>
         ready.value &&
+        model().workbench === w &&
+        w.load === operation &&
         [w.information, w.vouchers, w.reports, w.masters].some(readable),
     );
   }
