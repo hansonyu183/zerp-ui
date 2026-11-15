@@ -231,7 +231,7 @@ function goHome(event: MouseEvent) {
 watch(
   [() => props.model, runtime.scope, () => props.model.session.state],
   (_current, previous) => {
-    if (previous?.[1]) clearReferenceScope(previous[1]);
+    if (previous?.[1] !== undefined) clearReferenceScope(previous[1]);
     runtime.invalidate(true);
     accountView.value = null;
   },
