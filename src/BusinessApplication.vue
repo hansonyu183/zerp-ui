@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, provide, watch, h, ref, toRaw } from "vue";
+import { computed, provide, watch, h, ref, toRaw, onBeforeUnmount } from "vue";
+import { clearReferenceScope } from "./reference-directory";
 import type { BusinessModel, Collection, ObjectNode } from "./business-model";
 import {
   createDirectRuntime,
@@ -180,21 +181,26 @@ const target = computed(() =>
     ? props.model.account.password
     : (accountView.value ?? current.value),
 );
-const page = computed<PageDefinition>(() => ({
-  kind: "details",
-  title: target.value?.label ?? (props.model.workbench ? "工作台" : ""),
-  [snapshotPage]: () => ({
-    title: target.value?.label ?? (props.model.workbench ? "工作台" : ""),
-    render: () => [
-      target.value
-        ? h(BusinessNode, { node: target.value })
-        : props.model.workbench
-          ? h(BusinessWorkbench, { node: props.model.workbench })
-          : h("p", "暂无可用内容。"),
-      feedback(),
-    ],
-  }),
-}));
+const page = computed<PageDefinition>(() => {
+  const node = target.value,
+    workbench = props.model.workbench;
+  const title = node?.label ?? (workbench ? "工作台" : "");
+  return {
+    kind: "details",
+    title,
+    [snapshotPage]: () => ({
+      title,
+      render: () => [
+        node
+          ? h(BusinessNode, { node })
+          : workbench
+            ? h(BusinessWorkbench, { node: workbench })
+            : h("p", "暂无可用内容。"),
+        feedback(),
+      ],
+    }),
+  };
+});
 async function accountAction(action: AccountIntent) {
   if (action === "sign-out") {
     await runtime.runAccount();
@@ -224,12 +230,25 @@ function goHome(event: MouseEvent) {
 }
 watch(
   [() => props.model, runtime.scope, () => props.model.session.state],
-  () => {
+  (_current, previous) => {
+    if (previous?.[1]) clearReferenceScope(previous[1]);
     runtime.invalidate(true);
     accountView.value = null;
   },
   { flush: "sync" },
 );
+watch(
+  () => props.model.navigation.current,
+  (_current, previous) => {
+    if (previous?.report && runtime.ready.value && runtime.readable(previous))
+      runtime.reportViews.set(toRaw(previous), {
+        left: window.scrollX,
+        top: window.scrollY,
+      });
+  },
+  { flush: "sync" },
+);
+onBeforeUnmount(() => clearReferenceScope(runtime.scope.value));
 watch(target, () => runtime.invalidate(), { flush: "sync" });
 </script>
 <template>
