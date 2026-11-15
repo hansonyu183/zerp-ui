@@ -112,8 +112,12 @@ it("keeps the same root through anonymous authentication and isolates mismatched
   expect(signIn).toHaveBeenCalledTimes(1);
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
   const currentSession = () => model.session;
-  const owner = currentSession().owner;
-  if (owner) model.session.owner = { ...owner, generation: "3" };
+  const session = currentSession();
+  if (session.state === "ready" || session.state === "password-required")
+    model.session = {
+      ...session,
+      owner: { ...session.owner, generation: "3" },
+    };
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
   wrapper.unmount();
@@ -624,8 +628,10 @@ it("keeps qualified workflow row actions directly visible while ordinary actions
     .findAll("button[aria-label]")
     .map((button) => button.attributes("aria-label"));
   expect(
-    labels.filter((label) =>
-      ["编辑", "处理", "校验", "运行", "停止"].includes(label),
+    labels.filter(
+      (label) =>
+        label !== undefined &&
+        ["编辑", "处理", "校验", "运行", "停止"].includes(label),
     ),
   ).toHaveLength(3);
   wrapper.unmount();
