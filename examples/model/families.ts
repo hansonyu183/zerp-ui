@@ -258,14 +258,32 @@ const sale = reactive({
     operations: {},
   },
 } satisfies BusinessModel[string]);
+const reportRows = [
+  sale,
+  ...Array.from({ length: 29 }, (_, index) =>
+    reactive({
+      name: text("销售名称", `合成销售${index + 2}`),
+      amount: { value: "0.00", [meta]: { kind: "decimal", name: "销售金额" } },
+      [meta]: {
+        kind: "object",
+        identity: `sale-${index + 2}`,
+        name: "销售记录",
+        operations: {},
+      },
+    } satisfies BusinessModel[string]),
+  ),
+];
 export const structuredReport = reactive({
-  items: [sale],
+  items: reportRows,
   selected: null,
   draft: null,
-  query: { [meta]: { kind: "object", name: "报表条件", operations: {} } },
+  query: {
+    period: text("查询期间", "2026-11"),
+    [meta]: { kind: "object", name: "报表条件", operations: {} },
+  },
   page: 1,
-  pageSize: 20,
-  total: 1,
+  pageSize: 30,
+  total: 60,
   [meta]: {
     kind: "collection",
     name: "结构化报表",
@@ -313,6 +331,13 @@ export const structuredReport = reactive({
           field: "amount",
           kind: "record",
           label: "打开合成凭证",
+          target: analysisDetail,
+        },
+        {
+          row: reportRows.at(-1)!,
+          field: "name",
+          kind: "record",
+          label: "打开底部凭证",
           target: analysisDetail,
         },
       ],

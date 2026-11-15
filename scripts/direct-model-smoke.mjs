@@ -50,8 +50,18 @@ export async function directModelSmoke(page) {
     await category.fill("分类45");
     await page.getByRole("option", { name: "分类45", exact: true }).click();
     assert.equal(callbacks.filter((name) => name === "catalog.load").length, 1);
+    const nameBeforeFeedback = await page
+      .getByRole("textbox", { name: "客户名称", exact: true })
+      .boundingBox();
     await page.getByRole("button", { name: "保存", exact: true }).click();
     await page.getByText("已保存：合成客户更新", { exact: true }).waitFor();
+    const nameAfterFeedback = await page
+      .getByRole("textbox", { name: "客户名称", exact: true })
+      .boundingBox();
+    assert.ok(
+      Math.abs(nameBeforeFeedback.y - nameAfterFeedback.y) < 1,
+      "success feedback must not move the editor",
+    );
     await page.getByRole("button", { name: "关闭", exact: true }).click();
     await page
       .getByRole("textbox", { name: "关键词", exact: true })
@@ -183,10 +193,37 @@ export async function directModelSmoke(page) {
     const drill = page.getByRole("link", { name: "打开合成凭证", exact: true });
     await expect(drill).toHaveText("12345678901234567890.10");
     await expect(drill).toHaveCSS("text-align", "right");
-    await drill.click();
+    await page
+      .getByRole("textbox", { name: "查询期间", exact: true })
+      .fill("2026-10");
+    await page.getByRole("button", { name: "下一页", exact: true }).click();
+    const bottomDrill = page.getByRole("link", {
+      name: "打开底部凭证",
+      exact: true,
+    });
+    await bottomDrill.scrollIntoViewIfNeeded();
+    const reportScroll = await page.evaluate(() => window.scrollY);
+    const readsBeforeDrill = callbacks.filter(
+      (name) => name === "structured.query",
+    ).length;
+    await bottomDrill.click();
     await expect(
       page.getByRole("textbox", { name: "关联凭证编号", exact: true }),
     ).toHaveValue("S-001");
+    await page.goBack();
+    await expect(
+      page.getByRole("textbox", { name: "查询期间", exact: true }),
+    ).toHaveValue("2026-10");
+    await expect(
+      page.getByRole("navigation", { name: "分页", exact: true }),
+    ).toContainText("第 2 页");
+    assert.equal(
+      callbacks.filter((name) => name === "structured.query").length,
+      readsBeforeDrill,
+    );
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBe(reportScroll);
     await navigation
       .getByRole("link", { name: "打印办理", exact: true })
       .click();
