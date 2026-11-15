@@ -382,3 +382,34 @@ it("edits owned detail rows in a compact desktop table and saves through the par
   ).toBe("修改后");
   wrapper.unmount();
 });
+it("discards failure feedback when a pending operation is replaced on the same business record", async () => {
+  const { model, collection } = fixture();
+  const row = object("customer", "客户详情");
+  row.identity = "c1";
+  let rejectOld: (reason: Error) => void = () => {};
+  row.operations.update = operation(
+    vi.fn(
+      () =>
+        new Promise<void>((_, reject) => {
+          rejectOld = reject;
+        }),
+    ),
+  );
+  collection.items = [row];
+  collection.selected = row;
+  const wrapper = mount(BusinessApplication, {
+    props: { model },
+    attachTo: document.body,
+  });
+  await flushPromises();
+  await wrapper
+    .get('[role="dialog"]')
+    .findAll("button")
+    .find((button) => button.text() === "保存")!
+    .trigger("click");
+  collection.selected!.operations.update = operation();
+  rejectOld(Error("obsolete"));
+  await flushPromises();
+  expect(wrapper.text()).not.toContain("操作失败");
+  wrapper.unmount();
+});
