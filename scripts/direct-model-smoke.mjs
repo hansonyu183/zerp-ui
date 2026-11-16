@@ -324,6 +324,7 @@ export async function directModelSmoke(page) {
     await page
       .getByRole("menuitem", { name: "名称与头像", exact: true })
       .click();
+    await expect(page.locator('[aria-label="账户菜单"]')).toBeHidden();
     dialog = page.locator(".zerp-shell");
     await expect(
       dialog.getByRole("textbox", { name: "用户姓名", exact: true }),
@@ -336,6 +337,7 @@ export async function directModelSmoke(page) {
       .getByRole("button", { name: "账户：合成用户", exact: true })
       .click();
     await page.getByRole("menuitem", { name: "更改密码", exact: true }).click();
+    await expect(page.locator('[aria-label="账户菜单"]')).toBeHidden();
     dialog = page.locator(".zerp-shell");
     await dialog
       .getByRole("textbox", { name: "新密码", exact: true })
