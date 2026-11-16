@@ -216,3 +216,17 @@ const invalidWorkbenchTarget: Workbench["manageReports"] = object;
 // @ts-expect-error href的记录参数不能是Collection。
 model.navigation.href(collection, collection);
 void [workbenchTargets, managementTarget, invalidWorkbenchTarget];
+
+const navigationSection: NonNullable<
+  BusinessModel["navigation"]["groups"][number]["sections"]
+>[number] = { key: "section", label: "分类", items: [collection] };
+// prettier-ignore
+// @ts-expect-error 分类只接受根 Collection，拒绝记录。
+const sectionRecord = {...navigationSection, items: [object]} satisfies typeof navigationSection;
+// prettier-ignore
+// @ts-expect-error 分类不接受所属 RecordsNode。
+const sectionRecords = {...navigationSection, items: [records]} satisfies typeof navigationSection;
+// prettier-ignore
+// @ts-expect-error 分类固定第二层，不能递归。
+const recursiveSection = {...navigationSection, sections: [navigationSection]} satisfies typeof navigationSection;
+void [sectionRecord, sectionRecords, recursiveSection];

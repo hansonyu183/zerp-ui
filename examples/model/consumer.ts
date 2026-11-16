@@ -372,6 +372,7 @@ customers.operations.create = operation(async () => {
 const empty: Collection = reactive({
   key: "empty",
   label: "空集合",
+  navigationLabel: "E 空集合",
   columns: [{ key: "title", label: "空集合列标题" }],
   conditions: object("empty-conditions", "查询条件", []),
   items: [],
@@ -626,12 +627,8 @@ export const model: BusinessModel = reactive({
       {
         key: "business",
         label: "业务",
-        items: [
-          customers,
-          vouchers,
-          empty,
-          ...Object.values(familyCollections),
-        ],
+        items: [customers, vouchers, ...Object.values(familyCollections)],
+        sections: [{ key: "examples", label: "示例分类", items: [empty] }],
       },
     ],
     href(collection, record) {

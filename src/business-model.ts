@@ -368,6 +368,8 @@ export interface PrintTemplate {
 
 /** 独立查询和写入的业务集合；普通资料与 AA/AB 等单据共用。 */
 export interface Collection {
+  /** 仅导航显示；页面标题仍使用 label。 */
+  navigationLabel?: string;
   /** 已知业务语义的有限图标；未知语义省略并保留文字。 */
   icon?: NavigationIcon;
   /** 在 BusinessModel.members 中的稳定集合键。 */
@@ -519,6 +521,8 @@ export interface BusinessModel {
       label: string;
       /** 仅允许引用根级 members 中的集合，不提升其记录或子明细。 */
       items: Collection[];
+      /** 固定第二层分类，不接受递归分组或所属记录。 */
+      sections?: { key: string; label: string; items: Collection[] }[];
     }[];
     /** null 为首页；消费者同时同步所属 Router，不扩大业务导航目标。 */
     href(collection: Collection | null, record?: ObjectNode): string;

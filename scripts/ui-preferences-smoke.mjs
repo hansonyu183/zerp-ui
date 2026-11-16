@@ -81,7 +81,41 @@ export async function uiPreferencesSmoke(page, options = {}) {
 
   const keyword = page.getByRole("textbox", { name: "关键词", exact: true });
   await keyword.fill("保留条件");
-  await navigation.getByRole("link", { name: "空集合", exact: true }).click();
+  await expect(
+    navigation.locator(".zerp-navigation-section"),
+  ).not.toHaveAttribute("open");
+  await navigation.getByText("示例分类", { exact: true }).click();
+  const sectionLink = navigation.getByRole("link", {
+    name: "E 空集合",
+    exact: true,
+  });
+  await expect(sectionLink).toHaveAttribute("href", "/business/empty");
+  await sectionLink.click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("空集合");
+  await expect(sectionLink).toHaveAttribute("aria-current", "page");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "切换导航", exact: true }).click();
+  await expect(sectionLink).toBeVisible();
+  await sectionLink.click();
+  await expect(
+    page.getByRole("button", { name: "切换导航", exact: true }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await settleLayout(page);
+  expect(
+    (await page.locator(".v-navigation-drawer").boundingBox()).x + 224,
+  ).toBeLessThanOrEqual(1);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  assertions.push({
+    clauses: [
+      "UI-NAV-01",
+      "UI-NAV-02",
+      "UI-NAV-03",
+      "UI-SCOPE-01",
+      "UI-WORK-02",
+    ],
+    check: "two-level-navigation-canonical-link-title-and-mobile-close",
+    result: "passed",
+  });
   await navigation.getByRole("link", { name: "客户", exact: true }).click();
 
   await expect(keyword).toHaveValue("保留条件");
