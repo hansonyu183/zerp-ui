@@ -97,7 +97,13 @@ export async function uiPreferencesSmoke(page, options = {}) {
   await page.getByRole("button", { name: "切换导航", exact: true }).click();
   await expect(sectionLink).toBeVisible();
   await sectionLink.click();
-  await expect(sectionLink).not.toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "切换导航", exact: true }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await settleLayout(page);
+  expect(
+    (await page.locator(".v-navigation-drawer").boundingBox()).x + 224,
+  ).toBeLessThanOrEqual(1);
   await page.setViewportSize({ width: 1440, height: 1000 });
   assertions.push({
     clauses: [
