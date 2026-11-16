@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import {
   VBtn,
@@ -144,18 +144,26 @@ const items = computed(() => [
 // retain the user's position by moving focus from that hint to its own button.
 watch(
   items,
-  () => {
+  async () => {
     const active = document.activeElement;
     if (
       active instanceof HTMLElement &&
       root.value?.contains(active) &&
       active.hasAttribute("data-row-action-hint")
-    )
-      active
-        .querySelector<HTMLElement>("button:not(:disabled), a[href]")
-        ?.focus({ preventScroll: true });
+    ) {
+      // Removing tabindex from the now-enabled hint can blur it in a browser.
+      await nextTick();
+      if (
+        root.value?.contains(active) &&
+        (document.activeElement === active ||
+          document.activeElement === document.body)
+      )
+        active
+          .querySelector<HTMLElement>("button:not(:disabled), a[href]")
+          ?.focus({ preventScroll: true });
+    }
   },
-  { flush: "post" },
+  { flush: "pre" },
 );
 function activate(
   event: MouseEvent | KeyboardEvent,
