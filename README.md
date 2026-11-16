@@ -50,3 +50,5 @@ UI 规范与逐条部分覆盖边界分别见 [规范](docs/ui-preferences.md) �
 菜单/树项可使用 `InteractionAction` 明确执行业务回调，其 `operation` 使用同一必需 `disabled` 语义。动作要求所属节点具备写入资格与固定 `interact` 操作授权（管理员仍受业务只读/禁用约束）；执行中防重复。关联和下载继续只接收 `CollectionTarget`，不会因动作回调改变导航或导出语义。异步回写有效性继续由消费者负责。
 
 引用字段可通过 `scopeKey` 表达候选目录业务依赖；变化会清除旧目录并按需重新读取，历史选值继续回显。消费者负责在 load 回写前核对依赖有效性，owner 隔离由宿主完成。
+
+工作台可通过 `targets` 的只读节点引用映射提供真实快捷链接，通过 `manageReports` 进入常用报表维护；记录目标的链接显式调用 `navigation.href(collection, record)`，普通点击交给 `visit(collection, record)`，修饰键和新标签沿原生链接处理。根 canonical 链接不根据 `selected` 猜目标，外页记录不因生成链接被塞入当前页或选中。

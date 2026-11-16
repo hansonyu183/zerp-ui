@@ -17,6 +17,13 @@ import type {
 } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
 import { formatField } from "./model-format";
+import {
+  readableTarget,
+  targetHref,
+  visitTarget,
+  plainClick,
+  renderedHref,
+} from "./model-target";
 const props = defineProps<{ node: Workbench }>();
 const runtime = inject(directRuntimeKey)!;
 const sections = computed(() =>
@@ -43,6 +50,66 @@ function caption(collection: RecordsNode, row: ObjectNode) {
     })
     .filter(Boolean)
     .join(" · ");
+}
+function rows(section: RecordsNode) {
+  return section.items.filter(
+    (row) =>
+      runtime.readable(row) &&
+      (!props.node.targets?.get(row) ||
+        readableTarget(runtime, props.node.targets.get(row)!)),
+  );
+}
+function blocked(row: ObjectNode) {
+  return props.node.targets?.has(row)
+    ? !!row.operations.get?.disabled || runtime.busy.value.has(toRaw(row))
+    : !runtime.allowed(row, "get") ||
+        !!row.operations.get?.disabled ||
+        runtime.busy.value.has(toRaw(row));
+}
+function open(event: MouseEvent | KeyboardEvent, row: ObjectNode) {
+  const target = props.node.targets?.get(row);
+  if (
+    !sections.value.some((section) => section.node.items.includes(row)) ||
+    !runtime.readable(row) ||
+    blocked(row) ||
+    (target && !readableTarget(runtime, target))
+  ) {
+    event.preventDefault();
+    return;
+  }
+  if (!target) {
+    if (renderedHref(event) !== null) {
+      event.preventDefault();
+      return;
+    }
+    void runtime.run(row, "get");
+    return;
+  }
+  if (renderedHref(event) !== targetHref(runtime, target)) {
+    event.preventDefault();
+    return;
+  }
+  if (!plainClick(event)) return;
+  event.preventDefault();
+  visitTarget(runtime, target);
+}
+function manage(event: MouseEvent) {
+  const target = props.node.manageReports;
+  if (
+    !target ||
+    !runtime.readable(props.node.reports) ||
+    !readableTarget(runtime, target)
+  ) {
+    event.preventDefault();
+    return;
+  }
+  if (renderedHref(event) !== targetHref(runtime, target)) {
+    event.preventDefault();
+    return;
+  }
+  if (!plainClick(event)) return;
+  event.preventDefault();
+  visitTarget(runtime, target);
 }
 const activated = new Set<string>();
 watch(
@@ -87,28 +154,35 @@ watch(
       >
         <VCardTitle tag="h2">{{ section.node.label }}</VCardTitle>
         <VCardText
-          ><VList
-            v-if="section.node.items.some((row) => runtime.readable(row))"
-            class="zerp-workbench-links"
-          >
+          ><VList v-if="rows(section.node).length" class="zerp-workbench-links">
             <VListItem
-              v-for="row in section.node.items.filter((row) =>
-                runtime.readable(row),
-              )"
+              v-for="row in rows(section.node)"
               :key="row.identity ?? row.key"
-              :disabled="
-                !runtime.allowed(row, 'get') ||
-                !!row.operations.get?.disabled ||
-                runtime.busy.value.has(toRaw(row))
+              :disabled="blocked(row)"
+              :href="
+                node.targets?.get(row)
+                  ? targetHref(runtime, node.targets.get(row)!)
+                  : undefined
               "
-              @click="runtime.run(row, 'get')"
+              @click="open($event, row)"
               ><VListItemTitle>{{
                 caption(section.node, row)
               }}</VListItemTitle></VListItem
             >
           </VList>
-          <p v-else>暂无内容</p></VCardText
-        >
+          <p v-else>暂无内容</p>
+          <VBtn
+            v-if="
+              section.role === 'reports' &&
+              node.manageReports &&
+              readableTarget(runtime, node.manageReports)
+            "
+            :href="targetHref(runtime, node.manageReports)"
+            variant="text"
+            @click="manage"
+            >管理常用报表</VBtn
+          >
+        </VCardText>
       </VCard>
     </div>
   </section>

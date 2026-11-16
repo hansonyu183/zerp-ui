@@ -8,6 +8,7 @@ import type {
   PrintTemplate,
   RecordsNode,
   Session,
+  Workbench,
   InteractionNode,
   InteractionAction,
   InteractionDownload,
@@ -201,3 +202,17 @@ void [scriptDownload, downloadRelated, downloadMenu];
 // @ts-expect-error scopeKey 是目录依赖的稳定字符串，不接受配置对象。
 const invalidScopeKey = {...singleReference, scopeKey: {dependsOn: "parent"}} satisfies FieldNode;
 void invalidScopeKey;
+
+const workbenchTargets: Workbench["targets"] = new Map([
+  [object, { collection, record: object }],
+]);
+const managementTarget: Workbench["manageReports"] = { collection };
+model.navigation.href(collection, object);
+model.navigation.visit(collection, object);
+// prettier-ignore
+// @ts-expect-error 快捷目标必须是根集合及可选记录，不能替换为裸对象导航。
+const invalidWorkbenchTarget: Workbench["manageReports"] = object;
+// prettier-ignore
+// @ts-expect-error href的记录参数不能是Collection。
+model.navigation.href(collection, collection);
+void [workbenchTargets, managementTarget, invalidWorkbenchTarget];

@@ -474,6 +474,10 @@ export type Session =
 export interface Workbench {
   /** 首次进入工作台时统一读取四块内容，失败可显式重试。 */
   load?: Operation;
+  /** 真实快捷记录的目标，只保存已有节点引用；不预取或改变目标集合当前页。 */
+  targets?: ReadonlyMap<ObjectNode, CollectionTarget>;
+  /** 常用报表的独立维护集合。 */
+  manageReports?: CollectionTarget;
   information: RecordsNode;
   vouchers: RecordsNode;
   reports: RecordsNode;
@@ -517,8 +521,8 @@ export interface BusinessModel {
       items: Collection[];
     }[];
     /** null 为首页；消费者同时同步所属 Router，不扩大业务导航目标。 */
-    href(collection: Collection | null): string;
-    visit(collection: Collection | null): void;
+    href(collection: Collection | null, record?: ObjectNode): string;
+    visit(collection: Collection | null, record?: ObjectNode): void;
   };
   /** 统一反馈；登出清理，关闭消息不代表业务结果已核实。 */
   messages: {

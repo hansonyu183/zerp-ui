@@ -10,6 +10,7 @@ import type {
   InteractionAction,
 } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
+import { readableTarget, targetHref, visitTarget } from "./model-target";
 const props = defineProps<{
   node: OutputNode | InteractionNode;
   readOnly?: boolean;
@@ -27,13 +28,9 @@ const output = computed(() =>
 );
 const busy = computed(() => runtime.busy.value.has(props.node));
 function readable(target: CollectionTarget) {
-  return (
-    runtime.readable(target.collection) &&
-    (!target.record ||
-      (target.collection.items.includes(target.record) &&
-        runtime.readable(target.record)))
-  );
+  return readableTarget(runtime, target);
 }
+
 type Intent =
   | {
       kind: "visit" | "download";
@@ -77,7 +74,8 @@ function menuEntry(entry: Menu["items"][number], current: () => boolean) {
         target: {
           kind: "visit" as const,
           target,
-          blocked: () => !current() || !!entry.disabled,
+          blocked: () =>
+            !current() || entry.target !== target || !!entry.disabled,
         },
       }
     : null;
@@ -123,26 +121,37 @@ const interactions = computed<readonly Interaction<Intent>[]>(
             ]
           : [];
       }
-      if (item.kind === "related")
-        return readable(item.target)
+      if (item.kind === "related") {
+        const source = questions.value;
+        const target = item.target;
+        return readable(target)
           ? [
               {
                 ...item,
                 target: {
                   kind: "visit",
-                  target: item.target,
-                  blocked: () => !!item.disabled,
+                  target,
+                  blocked: () =>
+                    !alive ||
+                    !source ||
+                    props.node !== source ||
+                    !source.items.includes(item) ||
+                    item.target !== target ||
+                    !!item.disabled,
                 },
               },
             ]
           : [];
+      }
       if (item.kind === "menu" || item.kind === "tree")
         return [
           {
             ...item,
             items: item.items.flatMap((entry) => {
+              const source = questions.value;
               const current = () =>
-                !!questions.value?.items.includes(item) &&
+                props.node === source &&
+                !!source?.items.includes(item) &&
                 item.items.includes(entry);
               const mapped = menuEntry(entry, current);
               if (!mapped) return [];
@@ -192,8 +201,7 @@ function visit(intent: Intent) {
     return;
   if (intent.kind === "download") void runtime.run(target.collection, "export");
   else {
-    if (target.record) target.collection.selected = target.record;
-    runtime.model().navigation.visit(target.collection);
+    visitTarget(runtime, target);
   }
 }
 </script>
@@ -201,6 +209,12 @@ function visit(intent: Intent) {
   <BusinessInteractions
     v-if="questions"
     :items="interactions"
+    :href="
+      (intent) =>
+        intent.kind === 'visit' && runtime.readable(node) && !intent.blocked()
+          ? targetHref(runtime, intent.target)
+          : undefined
+    "
     :answers="questions.value"
     :disabled="busy || !runtime.readable(node)"
     :answers-disabled="readOnly || !runtime.writable(node)"

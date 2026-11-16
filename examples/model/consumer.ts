@@ -634,14 +634,15 @@ export const model: BusinessModel = reactive({
         ],
       },
     ],
-    href(collection) {
+    href(collection, record) {
       return collection
-        ? `/business/${encodeURIComponent(collection.key)}`
+        ? `/business/${encodeURIComponent(collection.key)}${record ? `?id=${encodeURIComponent(record.identity ?? record.key)}` : ""}`
         : "/";
     },
-    visit(collection) {
+    visit(collection, record) {
+      if (collection && record) collection.selected = record;
       model.navigation.current = collection;
-      void router.push(this.href(collection));
+      void router.push(this.href(collection, record));
     },
   },
   messages: [],
@@ -674,6 +675,24 @@ export const model: BusinessModel = reactive({
 const workbenchSeeds = (
   ["information", "vouchers", "reports", "masters"] as const
 ).map((role) => ({ role, items: model.workbench![role].items }));
+const recentCustomer = object("customer-off-page", "客户", [
+  text("name", "客户名称", "外页合成客户", true),
+]);
+model.workbench!.targets = new Map([
+  [
+    workbenchSeeds.find(({ role }) => role === "vouchers")!.items[0]!,
+    { collection: vouchers, record: vouchers.items[0]! },
+  ],
+  [
+    workbenchSeeds.find(({ role }) => role === "reports")!.items[0]!,
+    { collection: reports },
+  ],
+  [
+    workbenchSeeds.find(({ role }) => role === "masters")!.items[0]!,
+    { collection: customers, record: recentCustomer },
+  ],
+]);
+model.workbench!.manageReports = { collection: reports };
 for (const { role } of workbenchSeeds) model.workbench![role].items = [];
 bindFamilyQueries(() => model.session.owner);
 router.afterEach((to) => {
