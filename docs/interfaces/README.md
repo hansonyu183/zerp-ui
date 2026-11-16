@@ -70,3 +70,9 @@ menu/tree 项既可关联真实根集合，也可明确提供 InteractionAction�
 ## 独立脚本文件下载
 
 download 的 target 可为真实 CollectionTarget（执行集合 export），或有限 InteractionDownload={kind:download, operation:Operation}（下载当前业务产生的独立文件）。后者使用固定 download 授权，缺省拒绝、无授权隐藏；节点可读即可，不要求业务可写，故只读详情仍可下载。Operation.disabled、条目 disabled、执行中去重及调用前资格重检均有效；文件内容和下载端口属于消费者，不在库内注册额外集合或导航命令。related 不接受下载端口，menu/tree 的写入动作仍使用 InteractionAction，二者不得混用。见 #167。
+
+## 工作台与记录目标链接
+
+#173：navigation.href(collection, record?) 和 visit(collection, record?) 通过有限可选记录参数表达完整链接。href(collection) 为根集合 canonical，不根据 selected 猜记录，也不在呈现链接时改变选择。报表及有限交互目标、工作台快捷项都传递显式 record，修饰键/新标签使用原生真实 anchor。
+
+Workbench.targets 是从快捷行到 CollectionTarget 的可选 ReadonlyMap，manageReports 提供“管理常用报表”入口。目标只保存已有业务节点引用；外页记录经当前公开有限 target 边归属到其根集合，不预取、不填入当前页或 selected。实际成员归属优先，已属于另一个根的记录目标拒绝；权限仍沿当前 owner/集合/记录授权。移除目标边、撤权或切换身份后旧链接失效。未提供 targets 的行保留原有有限 get 操作语义。

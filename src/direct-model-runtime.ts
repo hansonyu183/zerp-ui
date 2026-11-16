@@ -14,6 +14,7 @@ import type {
   Operation,
   Owner,
   InteractionNode,
+  CollectionTarget,
 } from "./business-model";
 export type { ObjectNode } from "./business-model";
 export type CollectionNode = Collection;
@@ -82,6 +83,11 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   const workbenchLoads = new WeakMap<object, Set<string>>();
   const structuralPaths = computed(() => {
     const result = new Map<object, Node[]>();
+    const targets: CollectionTarget[] = [];
+    function collect(target: unknown) {
+      if (target && typeof target === "object" && "collection" in target)
+        targets.push(target as CollectionTarget);
+    }
     function walk(node: Node, parents: Node[]) {
       if (result.has(toRaw(node))) return;
       result.set(toRaw(node), parents);
@@ -89,10 +95,20 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         walk(node.conditions, [...parents, node]);
         for (const item of [...node.items, node.selected, node.draft])
           if (item) walk(item, [...parents, node]);
+        for (const cell of node.report?.cells ?? []) collect(cell.target);
       } else if (node.kind === "object")
         for (const child of node.members) walk(child, [...parents, node]);
       else if (node.kind === "records")
         for (const item of node.items) walk(item, [...parents, node]);
+      else if (node.kind === "interactions")
+        for (const item of node.items) {
+          if ("target" in item) collect(item.target);
+          if (item.kind === "menu" || item.kind === "tree")
+            for (const entry of item.items) {
+              collect(entry.target);
+              for (const child of entry.children ?? []) collect(child.target);
+            }
+        }
     }
     for (const node of Object.values(model().members)) walk(node, []);
     const w = model().workbench;
@@ -105,6 +121,24 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       model().account.password,
     ])
       walk(node, []);
+    if (w) {
+      const rows = new Set(
+        [w.information, w.vouchers, w.reports, w.masters]
+          .flatMap((section) => section.items)
+          .map(toRaw),
+      );
+      for (const [row, target] of w.targets ?? [])
+        if (rows.has(toRaw(row))) collect(target);
+      collect(w.manageReports);
+    }
+    const roots = new Set(Object.values(model().members).map(toRaw));
+    // Explicit finite target edges attach off-page records after actual ownership
+    // has been indexed. An already owned record never moves to another root.
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i]!;
+      if (target.record && roots.has(toRaw(target.collection)))
+        walk(target.record, [target.collection]);
+    }
     return result;
   });
   const paths = () => structuralPaths.value;

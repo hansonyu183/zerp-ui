@@ -16,6 +16,7 @@ import {
 } from "./direct-model-runtime";
 import type { FieldNode } from "./business-model";
 import { formatField } from "./model-format";
+import { readableTarget as targetReadable, visitTarget } from "./model-target";
 type Values = Record<string, string | number | boolean | null>;
 const props = defineProps<{
   node: CollectionNode;
@@ -221,14 +222,9 @@ const presentation = computed<ReportPresentation<Values, string> | undefined>(
   },
 );
 function readableTarget(target: CollectionTarget) {
-  return (
-    Object.values(runtime.model().members).includes(target.collection) &&
-    runtime.readable(target.collection) &&
-    (!target.record ||
-      (target.collection.items.includes(target.record) &&
-        runtime.readable(target.record)))
-  );
+  return targetReadable(runtime, target);
 }
+
 function cell(
   row: Values,
   key: string,
@@ -250,7 +246,9 @@ function cell(
     ? {
         ...value,
         kind: "record",
-        href: runtime.model().navigation.href(fact.target.collection),
+        href: runtime
+          .model()
+          .navigation.href(fact.target.collection, fact.target.record),
       }
     : { ...value, kind: fact.kind };
 }
@@ -272,9 +270,7 @@ function visit(value: ReportCell<CollectionTarget>, row: Values) {
   if (!fact) return;
   const node = field(source, fact.field);
   if (!node || !runtime.readable(node)) return;
-  if (value.target.record)
-    value.target.collection.selected = value.target.record;
-  runtime.model().navigation.visit(value.target.collection);
+  visitTarget(runtime, value.target);
 }
 </script>
 <template>

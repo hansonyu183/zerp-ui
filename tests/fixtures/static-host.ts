@@ -22,7 +22,7 @@ export async function render(model: BusinessModel) {
 }
 export async function click(label: string) {
   const elements = Array.from(
-    document.querySelectorAll<HTMLElement>('button, [role="menuitem"]'),
+    document.querySelectorAll<HTMLElement>('button, a, [role="menuitem"]'),
   );
   const element = elements.find(
     (button) =>

@@ -50,6 +50,59 @@ export async function directModelSmoke(page) {
       0,
       "homepage must not query unvisited collections",
     );
+    const workbench = page.locator(".zerp-workbench");
+    const recentCustomer = workbench.getByRole("link", {
+      name: "客户",
+      exact: true,
+    });
+    await expect(recentCustomer).toHaveAttribute(
+      "href",
+      "/business/customers?id=customer-off-page",
+    );
+    await expect(
+      workbench.getByRole("link", { name: "管理常用报表", exact: true }),
+    ).toHaveAttribute("href", "/business/reports");
+    await recentCustomer.click();
+    await expect(page).toHaveURL(
+      /\/business\/customers\?id=customer-off-page$/,
+    );
+    await expect(
+      page
+        .getByRole("dialog")
+        .getByRole("textbox", { name: "客户名称", exact: true }),
+    ).toHaveValue("外页合成客户");
+    await close();
+    await page.locator(".zerp-shell-brand").click();
+    await expect(workbench).toBeVisible();
+    await workbench
+      .getByRole("link", { name: "管理常用报表", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/business\/reports$/);
+    const workbenchLinks = page.locator(".zerp-workbench");
+    const recentCustomerLink = workbenchLinks.getByRole("link", {
+      name: "客户",
+      exact: true,
+    });
+    await expect(recentCustomerLink).toHaveAttribute(
+      "href",
+      "/business/customers?id=customer-off-page",
+    );
+    await expect(
+      workbenchLinks.getByRole("link", { name: "管理常用报表", exact: true }),
+    ).toHaveAttribute("href", "/business/reports");
+    await recentCustomerLink.click();
+    await expect(page).toHaveURL(
+      /\/business\/customers\?id=customer-off-page$/,
+    );
+    await expect(
+      page
+        .getByRole("dialog")
+        .getByRole("textbox", { name: "客户名称", exact: true }),
+    ).toHaveValue("外页合成客户");
+    await close();
+    await expect(page.getByText("合成客户甲", { exact: true })).toBeVisible();
+    await page.locator("a.zerp-shell-brand").click();
+    await expect(workbenchLinks).toBeVisible();
     await visit("空集合");
     await expect(
       page.getByRole("columnheader", { name: "空集合列标题", exact: true }),

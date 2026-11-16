@@ -10,6 +10,7 @@ import type {
   InteractionAction,
 } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
+import { readableTarget, targetHref, visitTarget } from "./model-target";
 const props = defineProps<{
   node: OutputNode | InteractionNode;
   readOnly?: boolean;
@@ -27,13 +28,9 @@ const output = computed(() =>
 );
 const busy = computed(() => runtime.busy.value.has(props.node));
 function readable(target: CollectionTarget) {
-  return (
-    runtime.readable(target.collection) &&
-    (!target.record ||
-      (target.collection.items.includes(target.record) &&
-        runtime.readable(target.record)))
-  );
+  return readableTarget(runtime, target);
 }
+
 type Intent =
   | {
       kind: "visit" | "download";
@@ -192,8 +189,7 @@ function visit(intent: Intent) {
     return;
   if (intent.kind === "download") void runtime.run(target.collection, "export");
   else {
-    if (target.record) target.collection.selected = target.record;
-    runtime.model().navigation.visit(target.collection);
+    visitTarget(runtime, target);
   }
 }
 </script>
@@ -201,6 +197,10 @@ function visit(intent: Intent) {
   <BusinessInteractions
     v-if="questions"
     :items="interactions"
+    :href="
+      (intent) =>
+        intent.kind === 'visit' ? targetHref(runtime, intent.target) : undefined
+    "
     :answers="questions.value"
     :disabled="busy || !runtime.readable(node)"
     :answers-disabled="readOnly || !runtime.writable(node)"

@@ -21,6 +21,7 @@ const props = defineProps<{
   answers: InteractionAnswers;
   disabled?: boolean;
   answersDisabled?: boolean;
+  href?: (target: T) => string | undefined;
 }>();
 const dispatch = defineEmits<{
   answer: [id: string, value: string | boolean];
@@ -37,8 +38,33 @@ function answer(id: string, value: string | boolean) {
   if (alive && !props.disabled && !props.answersDisabled)
     dispatch("answer", id, value);
 }
-function intent(target: T) {
-  if (alive && !props.disabled) dispatch("intent", target);
+function intent(target: T, event: MouseEvent) {
+  if (!alive || props.disabled) {
+    event.preventDefault();
+    return;
+  }
+  const href = props.href?.(target);
+  if (
+    !href &&
+    event.currentTarget instanceof Element &&
+    event.currentTarget.hasAttribute("href")
+  ) {
+    event.preventDefault();
+    return;
+  }
+  if (href) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+  }
+  dispatch("intent", target);
 }
 onBeforeUnmount(() => {
   alive = false;
@@ -106,7 +132,8 @@ onBeforeUnmount(() => {
                 variant="text"
                 color=""
                 :disabled="disabled || entry.disabled"
-                @click="intent(entry.target)"
+                :href="href?.(entry.target)"
+                @click="intent(entry.target, $event)"
                 >{{ entry.label }}</VBtn
               >
               <VList
@@ -120,7 +147,8 @@ onBeforeUnmount(() => {
                     variant="text"
                     color=""
                     :disabled="disabled || entry.disabled || child.disabled"
-                    @click="intent(child.target)"
+                    :href="href?.(child.target)"
+                    @click="intent(child.target, $event)"
                     >{{ child.label }}</VBtn
                   >
                 </VListItem>
@@ -179,7 +207,8 @@ onBeforeUnmount(() => {
         variant="text"
         color=""
         :disabled="disabled || item.disabled"
-        @click="intent(item.target)"
+        :href="href?.(item.target)"
+        @click="intent(item.target, $event)"
         >{{ item.label }}</VBtn
       >
     </template>

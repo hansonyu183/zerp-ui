@@ -66,7 +66,7 @@ function setup(run = vi.fn(async () => {})) {
   return { ...f, node, action, run, visit };
 }
 async function click(label: string) {
-  const button = wrapper!.findAll("button").find((b) => b.text() === label)!;
+  const button = wrapper!.findAll("button,a").find((b) => b.text() === label)!;
   expect(button).toBeTruthy();
   await button.trigger("click");
   await flushPromises();
