@@ -10,6 +10,7 @@ import type {
   Session,
   InteractionNode,
   InteractionAction,
+  InteractionDownload,
 } from "@zerp/ui/model";
 
 declare const object: ObjectNode;
@@ -171,12 +172,30 @@ const interactions = {
 // @ts-expect-error 关联只导航，不执行动作。
 const actionRelated = {...interactions, items: [{kind: "related", id: "r", label: "关联", target: interactionAction}]} satisfies InteractionNode;
 // prettier-ignore
-// @ts-expect-error 下载只引用真实集合，不执行脚本动作。
+// @ts-expect-error 下载不能误用菜单写入动作端口。
 const actionDownload = {...interactions, items: [{kind: "download", id: "d", label: "下载", target: interactionAction}]} satisfies InteractionNode;
 // prettier-ignore
 // @ts-expect-error 动作必须使用完整 Operation，不能增加字符串命令。
 const arbitraryAction = {kind: "action", command: "run"} satisfies InteractionAction;
 void [interactions, actionRelated, actionDownload, arbitraryAction];
+
+const fileDownload = {
+  kind: "download",
+  operation,
+} satisfies InteractionDownload;
+const scriptDownload = {
+  ...interactions,
+  items: [
+    { kind: "download", id: "file", label: "文件", target: fileDownload },
+  ],
+} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 关联不能使用文件下载端口。
+const downloadRelated = {...interactions, items:[{kind:"related",id:"r",label:"关联",target:fileDownload}]} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 菜单不能误用文件下载端口。
+const downloadMenu = {...interactions,items:[{kind:"menu",id:"m",label:"菜单",items:[{key:"file",label:"文件",target:fileDownload}]}]} satisfies InteractionNode;
+void [scriptDownload, downloadRelated, downloadMenu];
 
 // prettier-ignore
 // @ts-expect-error scopeKey 是目录依赖的稳定字符串，不接受配置对象。

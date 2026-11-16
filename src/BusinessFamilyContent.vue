@@ -41,7 +41,7 @@ type Intent =
       blocked(): boolean;
     }
   | {
-      kind: "action";
+      kind: "action" | "fileDownload";
       operation: InteractionAction["operation"];
       blocked(): boolean;
     };
@@ -85,23 +85,44 @@ function menuEntry(entry: Menu["items"][number], current: () => boolean) {
 const interactions = computed<readonly Interaction<Intent>[]>(
   () =>
     questions.value?.items.flatMap((item): Interaction<Intent>[] => {
-      if (item.kind === "download")
-        return runtime.allowed(item.target.collection, "export")
+      if (item.kind === "download") {
+        const target = item.target;
+        if ("kind" in target) {
+          if (!questions.value || !runtime.downloadable(questions.value))
+            return [];
+          const operation = target.operation;
+          const blocked = () =>
+            !alive ||
+            !questions.value?.items.includes(item) ||
+            item.target !== target ||
+            target.operation !== operation ||
+            !!item.disabled ||
+            operation.disabled;
+          return [
+            {
+              ...item,
+              disabled: blocked() || busy.value,
+              target: { kind: "fileDownload", operation, blocked },
+            },
+          ];
+        }
+        return runtime.allowed(target.collection, "export")
           ? [
               {
                 ...item,
                 target: {
                   kind: "download",
-                  target: item.target,
+                  target,
                   blocked: () => !!item.disabled,
                 },
                 disabled:
                   item.disabled ||
-                  runtime.operations(item.target.collection).export?.disabled ||
-                  runtime.busy.value.has(item.target.collection),
+                  runtime.operations(target.collection).export?.disabled ||
+                  runtime.busy.value.has(target.collection),
               },
             ]
           : [];
+      }
       if (item.kind === "related")
         return readable(item.target)
           ? [
@@ -158,14 +179,12 @@ function answer(id: string, value: string | boolean) {
     questions.value.value[id] = value;
 }
 function visit(intent: Intent) {
-  if (intent.kind === "action") {
+  if ("operation" in intent) {
     const node = questions.value;
     if (node)
-      void runtime.runInteraction(
-        node,
-        intent.operation,
-        () => props.node === node && !intent.blocked(),
-      );
+      void (
+        intent.kind === "action" ? runtime.runInteraction : runtime.runDownload
+      )(node, intent.operation, () => props.node === node && !intent.blocked());
     return;
   }
   const { target } = intent;

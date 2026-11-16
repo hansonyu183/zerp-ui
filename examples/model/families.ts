@@ -145,15 +145,16 @@ export const reportRecord = object("report", "业务查询", [
   result,
   questions,
 ]);
-function download() {
-  const url = URL.createObjectURL(
-    new Blob([`合计\n${result.value}\n`], { type: "text/csv" }),
-  );
+function downloadFile(name: string, content: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: "text/csv" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = "synthetic-report.csv";
+  a.download = name;
   a.click();
   URL.revokeObjectURL(url);
+}
+function download() {
+  downloadFile("synthetic-report.csv", `合计\n${result.value}\n`);
 }
 reportRecord.report = {
   operations: {
@@ -225,6 +226,18 @@ questions.items = [
     label: "下载脚本结果",
     target: { collection: reports },
   },
+  ...(["甲", "乙"] as const).map((name) => ({
+    kind: "download" as const,
+    id: `script-file-${name}`,
+    label: `下载文件${name}`,
+    target: {
+      kind: "download" as const,
+      operation: operation(async () => {
+        trace(`script.file.${name}`);
+        downloadFile(`synthetic-${name}.csv`, `独立文件${name}\n`);
+      }),
+    },
+  })),
 ];
 const detailRecord = object("detail", "合成凭证详情", [
   text("number", "关联凭证编号", "S-001", true),

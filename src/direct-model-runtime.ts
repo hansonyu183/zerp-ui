@@ -46,6 +46,12 @@ export interface DirectRuntime {
   run(node: Node, action: string, publicAuth?: boolean): Promise<void>;
   interactable(node: InteractionNode): boolean;
   interactionVisible(node: InteractionNode): boolean;
+  downloadable(node: InteractionNode): boolean;
+  runDownload(
+    node: InteractionNode,
+    operation: Operation,
+    valid: () => boolean,
+  ): Promise<void>;
   runInteraction(
     node: InteractionNode,
     operation: Operation,
@@ -328,6 +334,16 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   ) {
     await execute(node, operation, () => interactable(node) && valid());
   }
+  function downloadable(node: InteractionNode) {
+    return readable(node) && permitted(node, "download");
+  }
+  async function runDownload(
+    node: InteractionNode,
+    operation: Operation,
+    valid: () => boolean,
+  ) {
+    await execute(node, operation, () => downloadable(node) && valid());
+  }
   async function runWorkbench(once = false) {
     const w = model().workbench;
     if (!w?.load) return;
@@ -386,6 +402,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     interactable,
     interactionVisible,
     runInteraction,
+    downloadable,
+    runDownload,
     runAccount,
     runWorkbench,
     invalidate,

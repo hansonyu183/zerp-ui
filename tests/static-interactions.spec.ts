@@ -71,6 +71,148 @@ async function click(label: string) {
   await button.trigger("click");
   await flushPromises();
 }
+function scriptFile(f: ReturnType<typeof setup>, run = vi.fn(async () => {})) {
+  const target = reactive({
+    kind: "download" as const,
+    operation: operation(run),
+  });
+  f.node.items = [{ kind: "download", id: "file", label: "下载文件", target }];
+  return target;
+}
+it("requires download permission while allowing authorized read-only downloads", async () => {
+  const f = setup(),
+    run = vi.fn(async () => {});
+  const target = scriptFile(f, run);
+  f.node.readOnly = true;
+  f.model.session = {
+    state: "ready",
+    owner: f.owner,
+    userPermissions: {
+      owner: f.owner,
+      administrator: false,
+      grants: [
+        { node: f.rows, read: true, write: false, operations: { query: true } },
+      ],
+    },
+  };
+  await flushPromises();
+  expect(
+    wrapper!.findAll("button").some((button) => button.text() === "下载文件"),
+  ).toBe(false);
+  if (!f.model.session.userPermissions.administrator)
+    f.model.session.userPermissions.grants[0]!.operations.download = true;
+  target.operation.disabled = true;
+  await flushPromises();
+  await click("下载文件");
+  expect(run).not.toHaveBeenCalled();
+  target.operation.disabled = false;
+  const entry = f.node.items[0]!;
+  if (entry.kind === "download") entry.disabled = true;
+  await flushPromises();
+  await click("下载文件");
+  expect(run).not.toHaveBeenCalled();
+  if (entry.kind === "download") entry.disabled = false;
+  await flushPromises();
+  await click("下载文件");
+  expect(run).toHaveBeenCalledTimes(1);
+});
+it("prevents duplicate script downloads and reports current failures", async () => {
+  let finish!: () => void;
+  const f = setup(),
+    run = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+  scriptFile(f, run);
+  await flushPromises();
+  await click("下载文件");
+  await click("下载文件");
+  expect(run).toHaveBeenCalledTimes(1);
+  finish();
+  await flushPromises();
+  scriptFile(
+    f,
+    vi.fn(async () => {
+      throw Error("file failed");
+    }),
+  );
+  await flushPromises();
+  await click("下载文件");
+  expect(document.body.textContent).toContain("操作失败");
+});
+it.each(["entry", "node", "owner", "model"] as const)(
+  "isolates late download failures after replacing the %s",
+  async (replacement) => {
+    let reject!: (error: Error) => void;
+    const f = setup();
+    scriptFile(
+      f,
+      vi.fn(
+        () =>
+          new Promise<void>((_resolve, no) => {
+            reject = no;
+          }),
+      ),
+    );
+    await flushPromises();
+    await click("下载文件");
+    if (replacement === "entry") f.node.items = [];
+    else if (replacement === "node") f.rows.conditions.members = [];
+    else if (replacement === "owner")
+      f.model.session = {
+        state: "anonymous",
+        owner: null,
+        userPermissions: null,
+      };
+    else await wrapper!.setProps({ model: fixture().model });
+    await flushPromises();
+    reject(Error("old file failed"));
+    await flushPromises();
+    expect(document.body.textContent).not.toContain("操作失败");
+  },
+);
+it("downloads distinct script files in read-only views without replacing collection export", async () => {
+  const f = setup();
+  const first = vi.fn(async () => {}),
+    second = vi.fn(async () => {});
+  const exported = vi.fn(async () => {});
+  f.rows.operations.export = operation(exported);
+  f.node.readOnly = true;
+  f.node.items = [
+    {
+      kind: "download",
+      id: "a",
+      label: "下载甲",
+      target: { kind: "download", operation: operation(first) },
+    },
+    {
+      kind: "download",
+      id: "b",
+      label: "下载乙",
+      target: { kind: "download", operation: operation(second) },
+    },
+    {
+      kind: "download",
+      id: "collection",
+      label: "导出集合",
+      target: { collection: f.rows },
+    },
+  ];
+  await flushPromises();
+  await click("下载甲");
+  await click("下载乙");
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(second).toHaveBeenCalledTimes(1);
+  expect(exported).not.toHaveBeenCalled();
+  expect(f.visit).not.toHaveBeenCalled();
+  expect(wrapper!.find('[role="region"][aria-label="下载甲"]').exists()).toBe(
+    false,
+  );
+  await click("导出集合");
+  expect(exported).toHaveBeenCalledTimes(1);
+});
 it("executes menu and tree callbacks without navigating", async () => {
   const f = setup();
   await flushPromises();
