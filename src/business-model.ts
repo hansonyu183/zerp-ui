@@ -73,6 +73,8 @@ export interface TreeOption extends SelectOption {
 
 type ReferenceField = NodeBase & {
   required: boolean;
+  /** 候选目录业务依赖的作用域键；变化后清除旧目录并按需重新读取。owner 由宿主隔离。 */
+  scopeKey?: string;
   /** 动态目录首次需要时加载；静态目录直接提供 options。 */
   load?: Operation;
 } & (
@@ -269,10 +271,16 @@ export interface OutputNode extends NodeBase {
 }
 
 /** 有限脚本问题与局部目录，无任意命令或组件/render 扩展点。 */
+export interface InteractionAction {
+  kind: "action";
+  /** 仅在 menu/tree 选择时调用；资格由所属节点的 interact 权限及业务禁用共同控制。 */
+  operation: Operation;
+}
+
 export interface InteractionNode extends NodeBase {
   kind: "interactions";
   value: Record<string, string | boolean>;
-  items: readonly Interaction<CollectionTarget>[];
+  items: readonly Interaction<CollectionTarget, InteractionAction>[];
 }
 
 export type BusinessNode =
@@ -422,7 +430,8 @@ type OperationPermissions = Partial<
     | "remove"
     | "load"
     | "print"
-    | "itemPrint",
+    | "itemPrint"
+    | "interact",
     boolean
   >
 >;

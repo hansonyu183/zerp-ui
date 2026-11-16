@@ -8,6 +8,8 @@ import type {
   PrintTemplate,
   RecordsNode,
   Session,
+  InteractionNode,
+  InteractionAction,
 } from "@zerp/ui/model";
 
 declare const object: ObjectNode;
@@ -145,3 +147,38 @@ void [
 // @ts-expect-error 图标只使用有限业务语义，不接受任意 MDI 图标名。
 const invalidCollectionIcon = { ...collection, icon: "mdi-home" } satisfies Collection;
 void invalidCollectionIcon;
+
+const interactionAction = {
+  kind: "action",
+  operation,
+} satisfies InteractionAction;
+const interactions = {
+  kind: "interactions",
+  key: "script",
+  label: "脚本",
+  readOnly: false,
+  value: {},
+  items: [
+    {
+      kind: "menu",
+      id: "menu",
+      label: "菜单",
+      items: [{ key: "run", label: "运行", target: interactionAction }],
+    },
+  ],
+} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 关联只导航，不执行动作。
+const actionRelated = {...interactions, items: [{kind: "related", id: "r", label: "关联", target: interactionAction}]} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 下载只引用真实集合，不执行脚本动作。
+const actionDownload = {...interactions, items: [{kind: "download", id: "d", label: "下载", target: interactionAction}]} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 动作必须使用完整 Operation，不能增加字符串命令。
+const arbitraryAction = {kind: "action", command: "run"} satisfies InteractionAction;
+void [interactions, actionRelated, actionDownload, arbitraryAction];
+
+// prettier-ignore
+// @ts-expect-error scopeKey 是目录依赖的稳定字符串，不接受配置对象。
+const invalidScopeKey = {...singleReference, scopeKey: {dependsOn: "parent"}} satisfies FieldNode;
+void invalidScopeKey;

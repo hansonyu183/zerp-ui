@@ -73,6 +73,18 @@ export async function directModelSmoke(page) {
     await category.fill("分类45");
     await page.getByRole("option", { name: "分类45", exact: true }).click();
     assert.equal(callbacks.filter((name) => name === "catalog.load").length, 1);
+    await dialog
+      .getByRole("textbox", { name: "客户名称", exact: true })
+      .fill("临时目录范围");
+    await category.click();
+    await expect(
+      page.getByRole("option", { name: "分类1", exact: true }),
+    ).toBeVisible();
+    assert.equal(callbacks.filter((name) => name === "catalog.load").length, 2);
+    await category.press("Escape");
+    await dialog
+      .getByRole("textbox", { name: "客户名称", exact: true })
+      .fill("合成客户更新");
     const nameBox = await dialog
       .getByRole("textbox", { name: "客户名称", exact: true })
       .boundingBox();
@@ -203,6 +215,20 @@ export async function directModelSmoke(page) {
       .getByRole("textbox", { name: "计算系数", exact: true })
       .fill("5");
     await dialog.getByRole("button", { name: "计算", exact: true }).click();
+    await expect(
+      dialog.getByRole("textbox", { name: "查询合计", exact: true }),
+    ).toHaveValue("20.00");
+    await dialog
+      .getByRole("textbox", { name: "查询数量", exact: true })
+      .fill("6");
+    await dialog.getByRole("button", { name: "菜单计算", exact: true }).click();
+    await expect(
+      dialog.getByRole("textbox", { name: "查询合计", exact: true }),
+    ).toHaveValue("30.00");
+    await dialog
+      .getByRole("textbox", { name: "查询数量", exact: true })
+      .fill("4");
+    await dialog.getByRole("button", { name: "树计算", exact: true }).click();
     await expect(
       dialog.getByRole("textbox", { name: "查询合计", exact: true }),
     ).toHaveValue("20.00");

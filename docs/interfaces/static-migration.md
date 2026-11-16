@@ -16,7 +16,7 @@
 | 普通字段、密码、秘密及附件 | FieldNode 固定联合 | 直接输入、秘密 keep/replace/clear、不暴露已有秘密 |
 | 普通引用及树候选 | reference/treeReference、单多选值、静态 options/有限 load | 按需完整读取、前端过滤分页、历史值回显、禁用新选 |
 | 日期、日期时间、精确十进制 | 各字段的强类型 format | 仅改变展示，保持日期/时区和十进制原值 |
-| 脚本问题、目录、网格及关联入口 | InteractionNode 的有限 Interaction<CollectionTarget> | 直接答案、确认/选择、菜单/树/网格；关联记录留在集合 selected |
+| 脚本问题、目录、网格及关联入口 | InteractionNode 的有限 Interaction<CollectionTarget, InteractionAction> | 直接答案、确认/选择、菜单/树/网格；关联记录留在集合 selected |
 | 已生成有限打印文档及实体结果核对 | OutputNode、对象 output 固定操作 | 预览/系统调用不确认实体打印；显式业务确认仍由回调负责 |
 | 新自动打印入口 | itemPrintTemple/printTemple 有限 JSON | 单条正式记录/当前页，消费者 printable 确认当前值；无额外查询，授权过滤、绑定、分页、预览 |
 | 对象式工作台及分散读取 | 根 workbench 固定四块 RecordsNode、统一 load | 桌面一横三竖、手机纵排；当前 owner 首次获权进入加载，失败重试 |
@@ -25,3 +25,5 @@
 有限能力补齐已回写 [#152](https://github.com/hansonyu183/zerp-ui/issues/152#issuecomment-6898112824) 和 [#159](https://github.com/hansonyu183/zerp-ui/issues/159#issuecomment-6898113213)。不扩展 standard/voucher 种类，不恢复旧公开模型或任意命令。`CollectionTarget` 只封装根集合及可选记录，没有对象级全局导航。
 
 验证以 `@zerp/ui` 的 BusinessApplication、`@zerp/ui/model` 与同一 tgz 物理独立安装为面；模型/模板算法定向检查按 #159 的已确认边界执行。具体源码 SHA、命令、退出码、包摘要、UI 条款证据和未完成项回写相应 GitHub 工单。合成消费者及模拟回调不证明真实 ZERP API/E2E。
+
+#164 补齐 menu/tree 的显式 InteractionAction：operation 仅在用户选择时执行，受固定 interact 权限、节点写入资格、业务禁用及执行中状态约束。related/download 不接受动作目标，CollectionTarget 继续只表达真实根集合与可选记录。

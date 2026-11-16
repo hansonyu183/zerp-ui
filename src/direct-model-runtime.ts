@@ -13,6 +13,7 @@ import type {
   ObjectNode,
   Operation,
   Owner,
+  InteractionNode,
 } from "./business-model";
 export type { ObjectNode } from "./business-model";
 export type CollectionNode = Collection;
@@ -43,6 +44,13 @@ export interface DirectRuntime {
   allowed(node: Node, action: string, publicAuth?: boolean): boolean;
   operations(node: Node): Record<string, Operation>;
   run(node: Node, action: string, publicAuth?: boolean): Promise<void>;
+  interactable(node: InteractionNode): boolean;
+  interactionVisible(node: InteractionNode): boolean;
+  runInteraction(
+    node: InteractionNode,
+    operation: Operation,
+    valid: () => boolean,
+  ): Promise<void>;
   runAccount(action?: "signOut" | "changePassword"): Promise<void>;
   runWorkbench(once?: boolean): Promise<void>;
   invalidate(scopeChanged?: boolean): void;
@@ -125,10 +133,9 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     const p = model().session.userPermissions!;
     return p.administrator || grant(boundary(node))?.read === true;
   }
-  function writable(node: Node): boolean {
+  function writeAllowed(node: Node): boolean {
     if (!readable(node)) return false;
     const chain = [...ancestors(node), node];
-    if (chain.some((n) => !isCollection(n) && n.readOnly)) return false;
     const collection = chain.find(isCollection);
     if (collection && chain.some((n) => same(n, collection.conditions)))
       return (
@@ -142,6 +149,12 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     const p = model().session.userPermissions!;
     if (p.administrator) return true;
     return grant(boundary(node))?.write === true;
+  }
+  function writable(node: Node): boolean {
+    return (
+      writeAllowed(node) &&
+      ![...ancestors(node), node].some((n) => !isCollection(n) && n.readOnly)
+    );
   }
   function operations(node: Node): Record<string, Operation> {
     if (same(node, model().authentication.form))
@@ -302,6 +315,19 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         account.operations[action] === op,
     );
   }
+  function interactable(node: InteractionNode) {
+    return writable(node) && permitted(node, "interact");
+  }
+  function interactionVisible(node: InteractionNode) {
+    return writeAllowed(node) && permitted(node, "interact");
+  }
+  async function runInteraction(
+    node: InteractionNode,
+    operation: Operation,
+    valid: () => boolean,
+  ) {
+    await execute(node, operation, () => interactable(node) && valid());
+  }
   async function runWorkbench(once = false) {
     const w = model().workbench;
     if (!w?.load) return;
@@ -357,6 +383,9 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     allowed,
     operations,
     run,
+    interactable,
+    interactionVisible,
+    runInteraction,
     runAccount,
     runWorkbench,
     invalidate,

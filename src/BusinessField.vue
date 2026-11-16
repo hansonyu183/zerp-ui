@@ -60,11 +60,13 @@ const adapter = computed<ReferenceAdapter>(() => {
   const node = reference.value!;
   return {
     directory: node,
+    dependencies: [node.scopeKey ?? ""],
     async load() {
       if (node.load) {
         if (loadDisabled.value) throw Error("当前不能读取候选值。");
-        if (props.publicAuth) await node.load.run();
-        else await runtime.run(node, "load");
+        // Directory leases deduplicate within this dependency scope. A new
+        // scope must not wait for the old node's pending directory to settle.
+        await node.load.run();
       }
       return node.options;
     },
