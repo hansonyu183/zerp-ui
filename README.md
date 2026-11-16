@@ -4,11 +4,11 @@
 
 ## 固定版本安装
 
-当前版本为 [ui-v0.44.3](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.44.3)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.44.3.tgz` 与 `SHA256SUMS`，核对摘要后安装：
+当前版本为 [ui-v0.45.0](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.45.0)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.45.0.tgz` 与 `SHA256SUMS`，核对摘要后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.44.3.tgz
+pnpm add ./zerp-ui-0.45.0.tgz
 ```
 
 0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，通过 `createShellThemes()` 初始化 `createVuetify`。
@@ -54,3 +54,9 @@ UI 规范与逐条部分覆盖边界分别见 [规范](docs/ui-preferences.md) �
 工作台可通过 `targets` 的只读节点引用映射提供真实快捷链接，通过 `manageReports` 进入常用报表维护；记录目标的链接显式调用 `navigation.href(collection, record)`，普通点击交给 `visit(collection, record)`，修饰键和新标签沿原生链接处理。根 canonical 链接不根据 `selected` 猜目标，外页记录不因生成链接被塞入当前页或选中。
 
 导航分组保留 `items: Collection[]`，可增加固定第二层 `sections: { key, label, items: Collection[] }[]`；两处只引用根级集合，权限裁剪后隐藏空分类及空组。`Collection.navigationLabel` 仅调整导航文案，省略时沿用 `label`，页面标题始终使用 `label`。分类名称与顺序由消费者定义，不支持递归导航树。
+
+### 单据打印
+
+在 Collection 上提供有限 JSON `itemPrintTemple` / `printTemple`，即可通过公开 BusinessApplication 使用单条或当前页打印。明细 `rowHeight`、`headerHeight` 为最小高度；文字按真实浏览器字体自动换行撑高并分页。`kind: "pageNumber"` 输出“第 X / Y 页”，明细后的 `record` 区域可放置只出现一次的合计及签字栏。
+
+合成 A4 送货单见示例导航“打印示例”；模板和数据定义见 `examples/model/print-demo.ts`。使用 `pnpm check:print` 定向验收独立安装及真实 PDF。完整边界见 [打印契约](docs/printing/contract.md)；此能力通过系统打印窗口打印或另存 PDF，不自动登记实体打印结果。

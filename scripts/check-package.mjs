@@ -17,17 +17,20 @@ import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { directModelSmoke } from "./direct-model-smoke.mjs";
 import { uiPreferencesSmoke } from "./ui-preferences-smoke.mjs";
-const smoke = process.argv.includes("--ui-preferences")
-  ? uiPreferencesSmoke
-  : async (page) => {
-      const model = await directModelSmoke(page);
-      await page.reload();
-      const preferences = await uiPreferencesSmoke(page, {
-        layout: false,
-        workbench: false,
-      });
-      return { ...model, preferences };
-    };
+import { templatePrintSmoke } from "./template-print-smoke.mjs";
+const smoke = process.argv.includes("--print-template")
+  ? templatePrintSmoke
+  : process.argv.includes("--ui-preferences")
+    ? uiPreferencesSmoke
+    : async (page) => {
+        const model = await directModelSmoke(page);
+        await page.reload();
+        const preferences = await uiPreferencesSmoke(page, {
+          layout: false,
+          workbench: false,
+        });
+        return { ...model, preferences };
+      };
 const exampleName = "model";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceBase = execFileSync("git", ["rev-parse", "HEAD"], {

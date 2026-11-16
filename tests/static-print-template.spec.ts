@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { bindPrintTemplate } from "../src/model-print";
+import {
+  bindPrintTemplate as bind,
+  type MeasurePrintText,
+} from "../src/model-print";
 import type { Collection, ObjectNode, PrintTemplate } from "../src/model";
+const measure: MeasurePrintText = () => ({ height: 0, insetTop: 0 });
+const bindPrintTemplate = (
+  ...args: Parameters<typeof bind> extends [...infer A, MeasurePrintText]
+    ? A
+    : never
+) => bind(...args, measure);
 const row = (id: string): ObjectNode => ({
   kind: "object",
   key: id,
@@ -313,4 +322,178 @@ describe("finite model print template binding", () => {
       ),
     ).toThrow("尚未确认保存");
   });
+});
+
+describe("measured print pagination", () => {
+  it("uses the tallest cell, repeats measured headings and numbers final pages", () => {
+    const measuredTemplate: PrintTemplate = {
+      ...template,
+      footer: {
+        height: 5,
+        items: [
+          { kind: "pageNumber", key: "page", x: 0, y: 0, width: 50, height: 5 },
+        ],
+      },
+      body: [
+        {
+          kind: "records",
+          path: [],
+          headerHeight: 5,
+          rowHeight: 5,
+          columns: [
+            { path: ["amount"], label: "金额", width: 30 },
+            { path: ["amount"], label: "重复金额", width: 30 },
+          ],
+        },
+      ],
+    };
+    const doc = bind(
+      measuredTemplate,
+      collection,
+      () => true,
+      (cell) => ({
+        height: cell.key.endsWith(":1") && !cell.bold ? 12 : 5,
+        insetTop: 0,
+      }),
+    );
+    expect(doc.pages).toHaveLength(2);
+    expect(
+      doc.pages.map((page) =>
+        page.items
+          .filter((item) => item.kind === "text" && item.text.startsWith("第 "))
+          .map((item) => item.kind === "text" && item.text),
+      ),
+    ).toEqual([["第 1 / 2 页"], ["第 2 / 2 页"]]);
+    const rows = doc.pages
+      .flatMap((page) => page.items)
+      .filter((item) => item.kind === "text" && item.key.includes(":row-"));
+    expect(rows).toHaveLength(6);
+    expect(rows.every((item) => item.height === 12)).toBe(true);
+    expect(
+      doc.pages.every((page) =>
+        page.items.some(
+          (item) => item.kind === "text" && item.text === "重复金额",
+        ),
+      ),
+    ).toBe(true);
+  });
+  it("keeps a trailing summary and signature region together and only once", () => {
+    const single = row("voucher");
+    const lines = {
+      kind: "records" as const,
+      key: "lines",
+      label: "明细",
+      readOnly: true,
+      items: collection.items,
+      columns: [],
+      selected: null,
+      operations: {},
+    };
+    single.members.push(lines);
+    const doc = bind(
+      {
+        ...template,
+        body: [
+          {
+            kind: "records",
+            path: ["lines"],
+            headerHeight: 5,
+            rowHeight: 5,
+            columns: [{ path: ["amount"], label: "金额", width: 60 }],
+          },
+          {
+            kind: "record",
+            height: 15,
+            items: [
+              {
+                kind: "text",
+                key: "signature",
+                text: "合计与签字",
+                x: 0,
+                y: 0,
+                width: 60,
+                height: 10,
+              },
+            ],
+          },
+        ],
+      },
+      single,
+      () => true,
+      () => ({ height: 5, insetTop: 0 }),
+    );
+    expect(doc.pages).toHaveLength(2);
+    expect(
+      doc.pages[0]!.items.some(
+        (item) => item.kind === "text" && item.text === "合计与签字",
+      ),
+    ).toBe(false);
+    expect(
+      doc.pages
+        .flatMap((page) => page.items)
+        .filter((item) => item.kind === "text" && item.text === "合计与签字"),
+    ).toHaveLength(1);
+  });
+  it("names an oversized row and rejects invalid measurements", () => {
+    expect(() =>
+      bind(
+        template,
+        collection,
+        () => true,
+        (cell) => ({ height: cell.bold ? 5 : 26, insetTop: 0 }),
+      ),
+    ).toThrow("第 1 条明细（1）");
+    expect(() =>
+      bind(
+        template,
+        collection,
+        () => true,
+        () => ({ height: NaN, insetTop: 0 }),
+      ),
+    ).toThrow("无法测量");
+  });
+  it("fits an exact page boundary without an extra page and handles an empty table", () => {
+    const doc = bind(
+      template,
+      { ...collection, items: collection.items.slice(0, 2) },
+      () => true,
+      () => ({ height: 0, insetTop: 0 }),
+    );
+    expect(doc.pages).toHaveLength(1);
+    const empty = bind(
+      template,
+      { ...collection, items: [] },
+      () => true,
+      () => ({ height: 5, insetTop: 0 }),
+    );
+    expect(empty.pages).toHaveLength(1);
+    expect(
+      empty.pages[0]!.items.filter(
+        (item) => item.kind === "text" && item.key.includes(":heading:"),
+      ),
+    ).toHaveLength(1);
+  });
+});
+
+it("preserves measured ascender insets within table cells and rejects impossible metrics", () => {
+  const doc = bind(
+    template,
+    collection,
+    () => true,
+    () => ({ height: 12, insetTop: 1 }),
+  );
+  expect(
+    doc.pages
+      .flatMap((page) => page.items)
+      .filter((item) => item.kind === "text" && item.border)
+      .every((item) => item.kind === "text" && item.insetTop === 1),
+  ).toBe(true);
+  expect(() =>
+    bind(
+      template,
+      collection,
+      () => true,
+      () => ({ height: 1, insetTop: 2 }),
+    ),
+  ).toThrow("无法测量");
 });

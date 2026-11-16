@@ -109,6 +109,15 @@ onMounted(
     }),
 );
 const printRequested = ref(false);
+const restoreDetailFocus = ref<() => HTMLElement | null>();
+function openDetail(
+  mode: "read" | "edit",
+  restoreFocus: () => HTMLElement | null,
+) {
+  detailMode.value = mode;
+  printRequested.value = false;
+  restoreDetailFocus.value = restoreFocus;
+}
 const dismissedDraft = ref<ObjectNode | null>(null),
   detailMode = ref<"read" | "edit">("edit");
 const detail = computed(() =>
@@ -231,6 +240,19 @@ onBeforeUnmount(() => {
         >查询</VBtn
       >
       <TemplatePrint :collection="collection" />
+      <div
+        v-if="actions.length"
+        role="group"
+        :aria-label="`${node.label ?? ''}操作`"
+      >
+        <VBtn
+          v-for="[action, operation] in actions"
+          :key="action"
+          :disabled="pending || operation.disabled"
+          @click="runtime.run(node, action, publicAuth)"
+          >{{ labels[action] ?? action }}</VBtn
+        >
+      </div>
       <VBtn
         v-if="
           collection.draft &&
@@ -245,11 +267,9 @@ onBeforeUnmount(() => {
         :loading="pending"
         :can-query="canQuery"
         @page="query"
-        @open="
-          detailMode = $event;
-          printRequested = false;
-        "
+        @open="openDetail"
         @print="
+          restoreDetailFocus = undefined;
           collection.selected = $event;
           detailMode = 'read';
           printRequested = true;
@@ -258,6 +278,9 @@ onBeforeUnmount(() => {
       <RecordDialog
         v-if="dialogReady && detail && runtime.readable(detail)"
         :title="collection.draft === detail ? '新增' : (detail.label ?? '')"
+        :return-focus="
+          collection.draft === detail ? undefined : restoreDetailFocus
+        "
         @close="closeDetail"
       >
         <BusinessNode
@@ -300,7 +323,7 @@ onBeforeUnmount(() => {
       :scope="runtime.scope.value"
     />
     <div
-      v-if="actions.length"
+      v-if="!isCollection(node) && actions.length"
       role="group"
       :aria-label="`${node.label ?? ''}操作`"
     >

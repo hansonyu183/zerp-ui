@@ -2,7 +2,7 @@
 
 由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
-共 51 条：31 条有自动断言映射（均为部分覆盖），20 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
+共 52 条：32 条有自动断言映射（均为部分覆盖），20 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
 
 验证策略：流程条款由任务审查；消费者专属条款由真实消费者验收；文案及常规 UI 语义审查由 Agent 按现有要求判断，不逐项询问用户；仅业务含义不明或需改变已确认要求时，在完成其余开发后按 UI-GOV-06 留一份交付清单。本库检查使用合成模型，不是实际 OIT/ZERP API/E2E。定向检查不是数学证明或全状态穷举。
 
@@ -58,6 +58,7 @@
 | UI-WORK-02 | 无自动断言 | 由 Agent 结合业务语境审查简短业务中文与同名一致性，不引入任意字数上限；常规文案不要求用户确认，见Q5。 |
 | UI-WORK-03 | 无自动断言 | 由 Agent 审查内部实现文案、业务影响与下一步、单位/不可逆提示；只有业务含义不明或需改变已确认要求时按 UI-GOV-06 留交付清单。 |
 | UI-WORK-04 | [unit-review](#unit-review)、[package-full](#package-full) | 新根集合局部详情下钻使用包场景验证条件/页码/滚动保持；结果有效性归消费者。 |
+| UI-PRINT-01 | [package-print-template](#package-print-template) | 仅覆盖合成 A4 单据与浏览器 PDF；跨平台字体度量、真实消费者权限与业务汇总、实体打印设备另验收。 |
 | UI-SCOPE-01 | 无自动断言 | 真实消费者验收：OIT分类、类型码/首字母排序、停用类型/历史直达/独立配置。本库不得硬编码。 |
 | UI-SCOPE-02 | 无自动断言 | 新目标按完整静态集合和权限表达 KY/K1 差异，旧聚合字典 Tab 决定已被取代；真实消费者尚未迁移验收。 |
 | UI-SCOPE-03 | [unit-actions](#unit-actions) | 合成流程动作直接可达有代表证据；真实ZERP放行意见契约由消费者验收，不泛化免确认。 |
@@ -161,6 +162,12 @@
 [scripts/ui-preferences-smoke.mjs](../scripts/ui-preferences-smoke.mjs) · tgz/browser
 
 定位：`long-reference-load-error-preserves-form-and-owned-row-geometry`。长引用读取错误通过字段浮层呈现，表单和所属明细行四维几何稳定；可访问错误描述、限定滚动及重试恢复。
+
+### package-print-template
+
+[scripts/template-print-smoke.mjs](../scripts/template-print-smoke.mjs) · 公开 tgz 独立安装和构建示例的合成单据及真实浏览器 PDF
+
+定位：`export async function templatePrintSmoke`。动态行高、文字未裁切、纸张尺寸/页数、页码、重复表头、35条明细各一次、末尾汇总签字及测量容器回收。
 
 ## 执行与维护
 

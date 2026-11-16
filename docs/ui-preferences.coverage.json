@@ -96,6 +96,12 @@
       "anchor": "long-reference-load-error-preserves-form-and-owned-row-geometry",
       "surface": "tgz/browser",
       "assertion": "长引用读取错误通过字段浮层呈现，表单和所属明细行四维几何稳定；可访问错误描述、限定滚动及重试恢复"
+    },
+    "package-print-template": {
+      "file": "scripts/template-print-smoke.mjs",
+      "anchor": "export async function templatePrintSmoke",
+      "surface": "公开 tgz 独立安装和构建示例的合成单据及真实浏览器 PDF",
+      "assertion": "动态行高、文字未裁切、纸张尺寸/页数、页码、重复表头、35条明细各一次、末尾汇总签字及测量容器回收"
     }
   },
   "clauses": [
@@ -384,6 +390,12 @@
       "checks": ["unit-review", "package-full"],
       "remaining": "新根集合局部详情下钻使用包场景验证条件/页码/滚动保持；结果有效性归消费者。",
       "requirementSha256": "39569758bfc52afeeced21113218a53425aa6bd38cc5d5d82b318e4abccd45ad"
+    },
+    {
+      "id": "UI-PRINT-01",
+      "requirementSha256": "af478ec189086091ab096e1690d32c1bc2739feb6854c4890e2ee236336b1be2",
+      "checks": ["package-print-template"],
+      "remaining": "仅覆盖合成 A4 单据与浏览器 PDF；跨平台字体度量、真实消费者权限与业务汇总、实体打印设备另验收。"
     },
     {
       "id": "UI-SCOPE-01",

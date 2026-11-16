@@ -6,6 +6,7 @@ import type {
   Operation,
   RecordsNode,
   FieldNode,
+  PrintElement,
 } from "@zerp/ui/model";
 // prettier-ignore
 // @ts-expect-error Symbol metadata is no longer a public protocol.
@@ -60,3 +61,21 @@ void [
   missingColumnLabel,
   badReference,
 ];
+
+const pageNumber = {
+  kind: "pageNumber",
+  key: "page",
+  x: 0,
+  y: 0,
+  width: 100,
+  height: 8,
+  font: "cjk-sans",
+  align: "center",
+} satisfies PrintElement;
+// prettier-ignore
+// @ts-expect-error Finite page numbering does not accept expressions.
+const expressionPage = { ...pageNumber, expression: "page + 1" } satisfies PrintElement;
+// prettier-ignore
+// @ts-expect-error Templates do not accept raw HTML.
+const htmlPage = { kind: "html", key: "html", x: 0, y: 0, width: 100, height: 8, html: "<b>unsafe</b>" } satisfies PrintElement;
+void [pageNumber, expressionPage, htmlPage];

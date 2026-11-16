@@ -12,7 +12,7 @@ import {
 const props = defineProps<{
   title: string;
   blocked?: boolean;
-  returnFocus?: HTMLElement | null;
+  returnFocus?: HTMLElement | null | (() => HTMLElement | null);
 }>();
 const emit = defineEmits<{
   close: [];
@@ -23,7 +23,10 @@ const initialTrigger =
   typeof document === "undefined" ? null : document.activeElement;
 onBeforeUnmount(() => {
   void nextTick(() => {
-    const trigger = props.returnFocus ?? initialTrigger;
+    const trigger =
+      typeof props.returnFocus === "function"
+        ? props.returnFocus()
+        : (props.returnFocus ?? initialTrigger);
     if (
       trigger instanceof HTMLElement &&
       trigger.isConnected &&

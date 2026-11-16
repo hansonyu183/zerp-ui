@@ -327,6 +327,7 @@ export type PrintElement = PrintBox &
   (
     | ({ kind: "text"; text: string } & PrintTextStyle)
     | ({ kind: "field"; path: FieldPath } & PrintTextStyle)
+    | ({ kind: "pageNumber" } & PrintTextStyle)
     | { kind: "image"; src: string; alt: string }
     | { kind: "line" | "rect" }
   );
@@ -354,14 +355,15 @@ export interface PrintTemplate {
         kind: "records";
         /** [] 表示当前 Collection.items；非空路径指向当前记录的 RecordsNode。 */
         path: readonly string[];
+        /** 最小表头高度（毫米）；跨页重复，按文字测量撑高。 */
         headerHeight: number;
+        /** 最小行高（毫米）；文字自动换行撑高，不跨页拆行。 */
         rowHeight: number;
-        columns: {
+        columns: ({
           path: FieldPath;
           label: string;
           width: number;
-          align?: "left" | "center" | "right";
-        }[];
+        } & PrintTextStyle)[];
       }
   )[];
 }

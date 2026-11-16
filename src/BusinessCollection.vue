@@ -25,7 +25,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   page: [page: number];
-  open: [mode: "read" | "edit"];
+  open: [mode: "read" | "edit", restoreFocus: () => HTMLElement | null];
   print: [record: ObjectNode];
 }>();
 const runtime = inject(directRuntimeKey)!;
@@ -154,8 +154,30 @@ function select(action: RowAction, row: Values) {
     return;
   }
   if (action === "view" || action === "edit") {
+    const trigger = document.activeElement;
+    const list = trigger?.closest(".zerp-list");
+    const recordKey = trigger
+      ?.closest("[data-record-key]")
+      ?.getAttribute("data-record-key");
+    const restoreFocus = () => {
+      if (
+        trigger instanceof HTMLElement &&
+        trigger.isConnected &&
+        !trigger.matches(":disabled")
+      )
+        return trigger;
+      if (!list?.isConnected || recordKey == null) return null;
+      const row = Array.from(list.querySelectorAll("[data-record-key]")).find(
+        (element) => element.getAttribute("data-record-key") === recordKey,
+      );
+      return (
+        row?.querySelector<HTMLElement>(
+          '[data-row-action="edit"]:not(:disabled), [data-row-action="view"]:not(:disabled)',
+        ) ?? null
+      );
+    };
     props.node.selected = source;
-    emit("open", action === "edit" ? "edit" : "read");
+    emit("open", action === "edit" ? "edit" : "read", restoreFocus);
   } else void runtime.run(source, action);
 }
 function filterValues(values: Partial<Values>): Partial<Values> {
@@ -289,6 +311,7 @@ function visit(value: ReportCell<CollectionTarget>, row: Values) {
     :presentation="presentation"
     :cell="cell"
     :actions="actions"
+    action-column
     :action-labels="labels"
     :disabled-actions="reasons"
     :show-all-actions="showAllActions"

@@ -3,7 +3,8 @@ import { computed, inject, ref, watch, toRaw } from "vue";
 import { VBtn } from "vuetify/components";
 import type { Collection, ObjectNode } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
-import { bindPrintTemplate } from "./model-print";
+import { layoutPrintTemplate } from "./print-layout";
+import type { PrintDocument } from "./printing";
 import PrintPreview from "./PrintPreview.vue";
 import RecordDialog from "./RecordDialog.vue";
 import Feedback from "./Feedback.vue";
@@ -64,20 +65,42 @@ const available = computed(
         props.collection.draft !== props.record
       : printableRows.value.length > 0),
 );
-const preview = computed(() => {
-  if (!open.value || !available.value || !template.value) return {};
-  try {
-    return {
-      document: bindPrintTemplate(
-        template.value,
-        props.record ?? props.collection,
+const preview = ref<{ document?: PrintDocument; error?: string }>({});
+const layingOut = ref(false);
+watch(
+  [
+    open,
+    available,
+    template,
+    () => props.record ?? props.collection,
+    runtime.scope,
+  ],
+  async ([opened, admitted, configured, source], _previous, onCleanup) => {
+    const controller = new AbortController();
+    onCleanup(() => controller.abort());
+    preview.value = {};
+    layingOut.value = false;
+    if (!opened || !admitted || !configured) return;
+    layingOut.value = true;
+    try {
+      const document = await layoutPrintTemplate(
+        configured,
+        source,
         runtime.readable,
-      ),
-    };
-  } catch (cause) {
-    return { error: cause instanceof Error ? cause.message : "打印模板无效。" };
-  }
-});
+        controller.signal,
+      );
+      if (!controller.signal.aborted) preview.value = { document };
+    } catch (cause) {
+      if (!controller.signal.aborted)
+        preview.value = {
+          error: cause instanceof Error ? cause.message : "打印模板无效。",
+        };
+    } finally {
+      if (!controller.signal.aborted) layingOut.value = false;
+    }
+  },
+  { deep: true, immediate: true, flush: "sync" },
+);
 let autoOpened = false;
 watch(
   runtime.scope,
@@ -119,6 +142,7 @@ watch(
       <FeedbackRegion
         ><Feedback :message="preview.error || blockedReason" kind="error"
       /></FeedbackRegion>
+      <p v-if="layingOut" role="status">正在排版…</p>
       <PrintPreview
         v-if="preview.document"
         :document="preview.document"
