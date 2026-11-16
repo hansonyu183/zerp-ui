@@ -426,6 +426,12 @@
       "checks": ["unit-model"],
       "remaining": "统一公开契约、静态模型、同根登录/退出和迟到隔离有新源码/包映射；真实产品尚未迁移。",
       "requirementSha256": "c5fbb063f38bd2dab4119202259af5a79ba7c58f1ca0515196d26ed6dc67fc5a"
+    },
+    {
+      "id": "UI-BOUND-03",
+      "checks": [],
+      "remaining": "新增约束，尚无行为断言；待消费者修复后验证无网络建立完整结构、响应不能改结构、API不交付装配字段结构及实际业务路径。库合成测试不代替OIT实际消费者验收。",
+      "requirementSha256": "a773ecf67111e1761ef80663bddb411cd915f33e62ec4adecef1a035bfe6a30b"
     }
   ]
 }
