@@ -17,6 +17,8 @@ pnpm add ./zerp-ui-0.43.1.tgz
 
 ## 公开入口与迁移
 
+接口目标已按用户 2026-11-16 的决定修订，见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。[完整目标类型及说明](docs/interfaces/README.md)与[静态响应式示例](examples/model-contract/static-application.type-example.ts)已整理：普通对象与单据统一为 ObjectNode，独立集合统一为 Collection，协议使用固定普通属性。以下 Symbol 入口说明描述当前实现，公开类型及宿主尚待迁移；目标工件不作为第二套运行时或包入口。
+
 ```vue
 <script setup lang="ts">
 import { BusinessApplication } from "@zerp/ui";
@@ -31,7 +33,11 @@ import { model } from "./consumer";
 
 编辑直接更新字段值。操作的 `run()` 读取和更新所属模型；消费者负责业务 API、冲突处理、请求有效性及未知结果恢复，库不保存编辑基线、冻结请求或前端原请求日志，不拦截普通草稿离开。不存在旧工厂或旧运行时的兼容入口。
 
-API、DTO、业务规则、权限计算、Session、Router 和凭证归消费者。根级 `userPermissions` 归属当前 owner，未就绪不显示受保护工作区；完整模型保留，UI 根据节点授权裁剪字段、操作及导航。管理员不覆盖 `readOnly`、`disabledReason` 和业务事实。后端仍须验证实际授权。
+模型定义及权限职责遵循 [#152「2026-11-15 接口修订」](https://github.com/hansonyu183/zerp-ui/issues/152)：oit-go 在源码中直接定义完整静态业务对象并响应式包装后传入 UI；后端在登录/会话恢复时返回用户权限，UI 统一裁剪或调整组件，也可直接裁剪或调整传入对象。静态约束结构定义来源，数据和状态仍响应式更新；不以服务端 schema/bindings 动态装配整棵模型。该修订是目标契约，不表示现有产品已完成迁移。
+
+API、DTO、业务规则、权限计算、Session、Router 和凭证归消费者。根级 `userPermissions` 归属当前 owner，未就绪不显示受保护工作区。管理员不覆盖 `readOnly`、`disabledReason` 和业务事实。后端仍须验证实际授权。
+
+同一接口修订规定：模型在应用初始化、登录前传入，登录及登出沿用同一根对象。登出清空会话业务数据并使旧请求失效，UI 返回认证界面；直接裁剪对象的实现须恢复完整静态结构，供再次登录及权限增加使用。完整职责和验收条件见 #152，现有实现须另行核对。
 
 全局导航仅来自 `navigationProjection` 的有序分组及节点引用。未投影的子集合保留在所属内容中，不成为额外主导航；消费者通过 `navigation.href`、`visit` 与 `current` 同步 Router。模型构造和导航遍历不执行业务查询。
 

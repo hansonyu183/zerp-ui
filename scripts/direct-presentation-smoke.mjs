@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
 
-async function settleLayout(page) {
+export async function settleLayout(page) {
   await page.evaluate(async () => {
     await document.fonts.ready;
     await Promise.all(

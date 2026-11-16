@@ -1,5 +1,11 @@
 # 单一模型类型示例
 
+## 2026-11-16 目标接口
+
+[完整目标类型及语义](../../docs/interfaces/README.md)以 #152 的最新决定为准。[static-application.type-example.ts](static-application.type-example.ts)直接定义客户、AA/AB、子明细、引用、格式、打印模板、工作台、认证及权限。它导入目标声明，使用 Vue 响应式包装；回调仅声明，不能作为当前宿主的运行消费者。普通资料和单据统一使用 ObjectNode/Collection，未增加 VoucherNode/VoucherCollection。
+
+## 当前公开契约的既有示例
+
 `BusinessModel` 直接定义于 [库源码](../../src/business-model.ts)，从 `@zerp/ui/model` 导出。节点采用字段、对象、集合的判别联合；业务成员名开放，操作语义固定。库类型不依赖示例对象，不从 `typeof exampleModel` 推导，也不依赖 Vue。
 
 ```ts

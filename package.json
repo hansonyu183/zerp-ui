@@ -45,7 +45,10 @@
     "check:model": "pnpm build && pnpm build:model && node scripts/check-package.mjs --model",
     "test:model": "vitest run tests/business-application-direct.spec.ts tests/business-family-direct.spec.ts tests/business-model-reactivity.spec.ts tests/public-api.spec.ts",
     "dev": "vite examples/model --host 127.0.0.1",
-    "check:package": "pnpm build && pnpm build:model && node scripts/check-package.mjs --model"
+    "check:package": "pnpm build && pnpm build:model && node scripts/check-package.mjs --model",
+    "check:ui-preferences:inventory": "node scripts/check-ui-preferences.mjs",
+    "test:ui-preferences": "vitest run tests/business-application-direct.spec.ts tests/business-editor-direct.spec.ts tests/business-list-preferences.spec.ts tests/business-shell-preferences.spec.ts tests/business-review-preferences.spec.ts tests/business-model-reactivity.spec.ts",
+    "check:ui-preferences": "pnpm check:ui-preferences:inventory && pnpm test:ui-preferences && pnpm build && pnpm build:model && node scripts/check-package.mjs --ui-preferences"
   },
   "devDependencies": {
     "@napi-rs/canvas": "1.1.0",

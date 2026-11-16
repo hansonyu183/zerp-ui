@@ -15,7 +15,10 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
-import { directModelSmoke as smoke } from "./direct-model-smoke.mjs";
+import { directModelSmoke } from "./direct-model-smoke.mjs";
+import { uiPreferencesSmoke } from "./ui-preferences-smoke.mjs";
+const preferencesOnly = process.argv.includes("--ui-preferences");
+const smoke = preferencesOnly ? uiPreferencesSmoke : directModelSmoke;
 const exampleName = "model";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceBase = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -291,30 +294,32 @@ try {
     mode: "installed-tgz",
     directory: join(printEvidenceRoot, "installed-tgz"),
   });
-  const exampleRoot = join(root, "examples", exampleName);
-  const exampleServer = await preview({
-    root: exampleRoot,
-    configFile: join(exampleRoot, "vite.config.ts"),
-    preview: { host: "127.0.0.1", port: 0, strictPort: false },
-  });
   let builtScenarioEvidence;
-  try {
-    const localAddress = exampleServer.httpServer.address();
-    assert.ok(localAddress && typeof localAddress !== "string");
-    const exampleContext = await browser.newContext();
-    const examplePage = await exampleContext.newPage();
-    observe(examplePage);
-    await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
-    builtScenarioEvidence = await smoke(examplePage, {
-      ...printEvidence,
-      mode: "built-example",
-      directory: join(printEvidenceRoot, "built-example"),
+  if (!preferencesOnly) {
+    const exampleRoot = join(root, "examples", exampleName);
+    const exampleServer = await preview({
+      root: exampleRoot,
+      configFile: join(exampleRoot, "vite.config.ts"),
+      preview: { host: "127.0.0.1", port: 0, strictPort: false },
     });
-    await exampleContext.close();
-  } finally {
-    await new Promise((yes, no) =>
-      exampleServer.httpServer.close((e) => (e ? no(e) : yes())),
-    );
+    try {
+      const localAddress = exampleServer.httpServer.address();
+      assert.ok(localAddress && typeof localAddress !== "string");
+      const exampleContext = await browser.newContext();
+      const examplePage = await exampleContext.newPage();
+      observe(examplePage);
+      await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
+      builtScenarioEvidence = await smoke(examplePage, {
+        ...printEvidence,
+        mode: "built-example",
+        directory: join(printEvidenceRoot, "built-example"),
+      });
+      await exampleContext.close();
+    } finally {
+      await new Promise((yes, no) =>
+        exampleServer.httpServer.close((e) => (e ? no(e) : yes())),
+      );
+    }
   }
   assert.deepEqual(errors, []);
   assert.equal(
@@ -325,6 +330,18 @@ try {
     sourceBase,
     "source HEAD must remain unchanged throughout package validation",
   );
+  let preferencesEvidence;
+  if (!preferencesOnly) {
+    const preferencesPage = await context.newPage();
+    observe(preferencesPage);
+    try {
+      await preferencesPage.goto(`http://127.0.0.1:${address.port}`);
+      preferencesEvidence = await uiPreferencesSmoke(preferencesPage);
+    } finally {
+      await preferencesPage.close();
+    }
+    assert.deepEqual(errors, []);
+  }
   const report = {
     sourceBase,
     commands,
@@ -333,6 +350,7 @@ try {
     scenarios: {
       installed: installedScenarioEvidence,
       built: builtScenarioEvidence,
+      uiPreferences: preferencesEvidence,
     },
     sha256: createHash("sha256")
       .update(await readFile(tgz))
@@ -353,7 +371,9 @@ try {
       "public exports",
       "single Vue/Vuetify/Router host resolution and npm installation tree",
       "no failed browser assets",
-      "model-only authentication/customer and business operation interactions",
+      preferencesOnly
+        ? "targeted UI preference assertions (partial coverage)"
+        : "model-only authentication/customer and business operation interactions",
     ],
     exitCode: 0,
   };

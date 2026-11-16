@@ -348,6 +348,11 @@
   overscroll-behavior: contain;
   pointer-events: none;
 }
+/* The shell overlay host is level 2000. Global notices must remain clickable
+   while a record dialog is open, without reserving space in its layout. */
+.zerp-shell .zerp-feedback-stack {
+  z-index: 2001;
+}
 .zerp-feedback-stack:empty {
   display: none;
 }

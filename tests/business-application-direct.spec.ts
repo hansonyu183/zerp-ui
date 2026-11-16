@@ -728,32 +728,114 @@ it("keeps a nested collection deep link focused through the selected parent reco
   wrapper.unmount();
 });
 
-it("uses the consumer theme preference and returns user changes to its persistence port", async () => {
+it.each(["light", "dark"] as const)(
+  "UI-THEME-03 preserves %s mode across every preset and returns changes to the consumer",
+  async (mode) => {
+    const { model } = fixture();
+    const change = vi.fn(
+      (value: { preset: "md1" | "md2" | "md3"; mode: "light" | "dark" }) => {
+        model[meta].theme!.value = value;
+      },
+    );
+    model[meta].theme = { value: { preset: "md3", mode }, change };
+    const wrapper = mount(BusinessApplication, {
+      props: { model },
+      attachTo: document.body,
+    });
+    try {
+      await flushPromises();
+      for (const number of [1, 2, 3] as const) {
+        await wrapper.get('button[aria-label="主题预设"]').trigger("click");
+        await flushPromises();
+        const item = document.querySelector(
+          `[role="menuitemradio"][aria-label="Material Design ${number}"]`,
+        );
+        expect(item).not.toBeNull();
+        (item as HTMLElement).click();
+        await flushPromises();
+        const preset = `md${number}`;
+        expect(change).toHaveBeenLastCalledWith({ preset, mode });
+        expect(wrapper.find(`.v-theme--zerp-${preset}-${mode}`).exists()).toBe(
+          true,
+        );
+        const opposite = mode === "light" ? "dark" : "light";
+        await wrapper.get('button[aria-label="切换明暗模式"]').trigger("click");
+        await flushPromises();
+        expect(change).toHaveBeenLastCalledWith({ preset, mode: opposite });
+        expect(
+          wrapper.find(`.v-theme--zerp-${preset}-${opposite}`).exists(),
+        ).toBe(true);
+        await wrapper.get('button[aria-label="切换明暗模式"]').trigger("click");
+        await flushPromises();
+        expect(change).toHaveBeenLastCalledWith({ preset, mode });
+      }
+    } finally {
+      wrapper.unmount();
+    }
+  },
+);
+it("UI-THEME-03 defaults to MD3 light without a consumer preference", async () => {
   const { model } = fixture();
-  const change = vi.fn(
-    (value: { preset: "md1" | "md2" | "md3"; mode: "light" | "dark" }) => {
-      model[meta].theme!.value = value;
-    },
-  );
-  model[meta].theme = { value: { preset: "md2", mode: "dark" }, change };
-  const wrapper = mount(BusinessApplication, {
-    props: { model },
-    attachTo: document.body,
-  });
-  await flushPromises();
-  expect(wrapper.find(".v-theme--zerp-md2-dark").exists()).toBe(true);
-  await wrapper.get('button[aria-label="主题预设"]').trigger("click");
-  await flushPromises();
-  const preset = document.querySelector(
-    '[role="menuitemradio"][aria-label="Material Design 1"]',
-  );
-  expect(preset).not.toBeNull();
-  (preset as HTMLElement).click();
-  await flushPromises();
-  expect(change).toHaveBeenCalledWith({ preset: "md1", mode: "dark" });
-  expect(wrapper.find(".v-theme--zerp-md1-dark").exists()).toBe(true);
-  wrapper.unmount();
+  const wrapper = mount(BusinessApplication, { props: { model } });
+  try {
+    await flushPromises();
+    expect(wrapper.find(".v-theme--zerp-md3-light").exists()).toBe(true);
+  } finally {
+    wrapper.unmount();
+  }
 });
+it.each(["info", "success", "warning", "error"] as const)(
+  "UI-SHELL-06 dismissing %s feedback preserves consumer restrictions and reconciliation",
+  async (level) => {
+    const { model } = fixture();
+    const group = model.group as Extract<
+      BusinessModel[string],
+      { [meta]: { kind: "object" } }
+    >;
+    const update = vi.fn(async () => {});
+    const reconcile = vi.fn(async () => {});
+    group[meta].form = ["intro"];
+    group[meta].operations = {
+      update: { run: update, disabledReason: "结果待核实" },
+      reconcile: { run: reconcile },
+    };
+    model[meta].messages = [{ id: "result", level, text: "待核实业务结果" }];
+    const wrapper = mount(BusinessApplication, {
+      props: { model },
+      attachTo: document.body,
+    });
+    try {
+      await flushPromises();
+      const close = wrapper
+        .findAll("button")
+        .find(
+          (b) =>
+            b.attributes("aria-label")?.startsWith("关闭") &&
+            b.element.closest(".zerp-feedback"),
+        );
+      expect(close).toBeDefined();
+      await close!.trigger("click");
+      await flushPromises();
+      expect(wrapper.text()).not.toContain("待核实业务结果");
+      expect(model[meta].messages).toHaveLength(1);
+      expect(group[meta].operations.update!.disabledReason).toBe("结果待核实");
+      const save = wrapper.findAll("button").find((b) => b.text() === "保存")!;
+      expect(save.attributes("disabled")).toBeDefined();
+      await save.trigger("click");
+      expect(update).not.toHaveBeenCalled();
+      expect(reconcile).not.toHaveBeenCalled();
+      const verify = wrapper
+        .findAll("button")
+        .find((b) => b.text() === "核对结果")!;
+      expect(verify).toBeDefined();
+      await verify.trigger("click");
+      await flushPromises();
+      expect(reconcile).toHaveBeenCalledOnce();
+    } finally {
+      wrapper.unmount();
+    }
+  },
+);
 it("groups object-array details with sibling forms and retains direct edits across tabs", async () => {
   const { model } = fixture();
   const group = model.group as Extract<

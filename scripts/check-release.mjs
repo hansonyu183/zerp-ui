@@ -40,7 +40,12 @@ assert.ok(
   artifactIndex < 0 || process.argv[artifactIndex + 1],
   "--tgz requires a path",
 );
-for (const script of ["typecheck", "lint", "format:check"])
+for (const script of [
+  "check:ui-preferences:inventory",
+  "typecheck",
+  "lint",
+  "format:check",
+])
   run("pnpm", [script]);
 run("pnpm", ["test:reactivity"]);
 if (artifactIndex < 0)

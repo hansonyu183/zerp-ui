@@ -1,0 +1,409 @@
+{
+  "issue": "https://github.com/hansonyu183/zerp-ui/issues/158",
+  "checks": {
+    "package-layout": {
+      "file": "scripts/direct-presentation-smoke.mjs",
+      "anchor": "export async function directPresentationSmoke",
+      "surface": "tgz/browser",
+      "assertion": "代表性客户页：Tab键盘/面板、四列筛选/三列编辑、第二操作列、12px表格、32/48px动作、16px手机输入、弹层边界/焦点、手机无溢出"
+    },
+    "package-workbench": {
+      "file": "scripts/direct-presentation-smoke.mjs",
+      "anchor": "export async function workbenchPresentationSmoke",
+      "surface": "tgz/browser",
+      "assertion": "工作台四卡片桌面1+3、手机纵排，三主题暗色及恢复浅色"
+    },
+    "package-theme": {
+      "file": "scripts/ui-preferences-smoke.mjs",
+      "anchor": "default-and-independent-theme-transitions",
+      "surface": "tgz/browser",
+      "assertion": "认证与业务外壳默认MD3浅色，业务外壳全部主题/明暗组合独立切换"
+    },
+    "package-feedback": {
+      "file": "scripts/ui-preferences-smoke.mjs",
+      "anchor": "success-error-appearance-and-dismissal-preserve-field-and-row-geometry",
+      "surface": "tgz/browser",
+      "assertion": "成功/失败消息出现与关闭前后字段或表格行四维几何稳定"
+    },
+    "package-tab-input": {
+      "file": "scripts/ui-preferences-smoke.mjs",
+      "anchor": "query-input-retained-across-tabs",
+      "surface": "tgz/browser",
+      "assertion": "客户查询输入切Tab往返保持"
+    },
+    "package-full": {
+      "file": "scripts/direct-model-smoke.mjs",
+      "anchor": "export async function directModelSmoke",
+      "surface": "tgz/browser-existing",
+      "assertion": "既有完整消费者：引用一次加载及分页/过滤、单据输入跨Tab、权限、业务族、报表下钻返回位置；本片定向入口不运行此完整场景"
+    },
+    "unit-theme": {
+      "file": "tests/business-application-direct.spec.ts",
+      "anchor": "UI-THEME-03 preserves",
+      "surface": "source/public-entry",
+      "assertion": "6种初始组合独立切换、消费者主题回调及无偏好默认值"
+    },
+    "unit-feedback": {
+      "file": "tests/business-application-direct.spec.ts",
+      "anchor": "UI-SHELL-06 dismissing",
+      "surface": "source/public-entry",
+      "assertion": "四类反馈关闭后消息事实仍在、保存仍禁用、核对回调仍可达"
+    },
+    "unit-tabs": {
+      "file": "tests/business-editor-direct.spec.ts",
+      "anchor": "switches Material tabs by keyboard and removes tab chrome for one or zero visible groups",
+      "surface": "source/public-entry",
+      "assertion": "零/单/多组、键盘、面板关联、已访问query不重复、投影重排保留当前组"
+    },
+    "unit-overlay": {
+      "file": "tests/business-editor-direct.spec.ts",
+      "anchor": "opens selected records above a mounted list and closes without discarding model input",
+      "surface": "source/public-entry",
+      "assertion": "列表持续挂载、关闭保留输入、新记录与未知结果限制可再次进入"
+    },
+    "unit-actions": {
+      "file": "tests/business-list-preferences.spec.ts",
+      "anchor": "projects record operations into the second column",
+      "surface": "source/public-entry",
+      "assertion": "第二操作列、权限撤销、禁用原因、进入编辑不保存、手机短文字与流程动作"
+    },
+    "unit-shell": {
+      "file": "tests/business-shell-preferences.spec.ts",
+      "anchor": "keeps selected navigation groups collapsed",
+      "surface": "source/public-entry",
+      "assertion": "导航分组默认收起、修饰键不调用visit；工作台语义区块链接"
+    },
+    "unit-review": {
+      "file": "tests/business-review-preferences.spec.ts",
+      "anchor": "keeps scalar fields together while tabbing only contiguous structural groups in projection order",
+      "surface": "source/public-entry",
+      "assertion": "普通字段连续分组、独立子项写入、报表条件/结果/页码返回不重查"
+    },
+    "unit-model": {
+      "file": "tests/business-application-direct.spec.ts",
+      "anchor": "inherits collection grants for records and narrows field writes for ordinary users",
+      "surface": "source/public-entry",
+      "assertion": "直接输入、失败保留、深链、权限默认拒绝及收窄、owner失配/迟到隔离"
+    },
+    "unit-reactivity": {
+      "file": "tests/business-model-reactivity.spec.ts",
+      "anchor": "retains query, page, selection and new-record input across navigation changes",
+      "surface": "source/public-entry",
+      "assertion": "响应式投影/权限、模型输入、查询/页码/选择跨导航保持"
+    }
+  },
+  "clauses": [
+    {
+      "id": "UI-GOV-01",
+      "checks": [],
+      "remaining": "流程验收：任务开始时记录受影响编号及当前工单/父规格。",
+      "requirementSha256": "14e9b79d538eb671c259a0737b68c199c19896a27526b8c5311d72fad7cec86c"
+    },
+    {
+      "id": "UI-GOV-02",
+      "checks": [],
+      "remaining": "人工审查：迁移逐路径保留呈现；测试通过不代替全部条款证据。",
+      "requirementSha256": "d62f207d16efd238de67a17079ae2eb70932234c062d37bbf20bfaf14d8e2838"
+    },
+    {
+      "id": "UI-GOV-03",
+      "checks": [],
+      "remaining": "流程验收：用户修订与规范同任务同步，来源可追溯。",
+      "requirementSha256": "1700409d2b5544566b046f988e8dce1a49eff0106f009b6698f5582d5c6bebfa"
+    },
+    {
+      "id": "UI-GOV-04",
+      "checks": [],
+      "remaining": "由 Agent 审查用户决定的时序及冲突；仅业务含义不明或需改变已确认要求的未决项按 UI-GOV-06 在开发交付时集中列出。",
+      "requirementSha256": "e4477c1cfbfb1a90a50b3f587f92114da235c578e07414b71a89833ebbab4b0e"
+    },
+    {
+      "id": "UI-GOV-05",
+      "checks": [],
+      "remaining": "流程验收：逐条交付证据、缺口及授权内修复；本清单不自动判定任务已遵守。",
+      "requirementSha256": "f6d1ae96b1aea1000bc561ba419e539c73b94379254435ef4a7c9c831330abc8"
+    },
+    {
+      "id": "UI-GOV-06",
+      "checks": [],
+      "remaining": "流程审查由 Agent 执行：常规文案/UI自主判断；仅将业务含义不明或要求变更在开发交付后合并为一份清单，不逐项询问用户。",
+      "requirementSha256": "e2be0d78d15c34d83f3f0917a6035f572a985dae3f8f922d03c4f911bf7cbe8f"
+    },
+    {
+      "id": "UI-THEME-01",
+      "checks": [],
+      "remaining": "布局所有权及消费者不补模板仍需架构审查；未穷举业务族。",
+      "requirementSha256": "a3bbc17b74f57ad4b1d82f38c26cca63660d3fa0c871d48db46ec5f6a4d7f2f8"
+    },
+    {
+      "id": "UI-THEME-02",
+      "checks": ["package-theme", "package-workbench"],
+      "remaining": "只覆盖认证外壳及工作台主题响应，未逐控件验证完整Material语言。",
+      "requirementSha256": "239fa7f9c185975ecc99a68807ba599b53dd94872002eb8f555b4a2c27fb978f"
+    },
+    {
+      "id": "UI-THEME-03",
+      "checks": ["unit-theme", "package-theme"],
+      "remaining": "主题菜单位于明暗左侧的几何顺序尚无断言；真实消费者持久化另验收。",
+      "requirementSha256": "b96bafd39cfc256704b23e9644c6cb1b423ae305e1b759249f4fb60d963fc402"
+    },
+    {
+      "id": "UI-THEME-04",
+      "checks": [],
+      "remaining": "公共样式归属及主要/普通/危险层级需审查；常规语义样式由 Agent 判断，见Q4。",
+      "requirementSha256": "e614d97ed2d1c43b3f8c757b17631ef2860ccba94bc02b807dea1d797d4bb353"
+    },
+    {
+      "id": "UI-THEME-05",
+      "checks": ["package-layout"],
+      "remaining": "仅表格12px及手机编辑输入16px；正文/菜单/导航/反馈和18/16/14px标题尚未逐类验证。",
+      "requirementSha256": "35ce3292db8df98e60a9864d9bf403c9eedb09a5d3ce1724c8655cdb9cd9fd67"
+    },
+    {
+      "id": "UI-THEME-06",
+      "checks": ["package-layout"],
+      "remaining": "仅代表性动作和48px顶栏；compact输入、全控件触控区域未遍历；常规间距由 Agent 判断，见Q2。",
+      "requirementSha256": "cdde125112369892849fa47f8b8510488357a3c7d0bfd51e25c2eb98adf285da"
+    },
+    {
+      "id": "UI-SHELL-01",
+      "checks": ["package-layout"],
+      "remaining": "只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。",
+      "requirementSha256": "8512160cfa5df367ad12b6af33e50b40fe971fba38b23a8269451ef29b5d86cf"
+    },
+    {
+      "id": "UI-SHELL-02",
+      "checks": [],
+      "remaining": "未断言所有顶栏子项顺序、品牌内容和首页跳转。",
+      "requirementSha256": "ad04b1a88628324bb0776f429a566cf70a7208ea7a4de22d5496a9f1fbf464a6"
+    },
+    {
+      "id": "UI-SHELL-03",
+      "checks": [],
+      "remaining": "未定向检查慢业务读取时账户可达、窄屏文字收起与账户全部入口。",
+      "requirementSha256": "b89062addf1bebd02184204a28bef7339122519d394c08ee2e1aab28597f4b96"
+    },
+    {
+      "id": "UI-SHELL-04",
+      "checks": [],
+      "remaining": "主标题几何及业务名重复需检查；语义重复待人工审查。",
+      "requirementSha256": "4c7d01e662e1ccabe9a0670ce84607cf771a6a214683aa17b2eeb20bce1fa2e2"
+    },
+    {
+      "id": "UI-SHELL-05",
+      "checks": ["package-feedback", "package-full"],
+      "remaining": "仅成功/失败代表路径；消息更新、警告/状态、字段校验、长消息滚动未覆盖几何。",
+      "requirementSha256": "9594e2dc174041e0c668e5e8b68268824e6eaa56affa241a49154cb717381209"
+    },
+    {
+      "id": "UI-SHELL-06",
+      "checks": ["unit-feedback", "unit-overlay"],
+      "remaining": "四类消息关闭不解除消费者限制已定向验证；所有业务族持续阻塞呈现仍待覆盖。",
+      "requirementSha256": "67a065ec7c5759c8aa9fef986f9b9d552d923fc4a8b4a51f9793b2901a77ffa5"
+    },
+    {
+      "id": "UI-DESKTOP-01",
+      "checks": ["package-layout"],
+      "remaining": "仅代表表格存在/字号；字段完整性与超宽策略未穷举，尽量避免横滚处理方式由 Agent 按现有要求判断，见Q3。",
+      "requirementSha256": "6066857d11de07502aeec6dbbf52d6871922f92d52cf7248dcd4d6b8559bf424"
+    },
+    {
+      "id": "UI-DESKTOP-02",
+      "checks": ["unit-actions", "package-layout"],
+      "remaining": "第二操作列有断言；排序必须在相关表头且不占筛选栏尚无定向证据。",
+      "requirementSha256": "6d29a52ebe7dafe81431e724d92a8fd302023ca8558cd93240703b174222e656"
+    },
+    {
+      "id": "UI-DESKTOP-03",
+      "checks": [],
+      "remaining": "表格内编辑简洁模式及字段校验前后行高尚无公开浏览器断言。",
+      "requirementSha256": "8841b35c9e76dddebffbb1283b7c0b2b4ee57b47ce9ed58ceacd997045b808bc"
+    },
+    {
+      "id": "UI-MOBILE-01",
+      "checks": ["package-layout", "unit-actions"],
+      "remaining": "仅代表卡片字段和无横溢；合计、完整身份、选择、适用明细尚未全部验证。",
+      "requirementSha256": "7917befe3ba5718a9587d2fadf3aa5a477edc812f7129b9bb5a49da3f3b0a5b5"
+    },
+    {
+      "id": "UI-MOBILE-02",
+      "checks": [],
+      "remaining": "流式短字段同排、长值换行、名称和值同行尚无几何断言；样本由 Agent 按现有要求选择，见Q3。",
+      "requirementSha256": "3a7182d5c9689e013df51ce7b3a1797e9b77d52f13447fff1366cc9b5bb81bfe"
+    },
+    {
+      "id": "UI-MOBILE-03",
+      "checks": [],
+      "remaining": "首行左右对齐/缺省稳定、全选文字/数量/半选/禁用尚无直接宿主定向证据。",
+      "requirementSha256": "48106a6f48091c3eb6b27f9986e75278979dbeb6f0fd453170dcd39aef607252"
+    },
+    {
+      "id": "UI-ACTION-01",
+      "checks": ["unit-actions"],
+      "remaining": "可用动作与更多入口有证据；普通动作3项上限、图标语义及手机收纳边界待补；流程特例不泛化。",
+      "requirementSha256": "f6352333f5a6229c61a4d77281eea059401155b5560e8aa03a4bee3dd692e6fd"
+    },
+    {
+      "id": "UI-ACTION-02",
+      "checks": ["unit-actions", "package-layout"],
+      "remaining": "手机短文字已验，桌面图标及hover/focus hint尚未完整验证。",
+      "requirementSha256": "0b7e3d2da59b45d8af81171a754ca4ccb3e0c434bb463afebe7f00e8c25ec55d"
+    },
+    {
+      "id": "UI-ACTION-03",
+      "checks": ["unit-actions", "unit-review"],
+      "remaining": "覆盖代表权限撤销/禁用和独立处理输入；所有业务族及状态组合未穷举。",
+      "requirementSha256": "24a024fcaa89464b24aef4e87e08f9eebab2911268ed900e181672ba3fae3d41"
+    },
+    {
+      "id": "UI-ACTION-04",
+      "checks": [],
+      "remaining": "新增各入口、标题与成功提示的一致性，以及其他动作文案尚无统一断言。",
+      "requirementSha256": "f41d305efc8bc032a5fcc85f969c359f4f9ab142ff7609104d4d6a39e42d0a24"
+    },
+    {
+      "id": "UI-FORM-01",
+      "checks": ["unit-model", "unit-review"],
+      "remaining": "直接编辑、复杂结构有代表用例；查看/新增/编辑完整字段顺序同构尚未逐路径断言。",
+      "requirementSha256": "1caae29909cf8e53fc0b51a062a8afc5f0e498ef71dae45952da126a2f9248f2"
+    },
+    {
+      "id": "UI-FORM-02",
+      "checks": ["unit-overlay", "package-layout"],
+      "remaining": "列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。",
+      "requirementSha256": "b272d73879603b95708f3986205aad898dab2ef0d4f573804193c676a455c8c7"
+    },
+    {
+      "id": "UI-FORM-03",
+      "checks": ["package-layout"],
+      "remaining": "代表场景筛选4列/编辑3列已验；容器窄宽/短表单/长文本/子表整行未覆盖；Q1/Q2由 Agent 按现有要求判断。",
+      "requirementSha256": "aaccffda9dcd740115f7276e0928b38f99bdac784b828df1d04154f94b1209c9"
+    },
+    {
+      "id": "UI-FORM-04",
+      "checks": ["unit-tabs", "package-layout", "unit-review"],
+      "remaining": "零单多组、键盘和面板关联已有；窄屏Tab滚动、浮动标签不重叠尚无完整几何证据。",
+      "requirementSha256": "c089ab7546178d49bc07c721f974e6e0a16335662b17079db7d0302d4989f628"
+    },
+    {
+      "id": "UI-FORM-05",
+      "checks": ["unit-tabs", "unit-review", "unit-reactivity"],
+      "remaining": "既有断言属于 Symbol/form 契约；2026-11-16 有序 members、key 及空 label 新目标仅有类型工件，宿主行为未验收。",
+      "requirementSha256": "f196c45bcf9faa7bfdc30557ccb4bec5a2d8cf93f3696d7e74dfd9e3cdb56755"
+    },
+    {
+      "id": "UI-FORM-06",
+      "checks": [
+        "unit-model",
+        "unit-tabs",
+        "unit-review",
+        "package-tab-input",
+        "package-full"
+      ],
+      "remaining": "既有聚合/Tab证据保留历史含义；新目标集合内详情、数组分组及随父保存明细尚无宿主行为证据。",
+      "requirementSha256": "783a51e8069147eb9bfbe4dca2bc1670e86ae66d33d5c8b027ef9d2eb9c2474f"
+    },
+    {
+      "id": "UI-FORM-07",
+      "checks": ["unit-reactivity"],
+      "remaining": "旧投影断言不证明新目标独立字典集合与对象内分组；业务名称、层级及新宿主行为待验收。",
+      "requirementSha256": "27908a7f67c073aeb23135e78147ee18699cadd323ec7818f936c329e22b25f7"
+    },
+    {
+      "id": "UI-FORM-08",
+      "checks": ["unit-model", "unit-reactivity", "unit-overlay"],
+      "remaining": "直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。",
+      "requirementSha256": "d3d38416648e4a7f95f3dba3bd1536c6e5ba7bcaf5b338dcfc37a7c0558aba40"
+    },
+    {
+      "id": "UI-NAV-01",
+      "checks": ["unit-shell"],
+      "remaining": "仅默认收起及修饰键；直属入口、无标题/无切换提示尚未完整断言。",
+      "requirementSha256": "190bfd50fe19162184edf6ea50548babbd3f2fc158d488af439dcf19ddb89153"
+    },
+    {
+      "id": "UI-NAV-02",
+      "checks": ["unit-shell"],
+      "remaining": "修饰键有证据；图标语义、未知文本、手机选择关闭抽屉、桌面收起及新标签待补。",
+      "requirementSha256": "b9c60322c91e4220d36aa1b7d493bd7152c5a51b730f5b7a97113d70768dead4"
+    },
+    {
+      "id": "UI-NAV-03",
+      "checks": ["unit-model", "unit-reactivity", "package-full"],
+      "remaining": "既有权限/导航证据属于当前公开契约；仅根级 Collection 导航及工作台/无权回退的新目标尚待宿主验收。",
+      "requirementSha256": "7642f2dc00c960ea55cd78cc2f36281b72fb6f2fb1f844342b20f5f2447fa8bf"
+    },
+    {
+      "id": "UI-NAV-04",
+      "checks": [],
+      "remaining": "重复导航/目录与实际入口需逐路径审查，不以旧私有组件测试作为新入口符合证据。",
+      "requirementSha256": "f7e1e32e7f7e8ef583ec87e9e20042b38167649a519c21f199302ab2707b4c58"
+    },
+    {
+      "id": "UI-NAV-05",
+      "checks": ["package-full"],
+      "remaining": "既有包场景属于旧引用契约；reference/treeReference 新字段的搜索、树展开、单多选及无维护跳转仅定义类型，行为待验收。",
+      "requirementSha256": "018a43b3fd9d150bb03ba344077eb108863eaf9b25859f545886e178f7689ac3"
+    },
+    {
+      "id": "UI-NAV-06",
+      "checks": ["unit-model", "package-full"],
+      "remaining": "构造不调回调及按需读取有代表证据；慢页面时账户外壳可用未定向验收。",
+      "requirementSha256": "b684a2f81509e917423d469c58bec1c8f936afb810c277aabd5163983038d2df"
+    },
+    {
+      "id": "UI-WORK-01",
+      "checks": ["unit-shell", "package-workbench"],
+      "remaining": "固定4角色桌面/手机几何和主题有代表证据；空角色/全部业务状态仍需定向验收。",
+      "requirementSha256": "34cfca6bfbb64506900a02260c709efaffbda8bcdb9b433c23090d4be4af9ae3"
+    },
+    {
+      "id": "UI-WORK-02",
+      "checks": [],
+      "remaining": "由 Agent 结合业务语境审查简短业务中文与同名一致性，不引入任意字数上限；常规文案不要求用户确认，见Q5。",
+      "requirementSha256": "205c4079d836b95c48341cf30fef5f46d181ce21deb7c425fc2cf9568c404e2f"
+    },
+    {
+      "id": "UI-WORK-03",
+      "checks": [],
+      "remaining": "由 Agent 审查内部实现文案、业务影响与下一步、单位/不可逆提示；只有业务含义不明或需改变已确认要求时按 UI-GOV-06 留交付清单。",
+      "requirementSha256": "f451e53690b527628207253c24a22d7a746303f8edc3b3d34f4ceb71b30edfd8"
+    },
+    {
+      "id": "UI-WORK-04",
+      "checks": ["unit-review", "package-full"],
+      "remaining": "既有独立tgz场景测非零滚动/页码/条件/结果，源码定向验证不重查；真实结果有效性由消费者验收。",
+      "requirementSha256": "39569758bfc52afeeced21113218a53425aa6bd38cc5d5d82b318e4abccd45ad"
+    },
+    {
+      "id": "UI-SCOPE-01",
+      "checks": [],
+      "remaining": "真实消费者验收：OIT分类、类型码/首字母排序、停用类型/历史直达/独立配置。本库不得硬编码。",
+      "requirementSha256": "16a39851b0e96706032af67b6ed4734a16d697b7935861b0a0b7c61adca4a8ac"
+    },
+    {
+      "id": "UI-SCOPE-02",
+      "checks": [],
+      "remaining": "新目标按完整静态集合和权限表达 KY/K1 差异，旧聚合字典 Tab 决定已被取代；真实消费者尚未迁移验收。",
+      "requirementSha256": "95759db11fbf4bb46a09f77ea9e3b54508c9564924a150757fa30ec8b651e860"
+    },
+    {
+      "id": "UI-SCOPE-03",
+      "checks": ["unit-actions"],
+      "remaining": "合成流程动作直接可达有代表证据；真实ZERP放行意见契约由消费者验收，不泛化免确认。",
+      "requirementSha256": "2e69f3009d692bb30477495525ff0a55dea2deda265c27b66835ed06d0e4c4f0"
+    },
+    {
+      "id": "UI-BOUND-01",
+      "checks": [],
+      "remaining": "人工规范审查：不恢复失效要求；不擅自固定品牌色/字体族。",
+      "requirementSha256": "e6efcb9025f72203183dbf401a1faa2b077cf3dbbe51c60f995fb019fc47500e"
+    },
+    {
+      "id": "UI-BOUND-02",
+      "checks": ["unit-model"],
+      "remaining": "统一 ObjectNode/Collection、完整静态模型及生命周期仅完成目标类型/合成示例；公开包、宿主及真实产品尚未迁移。",
+      "requirementSha256": "c5fbb063f38bd2dab4119202259af5a79ba7c58f1ca0515196d26ed6dc67fc5a"
+    }
+  ]
+}
