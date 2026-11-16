@@ -43,6 +43,7 @@ const props = defineProps<{
   selectedKeys?: readonly (string | number)[];
   selectable?: (row: R) => boolean;
   actions?: (row: R) => readonly A[];
+  actionColumn?: boolean;
   showAllActions?: (row: R) => boolean;
   actionLabels?: Readonly<Partial<Record<ListAction, string>>>;
   disabledActions?: (row: R) => Readonly<Partial<Record<ListAction, string>>>;
@@ -124,6 +125,7 @@ const dataColumns = computed(() =>
 );
 const hasActions = computed(
   () =>
+    props.actionColumn ||
     rowActions.value.some((actions) => actions.length) ||
     actionColumns.value.length > 0 ||
     props.result.items.some((row) => props.rowLinks?.(row).length),
@@ -289,7 +291,8 @@ function display(row: Partial<R>, column: Column<R>) {
     <FeedbackRegion
       ><Feedback :message="presentationError" kind="error"
     /></FeedbackRegion>
-    <template v-if="!presentationError">
+    <div v-if="loading && !result.items.length" role="status">正在读取…</div>
+    <template v-if="!presentationError && (!loading || result.items.length)">
       <p v-if="summary">{{ summary.caption }}</p>
       <div v-if="xs && selectedKeys !== undefined" class="zerp-card-selection">
         <VCheckboxBtn
@@ -385,6 +388,7 @@ function display(row: Partial<R>, column: Column<R>) {
             <component
               :is="xs ? VCard : 'tr'"
               :tag="xs ? 'article' : undefined"
+              :data-record-key="rowKey ? String(rowKey(row)) : undefined"
               :variant="xs ? 'outlined' : undefined"
               :class="{
                 'zerp-record-card': xs,

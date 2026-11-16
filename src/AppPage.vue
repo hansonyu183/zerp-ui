@@ -471,7 +471,7 @@ function navigated(event: MouseEvent) {
                 :active="active"
                 @protection="emit('protection', $event)"
               />
-              <footer>{{ footer }}</footer>
+              <footer v-if="footer">{{ footer }}</footer>
             </div></VMain
           >
         </FeedbackHost>

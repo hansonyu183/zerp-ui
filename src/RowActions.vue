@@ -173,6 +173,7 @@ function activate(
           "
         >
           <VBtn
+            :data-row-action="item.action"
             :aria-label="item.label"
             :aria-description="item.reason"
             :icon="!xs"
