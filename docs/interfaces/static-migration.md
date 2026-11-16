@@ -27,3 +27,5 @@
 验证以 `@zerp/ui` 的 BusinessApplication、`@zerp/ui/model` 与同一 tgz 物理独立安装为面；模型/模板算法定向检查按 #159 的已确认边界执行。具体源码 SHA、命令、退出码、包摘要、UI 条款证据和未完成项回写相应 GitHub 工单。合成消费者及模拟回调不证明真实 ZERP API/E2E。
 
 #164 补齐 menu/tree 的显式 InteractionAction：operation 仅在用户选择时执行，受固定 interact 权限、节点写入资格、业务禁用及执行中状态约束。related/download 不接受动作目标，CollectionTarget 继续只表达真实根集合与可选记录。
+
+#167 补齐：脚本各独立文件以 download + InteractionDownload 映射消费者下载回调，不替换根集合 export；固定 download 授权可读且允许只读内容，维持原下载按钮。无需虚假命令集合或伪装菜单。

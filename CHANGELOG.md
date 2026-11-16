@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.44.2
+
+- 脚本独立文件使用有限 InteractionDownload，保留下载按钮、集合导出与只读下载；按固定 download 授权和 disabled 重检，隔离迟到失败。
+
 ## 0.44.1
 
 - 引用字段增加有限 scopeKey，候选依赖变化时复用原目录失效和按需读取，保留历史选值。

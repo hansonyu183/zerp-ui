@@ -277,10 +277,20 @@ export interface InteractionAction {
   operation: Operation;
 }
 
+/** 已产生业务文件的独立下载，不替换所属集合的导出操作。 */
+export interface InteractionDownload {
+  kind: "download";
+  operation: Operation;
+}
+
 export interface InteractionNode extends NodeBase {
   kind: "interactions";
   value: Record<string, string | boolean>;
-  items: readonly Interaction<CollectionTarget, InteractionAction>[];
+  items: readonly Interaction<
+    CollectionTarget,
+    InteractionAction,
+    InteractionDownload
+  >[];
 }
 
 export type BusinessNode =
@@ -431,7 +441,8 @@ type OperationPermissions = Partial<
     | "load"
     | "print"
     | "itemPrint"
-    | "interact",
+    | "interact"
+    | "download",
     boolean
   >
 >;

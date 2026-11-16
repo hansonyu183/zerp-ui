@@ -241,6 +241,29 @@ export async function directModelSmoke(page) {
       await readFile(await download.path(), "utf8"),
       "合计\n20.00\n",
     );
+    const exportCount = callbacks.filter(
+      (name) => name === "report.export",
+    ).length;
+    for (const name of ["甲", "乙"]) {
+      const pending = page.waitForEvent("download");
+      await dialog
+        .getByRole("button", { name: `下载文件${name}`, exact: true })
+        .click();
+      const file = await pending;
+      assert.equal(file.suggestedFilename(), `synthetic-${name}.csv`);
+      assert.equal(
+        await readFile(await file.path(), "utf8"),
+        `独立文件${name}\n`,
+      );
+      assert.equal(
+        callbacks.filter((call) => call === `script.file.${name}`).length,
+        1,
+      );
+    }
+    assert.equal(
+      callbacks.filter((name) => name === "report.export").length,
+      exportCount,
+    );
     await close();
     await visit("结构化报表");
     await expect(

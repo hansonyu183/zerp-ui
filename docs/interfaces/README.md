@@ -65,3 +65,8 @@ OutputNode 保留已经生成的有限文档及显式实体结果确认；Intera
 menu/tree 项既可关联真实根集合，也可明确提供 InteractionAction（kind=action，operation 为必需 disabled 与 run 的有限操作）。动作需要所属 InteractionNode 的写入资格和 interact 操作授权，执行中禁止重复；条目或操作被替换、所属节点移除、会话/模型切换后隔离迟到失败反馈。业务回调负责在实际回写前验证有效性。related/download 仍只使用 CollectionTarget，不接受动作，不劫持导航执行命令。规格见 #164。
 
 引用字段的可选 scopeKey 只表示候选目录业务依赖/代际。变化时旧缓存和迟到目录失效，下一次需要时重新读取，保留历史选值；消费者仍须核对 load 结果的 owner/依赖有效性。owner 作用域由宿主提供，无须重复编码。见 #165。
+
+
+## 独立脚本文件下载
+
+download 的 target 可为真实 CollectionTarget（执行集合 export），或有限 InteractionDownload={kind:download, operation:Operation}（下载当前业务产生的独立文件）。后者使用固定 download 授权，缺省拒绝、无授权隐藏；节点可读即可，不要求业务可写，故只读详情仍可下载。Operation.disabled、条目 disabled、执行中去重及调用前资格重检均有效；文件内容和下载端口属于消费者，不在库内注册额外集合或导航命令。related 不接受下载端口，menu/tree 的写入动作仍使用 InteractionAction，二者不得混用。见 #167。
