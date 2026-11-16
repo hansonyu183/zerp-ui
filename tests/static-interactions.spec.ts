@@ -95,7 +95,9 @@ it("rechecks explicit interaction permission, read-only and disabled state", asy
     },
   };
   await flushPromises();
-  await click("重新计算");
+  expect(
+    wrapper!.findAll("button").some((button) => button.text() === "重新计算"),
+  ).toBe(false);
   expect(f.run).not.toHaveBeenCalled();
   if (
     f.model.session.userPermissions &&

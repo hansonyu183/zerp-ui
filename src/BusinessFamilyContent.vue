@@ -52,6 +52,8 @@ type Menu = Extract<
 function menuEntry(entry: Menu["items"][number], current: () => boolean) {
   const target = entry.target;
   if ("kind" in target) {
+    if (!questions.value || !runtime.interactionVisible(questions.value))
+      return null;
     const operation = target.operation;
     const blocked = () =>
       !alive ||
