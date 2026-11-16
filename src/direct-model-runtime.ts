@@ -80,7 +80,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   const reportViews = new Map<object, { left: number; top: number }>();
   let epoch = 0;
   const workbenchLoads = new WeakMap<object, Set<string>>();
-  function paths() {
+  const structuralPaths = computed(() => {
     const result = new Map<object, Node[]>();
     function walk(node: Node, parents: Node[]) {
       if (result.has(toRaw(node))) return;
@@ -106,7 +106,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     ])
       walk(node, []);
     return result;
-  }
+  });
+  const paths = () => structuralPaths.value;
   function ancestors(node: Node) {
     return paths().get(toRaw(node)) ?? [];
   }
