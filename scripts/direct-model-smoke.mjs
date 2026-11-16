@@ -14,9 +14,17 @@ export async function directModelSmoke(page) {
   page.on("console", observe);
   const navigation = page.getByRole("navigation", { name: "主导航" });
   const visit = async (label) => {
-    const link = navigation.getByRole("link", { name: label, exact: true });
-    if (!(await link.isVisible()))
+    const link = navigation.getByRole("link", {
+      name: label === "空集合" ? "E 空集合" : label,
+      exact: true,
+    });
+    if (
+      (await navigation.locator("details").first().getAttribute("open")) ===
+      null
+    )
       await navigation.getByText("业务", { exact: true }).click();
+    if (!(await link.isVisible()))
+      await navigation.getByText("示例分类", { exact: true }).click();
     await link.click();
   };
   const open = async (action = "编辑") => {

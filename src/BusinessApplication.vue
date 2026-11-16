@@ -32,17 +32,55 @@ function changeTheme(value: ThemeChoice) {
   if (props.model.theme) props.model.theme.change(value);
   else localTheme.value = value;
 }
-const groups = computed(() =>
-  props.model.navigation.groups
+const navigationIds = new WeakMap<object, number>();
+let nextNavigationId = 0;
+function navigationKey(
+  group: string,
+  section: string | null,
+  node: Collection,
+) {
+  const raw = toRaw(node);
+  if (!navigationIds.has(raw)) navigationIds.set(raw, ++nextNavigationId);
+  return JSON.stringify([
+    runtime.scope.value,
+    group,
+    section,
+    navigationIds.get(raw),
+  ]);
+}
+const groups = computed(() => {
+  const allowed = (node: Collection) =>
+    Object.values(props.model.members).includes(node) && runtime.readable(node);
+  return props.model.navigation.groups
     .map((group) => ({
       ...group,
-      items: group.items.filter(
-        (node) =>
-          Object.values(props.model.members).includes(node) &&
-          runtime.readable(node),
-      ),
+      items: group.items.filter(allowed),
+      sections: (group.sections ?? [])
+        .map((section) => ({
+          ...section,
+          items: section.items.filter(allowed),
+        }))
+        .filter((section) => section.items.length),
     }))
-    .filter((group) => group.items.length),
+    .filter((group) => group.items.length || group.sections.length);
+});
+const navigationEntries = computed(() =>
+  groups.value.flatMap((group) => [
+    ...group.items.map((node) => ({
+      node,
+      key: navigationKey(group.key, null, node),
+      group: group.key,
+      section: undefined,
+    })),
+    ...group.sections.flatMap((section) =>
+      section.items.map((node) => ({
+        node,
+        key: navigationKey(group.key, section.key, node),
+        group: group.key,
+        section: { key: section.key, caption: section.label },
+      })),
+    ),
+  ]),
 );
 const accountView = ref<ObjectNode | null>(null);
 const current = computed<Collection | null>(() => {
@@ -68,7 +106,7 @@ watch(
       props.model.workbench
     )
       return;
-    const first = groups.value[0]?.items[0];
+    const first = navigationEntries.value[0]?.node;
     if (first) props.model.navigation.visit(first);
   },
   { immediate: true },
@@ -79,30 +117,28 @@ const navigation = computed<NavigationGroup[]>(() =>
     : groups.value.map((group) => ({
         key: group.key,
         caption: group.label,
-        items: group.items.map((node, index) => ({
-          key: `${group.key}:${index}`,
-          caption: node.label,
-          icon: node.icon,
-          to: props.model.navigation.href(node),
-        })),
+        items: navigationEntries.value
+          .filter((entry) => entry.group === group.key)
+          .map(({ node, key, section }) => ({
+            key,
+            section,
+            caption: node.navigationLabel ?? node.label,
+            icon: node.icon,
+            to: props.model.navigation.href(node),
+          })),
       })),
 );
-const selectedKey = computed(() => {
-  for (const group of groups.value) {
-    const index = group.items.indexOf(current.value!);
-    if (index >= 0) return `${group.key}:${index}`;
-  }
-  return null;
-});
+const selectedKey = computed(
+  () =>
+    navigationEntries.value.find((entry) => entry.node === current.value)
+      ?.key ?? null,
+);
 function visitKey(key: string) {
-  for (const group of groups.value) {
-    const index = group.items.findIndex(
-      (_, index) => `${group.key}:${index}` === key,
-    );
-    if (index >= 0) {
-      accountView.value = null;
-      props.model.navigation.visit(group.items[index]!);
-    }
+  if (!runtime.ready.value || props.model.session.state !== "ready") return;
+  const entry = navigationEntries.value.find((entry) => entry.key === key);
+  if (entry && runtime.readable(entry.node)) {
+    accountView.value = null;
+    props.model.navigation.visit(entry.node);
   }
 }
 const brand = computed(() => ({
