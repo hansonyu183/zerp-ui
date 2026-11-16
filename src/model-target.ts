@@ -37,3 +37,9 @@ export function plainClick(event: MouseEvent | KeyboardEvent) {
     !event.altKey
   );
 }
+
+export function renderedHref(event: MouseEvent | KeyboardEvent) {
+  return event.currentTarget instanceof Element
+    ? event.currentTarget.getAttribute("href")
+    : null;
+}

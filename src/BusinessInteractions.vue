@@ -15,6 +15,7 @@ import { useDisplay } from "vuetify";
 import Feedback from "./Feedback.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
 import type { Interaction, InteractionAnswers } from "./collaboration";
+import { plainClick, renderedHref } from "./model-target";
 const { xs } = useDisplay();
 const props = defineProps<{
   items: readonly Interaction<T>[];
@@ -44,24 +45,13 @@ function intent(target: T, event: MouseEvent) {
     return;
   }
   const href = props.href?.(target);
-  if (
-    !href &&
-    event.currentTarget instanceof Element &&
-    event.currentTarget.hasAttribute("href")
-  ) {
+  const previousHref = renderedHref(event);
+  if ((href || previousHref !== null) && href !== previousHref) {
     event.preventDefault();
     return;
   }
   if (href) {
-    if (
-      event.defaultPrevented ||
-      event.button !== 0 ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey ||
-      event.altKey
-    )
-      return;
+    if (!plainClick(event)) return;
     event.preventDefault();
   }
   dispatch("intent", target);

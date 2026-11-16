@@ -22,6 +22,7 @@ import {
   targetHref,
   visitTarget,
   plainClick,
+  renderedHref,
 } from "./model-target";
 const props = defineProps<{ node: Workbench }>();
 const runtime = inject(directRuntimeKey)!;
@@ -77,7 +78,15 @@ function open(event: MouseEvent | KeyboardEvent, row: ObjectNode) {
     return;
   }
   if (!target) {
+    if (renderedHref(event) !== null) {
+      event.preventDefault();
+      return;
+    }
     void runtime.run(row, "get");
+    return;
+  }
+  if (renderedHref(event) !== targetHref(runtime, target)) {
+    event.preventDefault();
     return;
   }
   if (!plainClick(event)) return;
@@ -91,6 +100,10 @@ function manage(event: MouseEvent) {
     !runtime.readable(props.node.reports) ||
     !readableTarget(runtime, target)
   ) {
+    event.preventDefault();
+    return;
+  }
+  if (renderedHref(event) !== targetHref(runtime, target)) {
     event.preventDefault();
     return;
   }

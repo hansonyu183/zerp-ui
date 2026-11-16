@@ -251,3 +251,177 @@ it("isolates target edges after a workbench owner is replaced", async () => {
   await flushPromises();
   expect(wrapper.findAll("a").some((a) => a.text() === "最近记录")).toBe(false);
 });
+
+it.each(["removed", "replaced"] as const)(
+  "rejects the old workbench anchor when its target is %s before patching",
+  async (change) => {
+    const f = setup();
+    const get = vi.fn(async () => {});
+    f.shortcut.operations.get = operation(get);
+    wrapper = await render(f.model);
+    const link = wrapper.findAll("a").find((a) => a.text() === "最近记录")!;
+    if (change === "removed") f.workbench.targets = new Map();
+    else
+      f.workbench.targets = new Map([
+        [f.shortcut, { collection: f.rows, record: f.record }],
+      ]);
+    for (const modifiers of [{}, { ctrlKey: true }, { metaKey: true }]) {
+      const event = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        ...modifiers,
+      });
+      link.element.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+    }
+    expect(get).not.toHaveBeenCalled();
+    expect(f.visit).not.toHaveBeenCalled();
+    expect(f.rows.selected).toBeNull();
+  },
+);
+it.each(["disabled", "removed", "replaced"] as const)(
+  "rejects an old related anchor when its item is %s before patching",
+  async (change) => {
+    const f = setup();
+    f.model.workbench = undefined;
+    f.model.navigation.current = f.rows;
+    const related = reactive({
+      kind: "related" as const,
+      id: "related",
+      label: "同步关联",
+      disabled: false,
+      target: { collection: f.rows, record: f.record },
+    });
+    const node: InteractionNode = reactive({
+      kind: "interactions",
+      key: "links",
+      label: "关联",
+      readOnly: true,
+      value: {},
+      items: [related],
+    });
+    f.rows.conditions.members.push(node);
+    wrapper = await render(f.model);
+    const link = wrapper.findAll("a").find((a) => a.text() === "同步关联")!;
+    if (change === "disabled") related.disabled = true;
+    else if (change === "removed") node.items = [];
+    else related.target = { collection: f.rows, record: f.offPage };
+    for (const modifiers of [{}, { ctrlKey: true }, { metaKey: true }]) {
+      const event = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        ...modifiers,
+      });
+      link.element.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+    }
+    expect(f.visit).not.toHaveBeenCalled();
+    expect(f.rows.selected).toBeNull();
+  },
+);
+
+it("rejects the old report record href when the current fact target is replaced before patching", async () => {
+  const f = setup();
+  f.model.workbench = undefined;
+  f.model.navigation.current = f.rows;
+  const fact = reactive({
+    row: f.record,
+    field: "name",
+    kind: "record" as const,
+    target: { collection: f.rows, record: f.record },
+    label: "报表关联",
+    disabled: false,
+  });
+  f.rows.report = { cells: [fact] };
+  wrapper = await render(f.model);
+  const link = wrapper.get('a[aria-label="报表关联"]');
+  fact.target = { collection: f.rows, record: f.offPage };
+  for (const modifiers of [{}, { ctrlKey: true }, { metaKey: true }]) {
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      ...modifiers,
+    });
+    link.element.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  }
+  expect(f.visit).not.toHaveBeenCalled();
+  expect(f.rows.selected).toBeNull();
+});
+it.each([
+  ["menu", "removed"],
+  ["menu", "disabled"],
+  ["menu", "replaced"],
+  ["tree", "removed"],
+  ["tree", "disabled"],
+  ["tree", "replaced"],
+] as const)(
+  "rejects an old %s record anchor when %s before patching",
+  async (kind, change) => {
+    const f = setup();
+    f.model.workbench = undefined;
+    f.model.navigation.current = f.rows;
+    const entry = reactive({
+      key: "entry",
+      label: "菜单关联",
+      target: { collection: f.rows, record: f.record },
+      disabled: false,
+    });
+    const node: InteractionNode = reactive({
+      kind: "interactions",
+      key: "links",
+      label: "关联",
+      readOnly: true,
+      value: {},
+      items: [{ kind, id: "menu", label: "菜单", items: [entry] }],
+    });
+    f.rows.conditions.members.push(node);
+    wrapper = await render(f.model);
+    const link = wrapper.findAll("a").find((a) => a.text() === "菜单关联")!;
+    if (change === "removed") node.items = [];
+    else if (change === "disabled") entry.disabled = true;
+    else entry.target = { collection: f.rows, record: f.offPage };
+    for (const modifiers of [{}, { ctrlKey: true }, { metaKey: true }]) {
+      const event = new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        ...modifiers,
+      });
+      link.element.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+    }
+    expect(f.visit).not.toHaveBeenCalled();
+    expect(f.rows.selected).toBeNull();
+  },
+);
+it("rejects the report's old native href when the target identity changes before patching", async () => {
+  const f = setup();
+  f.model.workbench = undefined;
+  f.model.navigation.current = f.rows;
+  f.rows.report = {
+    cells: [
+      {
+        row: f.record,
+        field: "name",
+        kind: "record",
+        target: { collection: f.rows, record: f.record },
+        label: "身份关联",
+        disabled: false,
+      },
+    ],
+  };
+  wrapper = await render(f.model);
+  const link = wrapper.get('a[aria-label="身份关联"]');
+  f.record.identity = "changed";
+  for (const modifiers of [{}, { ctrlKey: true }, { metaKey: true }]) {
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      ...modifiers,
+    });
+    link.element.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  }
+  expect(f.visit).not.toHaveBeenCalled();
+  expect(f.rows.selected).toBeNull();
+});

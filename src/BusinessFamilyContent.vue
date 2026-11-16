@@ -74,7 +74,8 @@ function menuEntry(entry: Menu["items"][number], current: () => boolean) {
         target: {
           kind: "visit" as const,
           target,
-          blocked: () => !current() || !!entry.disabled,
+          blocked: () =>
+            !current() || entry.target !== target || !!entry.disabled,
         },
       }
     : null;
@@ -120,26 +121,37 @@ const interactions = computed<readonly Interaction<Intent>[]>(
             ]
           : [];
       }
-      if (item.kind === "related")
-        return readable(item.target)
+      if (item.kind === "related") {
+        const source = questions.value;
+        const target = item.target;
+        return readable(target)
           ? [
               {
                 ...item,
                 target: {
                   kind: "visit",
-                  target: item.target,
-                  blocked: () => !!item.disabled,
+                  target,
+                  blocked: () =>
+                    !alive ||
+                    !source ||
+                    props.node !== source ||
+                    !source.items.includes(item) ||
+                    item.target !== target ||
+                    !!item.disabled,
                 },
               },
             ]
           : [];
+      }
       if (item.kind === "menu" || item.kind === "tree")
         return [
           {
             ...item,
             items: item.items.flatMap((entry) => {
+              const source = questions.value;
               const current = () =>
-                !!questions.value?.items.includes(item) &&
+                props.node === source &&
+                !!source?.items.includes(item) &&
                 item.items.includes(entry);
               const mapped = menuEntry(entry, current);
               if (!mapped) return [];
@@ -199,7 +211,9 @@ function visit(intent: Intent) {
     :items="interactions"
     :href="
       (intent) =>
-        intent.kind === 'visit' ? targetHref(runtime, intent.target) : undefined
+        intent.kind === 'visit' && runtime.readable(node) && !intent.blocked()
+          ? targetHref(runtime, intent.target)
+          : undefined
     "
     :answers="questions.value"
     :disabled="busy || !runtime.readable(node)"

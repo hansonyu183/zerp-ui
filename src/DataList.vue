@@ -8,6 +8,7 @@
     K extends string | number = string | number
   "
 >
+import { renderedHref } from "./model-target";
 import Feedback from "./Feedback.vue";
 import { valueAt } from "./business-type";
 import FeedbackRegion from "./FeedbackRegion.vue";
@@ -240,7 +241,11 @@ function activateCell(
     return;
   }
   const intent = props.cell?.(row, key);
-  if (!intent || intent.disabled) {
+  if (
+    !intent ||
+    intent.disabled ||
+    (intent.kind === "record" && renderedHref(event) !== intent.href)
+  ) {
     event.preventDefault();
     return;
   }
