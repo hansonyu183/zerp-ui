@@ -13,6 +13,7 @@ import type {
   ObjectNode,
   Operation,
   Owner,
+  InteractionNode,
 } from "./business-model";
 export type { ObjectNode } from "./business-model";
 export type CollectionNode = Collection;
@@ -43,6 +44,12 @@ export interface DirectRuntime {
   allowed(node: Node, action: string, publicAuth?: boolean): boolean;
   operations(node: Node): Record<string, Operation>;
   run(node: Node, action: string, publicAuth?: boolean): Promise<void>;
+  interactable(node: InteractionNode): boolean;
+  runInteraction(
+    node: InteractionNode,
+    operation: Operation,
+    valid: () => boolean,
+  ): Promise<void>;
   runAccount(action?: "signOut" | "changePassword"): Promise<void>;
   runWorkbench(once?: boolean): Promise<void>;
   invalidate(scopeChanged?: boolean): void;
@@ -302,6 +309,16 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         account.operations[action] === op,
     );
   }
+  function interactable(node: InteractionNode) {
+    return writable(node) && permitted(node, "interact");
+  }
+  async function runInteraction(
+    node: InteractionNode,
+    operation: Operation,
+    valid: () => boolean,
+  ) {
+    await execute(node, operation, () => interactable(node) && valid());
+  }
   async function runWorkbench(once = false) {
     const w = model().workbench;
     if (!w?.load) return;
@@ -357,6 +374,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     allowed,
     operations,
     run,
+    interactable,
+    runInteraction,
     runAccount,
     runWorkbench,
     invalidate,

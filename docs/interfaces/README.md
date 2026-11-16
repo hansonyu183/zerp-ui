@@ -59,3 +59,9 @@ OutputNode 保留已经生成的有限文档及显式实体结果确认；Intera
 通过唯一公开 BusinessApplication/model 入口、同一候选 tgz 的物理独立安装、合成模型及模拟回调验证。仅对新精确格式与模板算法补必要的纯函数检查；不导出私有 VM。UI 条款逐项核对，实际命令与退出码、确切源码 SHA、tgz 摘要及缺口回写 GitHub #159 及实施票。
 
 合成数据不证明真实 ZERP API/E2E；不连接生产写入、不复制公司数据、不实体打印。正式发行与真实产品接入为后续独立任务。
+
+## 脚本菜单与树动作
+
+menu/tree 项既可关联真实根集合，也可明确提供 InteractionAction（kind=action，operation 为必需 disabled 与 run 的有限操作）。动作需要所属 InteractionNode 的写入资格和 interact 操作授权，执行中禁止重复；条目或操作被替换、所属节点移除、会话/模型切换后隔离迟到失败反馈。业务回调负责在实际回写前验证有效性。related/download 仍只使用 CollectionTarget，不接受动作，不劫持导航执行命令。规格见 #164。
+
+引用字段的可选 scopeKey 只表示候选目录业务依赖/代际。变化时旧缓存和迟到目录失效，下一次需要时重新读取，保留历史选值；消费者仍须核对 load 结果的 owner/依赖有效性。owner 作用域由宿主提供，无须重复编码。见 #165。

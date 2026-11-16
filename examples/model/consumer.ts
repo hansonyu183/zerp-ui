@@ -76,6 +76,9 @@ const category: Extract<FieldNode, { kind: "reference" }> = reactive({
   kind: "reference",
   key: "category",
   label: "客户分类",
+  get scopeKey() {
+    return name.value;
+  },
   required: false,
   readOnly: false,
   multiple: false,

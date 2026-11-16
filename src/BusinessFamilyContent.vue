@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import { computed, inject, onBeforeUnmount } from "vue";
 import BusinessInteractions from "./BusinessInteractions.vue";
 import type { Interaction } from "./collaboration";
 import PrintPreview from "./PrintPreview.vue";
@@ -7,6 +7,7 @@ import type {
   CollectionTarget,
   OutputNode,
   InteractionNode,
+  InteractionAction,
 } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
 const props = defineProps<{
@@ -14,6 +15,10 @@ const props = defineProps<{
   readOnly?: boolean;
 }>();
 const runtime = inject(directRuntimeKey)!;
+let alive = true;
+onBeforeUnmount(() => {
+  alive = false;
+});
 const questions = computed(() =>
   props.node.kind === "interactions" ? props.node : null,
 );
@@ -29,11 +34,52 @@ function readable(target: CollectionTarget) {
         runtime.readable(target.record)))
   );
 }
-type Intent = {
-  kind: "visit" | "download";
-  target: CollectionTarget;
-  blocked(): boolean;
-};
+type Intent =
+  | {
+      kind: "visit" | "download";
+      target: CollectionTarget;
+      blocked(): boolean;
+    }
+  | {
+      kind: "action";
+      operation: InteractionAction["operation"];
+      blocked(): boolean;
+    };
+type Menu = Extract<
+  Interaction<CollectionTarget, InteractionAction>,
+  { kind: "menu" | "tree" }
+>;
+function menuEntry(entry: Menu["items"][number], current: () => boolean) {
+  const target = entry.target;
+  if ("kind" in target) {
+    const operation = target.operation;
+    const blocked = () =>
+      !alive ||
+      !questions.value ||
+      !!props.readOnly ||
+      !current() ||
+      entry.target !== target ||
+      target.operation !== operation ||
+      !!entry.disabled ||
+      operation.disabled ||
+      !runtime.interactable(questions.value);
+    return {
+      ...entry,
+      disabled: blocked() || busy.value,
+      target: { kind: "action" as const, operation, blocked },
+    };
+  }
+  return readable(target)
+    ? {
+        ...entry,
+        target: {
+          kind: "visit" as const,
+          target,
+          blocked: () => !current() || !!entry.disabled,
+        },
+      }
+    : null;
+}
 const interactions = computed<readonly Interaction<Intent>[]>(
   () =>
     questions.value?.items.flatMap((item): Interaction<Intent>[] => {
@@ -71,26 +117,28 @@ const interactions = computed<readonly Interaction<Intent>[]>(
         return [
           {
             ...item,
-            items: item.items
-              .filter((entry) => readable(entry.target))
-              .map((entry) => ({
-                ...entry,
-                target: {
-                  kind: "visit" as const,
-                  target: entry.target,
-                  blocked: () => !!entry.disabled,
+            items: item.items.flatMap((entry) => {
+              const current = () =>
+                !!questions.value?.items.includes(item) &&
+                item.items.includes(entry);
+              const mapped = menuEntry(entry, current);
+              if (!mapped) return [];
+              return [
+                {
+                  ...mapped,
+                  children: entry.children?.flatMap((child) => {
+                    const mappedChild = menuEntry(
+                      child,
+                      () =>
+                        current() &&
+                        !entry.disabled &&
+                        !!entry.children?.includes(child),
+                    );
+                    return mappedChild ? [mappedChild] : [];
+                  }),
                 },
-                children: entry.children
-                  ?.filter((child) => readable(child.target))
-                  .map((child) => ({
-                    ...child,
-                    target: {
-                      kind: "visit" as const,
-                      target: child.target,
-                      blocked: () => !!child.disabled,
-                    },
-                  })),
-              })),
+              ];
+            }),
           },
         ];
       if (
@@ -108,6 +156,16 @@ function answer(id: string, value: string | boolean) {
     questions.value.value[id] = value;
 }
 function visit(intent: Intent) {
+  if (intent.kind === "action") {
+    const node = questions.value;
+    if (node)
+      void runtime.runInteraction(
+        node,
+        intent.operation,
+        () => props.node === node && !intent.blocked(),
+      );
+    return;
+  }
   const { target } = intent;
   if (intent.blocked() || !runtime.readable(props.node) || !readable(target))
     return;

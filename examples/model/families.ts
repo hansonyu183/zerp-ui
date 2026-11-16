@@ -177,6 +177,49 @@ reports.operations.export = operation(async () => {
 questions.items = [
   ...questions.items,
   {
+    kind: "menu",
+    id: "script-menu",
+    label: "脚本菜单",
+    items: [
+      {
+        key: "recalculate",
+        label: "菜单计算",
+        target: {
+          kind: "action",
+          operation: operation(async () => {
+            trace("script.menu");
+            await reportRecord.report!.operations.calculate!.run();
+          }),
+        },
+      },
+    ],
+  },
+  {
+    kind: "tree",
+    id: "script-tree",
+    label: "脚本树",
+    items: [
+      {
+        key: "root",
+        label: "查询目录",
+        target: { collection: reports },
+        children: [
+          {
+            key: "recalculate",
+            label: "树计算",
+            target: {
+              kind: "action",
+              operation: operation(async () => {
+                trace("script.tree");
+                await reportRecord.report!.operations.calculate!.run();
+              }),
+            },
+          },
+        ],
+      },
+    ],
+  },
+  {
     kind: "download",
     id: "script-download",
     label: "下载脚本结果",

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.44.1
+
+- 引用字段增加有限 scopeKey，候选依赖变化时复用原目录失效和按需读取，保留历史选值。
+
+- 为脚本 menu/tree 增加显式有限 InteractionAction，保留关联导航和下载边界。
+- 动作按 interact 授权、业务只读/禁用和执行中状态重检，隔离旧节点、旧条目与旧身份的迟到失败反馈。
+
 ## 0.44.0
 
 - 破坏性迁移至固定普通属性的静态 BusinessModel：统一 ObjectNode、Collection、有序 members 及所属 RecordsNode，移除 Symbol/form/element 公开协议。

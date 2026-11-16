@@ -674,3 +674,77 @@ it("opens a requested row print after its pending read and does not reopen a clo
   await flushPromises();
   expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
 });
+it("invalidates a reference directory when its consumer dependency scope changes", async () => {
+  const ref = reference("reference", false);
+  if (ref.kind !== "reference") throw Error("fixture");
+  const { model, collection } = fixture([ref]);
+  const field = collection.conditions.members[0] as Extract<
+    FieldNode,
+    { kind: "reference" | "treeReference" }
+  >;
+  field.options = [];
+  field.scopeKey = "first";
+  const load = vi.fn(async () => {
+    field.options = [
+      {
+        id: field.scopeKey!,
+        label: field.scopeKey === "first" ? "第一目录客户" : "第二目录客户",
+        selectable: true,
+      },
+    ];
+  });
+  field.load = op(load);
+  await show(model);
+  await openReference("选择客户");
+  const option = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((item) => item.textContent?.includes("第一目录客户"))!;
+  expect(option).toBeTruthy();
+  option.click();
+  await flushPromises();
+  field.scopeKey = "second";
+  field.options = [];
+  await flushPromises();
+  await openReference("选择客户");
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(document.body.textContent).toContain("第二目录客户");
+  expect(field.value).toEqual({ id: "first", label: "第一目录客户" });
+});
+it("can load a new dependency scope before the old directory resolves", async () => {
+  const ref = reference("reference", false);
+  if (ref.kind !== "reference") throw Error("fixture");
+  const { model, collection } = fixture([ref]);
+  const field = collection.conditions.members[0] as Extract<
+    FieldNode,
+    { kind: "reference" | "treeReference" }
+  >;
+  field.options = [];
+  field.scopeKey = "old";
+  let finish!: () => void;
+  const load = vi.fn(async () => {
+    const scope = field.scopeKey;
+    if (scope === "old")
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    if (field.scopeKey === scope)
+      field.options = [
+        {
+          id: scope!,
+          label: scope === "old" ? "旧目录" : "新目录",
+          selectable: true,
+        },
+      ];
+  });
+  field.load = op(load);
+  await show(model);
+  await openReference("选择客户");
+  field.scopeKey = "new";
+  await flushPromises();
+  await openReference("选择客户");
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(document.body.textContent).toContain("新目录");
+  finish();
+  await flushPromises();
+  expect(document.body.textContent).not.toContain("旧目录");
+});
