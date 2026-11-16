@@ -30,6 +30,7 @@ const emit = defineEmits<{
   cell: [event: MouseEvent | KeyboardEvent, key: string];
 }>();
 const menu = ref(false);
+const root = ref<HTMLElement>();
 const { xs, width } = useDisplay();
 const primaryCount = computed(() =>
   props.showAll
@@ -115,7 +116,12 @@ function choose(event: MouseEvent | KeyboardEvent, action: ListAction) {
 }
 const items = computed(() => [
   ...props.actions.map((action) => ({
-    key: `action:${action}`,
+    key: `action:${
+      (action === "view" || action === "edit") &&
+      !(props.actions.includes("view") && props.actions.includes("edit"))
+        ? "detail"
+        : action
+    }`,
     label: captions.value[action],
     icon: icons[action],
     href: action === "view" ? props.viewHref : undefined,
@@ -134,6 +140,23 @@ const items = computed(() => [
     reason: undefined,
   })),
 ]);
+// A disabled action's hint is keyboard reachable. When it becomes available,
+// retain the user's position by moving focus from that hint to its own button.
+watch(
+  items,
+  () => {
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      root.value?.contains(active) &&
+      active.hasAttribute("data-row-action-hint")
+    )
+      active
+        .querySelector<HTMLElement>("button:not(:disabled), a[href]")
+        ?.focus({ preventScroll: true });
+  },
+  { flush: "post" },
+);
 function activate(
   event: MouseEvent | KeyboardEvent,
   item: (typeof items.value)[number],
@@ -152,6 +175,7 @@ function activate(
 <template>
   <div
     v-if="items.length"
+    ref="root"
     class="zerp-row-actions"
     :class="{
       'zerp-row-actions--mobile': xs,
@@ -167,6 +191,7 @@ function activate(
       <template #activator="{ props: tooltip }">
         <span
           v-bind="tooltip"
+          :data-row-action-hint="item.action"
           :tabindex="item.disabled && item.reason ? 0 : undefined"
           :aria-label="
             item.reason ? `${item.label}：${item.reason}` : undefined

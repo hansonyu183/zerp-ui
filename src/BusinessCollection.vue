@@ -170,11 +170,13 @@ function select(action: RowAction, row: Values) {
       const row = Array.from(list.querySelectorAll("[data-record-key]")).find(
         (element) => element.getAttribute("data-record-key") === recordKey,
       );
-      return (
-        row?.querySelector<HTMLElement>(
-          '[data-row-action="edit"]:not(:disabled), [data-row-action="view"]:not(:disabled)',
-        ) ?? null
+      const action = row?.querySelector<HTMLElement>(
+        '[data-row-action="edit"], [data-row-action="view"]',
       );
+      if (!action) return null;
+      return action.matches(":disabled")
+        ? action.closest<HTMLElement>('[tabindex="0"]')
+        : action;
     };
     props.node.selected = source;
     emit("open", action === "edit" ? "edit" : "read", restoreFocus);
