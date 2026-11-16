@@ -114,6 +114,9 @@ const brand = computed(() => ({
     text: props.model.brand.productName.slice(0, 1),
   },
 }));
+const accountPresentation = computed(() => ({
+  label: props.model.account.label,
+}));
 const messageOwners = new WeakMap<object, string>();
 watch(
   () => props.model.messages.slice(),
@@ -272,7 +275,7 @@ watch(target, () => runtime.invalidate(), { flush: "sync" });
       :page="page"
       :scope="runtime.scope.value"
       :footer="model.label"
-      :account="{ label: model.account.label }"
+      :account="accountPresentation"
       :theme="theme"
       @update:theme="changeTheme"
       @account-action="accountAction"

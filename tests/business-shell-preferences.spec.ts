@@ -24,6 +24,42 @@ it("keeps the account menu reachable during a pending page read", async () => {
   resolve();
   await flushPromises();
 });
+it("keeps an open account menu usable across unrelated business updates", async () => {
+  const { model } = fixture();
+  const signOut = vi.fn(async () => {});
+  model.account.operations.signOut = operation(signOut);
+  wrapper = await render(model);
+  await click("账户：Tester");
+  const activeMenu = () =>
+    document.querySelector('.v-overlay--active [role="menu"]');
+  expect(activeMenu()).not.toBeNull();
+  model.label = "业务状态已更新";
+  model.messages.push({
+    id: "update",
+    level: "info",
+    text: "读取完成",
+    target: null,
+  });
+  await flushPromises();
+  expect(activeMenu()).not.toBeNull();
+  const exit = [
+    ...activeMenu()!.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+  ].find((item) => item.textContent?.includes("退出登录"))!;
+  exit.click();
+  await flushPromises();
+  expect(signOut).toHaveBeenCalledTimes(1);
+});
+it("closes the account menu when the owner session ends", async () => {
+  const { model } = fixture();
+  wrapper = await render(model);
+  await click("账户：Tester");
+  expect(
+    document.querySelector('.v-overlay--active [role="menu"]'),
+  ).not.toBeNull();
+  model.session = { state: "anonymous", owner: null, userPermissions: null };
+  await flushPromises();
+  expect(document.querySelector('.v-overlay--active [role="menu"]')).toBeNull();
+});
 it("defaults to MD3 light and independently changes preset and mode", async () => {
   const { model } = fixture();
   wrapper = await render(model);
