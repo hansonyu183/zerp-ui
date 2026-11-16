@@ -9,12 +9,19 @@ import type {
 import { formatField } from "./model-format";
 import { printMarkup, type PrintDocument, type PrintItem } from "./printing";
 
+export type MeasuredPrintText = Extract<PrintItem, { kind: "text" }>;
+export type MeasurePrintText = (item: MeasuredPrintText) => {
+  height: number;
+  insetTop: number;
+};
+
 type Printable = Collection | ObjectNode;
 /** Bind the finite JSON template to held records only; no transport or system printing. */
 export function bindPrintTemplate(
   template: PrintTemplate,
   source: Printable,
   readable: (node: Collection | BusinessNode) => boolean,
+  measure: MeasurePrintText,
 ): PrintDocument {
   const { width, height, margin, rotation } = template.page;
   const contentWidth = width - 2 * margin;
@@ -104,6 +111,11 @@ export function bindPrintTemplate(
         x: margin + item.x,
         y: offsetY + item.y,
       };
+      if (item.kind === "pageNumber") {
+        const output: MeasuredPrintText = { ...placed, kind: "text", text: "" };
+        pageNumbers.add(output);
+        return output;
+      }
       return item.kind === "field"
         ? ({
             ...placed,
@@ -113,6 +125,7 @@ export function bindPrintTemplate(
         : (placed as PrintItem);
     });
   }
+  const pageNumbers = new Set<MeasuredPrintText>();
   const pages: { key: string; items: PrintItem[] }[] = [];
   let page: { key: string; items: PrintItem[] };
   let used = 0;
@@ -181,56 +194,82 @@ export function bindPrintTemplate(
         rows = node.items;
       }
       rows = rows.filter(readable);
-      function tableRow(
-        values: string[],
-        y: number,
-        h: number,
-        key: string,
-        heading = false,
-      ) {
+      function cells(values: string[], key: string, heading = false) {
         let x = margin;
-        for (const [columnIndex, column] of columns.entries()) {
-          page!.items.push({
+        return columns.map((column, columnIndex) => {
+          const { path: _path, label: _label, ...style } = column;
+          const cell: MeasuredPrintText = {
+            ...style,
             kind: "text",
             key: `band-${index}:${key}:${columnIndex}`,
             x,
-            y,
+            y: 0,
             width: column.width,
-            height: h,
+            height: 0,
             text: values[columnIndex]!,
-            bold: heading,
-            align: column.align,
-            wrap: "word",
+            bold: heading || column.bold,
+            wrap: column.wrap ?? "word",
             border: true,
-          });
+          };
+          const measured = measure(cell);
+          if (
+            !Number.isFinite(measured.height) ||
+            !Number.isFinite(measured.insetTop) ||
+            measured.height < 0 ||
+            measured.insetTop < 0 ||
+            measured.insetTop > measured.height
+          )
+            throw Error("无法测量打印文字，请重新生成预览。");
           x += column.width;
-        }
+          return { text: cell, ...measured };
+        });
       }
-      function heading() {
-        tableRow(
-          columns.map((column) => column.label),
-          top + used,
-          headerHeight,
-          "heading",
-          true,
+      const headings = cells(
+        columns.map((column) => column.label),
+        "heading",
+        true,
+      );
+      const headingHeight = Math.max(
+        headerHeight,
+        ...headings.map((cell) => cell.height),
+      );
+      if (headingHeight > contentHeight)
+        throw Error(`第 ${index + 1} 个打印区域的表头无法放入纸张。`);
+      function place(cells: typeof headings, h: number) {
+        page!.items.push(
+          ...cells.map(({ text, insetTop }) => ({
+            ...text,
+            insetTop,
+            y: top + used,
+            height: h,
+          })),
         );
-        used += headerHeight;
+        used += h;
       }
-      if (used + headerHeight + (rows.length ? rowHeight : 0) > contentHeight)
-        nextPage();
-      heading();
+      let hasHeading = false;
+      if (!rows.length) {
+        if (used + headingHeight > contentHeight) nextPage();
+        place(headings, headingHeight);
+      }
       for (const [rowIndex, row] of rows.entries()) {
-        if (used + rowHeight > contentHeight) {
-          nextPage();
-          heading();
-        }
-        tableRow(
+        const items = cells(
           columns.map((column) => field(row, column.path)),
-          top + used,
-          rowHeight,
           `row-${rowIndex}`,
         );
-        used += rowHeight;
+        const h = Math.max(rowHeight, ...items.map((cell) => cell.height));
+        if (headingHeight + h > contentHeight)
+          throw Error(
+            `第 ${index + 1} 个打印区域的第 ${rowIndex + 1} 条明细（${row.key}）过高，无法与表头放入一页。`,
+          );
+        if (used + (hasHeading ? 0 : headingHeight) + h > contentHeight) {
+          nextPage();
+          hasHeading = false;
+        }
+        if (!hasHeading) {
+          place(headings, headingHeight);
+          hasHeading = true;
+        }
+        place(items, h);
       }
     }
   }
@@ -242,6 +281,13 @@ export function bindPrintTemplate(
     rotation,
     pages,
   };
+  for (const [index, page] of pages.entries()) {
+    for (const item of page.items) {
+      if (pageNumbers.has(item as MeasuredPrintText))
+        (item as MeasuredPrintText).text =
+          `第 ${index + 1} / ${pages.length} 页`;
+    }
+  }
   // The existing printer is the single authority for finite styles and embedded bitmap validation.
   printMarkup(document);
   return document;

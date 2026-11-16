@@ -9,6 +9,7 @@ import type {
   PrintTemplate,
   RecordsNode,
 } from "@zerp/ui/model";
+import { printDemo } from "./print-demo";
 import { router } from "./router";
 import {
   bindFamilyQueries,
@@ -583,7 +584,7 @@ export const model: BusinessModel = reactive({
   kind: "application",
   label: "静态业务模型",
   brand: { productName: "合成业务示例", companyName: "示例企业" },
-  members: { customers, vouchers, empty, ...familyCollections },
+  members: { customers, vouchers, empty, printDemo, ...familyCollections },
   authentication: {
     form: object("login", "登录", [loginName, loginPassword]),
     operations: {
@@ -627,7 +628,12 @@ export const model: BusinessModel = reactive({
       {
         key: "business",
         label: "业务",
-        items: [customers, vouchers, ...Object.values(familyCollections)],
+        items: [
+          customers,
+          vouchers,
+          printDemo,
+          ...Object.values(familyCollections),
+        ],
         sections: [{ key: "examples", label: "示例分类", items: [empty] }],
       },
     ],

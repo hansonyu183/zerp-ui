@@ -8,6 +8,7 @@ import {
 import { reactive } from "vue";
 import { afterEach, expect, it, vi } from "vitest";
 import { createRouter, createMemoryHistory } from "vue-router";
+import { layoutPrintTemplate } from "../src/print-layout";
 import { BusinessApplication } from "../src/index";
 import type {
   BusinessModel,
@@ -17,6 +18,19 @@ import type {
   Operation,
   PrintTemplate,
 } from "../src/model";
+// jsdom has no font/layout engine; browser PDF smoke covers real measurement.
+vi.mock("../src/print-layout", async () => {
+  const { bindPrintTemplate } = await import("../src/model-print");
+  return {
+    layoutPrintTemplate: vi.fn(
+      async (...args: Parameters<typeof bindPrintTemplate>) =>
+        bindPrintTemplate(args[0], args[1], args[2], () => ({
+          height: 0,
+          insetTop: 0,
+        })),
+    ),
+  };
+});
 config.global.plugins.push(
   createRouter({
     history: createMemoryHistory(),
@@ -747,4 +761,51 @@ it("can load a new dependency scope before the old directory resolves", async ()
   finish();
   await flushPromises();
   expect(document.body.textContent).not.toContain("旧目录");
+});
+
+it("discards late template layout after model values change and after preview closes", async () => {
+  const { model, collection } = fixture();
+  const row = object("formal", [text("code", "old-value")]);
+  row.identity = "formal";
+  row.printable = true;
+  collection.items = [row];
+  collection.total = 1;
+  collection.printTemple = template;
+  let finish: (
+    value: Awaited<ReturnType<typeof layoutPrintTemplate>>,
+  ) => void = () => {};
+  let previousSignal: AbortSignal | undefined;
+  vi.mocked(layoutPrintTemplate).mockImplementationOnce(
+    (_template, _source, _readable, signal) => {
+      previousSignal = signal;
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    },
+  );
+  const wrapper = await show(model);
+  await clickText("当前页打印");
+  expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
+  (collection.items[0]!.members[0] as { value: string }).value = "new-value";
+  await flushPromises();
+  expect(previousSignal?.aborted).toBe(true);
+  const frame = wrapper.get('iframe[title="打印预览"]');
+  expect(frame.attributes("srcdoc")).toContain("new-value");
+  const { bindPrintTemplate } = await import("../src/model-print");
+  finish(
+    bindPrintTemplate(
+      template,
+      collection,
+      () => true,
+      () => ({ height: 0, insetTop: 0 }),
+    ),
+  );
+  await flushPromises();
+  const dialog = wrapper.get('[role="dialog"][aria-label="当前页合成打印"]');
+  await dialog
+    .findAll("button")
+    .find((button) => button.text() === "关闭")!
+    .trigger("click");
+  await flushPromises();
+  expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
 });

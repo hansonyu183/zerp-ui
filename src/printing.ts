@@ -23,7 +23,12 @@ export type PrintItem = {
   /** Physical stroke width in mm, including text/image borders; default 0.2. */
   lineWidth?: number;
 } & (
-  | ({ kind: "text"; text: string } & TextStyle)
+  | ({
+      kind: "text";
+      text: string;
+      /** Extra top inset in mm for measured font ascenders. */
+      insetTop?: number;
+    } & TextStyle)
   | { kind: "image"; src: string; alt: string }
   | { kind: "line" | "rect" }
 );
@@ -63,7 +68,7 @@ function color(value: string | undefined, fallback: string) {
     throw Error("打印颜色无效。");
   return value ?? fallback;
 }
-function textStyle(item: TextStyle) {
+export function printTextStyle(item: TextStyle) {
   if (item.size !== undefined && !finite(item.size, 1, 200))
     throw Error("打印字号无效。");
   if (item.lineHeight !== undefined && !finite(item.lineHeight, 1, 3))
@@ -112,7 +117,7 @@ export function printMarkup(document: PrintDocument): string {
     const w = document.watermark;
     if (!finite(w.opacity, 0, 1) || !rotations.includes(w.rotation ?? 0))
       throw Error("打印水印无效。");
-    watermark = `<div style="${geometry(w)}${textStyle(w)}color:${color(w.foreground, "#000000")};opacity:${w.opacity};transform:rotate(${w.rotation ?? 0}deg);transform-origin:center;pointer-events:none;">${escape(w.text)}</div>`;
+    watermark = `<div style="${geometry(w)}${printTextStyle(w)}color:${color(w.foreground, "#000000")};opacity:${w.opacity};transform:rotate(${w.rotation ?? 0}deg);transform-origin:center;pointer-events:none;">${escape(w.text)}</div>`;
   }
   const pages = new Set<string>();
   const html = document.pages
@@ -147,8 +152,13 @@ export function printMarkup(document: PrintDocument): string {
               ? `<line x1="0" y1="${stroke / 2}mm" x2="${item.width}mm" y2="${stroke / 2}mm"/>`
               : `<rect x="${stroke / 2}mm" y="${stroke / 2}mm" width="${item.width - stroke}mm" height="${height - stroke}mm"/>`;
           const border = `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;left:0;top:0;width:${item.width}mm;height:${height}mm;pointer-events:none;overflow:visible" fill="none" stroke="currentColor" stroke-width="${stroke}mm">${primitive}</svg>`;
-          if (item.kind === "text")
-            return `<div style="${style}${textStyle(item)}${item.border ? `padding:${stroke}mm;` : ""}">${escape(item.text)}${item.border ? border : ""}</div>`;
+          if (item.kind === "text") {
+            const insetTop = item.insetTop ?? 0;
+            if (!finite(insetTop) || insetTop > item.height)
+              throw Error("打印文字上内距无效。");
+            const padding = item.border ? stroke : 0;
+            return `<div style="${style}${printTextStyle(item)}padding:${padding}mm;padding-top:${padding + insetTop}mm;">${escape(item.text)}${item.border ? border : ""}</div>`;
+          }
           if (item.kind === "image") {
             if (
               !/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=\r\n]+$/.test(
