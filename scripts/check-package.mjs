@@ -17,8 +17,17 @@ import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { directModelSmoke } from "./direct-model-smoke.mjs";
 import { uiPreferencesSmoke } from "./ui-preferences-smoke.mjs";
-const preferencesOnly = process.argv.includes("--ui-preferences");
-const smoke = preferencesOnly ? uiPreferencesSmoke : directModelSmoke;
+const smoke = process.argv.includes("--ui-preferences")
+  ? uiPreferencesSmoke
+  : async (page) => {
+      const model = await directModelSmoke(page);
+      await page.reload();
+      const preferences = await uiPreferencesSmoke(page, {
+        layout: false,
+        workbench: false,
+      });
+      return { ...model, preferences };
+    };
 const exampleName = "model";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceBase = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -130,7 +139,7 @@ for (const name of [
   );
 }
 await cp(
-  join(root, "examples/model-contract/model.type-example.ts"),
+  join(root, "examples/model-contract/static-application.type-example.ts"),
   join(consumer, "business-model.type-example.ts"),
 );
 await writeFile(
@@ -169,9 +178,13 @@ run(
   [
     "--input-type=module",
     "--eval",
-    "import assert from 'node:assert/strict'; import * as model from '@zerp/ui/model'; assert.deepEqual(Object.keys(model), ['modelMetadata']); assert.equal(typeof model.modelMetadata, 'symbol');",
+    "import assert from 'node:assert/strict'; import * as model from '@zerp/ui/model'; assert.deepEqual(Object.keys(model), []);",
   ],
   consumer,
+);
+await cp(
+  join(root, "examples/model-contract/static-application.type-test.ts"),
+  join(consumer, "static-application.type-test.ts"),
 );
 const libraryRequire = createRequire(require.resolve("@zerp/ui/style.css"));
 for (const name of Object.keys(pkg.peerDependencies)) {
@@ -277,6 +290,9 @@ try {
     });
   };
   observe(page);
+  await page.addInitScript(() => {
+    window.print = () => {};
+  });
   await page.goto(`http://127.0.0.1:${address.port}`);
   const printEvidenceRoot = join(
     root,
@@ -294,32 +310,33 @@ try {
     mode: "installed-tgz",
     directory: join(printEvidenceRoot, "installed-tgz"),
   });
+  const exampleRoot = join(root, "examples", exampleName);
+  const exampleServer = await preview({
+    root: exampleRoot,
+    configFile: join(exampleRoot, "vite.config.ts"),
+    preview: { host: "127.0.0.1", port: 0, strictPort: false },
+  });
   let builtScenarioEvidence;
-  if (!preferencesOnly) {
-    const exampleRoot = join(root, "examples", exampleName);
-    const exampleServer = await preview({
-      root: exampleRoot,
-      configFile: join(exampleRoot, "vite.config.ts"),
-      preview: { host: "127.0.0.1", port: 0, strictPort: false },
+  try {
+    const localAddress = exampleServer.httpServer.address();
+    assert.ok(localAddress && typeof localAddress !== "string");
+    const exampleContext = await browser.newContext();
+    const examplePage = await exampleContext.newPage();
+    observe(examplePage);
+    await examplePage.addInitScript(() => {
+      window.print = () => {};
     });
-    try {
-      const localAddress = exampleServer.httpServer.address();
-      assert.ok(localAddress && typeof localAddress !== "string");
-      const exampleContext = await browser.newContext();
-      const examplePage = await exampleContext.newPage();
-      observe(examplePage);
-      await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
-      builtScenarioEvidence = await smoke(examplePage, {
-        ...printEvidence,
-        mode: "built-example",
-        directory: join(printEvidenceRoot, "built-example"),
-      });
-      await exampleContext.close();
-    } finally {
-      await new Promise((yes, no) =>
-        exampleServer.httpServer.close((e) => (e ? no(e) : yes())),
-      );
-    }
+    await examplePage.goto(`http://127.0.0.1:${localAddress.port}`);
+    builtScenarioEvidence = await smoke(examplePage, {
+      ...printEvidence,
+      mode: "built-example",
+      directory: join(printEvidenceRoot, "built-example"),
+    });
+    await exampleContext.close();
+  } finally {
+    await new Promise((yes, no) =>
+      exampleServer.httpServer.close((e) => (e ? no(e) : yes())),
+    );
   }
   assert.deepEqual(errors, []);
   assert.equal(
@@ -330,18 +347,6 @@ try {
     sourceBase,
     "source HEAD must remain unchanged throughout package validation",
   );
-  let preferencesEvidence;
-  if (!preferencesOnly) {
-    const preferencesPage = await context.newPage();
-    observe(preferencesPage);
-    try {
-      await preferencesPage.goto(`http://127.0.0.1:${address.port}`);
-      preferencesEvidence = await uiPreferencesSmoke(preferencesPage);
-    } finally {
-      await preferencesPage.close();
-    }
-    assert.deepEqual(errors, []);
-  }
   const report = {
     sourceBase,
     commands,
@@ -350,7 +355,6 @@ try {
     scenarios: {
       installed: installedScenarioEvidence,
       built: builtScenarioEvidence,
-      uiPreferences: preferencesEvidence,
     },
     sha256: createHash("sha256")
       .update(await readFile(tgz))
@@ -371,9 +375,7 @@ try {
       "public exports",
       "single Vue/Vuetify/Router host resolution and npm installation tree",
       "no failed browser assets",
-      preferencesOnly
-        ? "targeted UI preference assertions (partial coverage)"
-        : "model-only authentication/customer and business operation interactions",
+      "model-only authentication/customer and business operation interactions",
     ],
     exitCode: 0,
   };

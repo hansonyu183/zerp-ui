@@ -1,23 +1,19 @@
 # ZERP UI
 
-`@zerp/ui` 是独立发布的 Vue/Vuetify 业务界面库。唯一公开组件 `BusinessApplication` 直接接收响应式 `BusinessModel`，由模型结构、有序投影和固定操作组织界面。正式规格见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152) 和 [#154](https://github.com/hansonyu183/zerp-ui/issues/154)。
+`@zerp/ui` 是独立发布的 Vue/Vuetify 业务界面库。唯一公开组件 `BusinessApplication` 接收一个完整的响应式 `BusinessModel`。固定普通属性、集合、对象、有序成员及有限操作共同组织界面，正式规格见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152) 和 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
 ## 固定版本安装
 
-本源码版本为 **0.43.1**。正式交付状态、确切源码 SHA、CI 和工件摘要以 [#156 修正与接入验收记录](https://github.com/hansonyu183/zerp-ui/issues/156) 为准；源码版本号不代表已经发行。
-
-正式发行后，从 [ui-v0.43.1 Release](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.43.1) 下载 `zerp-ui-0.43.1.tgz` 和 `SHA256SUMS`，核对原文件后安装：
+当前版本为 [ui-v0.44.3](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.44.3)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.44.3.tgz` 与 `SHA256SUMS`，核对摘要后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.43.1.tgz
+pnpm add ./zerp-ui-0.44.3.tgz
 ```
 
-宿主初始化唯一一套 Vue、Vuetify 和 Router；peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，使用 `createShellThemes()` 初始化 `createVuetify`。图标字体随包分发。
+0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，通过 `createShellThemes()` 初始化 `createVuetify`。
 
 ## 公开入口与迁移
-
-接口目标已按用户 2026-11-16 的决定修订，见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。[完整目标类型及说明](docs/interfaces/README.md)与[静态响应式示例](examples/model-contract/static-application.type-example.ts)已整理：普通对象与单据统一为 ObjectNode，独立集合统一为 Collection，协议使用固定普通属性。以下 Symbol 入口说明描述当前实现，公开类型及宿主尚待迁移；目标工件不作为第二套运行时或包入口。
 
 ```vue
 <script setup lang="ts">
@@ -27,32 +23,34 @@ import { model } from "./consumer";
 <template><BusinessApplication :model="model" /></template>
 ```
 
-`@zerp/ui/model` 仅导出 `BusinessModel` 类型和 `modelMetadata` Symbol，可在原生 Node 导入，无 Vue、Vuetify、CSS 或浏览器依赖。业务成员名开放，节点类型和操作名封闭；消费者直接定义普通对象，通过 Vue 响应式包装使值和后端结果驱动界面。不再使用 `application`、`object`、字段工厂或业务族装配工厂。
+`@zerp/ui/model` 仅导出构造模型所需的类型，原生 Node 加载时没有运行时值或 Vue/Vuetify/CSS 依赖。唯一类型源为 `src/business-model.ts`，不再提供 `modelMetadata` Symbol。完整静态对象在登录前构造；登录、退出、再次登录沿用同一根引用。
 
-从 0.41.0 迁移时，直接按 `BusinessModel` 定义字段的 `value` 及 Symbol 元数据，将业务回调放到节点 `operations`。对象 `form`、集合 `list` 是同一模型的有序投影；集合 `element` 提供空集合时的完整结构。聚合保持自己的内容顺序，不自动跳到首个集合，也不依据业务字段名猜测历史或页面类别。
+0.44.0 为破坏性迁移：根 `members` 只包含独立 `Collection`，集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label: null` 隐藏整个详情/编辑节点，但不撤销授权列、打印和计算的显式引用。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
 
-编辑直接更新字段值。操作的 `run()` 读取和更新所属模型；消费者负责业务 API、冲突处理、请求有效性及未知结果恢复，库不保存编辑基线、冻结请求或前端原请求日志，不拦截普通草稿离开。不存在旧工厂或旧运行时的兼容入口。
+输入直接更新字段值；`Operation` 必须提供 `disabled` 与无参数异步 `run()`。业务回调处理 API、冲突、请求有效性和未知结果恢复。库不保存编辑基线、冻结请求或前端原请求日志，不拦截普通草稿离开。旧公开结构没有兼容入口。仍有效的流程、处理、批次、报表与输出分别使用固定能力属性；不是任意命令、页面模板或组件映射。
 
-模型定义及权限职责遵循 [#152「2026-11-15 接口修订」](https://github.com/hansonyu183/zerp-ui/issues/152)：oit-go 在源码中直接定义完整静态业务对象并响应式包装后传入 UI；后端在登录/会话恢复时返回用户权限，UI 统一裁剪或调整组件，也可直接裁剪或调整传入对象。静态约束结构定义来源，数据和状态仍响应式更新；不以服务端 schema/bindings 动态装配整棵模型。该修订是目标契约，不表示现有产品已完成迁移。
+权限来自 `session.userPermissions`，归属当前 `owner`；普通用户的独立边界及操作默认拒绝，内部节点继承并只能收窄。管理员不能覆盖业务 `readOnly/disabled`。库保留完整模型结构并裁剪呈现，后端仍须实际鉴权。退出时消费者清空会话业务数据和缓存、使旧回写失效；库隔离旧忙碌状态及反馈。
 
-API、DTO、业务规则、权限计算、Session、Router 和凭证归消费者。根级 `userPermissions` 归属当前 owner，未就绪不显示受保护工作区。管理员不覆盖 `readOnly`、`disabledReason` 和业务事实。后端仍须验证实际授权。
+全局导航只引用根集合，消费者通过 `href/visit/current` 同步 Router。选中详情与新增在所属集合覆盖式容器中呈现，保留列表、条件和分页。`current: null` 进入可选工作台，否则按导航顺序进入首个获权集合。工作台固定四块 `information/vouchers/reports/masters`，桌面一横三竖、手机纵排；统一 `load` 按 owner 首次进入执行，失败可重试。
 
-同一接口修订规定：模型在应用初始化、登录前传入，登录及登出沿用同一根对象。登出清空会话业务数据并使旧请求失效，UI 返回认证界面；直接裁剪对象的实现须恢复完整静态结构，供再次登录及权限增加使用。完整职责和验收条件见 #152，现有实现须另行核对。
-
-全局导航仅来自 `navigationProjection` 的有序分组及节点引用。未投影的子集合保留在所属内容中，不成为额外主导航；消费者通过 `navigation.href`、`visit` 与 `current` 同步 Router。模型构造和导航遍历不执行业务查询。
-
-多组内容使用 Material Tab，单组直接展示；已访问的组保留输入与查询上下文。查看、编辑和新增采用覆盖式容器，列表保持挂载；关闭只改变呈现，不撤销模型值或核实未知业务结果。
-
-工作台以 `family: "workbench"` 标识固定业务族，`workbench` 引用同一对象成员中的 `information`、`vouchers`、`reports`、`documents` 节点，分别呈现重要信息横栏及三类入口；`manageReports` 可引用独立报表偏好集合。角色名称仅表达业务语义，消费者不配置列数、组件或模板。全局导航可提供语义 `icon`、二级 `section` 及直属 `ungrouped` 事实。工作台根对象提供 `get` 时由它统一读取四类内容；没有根级 `get` 时，库在对应角色首次可见时执行该节点的 `get/query`，同一节点只激活一次。报表偏好不随工作台预取。
+引用只选值，支持普通/树形、单选/多选、历史值回显和不可新选候选；目录按需完整读取，筛选和分页在前端进行。日期、日期时间与精确十进制 `format` 只改变显示，不回写值。集合 `itemPrintTemple/printTemple` 使用有限 JSON 自动生成单条/当前页打印入口，不预取其他页、不打印 draft；无权值和秘密不输出。预览和打开系统打印窗口不等于实体打印成功。
 
 ## 独立消费者与验证
 
-[运行消费者](examples/model/README.md) 直接定义合成模型，仅绑定 BusinessApplication；[纯类型示例](examples/model-contract/README.md) 保持独立，不作为运行应用导入。
+[运行消费者](examples/model/README.md) 直接定义合成业务模型，仅绑定 BusinessApplication；[类型示例](examples/model-contract/README.md) 仅参加编译，不执行声明的回调。迁移能力对应见 [迁移清单](docs/interfaces/static-migration.md)。
 
-运行、构建、定向测试及 tgz 独立安装命令从 package.json scripts 读取。正式发行在干净确切源码提交上运行 `check:release`，只 pack 一次，将同一 tgz 安装到全新消费者，核对公开类型、原生 Node 导入、声明、样式/字体、唯一宿主实例及实际交互。工件和逐命令退出码写入 `.scratch/release/<SHA>/evidence.json`。
+命令以 package.json scripts 为准。`check:release` 在干净源码提交上运行相关类型、模型、UI、lint 和格式检查，只 pack 一次，将同一 tgz 物理安装到全新消费者，核对声明、原生 Node、样式/字体、唯一宿主及公开行为；逐命令退出码和摘要记录于 `.scratch/release/<SHA>/evidence.json`。正式发行的原包复验可传 `--tgz <下载包>`，不重新打包替代原件。
 
-正式发行下载原包后执行 `node scripts/check-release.mjs --tgz <下载包>`，核对与原先工件相同的 SHA-256 并重验消费者，不重新打包替代原件。合成消费者、对应 SHA CI、正式公开下载及产品实际接入分别报告。本版真实 oit-go 接入和隔离验收属于 [#156](https://github.com/hansonyu183/zerp-ui/issues/156)，本库不修改原 ZERP、不写生产、不复制公司数据。
+UI 规范与逐条部分覆盖边界分别见 [规范](docs/ui-preferences.md) 和 [验证覆盖](docs/ui-preferences-coverage.md)。清单只证明映射完整，实际执行结果单独报告。所有例子使用合成数据；本库验收不代表真实 ZERP/OIT API/E2E、部署或产品接入。
 
 ## 本机运行数据
 
-本机 `.scratch` 的逻辑路径保持在项目根，物理目录为 `/Volumes/ESSD/AgentData/zerp-ui/scratch`。打包、发布检查及后续临时目录均沿该符号链接写入 ESSD；它不属于源代码，目录和链接均由 Git 忽略。ESSD 未挂载时先停止相关命令，不创建本机替代目录。宿主配置与维护记录见 `/Users/hansonyu/workspace/tools/colima-storage/README.md`。
+本机 `.scratch` 物理目录为 `/Volumes/ESSD/AgentData/zerp-ui/scratch`，通过项目根符号链接使用。ESSD 未挂载时停止相关命令，不建立本机替代目录。宿主维护记录见 `/Users/hansonyu/workspace/tools/colima-storage/README.md`。
+
+菜单/树项可使用 `InteractionAction` 明确执行业务回调，其 `operation` 使用同一必需 `disabled` 语义。动作要求所属节点具备写入资格与固定 `interact` 操作授权（管理员仍受业务只读/禁用约束）；执行中防重复。关联和下载继续只接收 `CollectionTarget`，不会因动作回调改变导航或导出语义。异步回写有效性继续由消费者负责。
+
+引用字段可通过 `scopeKey` 表达候选目录业务依赖；变化会清除旧目录并按需重新读取，历史选值继续回显。消费者负责在 load 回写前核对依赖有效性，owner 隔离由宿主完成。
+
+工作台可通过 `targets` 的只读节点引用映射提供真实快捷链接，通过 `manageReports` 进入常用报表维护；记录目标的链接显式调用 `navigation.href(collection, record)`，普通点击交给 `visit(collection, record)`，修饰键和新标签沿原生链接处理。根 canonical 链接不根据 `selected` 猜目标，外页记录不因生成链接被塞入当前页或选中。
+
+导航分组保留 `items: Collection[]`，可增加固定第二层 `sections: { key, label, items: Collection[] }[]`；两处只引用根级集合，权限裁剪后隐藏空分类及空组。`Collection.navigationLabel` 仅调整导航文案，省略时沿用 `label`，页面标题始终使用 `label`。分类名称与顺序由消费者定义，不支持递归导航树。

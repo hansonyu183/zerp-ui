@@ -59,7 +59,7 @@ const partial = coverage.clauses.filter((row) => row.checks.length).length;
 const lines = [
   "# UI 规范验证覆盖",
   "",
-  "由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#158](" +
+  "由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#159](" +
     coverage.issue +
     ")。",
   "",
@@ -95,7 +95,7 @@ lines.push(
   "- `pnpm check:ui-preferences:inventory` 只校验编号完整性、逐条原文摘要、覆盖引用及生成文档同步；不能证明行为。`--write` 更新此生成文件。",
   "- `pnpm test:ui-preferences` 运行直接公开入口的相关源码定向用例。它们不是独立安装证据。",
   "- `pnpm check:ui-preferences` 先校验清单并运行定向用例，再构建、打包、物理独立安装并运行 UI 定向浏览器场景。记录在 `.scratch/package-check-*/evidence.json` 的 `scenarios.installed.assertions`；不重跑全部业务场景。",
-  "- `package-full` 为既有完整包场景入口，本片定向命令不执行它。正式发行门禁仍运行原完整场景，并执行本片新增主题/反馈浏览器断言；CI校验清单。历史通过记录不当作本轮重新执行结果。",
+  "- `package-full` 为既有完整包场景入口，本片定向命令不执行它。正式发行门禁运行新静态模型完整场景，并执行本片新增主题/反馈浏览器断言；CI校验清单。历史通过记录不当作本轮重新执行结果。",
   "- 新增要求分配新编号；复合要求可用编号加语义后缀记录断言，禁止只验证一个子项就宣称整条通过。删除编号不得复用。新条款须有映射，即便暂时只能记录缺口。原文变更须先重审覆盖，再显式更新该行 requirementSha256（仅编号后的原文，UTF-8），防止旧断言悄悄沿用。",
   "",
 );

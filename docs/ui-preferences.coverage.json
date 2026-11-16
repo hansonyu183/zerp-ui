@@ -1,11 +1,11 @@
 {
-  "issue": "https://github.com/hansonyu183/zerp-ui/issues/158",
+  "issue": "https://github.com/hansonyu183/zerp-ui/issues/159",
   "checks": {
     "package-layout": {
       "file": "scripts/direct-presentation-smoke.mjs",
       "anchor": "export async function directPresentationSmoke",
       "surface": "tgz/browser",
-      "assertion": "代表性客户页：Tab键盘/面板、四列筛选/三列编辑、第二操作列、12px表格、32/48px动作、16px手机输入、弹层边界/焦点、手机无溢出"
+      "assertion": "代表性客户页：四列筛选/三列编辑、第二操作列、12px表格、32/48px动作、16px手机输入、弹层边界/焦点、手机无溢出"
     },
     "package-workbench": {
       "file": "scripts/direct-presentation-smoke.mjs",
@@ -27,69 +27,75 @@
     },
     "package-tab-input": {
       "file": "scripts/ui-preferences-smoke.mjs",
-      "anchor": "query-input-retained-across-tabs",
+      "anchor": "query-input-retained-across-collections",
       "surface": "tgz/browser",
-      "assertion": "客户查询输入切Tab往返保持"
+      "assertion": "客户查询输入跨根集合往返保持"
     },
     "package-full": {
       "file": "scripts/direct-model-smoke.mjs",
       "anchor": "export async function directModelSmoke",
-      "surface": "tgz/browser-existing",
-      "assertion": "既有完整消费者：引用一次加载及分页/过滤、单据输入跨Tab、权限、业务族、报表下钻返回位置；本片定向入口不运行此完整场景"
+      "surface": "tgz/browser",
+      "assertion": "新静态模型消费者：引用一次加载及分页/过滤、单据明细跨Tab、权限、固定业务能力、报表下钻返回位置"
     },
     "unit-theme": {
-      "file": "tests/business-application-direct.spec.ts",
-      "anchor": "UI-THEME-03 preserves",
+      "file": "tests/business-shell-preferences.spec.ts",
+      "anchor": "defaults to MD3 light",
       "surface": "source/public-entry",
-      "assertion": "6种初始组合独立切换、消费者主题回调及无偏好默认值"
+      "assertion": "默认MD3浅色，切明暗后切MD2仍保持暗色"
     },
     "unit-feedback": {
       "file": "tests/business-application-direct.spec.ts",
-      "anchor": "UI-SHELL-06 dismissing",
+      "anchor": "retains failed-save input",
       "surface": "source/public-entry",
-      "assertion": "四类反馈关闭后消息事实仍在、保存仍禁用、核对回调仍可达"
+      "assertion": "保存失败保持输入与覆盖式编辑"
     },
     "unit-tabs": {
       "file": "tests/business-editor-direct.spec.ts",
-      "anchor": "switches Material tabs by keyboard and removes tab chrome for one or zero visible groups",
+      "anchor": "uses ordered Material groups",
       "surface": "source/public-entry",
-      "assertion": "零/单/多组、键盘、面板关联、已访问query不重复、投影重排保留当前组"
+      "assertion": "有序多组、首组默认激活、切换保留输入及隐藏空标签分组"
     },
     "unit-overlay": {
-      "file": "tests/business-editor-direct.spec.ts",
-      "anchor": "opens selected records above a mounted list and closes without discarding model input",
+      "file": "tests/business-list-preferences.spec.ts",
+      "anchor": "opens detail over retained conditions",
       "surface": "source/public-entry",
-      "assertion": "列表持续挂载、关闭保留输入、新记录与未知结果限制可再次进入"
+      "assertion": "第二操作列、覆盖式编辑、保留条件和页码"
     },
     "unit-actions": {
       "file": "tests/business-list-preferences.spec.ts",
-      "anchor": "projects record operations into the second column",
+      "anchor": "puts row actions in the second column",
       "surface": "source/public-entry",
-      "assertion": "第二操作列、权限撤销、禁用原因、进入编辑不保存、手机短文字与流程动作"
+      "assertion": "第二操作列及打开编辑不自动写入"
     },
     "unit-shell": {
       "file": "tests/business-shell-preferences.spec.ts",
-      "anchor": "keeps selected navigation groups collapsed",
+      "anchor": "keeps the account menu reachable",
       "surface": "source/public-entry",
-      "assertion": "导航分组默认收起、修饰键不调用visit；工作台语义区块链接"
+      "assertion": "页面读取等待时账户仍可达"
     },
     "unit-review": {
       "file": "tests/business-review-preferences.spec.ts",
-      "anchor": "keeps scalar fields together while tabbing only contiguous structural groups in projection order",
+      "anchor": "narrows field reads and writes",
       "surface": "source/public-entry",
-      "assertion": "普通字段连续分组、独立子项写入、报表条件/结果/页码返回不重查"
+      "assertion": "普通用户只读、增权恢复、管理员尊重业务只读及owner失配"
     },
     "unit-model": {
       "file": "tests/business-application-direct.spec.ts",
-      "anchor": "inherits collection grants for records and narrows field writes for ordinary users",
+      "anchor": "edits the same model",
       "surface": "source/public-entry",
-      "assertion": "直接输入、失败保留、深链、权限默认拒绝及收窄、owner失配/迟到隔离"
+      "assertion": "直接输入、失败保持、disabled与并发保护、退出同根引用及迟到错误隔离"
     },
     "unit-reactivity": {
       "file": "tests/business-model-reactivity.spec.ts",
-      "anchor": "retains query, page, selection and new-record input across navigation changes",
+      "anchor": "keeps query, page and new-record input",
       "surface": "source/public-entry",
-      "assertion": "响应式投影/权限、模型输入、查询/页码/选择跨导航保持"
+      "assertion": "有序成员/列/权限响应式和跨导航输入保持"
+    },
+    "package-reference-feedback": {
+      "file": "scripts/ui-preferences-smoke.mjs",
+      "anchor": "long-reference-load-error-preserves-form-and-owned-row-geometry",
+      "surface": "tgz/browser",
+      "assertion": "长引用读取错误通过字段浮层呈现，表单和所属明细行四维几何稳定；可访问错误描述、限定滚动及重试恢复"
     }
   },
   "clauses": [
@@ -191,14 +197,18 @@
     },
     {
       "id": "UI-SHELL-05",
-      "checks": ["package-feedback", "package-full"],
-      "remaining": "仅成功/失败代表路径；消息更新、警告/状态、字段校验、长消息滚动未覆盖几何。",
+      "checks": [
+        "package-feedback",
+        "package-full",
+        "package-reference-feedback"
+      ],
+      "remaining": "已覆盖成功/失败消息及长引用读取错误在表单/所属明细行的几何和重试；其他消息更新、警告/状态、其他字段校验路径尚未穷举。",
       "requirementSha256": "9594e2dc174041e0c668e5e8b68268824e6eaa56affa241a49154cb717381209"
     },
     {
       "id": "UI-SHELL-06",
       "checks": ["unit-feedback", "unit-overlay"],
-      "remaining": "四类消息关闭不解除消费者限制已定向验证；所有业务族持续阻塞呈现仍待覆盖。",
+      "remaining": "保存失败与反馈关闭不改模型事实；未知结果核实和消费者禁用需新宿主定向测试覆盖，不能用普通刷新替代核实。",
       "requirementSha256": "67a065ec7c5759c8aa9fef986f9b9d552d923fc4a8b4a51f9793b2901a77ffa5"
     },
     {
@@ -215,7 +225,7 @@
     },
     {
       "id": "UI-DESKTOP-03",
-      "checks": [],
+      "checks": ["package-reference-feedback"],
       "remaining": "表格内编辑简洁模式及字段校验前后行高尚无公开浏览器断言。",
       "requirementSha256": "8841b35c9e76dddebffbb1283b7c0b2b4ee57b47ce9ed58ceacd997045b808bc"
     },
@@ -288,7 +298,7 @@
     {
       "id": "UI-FORM-05",
       "checks": ["unit-tabs", "unit-review", "unit-reactivity"],
-      "remaining": "既有断言属于 Symbol/form 契约；2026-11-16 有序 members、key 及空 label 新目标仅有类型工件，宿主行为未验收。",
+      "remaining": "新模型数组顺序、空label详情隐藏及显式列保留有源码映射；动态结构全组合尚未穷举。",
       "requirementSha256": "f196c45bcf9faa7bfdc30557ccb4bec5a2d8cf93f3696d7e74dfd9e3cdb56755"
     },
     {
@@ -300,13 +310,13 @@
         "package-tab-input",
         "package-full"
       ],
-      "remaining": "既有聚合/Tab证据保留历史含义；新目标集合内详情、数组分组及随父保存明细尚无宿主行为证据。",
+      "remaining": "新集合覆盖式详情、分组切换与明细随父保存有映射；全部业务族和异步组合尚未穷举。",
       "requirementSha256": "783a51e8069147eb9bfbe4dca2bc1670e86ae66d33d5c8b027ef9d2eb9c2474f"
     },
     {
       "id": "UI-FORM-07",
       "checks": ["unit-reactivity"],
-      "remaining": "旧投影断言不证明新目标独立字典集合与对象内分组；业务名称、层级及新宿主行为待验收。",
+      "remaining": "根级独立集合及所属分组采用新契约；真实消费者业务名称和目录层级另行验收。",
       "requirementSha256": "27908a7f67c073aeb23135e78147ee18699cadd323ec7818f936c329e22b25f7"
     },
     {
@@ -330,7 +340,7 @@
     {
       "id": "UI-NAV-03",
       "checks": ["unit-model", "unit-reactivity", "package-full"],
-      "remaining": "既有权限/导航证据属于当前公开契约；仅根级 Collection 导航及工作台/无权回退的新目标尚待宿主验收。",
+      "remaining": "新根集合导航、工作台与无权裁剪由新宿主场景映射；真实消费者Router和权限计算另行验收。",
       "requirementSha256": "7642f2dc00c960ea55cd78cc2f36281b72fb6f2fb1f844342b20f5f2447fa8bf"
     },
     {
@@ -342,13 +352,13 @@
     {
       "id": "UI-NAV-05",
       "checks": ["package-full"],
-      "remaining": "既有包场景属于旧引用契约；reference/treeReference 新字段的搜索、树展开、单多选及无维护跳转仅定义类型，行为待验收。",
+      "remaining": "新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。",
       "requirementSha256": "018a43b3fd9d150bb03ba344077eb108863eaf9b25859f545886e178f7689ac3"
     },
     {
       "id": "UI-NAV-06",
       "checks": ["unit-model", "package-full"],
-      "remaining": "构造不调回调及按需读取有代表证据；慢页面时账户外壳可用未定向验收。",
+      "remaining": "构造无业务查询和工作台按需读取有包映射；慢页面账户可达有源码定向映射。",
       "requirementSha256": "b684a2f81509e917423d469c58bec1c8f936afb810c277aabd5163983038d2df"
     },
     {
@@ -372,7 +382,7 @@
     {
       "id": "UI-WORK-04",
       "checks": ["unit-review", "package-full"],
-      "remaining": "既有独立tgz场景测非零滚动/页码/条件/结果，源码定向验证不重查；真实结果有效性由消费者验收。",
+      "remaining": "新根集合局部详情下钻使用包场景验证条件/页码/滚动保持；结果有效性归消费者。",
       "requirementSha256": "39569758bfc52afeeced21113218a53425aa6bd38cc5d5d82b318e4abccd45ad"
     },
     {
@@ -402,7 +412,7 @@
     {
       "id": "UI-BOUND-02",
       "checks": ["unit-model"],
-      "remaining": "统一 ObjectNode/Collection、完整静态模型及生命周期仅完成目标类型/合成示例；公开包、宿主及真实产品尚未迁移。",
+      "remaining": "统一公开契约、静态模型、同根登录/退出和迟到隔离有新源码/包映射；真实产品尚未迁移。",
       "requirementSha256": "c5fbb063f38bd2dab4119202259af5a79ba7c58f1ca0515196d26ed6dc67fc5a"
     }
   ]

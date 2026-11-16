@@ -1,870 +1,249 @@
-import { mount, flushPromises } from "@vue/test-utils";
-import { reactive } from "vue";
-import { expect, it, vi } from "vitest";
-import { createRouter, createMemoryHistory } from "vue-router";
-import { config } from "@vue/test-utils";
-config.global.plugins.push(
-  createRouter({
-    history: createMemoryHistory(),
-    routes: [{ path: "/:pathMatch(.*)*", component: { template: "<div />" } }],
-  }),
-);
-import { BusinessApplication } from "../src/index";
-import { modelMetadata as meta, type BusinessModel } from "../src/model";
-function fixture() {
-  const query = vi.fn(async () => {});
-  const rows = {
-    items: [],
-    selected: null,
-    draft: null,
-    query: { [meta]: { kind: "object", name: "Filters", operations: {} } },
-    page: 1,
-    pageSize: 20,
-    total: 0,
-    [meta]: {
-      kind: "collection",
-      name: "Changes",
-      element: {
-        code: { value: "", [meta]: { kind: "text", name: "Code" } },
-        [meta]: { kind: "object", name: "Change", operations: {} },
-      },
-      list: ["code"],
-      operations: { query: { run: query } },
-    },
-  };
-  const group = {
-    intro: { value: "hello", [meta]: { kind: "text", name: "Introduction" } },
-    overview: {
-      summary: {
-        value: "hello",
-        [meta]: { kind: "text", name: "Introduction" },
-      },
-      [meta]: { kind: "object", name: "Overview", operations: {} },
-    },
-    rows,
-    [meta]: {
-      kind: "object",
-      name: "Partners",
-      form: ["overview", "rows"],
-      operations: {},
-    },
-  };
-  const owner = { ledger: "synthetic", operator: "test", generation: "1" };
-  const model = reactive({
-    group,
-    [meta]: {
-      kind: "application",
-      name: "Test",
-      brand: { productName: "Test", companyName: "Synthetic" },
-      owner,
-      userPermissions: { owner, administrator: true },
-      navigation: {
-        current: group,
-        href: () => "/",
-        visit(node: unknown) {
-          model[meta].navigation.current = node as NonNullable<
-            BusinessModel[typeof meta]["navigation"]["current"]
-          >;
-        },
-      },
-      navigationProjection: [
-        { key: "main", name: "Main", items: [{ node: group }] },
-      ],
-      messages: [],
-    },
-  }) as unknown as BusinessModel;
-  return { model, query };
-}
-it("keeps aggregate context and opens empty collection only when its tab becomes visible", async () => {
-  const { model, query } = fixture();
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  expect(wrapper.text()).toContain("Partners");
-  expect(query).not.toHaveBeenCalled();
-  await wrapper.get('[role="tab"][data-member="rows"]').trigger("click");
-  await flushPromises();
-  expect(wrapper.findAll("th").map((x) => x.text())).toContain("Code");
-  expect(query).toHaveBeenCalledTimes(1);
-  expect(model[meta].navigation.current).toBe(model.group);
-  wrapper.unmount();
+import { flushPromises } from "@vue/test-utils";
+import { afterEach, expect, it, vi } from "vitest";
+import { fixture, operation } from "./fixtures/static-model";
+import { render, click, input } from "./fixtures/static-host";
+let wrapper: Awaited<ReturnType<typeof render>> | undefined;
+afterEach(() => {
+  wrapper?.unmount();
+  document.body.innerHTML = "";
 });
-it("edits model values directly and retains failed input without automatic writes", async () => {
-  const { model } = fixture();
-  const update = vi.fn(async () => {
-    throw Error("business rejection");
-  });
-  const record = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  record[meta].form = ["intro"];
-  record[meta].operations = { update: { run: update } };
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  await wrapper.get('input[aria-label="Introduction"]').setValue("edited");
-  expect((record.intro as { value: string }).value).toBe("edited");
-  expect(update).not.toHaveBeenCalled();
-  await wrapper
-    .findAll("button")
-    .find((b) => b.text() === "保存")!
-    .trigger("click");
-  await flushPromises();
-  expect(update).toHaveBeenCalledTimes(1);
-  expect(wrapper.get("input").element.value).toBe("edited");
-  expect(wrapper.text()).toContain("操作失败");
-  wrapper.unmount();
-});
-it("does not display workspace or old messages after owner permissions cease to match", async () => {
-  const { model } = fixture();
-  model[meta].messages = [
-    { id: "old", level: "info", text: "old owner notification" },
-  ];
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  model[meta].owner = { ledger: "new", operator: "next", generation: "2" };
-  await flushPromises();
-  expect(wrapper.text()).not.toContain("Partners");
-  expect(wrapper.text()).not.toContain("old owner notification");
-  wrapper.unmount();
-});
-it("inherits collection grants for records and narrows field writes for ordinary users", async () => {
-  const { model } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  const rows = group.rows as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "collection" } }
-  >;
-  const save = vi.fn(async () => {});
-  const record = {
-    code: {
-      value: "original",
-      [meta]: { kind: "text" as const, name: "Code" },
-    },
-    [meta]: {
-      kind: "object" as const,
-      name: "Record",
-      operations: { update: { run: save } },
-    },
-  };
-  rows.items = [record];
-  rows.selected = record;
-  group[meta].form = ["rows"];
-  model[meta].userPermissions = {
-    owner: model[meta].owner!,
-    administrator: false,
-    grants: [
-      {
-        node: rows,
-        read: true,
-        write: true,
-        operations: { query: true, update: true },
-      },
-    ],
-  };
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  await wrapper.get('input[aria-label="Code"]').setValue("changed");
-  await wrapper
-    .findAll("button")
-    .find((b) => b.text() === "保存")!
-    .trigger("click");
-  await flushPromises();
-  expect(save).toHaveBeenCalledTimes(1);
-  wrapper.unmount();
-});
-it("shows an unprojected deep linked record inside its owning aggregate", async () => {
-  const { model } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  const rows = group.rows as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "collection" } }
-  >;
-  const record = {
-    code: {
-      value: "deep link",
-      [meta]: { kind: "text" as const, name: "Code" },
-    },
-    [meta]: { kind: "object" as const, name: "Record", operations: {} },
-  };
-  rows.items = [record];
-  group[meta].form = ["intro"];
-  model[meta].navigation.current = record;
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  expect(wrapper.text()).toContain("Partners");
-  expect(
-    (wrapper.get('input[aria-label="Code"]').element as HTMLInputElement).value,
-  ).toBe("deep link");
-  wrapper.unmount();
-});
-it("uses consumer drafts and one query for each page action", async () => {
-  const { model, query } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  const rows = group.rows as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "collection" } }
-  >;
-  group[meta].form = ["rows"];
-  rows.total = 45;
-  const save = vi.fn(async () => {});
-  const create = vi.fn(async () => {
-    rows.draft = {
-      code: { value: "new", [meta]: { kind: "text", name: "New code" } },
-      [meta]: {
-        kind: "object",
-        name: "Draft",
-        operations: { update: { run: save } },
-      },
-    };
-  });
-  rows[meta].operations.create = { run: create };
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  expect(query).toHaveBeenCalledTimes(1);
-  await wrapper
-    .findAll("button")
-    .find((b) => b.text() === "下一页")!
-    .trigger("click");
-  await flushPromises();
-  expect(rows.page).toBe(2);
-  expect(query).toHaveBeenCalledTimes(2);
-  await wrapper
-    .findAll("button")
-    .find((b) => b.text() === "新增")!
-    .trigger("click");
-  await flushPromises();
-  expect(create).toHaveBeenCalledTimes(1);
-  await wrapper.get('input[aria-label="New code"]').setValue("draft input");
-  await wrapper
-    .findAll("button")
-    .find((b) => b.text() === "保存")!
-    .trigger("click");
-  await flushPromises();
-  expect(save).toHaveBeenCalledTimes(1);
-  expect((rows.draft!.code as { value: string }).value).toBe("draft input");
-  wrapper.unmount();
-});
-it("retains an in-flight write guard across navigation and rejects late consumer owner writes", async () => {
-  const { model } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  group[meta].form = ["intro"];
-  let release!: () => void;
-  const result = new Promise<void>((resolve) => (release = resolve));
-  const owner = model[meta].owner;
-  const save = vi.fn(async () => {
-    await result;
-    if (model[meta].owner !== owner) return;
-    (group.intro as { value: string }).value = "late";
-  });
-  group[meta].operations = { update: { run: save } };
-  const other = {
-    note: { value: "other", [meta]: { kind: "text" as const, name: "Note" } },
-    [meta]: { kind: "object" as const, name: "Other", operations: {} },
-  };
-  model.other = other;
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  await wrapper
-    .findAll("button")
-    .find((b) => b.text() === "保存")!
-    .trigger("click");
-  model[meta].navigation.current = other;
-  await flushPromises();
-  model[meta].navigation.current = group;
-  await flushPromises();
-  expect(
-    wrapper
-      .findAll("button")
-      .find((b) => b.text() === "保存")!
-      .attributes("disabled"),
-  ).toBeDefined();
-  expect(save).toHaveBeenCalledTimes(1);
-  model[meta].owner = { ledger: "next", operator: "next", generation: "2" };
-  release();
-  await flushPromises();
-  expect((group.intro as { value: string }).value).toBe("hello");
-  wrapper.unmount();
-});
-it("keeps nested independent writes denied while inherited fields remain readable and private rows stay hidden", async () => {
-  const { model } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  const rows = group.rows as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "collection" } }
-  >;
-  const save = vi.fn(async () => {});
-  const child = {
-    value: {
-      value: "independent",
-      [meta]: { kind: "text" as const, name: "Independent value" },
-    },
-    [meta]: {
-      kind: "object" as const,
-      name: "Independent",
-      operations: { update: { run: save } },
-    },
-  };
-  const record = {
-    code: {
-      value: "secret cell",
-      [meta]: { kind: "text" as const, name: "Code" },
-    },
-    nested: {
-      description: {
-        value: "inherited",
-        [meta]: { kind: "text" as const, name: "Inherited" },
-      },
-      [meta]: { kind: "object" as const, name: "Embedded", operations: {} },
-    },
-    child,
-    [meta]: { kind: "object" as const, name: "Record", operations: {} },
-  };
-  rows.items = [record];
-  rows.selected = record;
-  group[meta].form = ["rows"];
-  rows[meta].list = ["missing", "code"];
-  model[meta].userPermissions = {
-    owner: { generation: "1", operator: "test", ledger: "synthetic" },
-    administrator: false,
-    grants: [
-      {
-        node: rows,
-        read: true,
-        write: true,
-        operations: { query: true, update: true },
-      },
-      { node: child, read: true, write: false },
-      { node: record.code, read: false },
-    ],
-  };
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  expect(wrapper.text()).not.toContain("secret cell");
-  await wrapper.get('[role="tab"][data-member="nested"]').trigger("click");
-  await flushPromises();
-  expect(
-    (wrapper.get('input[aria-label="Inherited"]').element as HTMLInputElement)
-      .value,
-  ).toBe("inherited");
-  await wrapper.get('[role="tab"][data-member="child"]').trigger("click");
-  await flushPromises();
-  expect(wrapper.findAll("button").some((b) => b.text() === "保存")).toBe(
-    false,
+it("edits the same model in an overlay and retains failed-save input", async () => {
+  const { model, name, record } = fixture();
+  record.operations.update = operation(
+    vi.fn(async () => {
+      throw Error("保存失败");
+    }),
   );
-  expect(save).not.toHaveBeenCalled();
-  wrapper.unmount();
+  wrapper = await render(model);
+  await click("编辑");
+  await input("名称").setValue("unfinished");
+  await click("保存");
+  expect(name.value).toBe("unfinished");
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(document.body.textContent).toContain("操作失败");
+  expect(record.operations.update.run).toHaveBeenCalledTimes(1);
 });
-it("allows a read-only user to enter query criteria without granting record edits", async () => {
-  const { model } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  const rows = group.rows as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "collection" } }
-  >;
-  rows.query.term = {
-    value: "",
-    [meta]: { kind: "text", name: "Search term" },
-  };
-  group[meta].form = ["rows"];
-  model[meta].userPermissions = {
-    owner: model[meta].owner!,
-    administrator: false,
-    grants: [
-      { node: rows, read: true, write: false, operations: { query: true } },
-    ],
-  };
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  expect(
-    wrapper.get('input[aria-label="Search term"]').attributes("readonly"),
-  ).toBeUndefined();
-  await wrapper.get('input[aria-label="Search term"]').setValue("wanted");
-  expect((rows.query.term as { value: string }).value).toBe("wanted");
-  wrapper.unmount();
-});
-it("reads the newly navigated independent object once", async () => {
-  const { model } = fixture();
-  const get = vi.fn(async () => {});
-  const other = {
-    name: {
-      value: "profile",
-      [meta]: { kind: "text" as const, name: "Profile name" },
-    },
-    [meta]: {
-      kind: "object" as const,
-      name: "Profile",
-      operations: { get: { run: get } },
-    },
-  };
-  model.other = other;
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  model[meta].navigation.current = other;
-  await flushPromises();
-  expect(get).toHaveBeenCalledTimes(1);
-  wrapper.unmount();
-});
-it("keeps consumer unknown-result restrictions after ordinary refresh and hides other work during forced password change", async () => {
-  const { model } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  const save = vi.fn(async () => {});
-  group[meta].operations = {
-    get: { run: vi.fn(async () => {}) },
-    update: { run: save, disabledReason: "结果未知，请核对" },
-  };
-  group[meta].form = ["intro"];
-  const password = {
-    secret: {
-      value: "",
-      [meta]: { kind: "password" as const, name: "New password" },
-    },
-    [meta]: {
-      kind: "object" as const,
-      name: "Password",
-      family: "account" as const,
-      operations: { changePassword: { run: vi.fn(async () => {}) } },
-    },
-  };
-  model[meta].account = { name: "Operator", password };
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  expect(
-    wrapper
-      .findAll("button")
-      .find((b) => b.text() === "保存")!
-      .attributes("disabled"),
-  ).toBeDefined();
-  model[meta].messages = [];
-  await wrapper
-    .findAll("button")
-    .find((b) => b.text() === "刷新")!
-    .trigger("click");
-  await flushPromises();
-  expect(save).not.toHaveBeenCalled();
-  model[meta].session = { state: "password-required" };
-  await flushPromises();
-  expect(wrapper.find('input[aria-label="Introduction"]').exists()).toBe(false);
-  expect(wrapper.find('input[aria-label="New password"]').exists()).toBe(true);
-  wrapper.unmount();
-});
-it("hides explicitly denied value-array members and leaves disabled query pagination unchanged", async () => {
-  const { model } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  const rows = group.rows as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "collection" } }
-  >;
-  const hidden = {
-    value: "private array value",
-    [meta]: { kind: "text" as const, name: "Private array" },
-  };
-  const array = {
-    items: [hidden],
-    [meta]: {
-      kind: "array" as const,
-      name: "Values",
-      element: hidden,
-      operations: {},
-    },
-  };
-  group.values = array;
-  group[meta].form = ["values", "rows"];
-  rows.total = 50;
-  rows[meta].operations.query!.disabledReason = "暂不可查询";
-  model[meta].userPermissions = {
-    owner: model[meta].owner!,
-    administrator: false,
-    grants: [
-      { node: group, read: true, write: true },
-      { node: rows, read: true, operations: { query: true } },
-      { node: hidden, read: false },
-    ],
-  };
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  expect(wrapper.find('input[aria-label="Private array"]').exists()).toBe(
-    false,
+it("displays disabled operations, rechecks their state and prevents duplicate invocation", async () => {
+  const { model, rows } = fixture();
+  let done!: () => void;
+  const run = vi.fn(
+    () =>
+      new Promise<void>((yes) => {
+        done = yes;
+      }),
   );
-  expect(wrapper.find('[role="tab"][data-member="rows"]').exists()).toBe(false);
-  const next = wrapper.findAll("button").find((b) => b.text() === "下一页")!;
-  expect(next.attributes("disabled")).toBeDefined();
-  await next.trigger("click");
-  expect(rows.page).toBe(1);
-  wrapper.unmount();
-});
-it.each(["owner", "model"] as const)(
-  "clears old %s execution state without letting its completion unlock a newer write",
-  async (change) => {
-    const { model } = fixture();
-    const record = model.group as Extract<
-      BusinessModel[string],
-      { [meta]: { kind: "object" } }
-    >;
-    record[meta].form = ["intro"];
-    const releases: (() => void)[] = [];
-    const save = vi.fn(
-      () => new Promise<void>((resolve) => releases.push(resolve)),
-    );
-    record[meta].operations = { update: { run: save } };
-    const wrapper = mount(BusinessApplication, { props: { model } });
-    await flushPromises();
-    const saveButton = () =>
-      wrapper.findAll("button").find((b) => b.text() === "保存")!;
-    await saveButton().trigger("click");
-    expect(save).toHaveBeenCalledTimes(1);
-    if (change === "owner") {
-      const owner = { ledger: "new", operator: "next", generation: "2" };
-      model[meta].owner = owner;
-      model[meta].userPermissions = { owner, administrator: true };
-    } else {
-      await wrapper.setProps({
-        model: reactive({
-          ...model,
-          [meta]: { ...model[meta] },
-        }) as BusinessModel,
-      });
-    }
-    await flushPromises();
-    expect(saveButton().attributes("disabled")).toBeUndefined();
-    await saveButton().trigger("click");
-    expect(save).toHaveBeenCalledTimes(2);
-    releases[0]!();
-    await flushPromises();
-    expect(saveButton().attributes("disabled")).toBeDefined();
-    releases[1]!();
-    await flushPromises();
-    expect(saveButton().attributes("disabled")).toBeUndefined();
-    wrapper.unmount();
-  },
-);
-it.each(["query", "subtree"] as const)(
-  "honors explicit read-only %s grants within otherwise editable query criteria",
-  async (target) => {
-    const { model } = fixture();
-    const group = model.group as Extract<
-      BusinessModel[string],
-      { [meta]: { kind: "object" } }
-    >;
-    const rows = group.rows as Extract<
-      BusinessModel[string],
-      { [meta]: { kind: "collection" } }
-    >;
-    const subtree = {
-      term: {
-        value: "fixed",
-        [meta]: { kind: "text" as const, name: "Protected criteria" },
-      },
-      [meta]: { kind: "object" as const, name: "Criteria", operations: {} },
-    };
-    rows.query.criteria = subtree;
-    group[meta].form = ["rows"];
-    model[meta].userPermissions = {
-      owner: model[meta].owner!,
-      administrator: false,
-      grants: [
-        { node: rows, read: true, write: false, operations: { query: true } },
-        {
-          node: target === "query" ? rows.query : subtree,
-          read: true,
-          write: false,
-        },
-      ],
-    };
-    const wrapper = mount(BusinessApplication, { props: { model } });
-    await flushPromises();
-    expect(
-      wrapper
-        .get('input[aria-label="Protected criteria"]')
-        .attributes("readonly"),
-    ).toBeDefined();
-    wrapper.unmount();
-  },
-);
-it("does not advertise query when an administrator collection has no query operation", async () => {
-  const { model } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  const rows = group.rows as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "collection" } }
-  >;
-  group[meta].form = ["rows"];
-  rows[meta].operations = {};
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  rows.operations.query = operation(run);
+  rows.operations.query.disabled = true;
+  wrapper = await render(model);
+  const query = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("button"),
+  ).find((button) => button.textContent?.trim() === "查询")!;
+  expect(query.disabled).toBe(true);
+  await click("查询");
+  expect(run).not.toHaveBeenCalled();
+  rows.operations.query.disabled = false;
   await flushPromises();
-  expect(wrapper.findAll("button").some((b) => b.text() === "查询")).toBe(
-    false,
+  await click("查询");
+  await click("查询");
+  expect(run).toHaveBeenCalledTimes(1);
+  done();
+  await flushPromises();
+});
+it("returns the same root to authentication on logout and hides prior data", async () => {
+  const { model, rows } = fixture();
+  const root = model;
+  model.account.operations.signOut = operation(
+    vi.fn(async () => {
+      model.session = {
+        state: "anonymous",
+        owner: null,
+        userPermissions: null,
+      };
+      rows.items = [];
+      rows.selected = null;
+      model.messages = [];
+    }),
   );
-  wrapper.unmount();
+  wrapper = await render(model);
+  await click("账户：Tester");
+  await click("退出登录");
+  expect(model).toBe(root);
+  expect(document.body.textContent).not.toContain("initial");
+  expect(input("登录名").exists()).toBe(true);
 });
-it("shows fresh messages on atomic model-owner replacement while retaining old-message isolation", async () => {
-  const { model } = fixture();
-  const old = { id: "old", level: "info" as const, text: "Old owner message" };
-  model[meta].messages = [old];
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  const owner = { ledger: "next", operator: "next", generation: "2" };
-  const fresh = {
-    id: "fresh",
-    level: "info" as const,
-    text: "New owner message",
+it("isolates old busy and late failure feedback after owner changes", async () => {
+  const { model, rows } = fixture();
+  let reject!: (error: Error) => void;
+  rows.operations.query = operation(
+    vi.fn(
+      () =>
+        new Promise<void>((_, no) => {
+          reject = no;
+        }),
+    ),
+  );
+  wrapper = await render(model);
+  const owner = { ledger: "other", operator: "other", generation: "2" };
+  model.session = {
+    state: "ready",
+    owner,
+    userPermissions: { owner, administrator: true },
   };
-  await wrapper.setProps({
-    model: reactive({
-      ...model,
-      [meta]: {
-        ...model[meta],
-        owner,
-        userPermissions: { owner, administrator: true as const },
-        messages: [old, fresh],
-      },
-    }) as BusinessModel,
-  });
+  reject(Error("旧会话失败"));
   await flushPromises();
-  expect(wrapper.text()).toContain("New owner message");
-  expect(wrapper.text()).not.toContain("Old owner message");
-  wrapper.unmount();
-});
-it("labels the authentication recovery operation in business language", async () => {
-  const { model } = fixture();
-  const recover = vi.fn(async () => {});
-  const auth: NonNullable<BusinessModel[typeof meta]["authentication"]> = {
-    [meta]: {
-      kind: "object",
-      name: "登录",
-      family: "authentication",
-      operations: { recover: { run: recover } },
-    },
-  };
-  model.authentication = auth;
-  model[meta].authentication = auth;
-  model[meta].owner = null;
-  model[meta].userPermissions = null;
-  model[meta].session = { state: "recovering" };
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  const button = wrapper
-    .findAll("button")
-    .find((button) => button.text() === "恢复会话");
-  expect(button).toBeDefined();
-  await button!.trigger("click");
-  await flushPromises();
-  expect(recover).toHaveBeenCalledOnce();
-  wrapper.unmount();
-});
-it("keeps a nested collection deep link focused through the selected parent record", async () => {
-  const { model } = fixture();
-  type Node = BusinessModel[string];
-  type ObjectNode = Extract<Node, { [meta]: { kind: "object" } }>;
-  type CollectionNode = Extract<Node, { [meta]: { kind: "collection" } }>;
-  const childQuery = vi.fn(async () => {});
-  const children: CollectionNode = {
-    items: [],
-    selected: null,
-    draft: null,
-    page: 1,
-    pageSize: 20,
-    total: 0,
-    query: {
-      [meta]: { kind: "object", name: "Child filters", operations: {} },
-    },
-    [meta]: {
-      kind: "collection",
-      name: "Contacts",
-      list: ["name"],
-      element: {
-        name: { value: "", [meta]: { kind: "text", name: "Contact name" } },
-        [meta]: { kind: "object", name: "Contact", operations: {} },
-      },
-      operations: { query: { run: childQuery } },
-    },
-  };
-  const parent: ObjectNode = {
-    name: { value: "Parent", [meta]: { kind: "text", name: "Parent name" } },
-    children,
-    [meta]: {
-      kind: "object",
-      name: "Parent",
-      form: ["name", "children"],
-      operations: {},
-    },
-  };
-  const group = model.group as ObjectNode;
-  const rows = group.rows as CollectionNode;
-  rows.items = [parent];
-  rows.selected = rows.items[0]!;
-  model[meta].navigation.current = rows.selected.children as CollectionNode;
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  expect(wrapper.findAll("th").map((x) => x.text())).toContain("Contact name");
-  expect(childQuery).toHaveBeenCalledOnce();
-  expect(wrapper.find('input[aria-label="Parent name"]').exists()).toBe(true);
-  wrapper.unmount();
+  expect(document.body.textContent).not.toContain("旧会话失败");
 });
 
-it.each(["light", "dark"] as const)(
-  "UI-THEME-03 preserves %s mode across every preset and returns changes to the consumer",
-  async (mode) => {
-    const { model } = fixture();
-    const change = vi.fn(
-      (value: { preset: "md1" | "md2" | "md3"; mode: "light" | "dark" }) => {
-        model[meta].theme!.value = value;
-      },
-    );
-    model[meta].theme = { value: { preset: "md3", mode }, change };
-    const wrapper = mount(BusinessApplication, {
-      props: { model },
-      attachTo: document.body,
-    });
-    try {
-      await flushPromises();
-      for (const number of [1, 2, 3] as const) {
-        await wrapper.get('button[aria-label="主题预设"]').trigger("click");
-        await flushPromises();
-        const item = document.querySelector(
-          `[role="menuitemradio"][aria-label="Material Design ${number}"]`,
-        );
-        expect(item).not.toBeNull();
-        (item as HTMLElement).click();
-        await flushPromises();
-        const preset = `md${number}`;
-        expect(change).toHaveBeenLastCalledWith({ preset, mode });
-        expect(wrapper.find(`.v-theme--zerp-${preset}-${mode}`).exists()).toBe(
-          true,
-        );
-        const opposite = mode === "light" ? "dark" : "light";
-        await wrapper.get('button[aria-label="切换明暗模式"]').trigger("click");
-        await flushPromises();
-        expect(change).toHaveBeenLastCalledWith({ preset, mode: opposite });
-        expect(
-          wrapper.find(`.v-theme--zerp-${preset}-${opposite}`).exists(),
-        ).toBe(true);
-        await wrapper.get('button[aria-label="切换明暗模式"]').trigger("click");
-        await flushPromises();
-        expect(change).toHaveBeenLastCalledWith({ preset, mode });
-      }
-    } finally {
-      wrapper.unmount();
-    }
-  },
-);
-it("UI-THEME-03 defaults to MD3 light without a consumer preference", async () => {
-  const { model } = fixture();
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  try {
-    await flushPromises();
-    expect(wrapper.find(".v-theme--zerp-md3-light").exists()).toBe(true);
-  } finally {
-    wrapper.unmount();
-  }
+it("uses consumer-created drafts and reopens them without creating twice", async () => {
+  const { model, rows } = fixture();
+  rows.operations.create = operation(
+    vi.fn(async () => {
+      rows.draft = {
+        kind: "object",
+        printable: false,
+        family: "standard",
+        key: "new",
+        label: "新增",
+        identity: null,
+        readOnly: false,
+        members: [
+          {
+            kind: "text",
+            key: "new-name",
+            label: "新增名称",
+            value: "",
+            required: false,
+            readOnly: false,
+          },
+        ],
+        operations: {
+          update: { disabled: true, async run() {} },
+          reconcile: operation(),
+        },
+      };
+    }),
+  );
+  wrapper = await render(model);
+  await click("新增");
+  await input("新增名称").setValue("unfinished new");
+  await click("关闭");
+  expect(rows.draft).not.toBeNull();
+  await click("继续编辑");
+  expect(input("新增名称").element.value).toBe("unfinished new");
+  expect(rows.operations.create.run).toHaveBeenCalledTimes(1);
+  const save = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("button"),
+  ).find((button) => button.textContent?.trim() === "保存")!;
+  expect(save.disabled).toBe(true);
 });
-it.each(["info", "success", "warning", "error"] as const)(
-  "UI-SHELL-06 dismissing %s feedback preserves consumer restrictions and reconciliation",
-  async (level) => {
-    const { model } = fixture();
-    const group = model.group as Extract<
-      BusinessModel[string],
-      { [meta]: { kind: "object" } }
-    >;
-    const update = vi.fn(async () => {});
-    const reconcile = vi.fn(async () => {});
-    group[meta].form = ["intro"];
-    group[meta].operations = {
-      update: { run: update, disabledReason: "结果待核实" },
-      reconcile: { run: reconcile },
-    };
-    model[meta].messages = [{ id: "result", level, text: "待核实业务结果" }];
-    const wrapper = mount(BusinessApplication, {
-      props: { model },
-      attachTo: document.body,
-    });
-    try {
-      await flushPromises();
-      const close = wrapper
-        .findAll("button")
-        .find(
-          (b) =>
-            b.attributes("aria-label")?.startsWith("关闭") &&
-            b.element.closest(".zerp-feedback"),
-        );
-      expect(close).toBeDefined();
-      await close!.trigger("click");
-      await flushPromises();
-      expect(wrapper.text()).not.toContain("待核实业务结果");
-      expect(model[meta].messages).toHaveLength(1);
-      expect(group[meta].operations.update!.disabledReason).toBe("结果待核实");
-      const save = wrapper.findAll("button").find((b) => b.text() === "保存")!;
-      expect(save.attributes("disabled")).toBeDefined();
-      await save.trigger("click");
-      expect(update).not.toHaveBeenCalled();
-      expect(reconcile).not.toHaveBeenCalled();
-      const verify = wrapper
-        .findAll("button")
-        .find((b) => b.text() === "核对结果")!;
-      expect(verify).toBeDefined();
-      await verify.trigger("click");
-      await flushPromises();
-      expect(reconcile).toHaveBeenCalledOnce();
-    } finally {
-      wrapper.unmount();
-    }
-  },
-);
-it("groups object-array details with sibling forms and retains direct edits across tabs", async () => {
-  const { model } = fixture();
-  const group = model.group as Extract<
-    BusinessModel[string],
-    { [meta]: { kind: "object" } }
-  >;
-  const row = {
-    quantity: { value: "1", [meta]: { kind: "text" as const, name: "数量" } },
-    [meta]: { kind: "object" as const, name: "明细行", operations: {} },
-  };
-  group.details = {
-    items: [row],
-    [meta]: { kind: "array", name: "明细", element: row, operations: {} },
-  };
-  group[meta].form = ["overview", "details"];
-  const wrapper = mount(BusinessApplication, { props: { model } });
-  await flushPromises();
-  expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([
-    "Overview",
-    "明细",
-  ]);
-  await wrapper.get('[role="tab"][data-member="details"]').trigger("click");
-  await flushPromises();
-  await wrapper.get('input[aria-label="数量"]').setValue("7");
-  expect(row.quantity.value).toBe("7");
-  await wrapper.get('[role="tab"][data-member="overview"]').trigger("click");
-  await wrapper.get('[role="tab"][data-member="details"]').trigger("click");
+it("does not advertise absent queries or advance disabled pagination", async () => {
+  const { model, rows } = fixture();
+  delete rows.operations.query;
+  rows.total = 100;
+  wrapper = await render(model);
   expect(
-    (wrapper.get('input[aria-label="数量"]').element as HTMLInputElement).value,
-  ).toBe("7");
-  wrapper.unmount();
+    Array.from(document.querySelectorAll("button")).some(
+      (button) => button.textContent?.trim() === "查询",
+    ),
+  ).toBe(false);
+  await click("下一页");
+  expect(rows.page).toBe(1);
 });
+it("keeps consumer unknown-result restrictions through refresh and feedback dismissal", async () => {
+  const { model, record, rows } = fixture();
+  record.operations.update!.disabled = true;
+  record.operations.reconcile = operation();
+  model.messages.push({
+    id: "unknown",
+    level: "warning",
+    text: "结果待核实",
+    target: record,
+  });
+  wrapper = await render(model);
+  await click("编辑");
+  const saved = () =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
+      (button) => button.textContent?.trim() === "保存",
+    )!;
+  expect(saved().disabled).toBe(true);
+  await click("关闭");
+  await click("查询");
+  expect(record.operations.update!.disabled).toBe(true);
+  expect(rows.operations.query!.run).toHaveBeenCalledTimes(2);
+  await click("编辑");
+  expect(saved().disabled).toBe(true);
+  await click("核对结果");
+  expect(record.operations.reconcile.run).toHaveBeenCalledTimes(1);
+  expect(record.operations.update!.disabled).toBe(true);
+});
+it("keeps a write guard when leaving and returning and makes consumers reject late owner writes", async () => {
+  const { model, rows, record, name } = fixture();
+  let resolve!: () => void;
+  const wait = new Promise<void>((yes) => {
+    resolve = yes;
+  });
+  record.operations.update = operation(
+    vi.fn(async () => {
+      const owner = model.session.owner;
+      await wait;
+      if (model.session.owner !== owner) return;
+      name.value = "saved";
+    }),
+  );
+  wrapper = await render(model);
+  await click("编辑");
+  await click("保存");
+  await click("关闭");
+  await click("编辑");
+  const pendingSave = Array.from(
+    document.querySelectorAll<HTMLButtonElement>("button"),
+  ).find((button) => button.textContent?.trim() === "保存");
+  if (pendingSave) expect(pendingSave.disabled).toBe(true);
+  expect(record.operations.update.run).toHaveBeenCalledTimes(1);
+  const owner = { ledger: "new", operator: "new", generation: "2" };
+  model.session = {
+    state: "ready",
+    owner,
+    userPermissions: { owner, administrator: true },
+  };
+  rows.selected = null;
+  resolve();
+  await flushPromises();
+  expect(name.value).toBe("initial");
+});
+it("offers the authentication recovery callback in business language", async () => {
+  const { model } = fixture();
+  model.session = { state: "recovering", owner: null, userPermissions: null };
+  wrapper = await render(model);
+  await click("恢复会话");
+  expect(model.authentication.operations.recover.run).toHaveBeenCalledTimes(1);
+});
+
+it.each(["info", "success", "warning", "error"] as const)(
+  "keeps %s message dismissal separate from consumer restrictions and reconciliation",
+  async (level) => {
+    const { model, record } = fixture();
+    record.operations.update!.disabled = true;
+    record.operations.reconcile = operation();
+    model.messages.push({
+      id: "pending",
+      level,
+      text: "业务结果待核实",
+      target: record,
+    });
+    wrapper = await render(model);
+    const label =
+      level === "error"
+        ? "关闭错误提示"
+        : level === "warning"
+          ? "关闭警告提示"
+          : "关闭状态提示";
+    await click(label);
+    expect(model.messages).toHaveLength(1);
+    expect(record.operations.update!.disabled).toBe(true);
+    await click("编辑");
+    await click("核对结果");
+    expect(record.operations.reconcile.run).toHaveBeenCalledTimes(1);
+    expect(record.operations.update!.disabled).toBe(true);
+  },
+);

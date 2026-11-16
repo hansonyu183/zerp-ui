@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, inject } from "vue";
 import {
   VCheckbox,
   VFileInput,
@@ -7,83 +7,108 @@ import {
   VTextarea,
   VSelect,
 } from "vuetify/components";
-import { nodeMetadata as meta } from "./model-node";
-import type { BusinessModel } from "./business-model";
-import type { ReferenceAdapter, ReferenceValue } from "./contracts";
+import type { FieldNode, ReferenceValue } from "./business-model";
+import type { ReferenceAdapter } from "./contracts";
 import ReferencePicker from "./ReferencePicker.vue";
-import BusinessFamilyContent from "./BusinessFamilyContent.vue";
-
-type Field = Extract<BusinessModel[string], { value: unknown }>;
-type Reference = Extract<Field, { [meta]: { kind: "reference" } }>;
-
-const props = defineProps<{ node: Field; readOnly?: boolean; scope: string }>();
-const metadata = computed(() => props.node[meta]);
-const disabled = computed(() => props.readOnly || metadata.value.readOnly);
-const secret = computed(
-  () => props.node as Extract<Field, { [meta]: { kind: "secret" } }>,
+import { directRuntimeKey } from "./direct-model-runtime";
+import { formatField } from "./model-format";
+import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
+const props = defineProps<{
+  node: FieldNode;
+  readOnly?: boolean;
+  scope: string;
+  publicAuth?: boolean;
+}>();
+const runtime = inject(directRuntimeKey)!;
+const disabled = computed(() => props.readOnly || props.node.readOnly);
+const secret = computed(() =>
+  props.node.kind === "secret" ? props.node : null,
 );
+const reference = computed(() =>
+  props.node.kind === "reference" || props.node.kind === "treeReference"
+    ? props.node
+    : null,
+);
+const display = computed(() => {
+  if (!disabled.value) return {};
+  try {
+    return { value: formatField(props.node) };
+  } catch (cause) {
+    return {
+      value: "",
+      error: cause instanceof Error ? cause.message : "显示格式无效。",
+    };
+  }
+});
 function setSecretIntent(intent: "keep" | "replace" | "clear") {
-  if (disabled.value) return;
+  if (disabled.value || !secret.value) return;
   secret.value.value =
     intent === "replace" ? { intent, value: "" } : { intent };
 }
 function setSecretValue(value: unknown) {
-  if (disabled.value || secret.value.value.intent !== "replace") return;
-  secret.value.value.value = String(value ?? "");
+  if (!disabled.value && secret.value?.value.intent === "replace")
+    secret.value.value.value = String(value ?? "");
 }
-const reference = computed(() => props.node as Reference);
-
+const loadDisabled = computed(
+  () =>
+    !!reference.value?.load &&
+    (reference.value.load.disabled ||
+      (!props.publicAuth && !runtime.allowed(reference.value, "load"))),
+);
 const adapter = computed<ReferenceAdapter>(() => {
-  const node = reference.value;
-  const metadata = node[meta];
+  const node = reference.value!;
   return {
-    directory: metadata.load ?? node,
-    dependencies: metadata.dependencies,
+    directory: node,
+    dependencies: [node.scopeKey ?? ""],
     async load() {
-      await metadata.load?.run();
-      return metadata.options;
+      if (node.load) {
+        if (loadDisabled.value) throw Error("当前不能读取候选值。");
+        // Directory leases deduplicate within this dependency scope. A new
+        // scope must not wait for the old node's pending directory to settle.
+        await node.load.run();
+      }
+      return node.options;
     },
   };
 });
 function setValue(value: unknown) {
   if (disabled.value) return;
-  if (metadata.value.kind === "boolean") {
-    (props.node as Extract<Field, { value: boolean }>).value = Boolean(value);
-  } else if (metadata.value.kind === "integer") {
-    (props.node as Extract<Field, { [meta]: { kind: "integer" } }>).value =
-      value === "" || value == null ? null : Number(value);
-  } else if (metadata.value.kind === "enum") {
-    (props.node as Extract<Field, { [meta]: { kind: "enum" } }>).value =
-      value == null ? null : String(value);
-  } else if (metadata.value.kind === "attachments") {
-    (props.node as Extract<Field, { value: File[] }>).value = Array.isArray(
-      value,
-    )
+  const node = props.node;
+  if (node.kind === "boolean") node.value = Boolean(value);
+  else if (node.kind === "integer")
+    node.value = value === "" || value == null ? null : Number(value);
+  else if (node.kind === "attachments")
+    node.value = Array.isArray(value)
       ? value
       : value instanceof File
         ? [value]
         : [];
-  } else if (metadata.value.kind === "reference") {
-    const selected = value as ReferenceValue | readonly ReferenceValue[] | null;
-    reference.value.value = Array.isArray(selected)
-      ? [...selected]
-      : (selected as ReferenceValue | null);
-  } else if (
-    metadata.value.kind !== "output" &&
-    metadata.value.kind !== "interactions"
-  ) {
-    (props.node as Extract<Field, { value: string }>).value =
-      value == null ? "" : String(value);
-  }
+  else if (node.kind === "reference" || node.kind === "treeReference") {
+    if (node.multiple)
+      node.value = Array.isArray(value)
+        ? value.map((item: ReferenceValue) => ({
+            id: item.id,
+            label: item.label,
+          }))
+        : [];
+    else {
+      const item = Array.isArray(value)
+        ? null
+        : (value as ReferenceValue | null);
+      node.value = item ? { id: item.id, label: item.label } : null;
+    }
+  } else if (node.kind !== "secret")
+    node.value = value == null ? "" : String(value);
 }
 </script>
 <template>
-  <div v-if="metadata.kind === 'secret'">
+  <div v-if="secret">
     <VSelect
       density="compact"
       hide-details
-      :label="metadata.name"
-      :aria-label="metadata.name"
+      :label="node.label ?? undefined"
+      :aria-label="node.label ?? undefined"
       :model-value="secret.value.intent"
       :disabled="disabled"
       :items="[
@@ -94,11 +119,11 @@ function setValue(value: unknown) {
       @update:model-value="setSecretIntent"
     />
     <VTextField
+      v-if="secret.value.intent === 'replace'"
       density="compact"
       hide-details
-      v-if="secret.value.intent === 'replace'"
-      :label="`新的${metadata.name}`"
-      :aria-label="`新的${metadata.name}`"
+      :label="`新的${node.label}`"
+      :aria-label="`新的${node.label}`"
       type="password"
       autocomplete="new-password"
       :model-value="secret.value.value"
@@ -107,84 +132,75 @@ function setValue(value: unknown) {
     />
   </div>
   <VCheckbox
+    v-else-if="node.kind === 'boolean'"
     density="compact"
     hide-details
-    v-else-if="metadata.kind === 'boolean'"
-    :label="metadata.name"
-    :model-value="Boolean(node.value)"
+    :label="node.label ?? undefined"
+    :model-value="node.value"
     :disabled="disabled"
     @update:model-value="setValue"
   />
   <ReferencePicker
-    v-else-if="metadata.kind === 'reference'"
+    v-else-if="reference"
     :adapter="adapter"
     :scope="scope"
-    :label="metadata.name"
+    :label="node.label ?? ''"
     :model-value="reference.value"
-    :multiple="metadata.multiple"
+    :multiple="reference.multiple"
+    :tree="reference.kind === 'treeReference'"
     :disabled="disabled"
-    :disabled-reason="metadata.load?.disabledReason"
+    :disabled-reason="loadDisabled ? '当前不能读取候选值。' : undefined"
     @update:model-value="setValue"
   />
   <VFileInput
+    v-else-if="node.kind === 'attachments'"
     density="compact"
     hide-details
-    v-else-if="metadata.kind === 'attachments'"
-    :label="metadata.name"
-    :model-value="node.value as File[]"
-    :multiple="metadata.multiple"
+    :label="node.label ?? undefined"
+    :model-value="node.value"
+    :multiple="node.multiple"
     :disabled="disabled"
     @update:model-value="setValue"
   />
-  <BusinessFamilyContent
-    v-else-if="metadata.kind === 'output' || metadata.kind === 'interactions'"
-    :node="node"
-    :read-only="disabled"
-  />
-  <VSelect
-    density="compact"
-    hide-details
-    v-else-if="metadata.kind === 'enum'"
-    :label="metadata.name"
-    :aria-label="metadata.name"
-    :items="metadata.options"
-    item-title="name"
-    item-value="id"
-    :model-value="node.value"
-    :readonly="disabled"
-    @update:model-value="setValue"
-  />
   <VTextarea
+    v-else-if="node.kind === 'longText'"
     density="compact"
     hide-details
-    v-else-if="metadata.kind === 'longText'"
-    :label="metadata.name"
-    :aria-label="metadata.name"
-    :model-value="node.value as string"
-    :readonly="disabled"
-    @update:model-value="setValue"
-  />
-  <VTextField
-    density="compact"
-    hide-details
-    v-else
-    :label="metadata.name"
-    :aria-label="metadata.name"
+    :label="node.label ?? undefined"
+    :aria-label="node.label ?? undefined"
     :model-value="node.value"
-    :type="
-      metadata.kind === 'password'
-        ? 'password'
-        : metadata.kind === 'date'
-          ? 'date'
-          : metadata.kind === 'datetime'
-            ? 'datetime-local'
-            : metadata.kind === 'integer'
-              ? 'number'
-              : 'text'
-    "
-    :inputmode="metadata.kind === 'decimal' ? 'decimal' : undefined"
-    :required="metadata.required"
     :readonly="disabled"
     @update:model-value="setValue"
   />
+  <div v-else>
+    <VTextField
+      density="compact"
+      hide-details
+      :label="node.label ?? undefined"
+      :aria-label="node.label ?? undefined"
+      :model-value="
+        disabled && ['date', 'datetime', 'decimal'].includes(node.kind)
+          ? display.value
+          : node.value
+      "
+      :type="
+        node.kind === 'password'
+          ? 'password'
+          : disabled
+            ? 'text'
+            : node.kind === 'date'
+              ? 'date'
+              : node.kind === 'integer'
+                ? 'number'
+                : 'text'
+      "
+      :inputmode="node.kind === 'decimal' ? 'decimal' : undefined"
+      :required="node.required"
+      :readonly="disabled"
+      @update:model-value="setValue"
+    />
+    <FeedbackRegion
+      ><Feedback :message="display.error" kind="error"
+    /></FeedbackRegion>
+  </div>
 </template>

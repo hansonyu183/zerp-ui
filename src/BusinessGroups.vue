@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, watch, useId } from "vue";
 import { VTabs, VTab } from "vuetify/components";
-import { nodeMetadata as meta } from "./model-node";
 import { directRuntimeKey, type Node } from "./direct-model-runtime";
 import BusinessNode from "./BusinessNode.vue";
 const props = defineProps<{
@@ -56,7 +55,7 @@ watch(
       :aria-controls="`${tabId}-panel-${index}`"
       :data-member="key"
       @focus="active = key"
-      >{{ child[meta].name }}</VTab
+      >{{ child.label }}</VTab
     >
   </VTabs>
   <template v-for="([key, child], index) in entries" :key="key">

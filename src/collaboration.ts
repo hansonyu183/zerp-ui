@@ -1,4 +1,4 @@
-export type Interaction<T = never> =
+export type Interaction<T = never, A = never, D = never> =
   | {
       kind: "message";
       id: string;
@@ -20,12 +20,12 @@ export type Interaction<T = never> =
       items: readonly {
         key: string;
         label: string;
-        target: T;
+        target: T | A;
         disabled?: boolean;
         children?: readonly {
           key: string;
           label: string;
-          target: T;
+          target: T | A;
           disabled?: boolean;
         }[];
       }[];
@@ -41,10 +41,17 @@ export type Interaction<T = never> =
       }[];
     }
   | {
-      kind: "related" | "download";
+      kind: "related";
       id: string;
       label: string;
       target: T;
+      disabled?: boolean;
+    }
+  | {
+      kind: "download";
+      id: string;
+      label: string;
+      target: T | D;
       disabled?: boolean;
     };
 export type InteractionAnswers = Readonly<Record<string, string | boolean>>;

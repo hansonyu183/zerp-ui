@@ -1,4 +1,4 @@
-/** 目标接口的定向编译检查；不导入或执行宿主、示例或任何业务回调。 */
+/** 唯一公开 model 入口的定向编译检查；不导入或执行宿主、示例或任何业务回调。 */
 import type {
   BusinessModel,
   Collection,
@@ -8,7 +8,11 @@ import type {
   PrintTemplate,
   RecordsNode,
   Session,
-} from "../../docs/interfaces/business-model";
+  Workbench,
+  InteractionNode,
+  InteractionAction,
+  InteractionDownload,
+} from "@zerp/ui/model";
 
 declare const object: ObjectNode;
 declare const collection: Collection;
@@ -29,7 +33,7 @@ const legacyOperation = { ...operation, disabledReason: "旧协议", } satisfies
 const wrongAction = { ...object, family: "standard", operations: { approve: operation }, } satisfies ObjectNode;
 // prettier-ignore
 // @ts-expect-error 单据必须显式提供 type。
-const missingVoucherType: ObjectNode = { kind: "object", family: "voucher", key: "AA", label: "单据", identity: null, readOnly: false, members: [], operations: {}, };
+const missingVoucherType: ObjectNode = { kind: "object", printable: false, family: "voucher", key: "AA", label: "单据", identity: null, readOnly: false, members: [], operations: {}, };
 // prettier-ignore
 // @ts-expect-error members 必须是有序节点数组。
 const legacyMembers = { ...object, members: { arbitrary: object }, } satisfies ObjectNode;
@@ -140,3 +144,89 @@ void [
   executableTemplate,
   arbitraryTemplate,
 ];
+
+// prettier-ignore
+// @ts-expect-error 图标只使用有限业务语义，不接受任意 MDI 图标名。
+const invalidCollectionIcon = { ...collection, icon: "mdi-home" } satisfies Collection;
+void invalidCollectionIcon;
+
+const interactionAction = {
+  kind: "action",
+  operation,
+} satisfies InteractionAction;
+const interactions = {
+  kind: "interactions",
+  key: "script",
+  label: "脚本",
+  readOnly: false,
+  value: {},
+  items: [
+    {
+      kind: "menu",
+      id: "menu",
+      label: "菜单",
+      items: [{ key: "run", label: "运行", target: interactionAction }],
+    },
+  ],
+} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 关联只导航，不执行动作。
+const actionRelated = {...interactions, items: [{kind: "related", id: "r", label: "关联", target: interactionAction}]} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 下载不能误用菜单写入动作端口。
+const actionDownload = {...interactions, items: [{kind: "download", id: "d", label: "下载", target: interactionAction}]} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 动作必须使用完整 Operation，不能增加字符串命令。
+const arbitraryAction = {kind: "action", command: "run"} satisfies InteractionAction;
+void [interactions, actionRelated, actionDownload, arbitraryAction];
+
+const fileDownload = {
+  kind: "download",
+  operation,
+} satisfies InteractionDownload;
+const scriptDownload = {
+  ...interactions,
+  items: [
+    { kind: "download", id: "file", label: "文件", target: fileDownload },
+  ],
+} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 关联不能使用文件下载端口。
+const downloadRelated = {...interactions, items:[{kind:"related",id:"r",label:"关联",target:fileDownload}]} satisfies InteractionNode;
+// prettier-ignore
+// @ts-expect-error 菜单不能误用文件下载端口。
+const downloadMenu = {...interactions,items:[{kind:"menu",id:"m",label:"菜单",items:[{key:"file",label:"文件",target:fileDownload}]}]} satisfies InteractionNode;
+void [scriptDownload, downloadRelated, downloadMenu];
+
+// prettier-ignore
+// @ts-expect-error scopeKey 是目录依赖的稳定字符串，不接受配置对象。
+const invalidScopeKey = {...singleReference, scopeKey: {dependsOn: "parent"}} satisfies FieldNode;
+void invalidScopeKey;
+
+const workbenchTargets: Workbench["targets"] = new Map([
+  [object, { collection, record: object }],
+]);
+const managementTarget: Workbench["manageReports"] = { collection };
+model.navigation.href(collection, object);
+model.navigation.visit(collection, object);
+// prettier-ignore
+// @ts-expect-error 快捷目标必须是根集合及可选记录，不能替换为裸对象导航。
+const invalidWorkbenchTarget: Workbench["manageReports"] = object;
+// prettier-ignore
+// @ts-expect-error href的记录参数不能是Collection。
+model.navigation.href(collection, collection);
+void [workbenchTargets, managementTarget, invalidWorkbenchTarget];
+
+const navigationSection: NonNullable<
+  BusinessModel["navigation"]["groups"][number]["sections"]
+>[number] = { key: "section", label: "分类", items: [collection] };
+// prettier-ignore
+// @ts-expect-error 分类只接受根 Collection，拒绝记录。
+const sectionRecord = {...navigationSection, items: [object]} satisfies typeof navigationSection;
+// prettier-ignore
+// @ts-expect-error 分类不接受所属 RecordsNode。
+const sectionRecords = {...navigationSection, items: [records]} satisfies typeof navigationSection;
+// prettier-ignore
+// @ts-expect-error 分类固定第二层，不能递归。
+const recursiveSection = {...navigationSection, sections: [navigationSection]} satisfies typeof navigationSection;
+void [sectionRecord, sectionRecords, recursiveSection];

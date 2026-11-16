@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, provide, watch, h, ref, toRaw } from "vue";
-import type { BusinessModel } from "./business-model";
-import { nodeMetadata as meta } from "./model-node";
+import { computed, provide, watch, h, ref, toRaw, onBeforeUnmount } from "vue";
+import { clearReferenceScope } from "./reference-directory";
+import type { BusinessModel, Collection, ObjectNode } from "./business-model";
 import {
   createDirectRuntime,
   directRuntimeKey,
-  type Target,
-  type ObjectNode,
+  isCollection,
+  type Node,
 } from "./direct-model-runtime";
 import BusinessNode from "./BusinessNode.vue";
 import BusinessWorkbench from "./BusinessWorkbench.vue";
@@ -26,88 +26,168 @@ defineSlots<{}>();
 const props = defineProps<{ model: BusinessModel }>();
 const runtime = createDirectRuntime(() => props.model);
 provide(directRuntimeKey, runtime);
-const options = computed(() => props.model[meta]);
 const localTheme = ref(defaultThemeChoice);
-const theme = computed(() => options.value.theme?.value ?? localTheme.value);
+const theme = computed(() => props.model.theme?.value ?? localTheme.value);
 function changeTheme(value: ThemeChoice) {
-  if (options.value.theme) options.value.theme.change(value);
+  if (props.model.theme) props.model.theme.change(value);
   else localTheme.value = value;
 }
-const groups = computed(() =>
-  options.value.navigationProjection
+const navigationIds = new WeakMap<object, number>();
+let nextNavigationId = 0;
+function navigationKey(
+  group: string,
+  section: string | null,
+  node: Collection,
+) {
+  const raw = toRaw(node);
+  if (!navigationIds.has(raw)) navigationIds.set(raw, ++nextNavigationId);
+  return JSON.stringify([
+    runtime.scope.value,
+    group,
+    section,
+    navigationIds.get(raw),
+  ]);
+}
+const groups = computed(() => {
+  const allowed = (node: Collection) =>
+    Object.values(props.model.members).includes(node) && runtime.readable(node);
+  return props.model.navigation.groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => runtime.readable(item.node)),
+      items: group.items.filter(allowed),
+      sections: (group.sections ?? [])
+        .map((section) => ({
+          ...section,
+          items: section.items.filter(allowed),
+        }))
+        .filter((section) => section.items.length),
     }))
-    .filter((group) => group.items.length),
-);
-const current = computed(() =>
-  options.value.session?.state === "password-required"
-    ? options.value.account?.password
-    : (options.value.navigation.current ?? groups.value[0]?.items[0]?.node),
-);
-const root = computed(() => {
-  const n = current.value;
-  if (!n || !runtime.readable(n)) return null;
-  if (options.value.session?.state === "password-required") return n;
-  return runtime.ancestors(n).find((a) => a[meta].kind === "object") ?? n;
+    .filter((group) => group.items.length || group.sections.length);
 });
-const navigation = computed<NavigationGroup[]>(() =>
-  groups.value.map((g) => ({
-    key: g.key,
-    caption: g.name,
-    ungrouped: g.ungrouped,
-    items: g.items.map((item, index) => ({
-      key: `${g.key}:${index}`,
-      caption: item.node[meta].name,
-      icon: item.icon,
-      section: item.section,
-      to: options.value.navigation.href(item.node),
+const navigationEntries = computed(() =>
+  groups.value.flatMap((group) => [
+    ...group.items.map((node) => ({
+      node,
+      key: navigationKey(group.key, null, node),
+      group: group.key,
+      section: undefined,
     })),
-  })),
+    ...group.sections.flatMap((section) =>
+      section.items.map((node) => ({
+        node,
+        key: navigationKey(group.key, section.key, node),
+        group: group.key,
+        section: { key: section.key, caption: section.label },
+      })),
+    ),
+  ]),
 );
-const selectedKey = computed(() => {
-  for (const g of groups.value) {
-    const i = g.items.findIndex((x) => toRaw(x.node) === toRaw(root.value));
-    if (i >= 0) return `${g.key}:${i}`;
-  }
-  return null;
+const accountView = ref<ObjectNode | null>(null);
+const current = computed<Collection | null>(() => {
+  const requested = props.model.navigation.current;
+  return requested &&
+    Object.values(props.model.members).includes(requested) &&
+    runtime.readable(requested)
+    ? requested
+    : null;
 });
+watch(
+  [
+    () => props.model.navigation.current,
+    groups,
+    () => props.model.workbench,
+    runtime.ready,
+  ],
+  () => {
+    if (
+      !runtime.ready.value ||
+      props.model.session.state !== "ready" ||
+      current.value ||
+      props.model.workbench
+    )
+      return;
+    const first = navigationEntries.value[0]?.node;
+    if (first) props.model.navigation.visit(first);
+  },
+  { immediate: true },
+);
+const navigation = computed<NavigationGroup[]>(() =>
+  props.model.session.state === "password-required"
+    ? []
+    : groups.value.map((group) => ({
+        key: group.key,
+        caption: group.label,
+        items: navigationEntries.value
+          .filter((entry) => entry.group === group.key)
+          .map(({ node, key, section }) => ({
+            key,
+            section,
+            caption: node.navigationLabel ?? node.label,
+            icon: node.icon,
+            to: props.model.navigation.href(node),
+          })),
+      })),
+);
+const selectedKey = computed(
+  () =>
+    navigationEntries.value.find((entry) => entry.node === current.value)
+      ?.key ?? null,
+);
 function visitKey(key: string) {
-  for (const g of groups.value) {
-    const i = g.items.findIndex((_, i) => `${g.key}:${i}` === key);
-    if (i >= 0) options.value.navigation.visit(g.items[i]!.node);
+  if (!runtime.ready.value || props.model.session.state !== "ready") return;
+  const entry = navigationEntries.value.find((entry) => entry.key === key);
+  if (entry && runtime.readable(entry.node)) {
+    accountView.value = null;
+    props.model.navigation.visit(entry.node);
   }
 }
 const brand = computed(() => ({
-  productName: options.value.brand.productName,
-  enterpriseName: options.value.brand.companyName,
-  home: "/",
+  productName: props.model.brand.productName,
+  enterpriseName: props.model.brand.companyName,
+  home: props.model.navigation.href(null),
   mark: {
     kind: "text" as const,
-    text: options.value.brand.productName.slice(0, 1),
+    text: props.model.brand.productName.slice(0, 1),
   },
+}));
+const accountPresentation = computed(() => ({
+  label: props.model.account.label,
 }));
 const messageOwners = new WeakMap<object, string>();
 watch(
-  () => options.value.messages.slice(),
+  () => props.model.messages.slice(),
   (items) => {
-    for (const message of items)
-      if (!messageOwners.has(toRaw(message)))
-        messageOwners.set(toRaw(message), runtime.scope.value);
+    for (const item of items)
+      if (!messageOwners.has(toRaw(item)))
+        messageOwners.set(toRaw(item), runtime.scope.value);
   },
   { immediate: true, flush: "sync" },
 );
 const messages = computed(() =>
-  options.value.messages.filter((message) => {
-    if (!messageOwners.has(toRaw(message)))
-      messageOwners.set(toRaw(message), runtime.scope.value);
-    return (
+  props.model.messages.filter(
+    (message) =>
       messageOwners.get(toRaw(message)) === runtime.scope.value &&
-      (!message.target || runtime.readable(message.target))
-    );
-  }),
+      (!message.target || runtime.readable(message.target)),
+  ),
 );
+function locate(target: Node) {
+  const collection = isCollection(target)
+    ? target
+    : runtime.ancestors(target).find(isCollection);
+  if (collection && runtime.readable(collection)) {
+    if (!isCollection(target)) {
+      const record = [...runtime.ancestors(target), target].find(
+        (node) =>
+          !isCollection(node) &&
+          node.kind === "object" &&
+          runtime.ancestors(node).at(-1) === collection,
+      );
+      if (record && !isCollection(record) && record.kind === "object")
+        collection.selected = record;
+    }
+    props.model.navigation.visit(collection);
+  }
+}
 function feedback() {
   return h(FeedbackRegion, {}, () => [
     h(Feedback, { message: runtime.error.value, kind: "error" }),
@@ -128,12 +208,7 @@ function feedback() {
           ? () =>
               h(
                 "button",
-                {
-                  onClick: () =>
-                    message.target &&
-                    runtime.readable(message.target) &&
-                    options.value.navigation.visit(message.target),
-                },
+                { onClick: () => message.target && locate(message.target) },
                 "查看",
               )
           : undefined,
@@ -141,83 +216,105 @@ function feedback() {
     ),
   ]);
 }
+const target = computed(() =>
+  props.model.session.state === "password-required"
+    ? props.model.account.password
+    : (accountView.value ?? current.value),
+);
 const page = computed<PageDefinition>(() => {
-  const node = root.value,
-    focus = current.value;
+  const node = target.value,
+    workbench = props.model.workbench;
+  const title = node?.label ?? (workbench ? "工作台" : "");
   return {
     kind: "details",
-    title: node?.[meta].name ?? "工作台",
+    title,
     [snapshotPage]: () => ({
-      title: node?.[meta].name ?? "工作台",
+      title,
       render: () => [
         node
-          ? node[meta].kind === "object" &&
-            node[meta].family === "workbench" &&
-            node === focus
-            ? h(BusinessWorkbench, { node: node as ObjectNode })
-            : h(BusinessNode, {
-                node:
-                  node[meta].kind === "object" &&
-                  node[meta].family === "workbench"
-                    ? ((focus &&
-                        [...runtime.ancestors(focus), focus].find(
-                          (child) => runtime.ancestors(child).at(-1) === node,
-                        )) ??
-                      node)
-                    : node,
-                focus,
-              })
-          : h("p", "暂无可用内容。"),
+          ? h(BusinessNode, { node })
+          : workbench
+            ? h(BusinessWorkbench, { node: workbench })
+            : h("p", "暂无可用内容。"),
         feedback(),
       ],
     }),
   };
 });
 async function accountAction(action: AccountIntent) {
-  const account = options.value.account;
-  if (!account) return;
-  const target = action === "profile" ? account.profile : account.password;
-  if (action !== "sign-out") {
-    if (target && runtime.readable(target))
-      options.value.navigation.visit(target);
+  if (action === "sign-out") {
+    await runtime.runAccount();
     return;
   }
-  await runtime.runAccount();
+  const node =
+    action === "profile"
+      ? props.model.account.profile
+      : props.model.account.password;
+  if (runtime.readable(node)) accountView.value = node;
 }
-watch([() => props.model, runtime.scope], () => runtime.invalidate(true), {
-  flush: "sync",
-});
-watch(current, () => runtime.invalidate(), { flush: "sync" });
+function goHome(event: MouseEvent) {
+  const a = (event.target as Element).closest("a.zerp-shell-brand");
+  if (
+    !a ||
+    event.defaultPrevented ||
+    event.button !== 0 ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    event.altKey
+  )
+    return;
+  event.preventDefault();
+  accountView.value = null;
+  props.model.navigation.visit(null);
+}
+watch(
+  [() => props.model, runtime.scope, () => props.model.session.state],
+  (_current, previous) => {
+    if (previous?.[1] !== undefined) clearReferenceScope(previous[1]);
+    runtime.invalidate(true);
+    accountView.value = null;
+  },
+  { flush: "sync" },
+);
+watch(
+  () => props.model.navigation.current,
+  (_current, previous) => {
+    if (previous?.report && runtime.ready.value && runtime.readable(previous))
+      runtime.reportViews.set(toRaw(previous), {
+        left: window.scrollX,
+        top: window.scrollY,
+      });
+  },
+  { flush: "sync" },
+);
+onBeforeUnmount(() => clearReferenceScope(runtime.scope.value));
+watch(target, () => runtime.invalidate(), { flush: "sync" });
 </script>
 <template>
-  <AuthFrame
-    v-if="!options.owner || options.session?.state === 'recovering'"
-    :brand="brand"
-    :theme="theme"
-  >
+  <AuthFrame v-if="!runtime.ready.value" :brand="brand" :theme="theme">
     <BusinessNode
-      v-if="options.authentication"
-      :node="options.authentication"
+      :node="model.authentication.form"
       public-auth
       :auto-read="false"
     />
-    <p v-else>会话不可用。</p>
     <component :is="feedback" />
   </AuthFrame>
-  <AppPage
-    v-else
-    :brand="brand"
-    :brand-state="{ kind: 'ready' }"
-    :navigation="navigation"
-    :navigation-state="{ kind: 'ready' }"
-    :selected-navigation-key="selectedKey"
-    :visit="visitKey"
-    :page="page"
-    :scope="runtime.scope.value"
-    :footer="options.name"
-    :account="options.account ? { label: options.account.name } : undefined"
-    :theme="theme"
-    @update:theme="changeTheme"
-    @account-action="accountAction"
-  />
+  <div v-else @click.capture="goHome">
+    <AppPage
+      :brand="brand"
+      :brand-state="{ kind: 'ready' }"
+      :navigation="navigation"
+      :navigation-state="{ kind: 'ready' }"
+      :selected-navigation-key="selectedKey"
+      :visit="visitKey"
+      :page="page"
+      :scope="runtime.scope.value"
+      :footer="model.label"
+      :account="accountPresentation"
+      :theme="theme"
+      @update:theme="changeTheme"
+      @account-action="accountAction"
+    />
+  </div>
 </template>

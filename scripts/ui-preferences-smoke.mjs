@@ -6,7 +6,7 @@ import {
 } from "./direct-presentation-smoke.mjs";
 
 // Public UI only, run by check-package against a physically installed tgz.
-export async function uiPreferencesSmoke(page) {
+export async function uiPreferencesSmoke(page, options = {}) {
   const assertions = [];
   await expect(page.locator(".zerp-auth-page")).toHaveClass(
     /v-theme--zerp-md3-light/,
@@ -18,7 +18,10 @@ export async function uiPreferencesSmoke(page) {
     .getByRole("textbox", { name: "登录密码", exact: true })
     .fill("synthetic-only");
   await page.getByRole("button", { name: "登录", exact: true }).click();
-  await page.getByRole("tab", { name: "概览", exact: true }).waitFor();
+  const navigation = page.getByRole("navigation", { name: "主导航" });
+  await navigation.getByText("业务", { exact: true }).click();
+  await navigation.getByRole("link", { name: "客户", exact: true }).click();
+  await page.getByText("合成客户甲", { exact: true }).waitFor();
   const app = page.locator(".zerp-shell");
   await expect(app).toHaveClass(/v-theme--zerp-md3-light/);
   for (const mode of ["light", "dark"]) {
@@ -58,7 +61,8 @@ export async function uiPreferencesSmoke(page) {
     check: "default-and-independent-theme-transitions",
     result: "passed",
   });
-  const presentation = await directPresentationSmoke(page);
+  const presentation =
+    options.layout === false ? undefined : await directPresentationSmoke(page);
   assertions.push({
     clauses: [
       "UI-THEME-05",
@@ -74,15 +78,50 @@ export async function uiPreferencesSmoke(page) {
     check: "representative-desktop-mobile-presentation",
     result: "passed",
   });
-  await page.getByRole("tab", { name: "客户", exact: true }).click();
+
   const keyword = page.getByRole("textbox", { name: "关键词", exact: true });
   await keyword.fill("保留条件");
-  await page.getByRole("tab", { name: "概览", exact: true }).click();
-  await page.getByRole("tab", { name: "客户", exact: true }).click();
+  await expect(
+    navigation.locator(".zerp-navigation-section"),
+  ).not.toHaveAttribute("open");
+  await navigation.getByText("示例分类", { exact: true }).click();
+  const sectionLink = navigation.getByRole("link", {
+    name: "E 空集合",
+    exact: true,
+  });
+  await expect(sectionLink).toHaveAttribute("href", "/business/empty");
+  await sectionLink.click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("空集合");
+  await expect(sectionLink).toHaveAttribute("aria-current", "page");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "切换导航", exact: true }).click();
+  await expect(sectionLink).toBeVisible();
+  await sectionLink.click();
+  await expect(
+    page.getByRole("button", { name: "切换导航", exact: true }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await settleLayout(page);
+  expect(
+    (await page.locator(".v-navigation-drawer").boundingBox()).x + 224,
+  ).toBeLessThanOrEqual(1);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  assertions.push({
+    clauses: [
+      "UI-NAV-01",
+      "UI-NAV-02",
+      "UI-NAV-03",
+      "UI-SCOPE-01",
+      "UI-WORK-02",
+    ],
+    check: "two-level-navigation-canonical-link-title-and-mobile-close",
+    result: "passed",
+  });
+  await navigation.getByRole("link", { name: "客户", exact: true }).click();
+
   await expect(keyword).toHaveValue("保留条件");
   assertions.push({
     clauses: ["UI-FORM-06"],
-    check: "query-input-retained-across-tabs",
+    check: "query-input-retained-across-collections",
     result: "passed",
   });
 
@@ -133,10 +172,82 @@ export async function uiPreferencesSmoke(page) {
       "success-error-appearance-and-dismissal-preserve-field-and-row-geometry",
     result: "passed",
   });
-  const navigation = page.getByRole("navigation", { name: "主导航" });
-  await navigation.getByText("业务", { exact: true }).click();
-  await navigation.getByRole("link", { name: "工作台", exact: true }).click();
-  await workbenchPresentationSmoke(page);
+  await keyword.fill("引用反馈");
+  await page.getByRole("button", { name: "查询", exact: true }).click();
+  await page.getByRole("button", { name: "编辑", exact: true }).click();
+  const feedbackDialog = page
+    .getByRole("dialog")
+    .filter({ hasText: "表单引用" });
+  async function stableReferenceFailure(label, container) {
+    const control = feedbackDialog.getByRole("combobox", {
+      name: label,
+      exact: true,
+    });
+    await control.scrollIntoViewIfNeeded();
+    await settleLayout(page);
+    const baseline = await container.boundingBox();
+    await control.click();
+    const detailsButton = page.getByRole("button", {
+      name: `${label}错误详情`,
+      exact: true,
+    });
+    await expect(detailsButton).toBeVisible();
+    const details = page.getByRole("note", {
+      name: `${label}错误详情`,
+      exact: true,
+    });
+    if (!(await details.isVisible())) await detailsButton.click();
+    await expect(details).toBeVisible();
+    await expect(control).toHaveAttribute("aria-invalid", "true");
+    const description = await control.getAttribute("aria-describedby");
+    expect(description).toBeTruthy();
+    await expect(
+      page.locator(`[id="${description.split(" ").at(-1)}"]`),
+    ).toContainText("目录读取失败");
+    const messages = details.locator(".zerp-field-error-messages");
+    await expect(messages).toHaveCSS("overflow-y", "auto");
+    expect(
+      await messages.evaluate(
+        (element) => element.scrollHeight > element.clientHeight,
+      ),
+    ).toBe(true);
+    await stable(container, baseline);
+    await details
+      .getByRole("button", { name: "重试引用", exact: true })
+      .click();
+    await expect(details).toBeHidden();
+    await expect(control).not.toHaveAttribute("aria-invalid", "true");
+    if ((await control.getAttribute("aria-expanded")) === "true")
+      await control.press("Escape");
+    const restored = await container.boundingBox();
+    expect(Math.abs(restored.height - baseline.height)).toBeLessThan(1);
+    expect(Math.abs(restored.width - baseline.width)).toBeLessThan(1);
+  }
+  const referenceForm = feedbackDialog.locator(".zerp-direct-form").filter({
+    has: page.getByRole("combobox", { name: "表单引用", exact: true }),
+  });
+  await stableReferenceFailure("表单引用", referenceForm);
+  await feedbackDialog
+    .getByRole("tab", { name: "联系人", exact: true })
+    .click();
+  const ownedRow = feedbackDialog
+    .getByRole("table")
+    .locator("tbody tr")
+    .first();
+  await stableReferenceFailure("明细引用", ownedRow);
+  await feedbackDialog
+    .getByRole("button", { name: "关闭", exact: true })
+    .click();
+  assertions.push({
+    clauses: ["UI-SHELL-05", "UI-DESKTOP-03"],
+    check: "long-reference-load-error-preserves-form-and-owned-row-geometry",
+    result: "passed",
+  });
+
+  await page
+    .getByRole("link", { name: "合成业务示例：首页", exact: true })
+    .click();
+  if (options.workbench !== false) await workbenchPresentationSmoke(page);
   assertions.push({
     clauses: ["UI-WORK-01", "UI-THEME-02"],
     check: "workbench-layout-and-theme",
