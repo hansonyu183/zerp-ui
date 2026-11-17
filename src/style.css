@@ -869,3 +869,15 @@
 .zerp-workbench-progress {
   height: 4px;
 }
+
+/* Shared business action spacing; shape and state layers remain Blueprint-owned. */
+.zerp-business-actions,
+.zerp-business-actions__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.zerp-business-actions {
+  margin-block: 12px;
+}

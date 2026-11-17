@@ -112,3 +112,33 @@ it("updates ownership when current records are added and removed", async () => {
   await flushPromises();
   expect(document.body.textContent).not.toContain("新结构值");
 });
+
+it("restores Material primary, ordinary and destructive action hierarchy", async () => {
+  const f = fixture();
+  f.record.operations.delete = operation();
+  wrapper = await render(f.model);
+  const query = wrapper
+    .findAll("button")
+    .find((button) => button.text() === "查询")!;
+  expect(query.classes()).toContain("v-btn--variant-tonal");
+  expect(query.classes()).toContain("text-primary");
+  await click("编辑");
+  const buttons = () =>
+    Array.from(
+      document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+    );
+  const save = buttons().find(
+    (button) => button.textContent?.trim() === "保存",
+  )!;
+  expect(save.classList.contains("v-btn--variant-flat")).toBe(true);
+  expect(save.classList.contains("bg-primary")).toBe(true);
+  const remove = buttons().find(
+    (button) => button.textContent?.trim() === "删除",
+  )!;
+  expect(remove.classList.contains("v-btn--variant-tonal")).toBe(true);
+  expect(remove.classList.contains("text-error")).toBe(true);
+  const close = buttons().find(
+    (button) => button.textContent?.trim() === "关闭",
+  )!;
+  expect(close.classList.contains("v-btn--variant-text")).toBe(true);
+});

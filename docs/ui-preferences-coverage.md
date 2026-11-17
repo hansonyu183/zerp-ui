@@ -2,7 +2,7 @@
 
 由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
-共 53 条：32 条有自动断言映射（均为部分覆盖），21 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
+共 53 条：34 条有自动断言映射（均为部分覆盖），19 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
 
 验证策略：流程条款由任务审查；消费者专属条款由真实消费者验收；文案及常规 UI 语义审查由 Agent 按现有要求判断，不逐项询问用户；仅业务含义不明或需改变已确认要求时，在完成其余开发后按 UI-GOV-06 留一份交付清单。本库检查使用合成模型，不是实际 OIT/ZERP API/E2E。定向检查不是数学证明或全状态穷举。
 
@@ -19,9 +19,9 @@
 | UI-GOV-05 | 无自动断言 | 流程验收：逐条交付证据、缺口及授权内修复；本清单不自动判定任务已遵守。 |
 | UI-GOV-06 | 无自动断言 | 流程审查由 Agent 执行：常规文案/UI自主判断；仅将业务含义不明或要求变更在开发交付后合并为一份清单，不逐项询问用户。 |
 | UI-THEME-01 | 无自动断言 | 布局所有权及消费者不补模板仍需架构审查；未穷举业务族。 |
-| UI-THEME-02 | [package-theme](#package-theme)、[package-workbench](#package-workbench) | 只覆盖认证外壳及工作台主题响应，未逐控件验证完整Material语言。 |
+| UI-THEME-02 | [package-theme](#package-theme)、[package-workbench](#package-workbench) | 认证外壳、工作台、领域Tabs和查询按钮覆盖主题响应；尚未逐控件穷举完整Material语言。 |
 | UI-THEME-03 | [unit-theme](#unit-theme)、[package-theme](#package-theme) | 主题菜单位于明暗左侧的几何顺序尚无断言；真实消费者持久化另验收。 |
-| UI-THEME-04 | 无自动断言 | 公共样式归属及主要/普通/危险层级需审查；常规语义样式由 Agent 判断，见Q4。 |
+| UI-THEME-04 | [unit-buttons](#unit-buttons)、[package-theme](#package-theme) | 公开按钮主次/危险层级、主要按钮样式及查询按钮六种主题明暗颜色有映射；未逐业务族穷举所有按钮。 |
 | UI-THEME-05 | [package-layout](#package-layout) | 仅表格12px及手机编辑输入16px；正文/菜单/导航/反馈和18/16/14px标题尚未逐类验证。 |
 | UI-THEME-06 | [package-layout](#package-layout) | 仅代表性动作和48px顶栏；compact输入、全控件触控区域未遍历；常规间距由 Agent 判断，见Q2。 |
 | UI-SHELL-01 | [package-layout](#package-layout) | 只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。 |
@@ -43,14 +43,14 @@
 | UI-FORM-01 | [unit-model](#unit-model)、[unit-review](#unit-review) | 直接编辑、复杂结构有代表用例；查看/新增/编辑完整字段顺序同构尚未逐路径断言。 |
 | UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout) | 列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。 |
 | UI-FORM-03 | [package-layout](#package-layout) | 代表场景筛选4列/编辑3列已验；容器窄宽/短表单/长文本/子表整行未覆盖；Q1/Q2由 Agent 按现有要求判断。 |
-| UI-FORM-04 | [unit-tabs](#unit-tabs)、[package-layout](#package-layout)、[unit-review](#unit-review) | 零单多组、键盘和面板关联已有；窄屏Tab滚动、浮动标签不重叠尚无完整几何证据。 |
+| UI-FORM-04 | [unit-tabs](#unit-tabs)、[package-layout](#package-layout)、[unit-review](#unit-review)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-05 | [unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[unit-reactivity](#unit-reactivity) | 新模型数组顺序、空label详情隐藏及显式列保留有源码映射；动态结构全组合尚未穷举。 |
-| UI-FORM-06 | [unit-model](#unit-model)、[unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[package-tab-input](#package-tab-input)、[package-full](#package-full) | 新集合覆盖式详情、分组切换与明细随父保存有映射；全部业务族和异步组合尚未穷举。 |
-| UI-FORM-07 | [unit-reactivity](#unit-reactivity) | 根级独立集合及所属分组采用新契约；真实消费者业务名称和目录层级另行验收。 |
+| UI-FORM-06 | [unit-model](#unit-model)、[unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[package-tab-input](#package-tab-input)、[package-full](#package-full)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
+| UI-FORM-07 | [unit-reactivity](#unit-reactivity)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-08 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[unit-overlay](#unit-overlay) | 直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。 |
 | UI-NAV-01 | [unit-shell](#unit-shell) | 仅默认收起及修饰键；直属入口、无标题/无切换提示尚未完整断言。 |
 | UI-NAV-02 | [unit-shell](#unit-shell) | 修饰键有证据；图标语义、未知文本、手机选择关闭抽屉、桌面收起及新标签待补。 |
-| UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full) | 新根集合导航、工作台与无权裁剪由新宿主场景映射；真实消费者Router和权限计算另行验收。 |
+| UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain) | 领域内集合的独立授权、按需查询及保存有公开入口源码断言；完整客户领域类型示例仅编译，真实消费者业务名称、Router、权限及七集合行为另行验收。 |
 | UI-NAV-04 | 无自动断言 | 重复导航/目录与实际入口需逐路径审查，不以旧私有组件测试作为新入口符合证据。 |
 | UI-NAV-05 | [package-full](#package-full) | 新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。 |
 | UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full) | 构造无业务查询和工作台按需读取有包映射；慢页面账户可达有源码定向映射。 |
@@ -60,7 +60,7 @@
 | UI-WORK-04 | [unit-review](#unit-review)、[package-full](#package-full) | 新根集合局部详情下钻使用包场景验证条件/页码/滚动保持；结果有效性归消费者。 |
 | UI-PRINT-01 | [package-print-template](#package-print-template) | 仅覆盖合成 A4 单据与浏览器 PDF；跨平台字体度量、真实消费者权限与业务汇总、实体打印设备另验收。 |
 | UI-SCOPE-01 | 无自动断言 | 真实消费者验收：OIT分类、类型码/首字母排序、停用类型/历史直达/独立配置。本库不得硬编码。 |
-| UI-SCOPE-02 | 无自动断言 | 新目标按完整静态集合和权限表达 KY/K1 差异，旧聚合字典 Tab 决定已被取代；真实消费者尚未迁移验收。 |
+| UI-SCOPE-02 | [unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-SCOPE-03 | [unit-actions](#unit-actions) | 合成流程动作直接可达有代表证据；真实ZERP放行意见契约由消费者验收，不泛化免确认。 |
 | UI-BOUND-01 | 无自动断言 | 人工规范审查：不恢复失效要求；不擅自固定品牌色/字体族。 |
 | UI-BOUND-02 | [unit-model](#unit-model) | 统一公开契约、静态模型、同根登录/退出和迟到隔离有新源码/包映射；真实产品尚未迁移。 |
@@ -169,6 +169,30 @@
 [scripts/template-print-smoke.mjs](../scripts/template-print-smoke.mjs) · 公开 tgz 独立安装和构建示例的合成单据及真实浏览器 PDF
 
 定位：`export async function templatePrintSmoke`。动态行高、文字未裁切、纸张尺寸/页数、页码、重复表头、35条明细各一次、末尾汇总签字及测量容器回收。
+
+### unit-domain
+
+[tests/static-navigation.spec.ts](../tests/static-navigation.spec.ts) · source/public-entry
+
+定位：`keeps domain collections independently authorized, queried and saved`。领域内集合按各自授权裁剪、仅访问时查询、独立保存，拒绝跨集合串写；移除领域后旧导航失效。
+
+### unit-domain-tabs
+
+[tests/static-navigation.spec.ts](../tests/static-navigation.spec.ts) · source/public-entry
+
+定位：`uses Material domain tabs with real links`。领域多个获权集合用真实 Material Tabs；真实链接/修饰键/空格键、单集合隐藏Tab、撤权重检，以及输入/分页保持且返回不重复查询。
+
+### package-domain-tabs
+
+[scripts/ui-preferences-smoke.mjs](../scripts/ui-preferences-smoke.mjs) · tgz/browser
+
+定位：`material-domain-tabs-keyboard-links-and-input`。公开独立安装消费者的领域Tab、真实href、方向键/Enter激活、查询输入保持。
+
+### unit-buttons
+
+[tests/business-shell-preferences.spec.ts](../tests/business-shell-preferences.spec.ts) · source/public-entry
+
+定位：`restores Material primary, ordinary and destructive action hierarchy`。查询柔和主题色、保存实心主题色、删除危险色、关闭文字按钮，保留操作语义。
 
 ## 执行与维护
 

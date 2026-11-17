@@ -6,6 +6,7 @@ import { reactive } from "vue";
 import type {
   BusinessModel,
   Collection,
+  DomainGroup,
   ObjectNode,
   Owner,
   PrintTemplate,
@@ -18,6 +19,12 @@ declare function signIn(): Promise<void>;
 declare function recoverSession(): Promise<void>;
 declare function signOut(): Promise<void>;
 declare function changePassword(): Promise<void>;
+declare function queryAccountSettings(): Promise<void>;
+declare function queryContacts(): Promise<void>;
+declare function queryCategories(): Promise<void>;
+declare function queryCustomerGroups(): Promise<void>;
+declare function queryAttributeDefinitions(): Promise<void>;
+declare function queryRelatedDictionaries(): Promise<void>;
 declare function queryCustomers(): Promise<void>;
 declare function createCustomer(): Promise<void>;
 declare function saveCustomer(): Promise<void>;
@@ -488,12 +495,167 @@ export const voucherShortcut = {
   operations: { get: { disabled: false, run: openAA } },
 } satisfies ObjectNode;
 
+/** 合成独立目录：每个集合有自己的查询回调、条件、分页和记录保存回调。 */
+const accountSettings = reactive<Collection>({
+  key: "accountSettings",
+  label: "账款设置",
+  columns: [{ key: "name", label: "名称" }],
+  conditions: {
+    kind: "object",
+    family: "standard",
+    key: "accountSettings-conditions",
+    label: "查询条件",
+    identity: null,
+    printable: false,
+    readOnly: false,
+    members: [],
+    operations: {},
+  },
+  items: [],
+  selected: null,
+  draft: null,
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  operations: { query: { disabled: false, run: queryAccountSettings } },
+});
+const contacts = reactive<Collection>({
+  key: "contacts",
+  label: "联系人",
+  columns: [{ key: "name", label: "名称" }],
+  conditions: {
+    kind: "object",
+    family: "standard",
+    key: "contacts-conditions",
+    label: "查询条件",
+    identity: null,
+    printable: false,
+    readOnly: false,
+    members: [],
+    operations: {},
+  },
+  items: [],
+  selected: null,
+  draft: null,
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  operations: { query: { disabled: false, run: queryContacts } },
+});
+const categories = reactive<Collection>({
+  key: "categories",
+  label: "分类",
+  columns: [{ key: "name", label: "名称" }],
+  conditions: {
+    kind: "object",
+    family: "standard",
+    key: "categories-conditions",
+    label: "查询条件",
+    identity: null,
+    printable: false,
+    readOnly: false,
+    members: [],
+    operations: {},
+  },
+  items: [],
+  selected: null,
+  draft: null,
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  operations: { query: { disabled: false, run: queryCategories } },
+});
+const customerGroups = reactive<Collection>({
+  key: "customerGroups",
+  label: "分组",
+  columns: [{ key: "name", label: "名称" }],
+  conditions: {
+    kind: "object",
+    family: "standard",
+    key: "customerGroups-conditions",
+    label: "查询条件",
+    identity: null,
+    printable: false,
+    readOnly: false,
+    members: [],
+    operations: {},
+  },
+  items: [],
+  selected: null,
+  draft: null,
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  operations: { query: { disabled: false, run: queryCustomerGroups } },
+});
+const attributeDefinitions = reactive<Collection>({
+  key: "attributeDefinitions",
+  label: "属性定义",
+  columns: [{ key: "name", label: "名称" }],
+  conditions: {
+    kind: "object",
+    family: "standard",
+    key: "attributeDefinitions-conditions",
+    label: "查询条件",
+    identity: null,
+    printable: false,
+    readOnly: false,
+    members: [],
+    operations: {},
+  },
+  items: [],
+  selected: null,
+  draft: null,
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  operations: { query: { disabled: false, run: queryAttributeDefinitions } },
+});
+const relatedDictionaries = reactive<Collection>({
+  key: "relatedDictionaries",
+  label: "相关字典",
+  columns: [{ key: "name", label: "名称" }],
+  conditions: {
+    kind: "object",
+    family: "standard",
+    key: "relatedDictionaries-conditions",
+    label: "查询条件",
+    identity: null,
+    printable: false,
+    readOnly: false,
+    members: [],
+    operations: {},
+  },
+  items: [],
+  selected: null,
+  draft: null,
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  operations: { query: { disabled: false, run: queryRelatedDictionaries } },
+});
+/** 领域不是 ObjectNode，没有整体 query/update，也不授予集合权限。 */
+export const customerDomain = reactive({
+  kind: "domain",
+  key: "customerDomain",
+  label: "客户领域",
+  members: {
+    customers,
+    accountSettings,
+    contacts,
+    categories,
+    customerGroups,
+    attributeDefinitions,
+    relatedDictionaries,
+  },
+} satisfies DomainGroup);
+
 /** 登录前整体传入，登录/登出/再次登录只更新同一响应式对象。 */
 export const model: BusinessModel = reactive({
   kind: "application",
   label: "OIT 合成示例",
   brand: { productName: "OIT 示例", companyName: "" },
-  members: { customers, AA: aa, AB: ab },
+  members: { customerDomain, AA: aa, AB: ab },
   workbench,
   theme: {
     value: { preset: "md3", mode: "light" },
@@ -597,7 +759,19 @@ export const model: BusinessModel = reactive({
   navigation: {
     current: null,
     groups: [
-      { key: "masters", label: "基础资料", items: [customers] },
+      {
+        key: "masters",
+        label: "客户领域",
+        items: [
+          customers,
+          accountSettings,
+          contacts,
+          categories,
+          customerGroups,
+          attributeDefinitions,
+          relatedDictionaries,
+        ],
+      },
       { key: "vouchers-A", label: "采购", items: [aa, ab] },
     ],
     href,

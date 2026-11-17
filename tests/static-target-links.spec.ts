@@ -61,6 +61,14 @@ function setup() {
 }
 it("renders real off-page workbench record and management links without changing selection", async () => {
   const f = setup();
+  f.model.members = {
+    domain: {
+      kind: "domain",
+      key: "domain",
+      label: "客户领域",
+      members: { rows: f.rows },
+    },
+  };
   wrapper = await render(f.model);
   const link = wrapper.findAll("a").find((a) => a.text() === "最近记录");
   expect(link).toBeTruthy();

@@ -102,6 +102,30 @@
       "anchor": "export async function templatePrintSmoke",
       "surface": "公开 tgz 独立安装和构建示例的合成单据及真实浏览器 PDF",
       "assertion": "动态行高、文字未裁切、纸张尺寸/页数、页码、重复表头、35条明细各一次、末尾汇总签字及测量容器回收"
+    },
+    "unit-domain": {
+      "file": "tests/static-navigation.spec.ts",
+      "anchor": "keeps domain collections independently authorized, queried and saved",
+      "surface": "source/public-entry",
+      "assertion": "领域内集合按各自授权裁剪、仅访问时查询、独立保存，拒绝跨集合串写；移除领域后旧导航失效"
+    },
+    "unit-domain-tabs": {
+      "file": "tests/static-navigation.spec.ts",
+      "anchor": "uses Material domain tabs with real links",
+      "surface": "source/public-entry",
+      "assertion": "领域多个获权集合用真实 Material Tabs；真实链接/修饰键/空格键、单集合隐藏Tab、撤权重检，以及输入/分页保持且返回不重复查询"
+    },
+    "package-domain-tabs": {
+      "file": "scripts/ui-preferences-smoke.mjs",
+      "anchor": "material-domain-tabs-keyboard-links-and-input",
+      "surface": "tgz/browser",
+      "assertion": "公开独立安装消费者的领域Tab、真实href、方向键/Enter激活、查询输入保持"
+    },
+    "unit-buttons": {
+      "file": "tests/business-shell-preferences.spec.ts",
+      "anchor": "restores Material primary, ordinary and destructive action hierarchy",
+      "surface": "source/public-entry",
+      "assertion": "查询柔和主题色、保存实心主题色、删除危险色、关闭文字按钮，保留操作语义"
     }
   },
   "clauses": [
@@ -150,7 +174,7 @@
     {
       "id": "UI-THEME-02",
       "checks": ["package-theme", "package-workbench"],
-      "remaining": "只覆盖认证外壳及工作台主题响应，未逐控件验证完整Material语言。",
+      "remaining": "认证外壳、工作台、领域Tabs和查询按钮覆盖主题响应；尚未逐控件穷举完整Material语言。",
       "requirementSha256": "239fa7f9c185975ecc99a68807ba599b53dd94872002eb8f555b4a2c27fb978f"
     },
     {
@@ -161,8 +185,8 @@
     },
     {
       "id": "UI-THEME-04",
-      "checks": [],
-      "remaining": "公共样式归属及主要/普通/危险层级需审查；常规语义样式由 Agent 判断，见Q4。",
+      "checks": ["unit-buttons", "package-theme"],
+      "remaining": "公开按钮主次/危险层级、主要按钮样式及查询按钮六种主题明暗颜色有映射；未逐业务族穷举所有按钮。",
       "requirementSha256": "e614d97ed2d1c43b3f8c757b17631ef2860ccba94bc02b807dea1d797d4bb353"
     },
     {
@@ -297,8 +321,14 @@
     },
     {
       "id": "UI-FORM-04",
-      "checks": ["unit-tabs", "package-layout", "unit-review"],
-      "remaining": "零单多组、键盘和面板关联已有；窄屏Tab滚动、浮动标签不重叠尚无完整几何证据。",
+      "checks": [
+        "unit-tabs",
+        "package-layout",
+        "unit-review",
+        "unit-domain-tabs",
+        "package-domain-tabs"
+      ],
+      "remaining": "领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
       "requirementSha256": "c089ab7546178d49bc07c721f974e6e0a16335662b17079db7d0302d4989f628"
     },
     {
@@ -314,16 +344,24 @@
         "unit-tabs",
         "unit-review",
         "package-tab-input",
-        "package-full"
+        "package-full",
+        "unit-domain",
+        "unit-domain-tabs",
+        "package-domain-tabs"
       ],
-      "remaining": "新集合覆盖式详情、分组切换与明细随父保存有映射；全部业务族和异步组合尚未穷举。",
-      "requirementSha256": "783a51e8069147eb9bfbe4dca2bc1670e86ae66d33d5c8b027ef9d2eb9c2474f"
+      "remaining": "领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
+      "requirementSha256": "9b69c76cda02a67411dd242e630bf11107ccdacd15c8f78e4f95780a3b6b8af3"
     },
     {
       "id": "UI-FORM-07",
-      "checks": ["unit-reactivity"],
-      "remaining": "根级独立集合及所属分组采用新契约；真实消费者业务名称和目录层级另行验收。",
-      "requirementSha256": "27908a7f67c073aeb23135e78147ee18699cadd323ec7818f936c329e22b25f7"
+      "checks": [
+        "unit-reactivity",
+        "unit-domain",
+        "unit-domain-tabs",
+        "package-domain-tabs"
+      ],
+      "remaining": "领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
+      "requirementSha256": "2bd52b6f0e02fe1a53eca75c989de5529fb9893f37980e85ca05ee4305090edc"
     },
     {
       "id": "UI-FORM-08",
@@ -345,9 +383,14 @@
     },
     {
       "id": "UI-NAV-03",
-      "checks": ["unit-model", "unit-reactivity", "package-full"],
-      "remaining": "新根集合导航、工作台与无权裁剪由新宿主场景映射；真实消费者Router和权限计算另行验收。",
-      "requirementSha256": "7642f2dc00c960ea55cd78cc2f36281b72fb6f2fb1f844342b20f5f2447fa8bf"
+      "checks": [
+        "unit-model",
+        "unit-reactivity",
+        "package-full",
+        "unit-domain"
+      ],
+      "remaining": "领域内集合的独立授权、按需查询及保存有公开入口源码断言；完整客户领域类型示例仅编译，真实消费者业务名称、Router、权限及七集合行为另行验收。",
+      "requirementSha256": "256d09b916ff2d8eb01a558472918a7504d1717c13dc17b47cafa3df6595d326"
     },
     {
       "id": "UI-NAV-04",
@@ -405,9 +448,9 @@
     },
     {
       "id": "UI-SCOPE-02",
-      "checks": [],
-      "remaining": "新目标按完整静态集合和权限表达 KY/K1 差异，旧聚合字典 Tab 决定已被取代；真实消费者尚未迁移验收。",
-      "requirementSha256": "95759db11fbf4bb46a09f77ea9e3b54508c9564924a150757fa30ec8b651e860"
+      "checks": ["unit-domain", "unit-domain-tabs", "package-domain-tabs"],
+      "remaining": "领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
+      "requirementSha256": "89fa1de282c31427b6081cc42a6c2bad63ba87c2d2c2ec11e5ce1861d9f79598"
     },
     {
       "id": "UI-SCOPE-03",
@@ -431,7 +474,7 @@
       "id": "UI-BOUND-03",
       "checks": [],
       "remaining": "新增约束，尚无行为断言；待消费者修复后验证无网络建立完整结构、响应不能改结构、API不交付装配字段结构及实际业务路径。库合成测试不代替OIT实际消费者验收。",
-      "requirementSha256": "a773ecf67111e1761ef80663bddb411cd915f33e62ec4adecef1a035bfe6a30b"
+      "requirementSha256": "b47167c5bcd4cf8a5310aa328f752822d3f26bcd070ce88e4f6fe2a823c0bf18"
     }
   ]
 }

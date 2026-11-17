@@ -4,11 +4,11 @@
 
 ## 固定版本安装
 
-当前版本为 [ui-v0.45.1](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.45.1)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.45.1.tgz` 与 `SHA256SUMS`，核对摘要后安装：
+当前版本为 [ui-v0.46.0](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.46.0)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.46.0.tgz` 与 `SHA256SUMS`，核对摘要后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.45.1.tgz
+pnpm add ./zerp-ui-0.46.0.tgz
 ```
 
 0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，通过 `createShellThemes()` 初始化 `createVuetify`。
@@ -25,13 +25,13 @@ import { model } from "./consumer";
 
 `@zerp/ui/model` 仅导出构造模型所需的类型，原生 Node 加载时没有运行时值或 Vue/Vuetify/CSS 依赖。唯一类型源为 `src/business-model.ts`，不再提供 `modelMetadata` Symbol。完整静态对象在登录前构造；登录、退出、再次登录沿用同一根引用。
 
-0.44.0 为破坏性迁移：根 `members` 只包含独立 `Collection`，集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label: null` 隐藏整个详情/编辑节点，但不撤销授权列、打印和计算的显式引用。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
+静态模型的根 `members` 包含独立 `Collection` 或 `DomainGroup`；领域分组仅组织一层并列集合，多个获权集合用 Material Tabs 切换，单集合直接展示；切换保留各自输入、条件与分页，不拥有整体保存，各集合独立查询、授权和保存。集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label: null` 隐藏整个详情/编辑节点，但不撤销授权列、打印和计算的显式引用。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
 
 输入直接更新字段值；`Operation` 必须提供 `disabled` 与无参数异步 `run()`。业务回调处理 API、冲突、请求有效性和未知结果恢复。库不保存编辑基线、冻结请求或前端原请求日志，不拦截普通草稿离开。旧公开结构没有兼容入口。仍有效的流程、处理、批次、报表与输出分别使用固定能力属性；不是任意命令、页面模板或组件映射。
 
 权限来自 `session.userPermissions`，归属当前 `owner`；普通用户的独立边界及操作默认拒绝，内部节点继承并只能收窄。管理员不能覆盖业务 `readOnly/disabled`。库保留完整模型结构并裁剪呈现，后端仍须实际鉴权。退出时消费者清空会话业务数据和缓存、使旧回写失效；库隔离旧忙碌状态及反馈。
 
-全局导航只引用根集合，消费者通过 `href/visit/current` 同步 Router。选中详情与新增在所属集合覆盖式容器中呈现，保留列表、条件和分页。`current: null` 进入可选工作台，否则按导航顺序进入首个获权集合。工作台固定四块 `information/vouchers/reports/masters`，桌面一横三竖、手机纵排；统一 `load` 按 owner 首次进入执行，失败可重试。
+全局导航只引用根直属或领域分组内的独立集合，消费者通过 `href/visit/current` 同步 Router。选中详情与新增在所属集合覆盖式容器中呈现，保留列表、条件和分页。`current: null` 进入可选工作台，否则按导航顺序进入首个获权集合。工作台固定四块 `information/vouchers/reports/masters`，桌面一横三竖、手机纵排；统一 `load` 按 owner 首次进入执行，失败可重试。
 
 引用只选值，支持普通/树形、单选/多选、历史值回显和不可新选候选；目录按需完整读取，筛选和分页在前端进行。日期、日期时间与精确十进制 `format` 只改变显示，不回写值。集合 `itemPrintTemple/printTemple` 使用有限 JSON 自动生成单条/当前页打印入口，不预取其他页、不打印 draft；无权值和秘密不输出。预览和打开系统打印窗口不等于实体打印成功。
 
@@ -53,7 +53,7 @@ UI 规范与逐条部分覆盖边界分别见 [规范](docs/ui-preferences.md) �
 
 工作台可通过 `targets` 的只读节点引用映射提供真实快捷链接，通过 `manageReports` 进入常用报表维护；记录目标的链接显式调用 `navigation.href(collection, record)`，普通点击交给 `visit(collection, record)`，修饰键和新标签沿原生链接处理。根 canonical 链接不根据 `selected` 猜目标，外页记录不因生成链接被塞入当前页或选中。
 
-导航分组保留 `items: Collection[]`，可增加固定第二层 `sections: { key, label, items: Collection[] }[]`；两处只引用根级集合，权限裁剪后隐藏空分类及空组。`Collection.navigationLabel` 仅调整导航文案，省略时沿用 `label`，页面标题始终使用 `label`。分类名称与顺序由消费者定义，不支持递归导航树。
+导航分组保留 `items: Collection[]`，可增加固定第二层 `sections: { key, label, items: Collection[] }[]`；两处只引用根直属或领域分组内的独立集合，权限裁剪后隐藏空分类及空组。`Collection.navigationLabel` 仅调整导航文案，省略时沿用 `label`，页面标题始终使用 `label`。分类名称与顺序由消费者定义，不支持递归导航树。
 
 ### 单据打印
 

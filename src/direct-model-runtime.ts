@@ -1,3 +1,4 @@
+import { modelCollections } from "./model-collections";
 import {
   computed,
   ref,
@@ -110,7 +111,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
             }
         }
     }
-    for (const node of Object.values(model().members)) walk(node, []);
+    for (const node of modelCollections(model())) walk(node, []);
     const w = model().workbench;
     if (w)
       for (const node of [w.information, w.vouchers, w.reports, w.masters])
@@ -131,7 +132,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         if (rows.has(toRaw(row))) collect(target);
       collect(w.manageReports);
     }
-    const roots = new Set(Object.values(model().members).map(toRaw));
+    const roots = new Set(modelCollections(model()).map(toRaw));
     // Explicit finite target edges attach off-page records after actual ownership
     // has been indexed. An already owned record never moves to another root.
     for (let i = 0; i < targets.length; i++) {

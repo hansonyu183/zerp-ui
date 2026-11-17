@@ -22,6 +22,36 @@ export async function uiPreferencesSmoke(page, options = {}) {
   await navigation.getByText("业务", { exact: true }).click();
   await navigation.getByRole("link", { name: "客户", exact: true }).click();
   await page.getByText("合成客户甲", { exact: true }).waitFor();
+  const domainTabs = page.getByRole("tablist", {
+    name: "客户领域",
+    exact: true,
+  });
+  await expect(
+    domainTabs.getByRole("tab", { name: "客户", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  const contactTab = domainTabs.getByRole("tab", {
+    name: "联系人",
+    exact: true,
+  });
+  await expect(contactTab).toHaveAttribute("href", "/business/contacts");
+  const filterInput = page.getByRole("textbox", {
+    name: "关键词",
+    exact: true,
+  });
+  await filterInput.fill("保留领域查询输入");
+  await domainTabs.getByRole("tab", { name: "客户", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(contactTab).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("合成联系人", { exact: true })).toBeVisible();
+  await domainTabs.getByRole("tab", { name: "客户", exact: true }).click();
+  await expect(filterInput).toHaveValue("保留领域查询输入");
+  await filterInput.fill("");
+  assertions.push({
+    clauses: ["UI-FORM-04", "UI-FORM-06", "UI-FORM-07", "UI-SCOPE-02"],
+    check: "material-domain-tabs-keyboard-links-and-input",
+    result: "passed",
+  });
   const app = page.locator(".zerp-shell");
   await expect(app).toHaveClass(/v-theme--zerp-md3-light/);
   for (const mode of ["light", "dark"]) {
@@ -40,6 +70,26 @@ export async function uiPreferencesSmoke(page, options = {}) {
       await expect(app).toHaveClass(
         new RegExp(`v-theme--zerp-md${number}-${mode}`),
       );
+      const queryButton = page.getByRole("button", {
+        name: "查询",
+        exact: true,
+      });
+      await expect(queryButton).toHaveClass(/v-btn--variant-tonal/);
+      await expect(queryButton).toHaveClass(/text-primary/);
+      const colors = await queryButton.evaluate((element) => {
+        const theme = getComputedStyle(element);
+        return {
+          color: theme.color,
+          primary: `rgb(${theme
+            .getPropertyValue("--v-theme-primary")
+            .trim()
+            .split(",")
+            .map((value) => value.trim())
+            .join(", ")})`,
+        };
+      });
+      expect(colors.color).toBe(colors.primary);
+
       await page
         .getByRole("button", { name: "切换明暗模式", exact: true })
         .click();
@@ -126,6 +176,13 @@ export async function uiPreferencesSmoke(page, options = {}) {
   });
 
   await page.getByRole("button", { name: "编辑", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "保存", exact: true }),
+  ).toHaveClass(/v-btn--variant-flat/);
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "保存", exact: true }),
+  ).toHaveClass(/bg-primary/);
+
   const field = page.getByRole("textbox", { name: "客户名称", exact: true });
   await field.fill("契约验证客户");
   await settleLayout(page);

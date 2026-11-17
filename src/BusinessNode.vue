@@ -100,6 +100,24 @@ const actions = computed(() =>
       runtime.allowed(props.node, key, props.publicAuth),
   ),
 );
+function actionStyle(action: string) {
+  if (["delete", "remove", "void", "reverse"].includes(action))
+    return { color: "error", variant: "tonal" as const };
+  if (
+    [
+      "signIn",
+      "changePassword",
+      "update",
+      "create",
+      "submit",
+      "approve",
+      "complete",
+      "publish",
+    ].includes(action)
+  )
+    return { color: "primary", variant: "flat" as const };
+  return { color: "", variant: "tonal" as const };
+}
 const pending = computed(() => runtime.busy.value.has(toRaw(props.node)));
 const dialogReady = ref(false);
 onMounted(
@@ -233,35 +251,41 @@ onBeforeUnmount(() => {
     </template>
     <template v-else-if="isCollection(node)">
       <BusinessNode :node="collection.conditions" :auto-read="false" filter />
-      <VBtn
-        v-if="runtime.allowed(node, 'query')"
-        :disabled="!canQuery"
-        @click="query()"
-        >查询</VBtn
-      >
-      <TemplatePrint :collection="collection" />
-      <div
-        v-if="actions.length"
-        role="group"
-        :aria-label="`${node.label ?? ''}操作`"
-      >
+      <div class="zerp-business-actions">
         <VBtn
-          v-for="[action, operation] in actions"
-          :key="action"
-          :disabled="pending || operation.disabled"
-          @click="runtime.run(node, action, publicAuth)"
-          >{{ labels[action] ?? action }}</VBtn
+          color="primary"
+          variant="tonal"
+          v-if="runtime.allowed(node, 'query')"
+          :disabled="!canQuery"
+          @click="query()"
+          >查询</VBtn
+        >
+        <TemplatePrint :collection="collection" />
+        <div
+          v-if="actions.length"
+          class="zerp-business-actions__group"
+          role="group"
+          :aria-label="`${node.label ?? ''}操作`"
+        >
+          <VBtn
+            v-for="[action, operation] in actions"
+            :key="action"
+            v-bind="actionStyle(action)"
+            :disabled="pending || operation.disabled"
+            @click="runtime.run(node, action, publicAuth)"
+            >{{ labels[action] ?? action }}</VBtn
+          >
+        </div>
+        <VBtn
+          v-if="
+            collection.draft &&
+            collection.draft === dismissedDraft &&
+            runtime.readable(collection.draft)
+          "
+          @click="dismissedDraft = null"
+          >继续编辑</VBtn
         >
       </div>
-      <VBtn
-        v-if="
-          collection.draft &&
-          collection.draft === dismissedDraft &&
-          runtime.readable(collection.draft)
-        "
-        @click="dismissedDraft = null"
-        >继续编辑</VBtn
-      >
       <BusinessCollection
         :node="collection"
         :loading="pending"
@@ -302,7 +326,7 @@ onBeforeUnmount(() => {
           :record="detail"
           :auto-open="printRequested"
         />
-        <VBtn @click="closeDetail">关闭</VBtn>
+        <VBtn variant="text" @click="closeDetail">关闭</VBtn>
       </RecordDialog>
     </template>
     <BusinessRecords
@@ -323,6 +347,7 @@ onBeforeUnmount(() => {
       :scope="runtime.scope.value"
     />
     <div
+      class="zerp-business-actions"
       v-if="!isCollection(node) && actions.length"
       role="group"
       :aria-label="`${node.label ?? ''}操作`"
@@ -330,6 +355,7 @@ onBeforeUnmount(() => {
       <VBtn
         v-for="[action, operation] in actions"
         :key="action"
+        v-bind="actionStyle(action)"
         :disabled="pending || operation.disabled"
         @click="runtime.run(node, action, publicAuth)"
         >{{ labels[action] ?? action }}</VBtn

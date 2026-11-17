@@ -1,14 +1,22 @@
 <script setup lang="ts">
+import { modelCollections } from "./model-collections";
 import { computed, provide, watch, h, ref, toRaw, onBeforeUnmount } from "vue";
 import { clearReferenceScope } from "./reference-directory";
-import type { BusinessModel, Collection, ObjectNode } from "./business-model";
+import type {
+  BusinessModel,
+  Collection,
+  DomainGroup,
+  ObjectNode,
+} from "./business-model";
 import {
   createDirectRuntime,
   directRuntimeKey,
   isCollection,
   type Node,
 } from "./direct-model-runtime";
+import { VBtn } from "vuetify/components";
 import BusinessNode from "./BusinessNode.vue";
+import BusinessDomain from "./BusinessDomain.vue";
 import BusinessWorkbench from "./BusinessWorkbench.vue";
 import AppPage from "./AppPage.vue";
 import AuthFrame from "./AuthFrame.vue";
@@ -50,7 +58,7 @@ function navigationKey(
 }
 const groups = computed(() => {
   const allowed = (node: Collection) =>
-    Object.values(props.model.members).includes(node) && runtime.readable(node);
+    modelCollections(props.model).includes(node) && runtime.readable(node);
   return props.model.navigation.groups
     .map((group) => ({
       ...group,
@@ -86,7 +94,7 @@ const accountView = ref<ObjectNode | null>(null);
 const current = computed<Collection | null>(() => {
   const requested = props.model.navigation.current;
   return requested &&
-    Object.values(props.model.members).includes(requested) &&
+    modelCollections(props.model).includes(requested) &&
     runtime.readable(requested)
     ? requested
     : null;
@@ -207,9 +215,13 @@ function feedback() {
         message.target
           ? () =>
               h(
-                "button",
-                { onClick: () => message.target && locate(message.target) },
-                "查看",
+                VBtn,
+                {
+                  variant: "text",
+                  color: "primary",
+                  onClick: () => message.target && locate(message.target),
+                },
+                () => "查看",
               )
           : undefined,
       ),
@@ -221,8 +233,20 @@ const target = computed(() =>
     ? props.model.account.password
     : (accountView.value ?? current.value),
 );
+const domain = computed(() =>
+  Object.values(props.model.members).find(
+    (member): member is DomainGroup =>
+      "kind" in member &&
+      Object.values(member.members).includes(current.value!),
+  ),
+);
+const pageTarget = computed(() =>
+  accountView.value || props.model.session.state === "password-required"
+    ? target.value
+    : (domain.value ?? target.value),
+);
 const page = computed<PageDefinition>(() => {
-  const node = target.value,
+  const node = pageTarget.value,
     workbench = props.model.workbench;
   const title = node?.label ?? (workbench ? "工作台" : "");
   return {
@@ -232,7 +256,9 @@ const page = computed<PageDefinition>(() => {
       title,
       render: () => [
         node
-          ? h(BusinessNode, { node })
+          ? "kind" in node && node.kind === "domain"
+            ? h(BusinessDomain, { node })
+            : h(BusinessNode, { node })
           : workbench
             ? h(BusinessWorkbench, { node: workbench })
             : h("p", "暂无可用内容。"),

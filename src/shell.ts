@@ -49,6 +49,7 @@ export function shellDefaults(choice: ThemeChoice) {
     VBtn: {
       ...defaults?.VBtn,
       color: "",
+      variant: "tonal",
       density: "compact",
       minHeight: "var(--zerp-control-size)",
       minWidth: "var(--zerp-control-size)",

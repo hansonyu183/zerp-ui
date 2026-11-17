@@ -1,7 +1,8 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
+import { reactive } from "vue";
 import { fixture } from "./fixtures/static-model";
-import { render } from "./fixtures/static-host";
+import { render, click, input } from "./fixtures/static-host";
 let wrapper: Awaited<ReturnType<typeof render>> | undefined;
 afterEach(() => {
   wrapper?.unmount();
@@ -41,7 +42,7 @@ it("rechecks stale links against permissions and owner without remapping removed
   const f = fixture();
   const second = { ...f.rows, key: "second", label: "第二集合" };
   f.model.members.second = second;
-  f.model.navigation.groups[0]!.items.push(f.model.members.second);
+  f.model.navigation.groups[0]!.items.push(second);
   wrapper = await render(f.model);
   const oldLink = wrapper
     .findAll("nav a")
@@ -53,7 +54,7 @@ it("rechecks stale links against permissions and owner without remapping removed
     administrator: false,
     grants: [
       {
-        node: f.model.members.second,
+        node: second,
         read: true,
         write: false,
         operations: {},
@@ -81,7 +82,7 @@ it("prunes unauthorized roots, empty sections and groups, and falls back through
     {
       key: "hidden",
       label: "空组",
-      items: [f.model.members.blocked],
+      items: [blocked],
       sections: [{ key: "empty", label: "空分类", items: [] }],
     },
     {
@@ -89,7 +90,7 @@ it("prunes unauthorized roots, empty sections and groups, and falls back through
       label: "有权组",
       items: [],
       sections: [
-        { key: "denied", label: "撤权分类", items: [f.model.members.blocked] },
+        { key: "denied", label: "撤权分类", items: [blocked] },
         { key: "allowed", label: "获权分类", items: [f.rows] },
       ],
     },
@@ -110,4 +111,165 @@ it("prunes unauthorized roots, empty sections and groups, and falls back through
   await flushPromises();
   expect(wrapper.findAll("nav a")).toHaveLength(0);
   expect(wrapper.text()).toContain("暂无可用内容。");
+});
+
+it("keeps domain collections independently authorized, queried and saved", async () => {
+  const f = fixture();
+  const other = fixture();
+  other.rows.key = "contacts";
+  other.rows.label = "联系人";
+  const standalone = fixture().rows;
+  standalone.key = "standalone";
+  const domain = reactive({
+    kind: "domain" as const,
+    key: "customers",
+    label: "客户领域",
+    members: { rows: f.rows, contacts: other.rows },
+  });
+  f.model.members = { customers: domain, standalone };
+  f.model.navigation.groups = [
+    { key: "customers", label: "客户领域", items: [f.rows, other.rows] },
+    { key: "other", label: "其他", items: [standalone] },
+  ];
+  f.model.session.userPermissions = {
+    owner: f.owner,
+    administrator: false,
+    grants: [
+      {
+        node: f.rows,
+        read: true,
+        write: true,
+        operations: { query: true, update: true },
+      },
+    ],
+  };
+  wrapper = await render(f.model);
+  expect(wrapper.findAll("nav a").map((a) => a.text())).toEqual(["记录集合"]);
+  expect(f.rows.operations.query!.run).toHaveBeenCalledTimes(1);
+  expect(other.rows.operations.query!.run).not.toHaveBeenCalled();
+  expect(standalone.operations.query!.run).not.toHaveBeenCalled();
+  await click("编辑");
+  await input("名称").setValue("changed in customer domain");
+  await click("保存");
+  expect(f.record.operations.update!.run).toHaveBeenCalledTimes(1);
+  expect(other.record.operations.update!.run).not.toHaveBeenCalled();
+  expect(other.name.value).toBe("initial");
+  f.model.session.userPermissions.grants.push({
+    node: other.rows,
+    read: true,
+    write: false,
+    operations: { query: true },
+  });
+  await flushPromises();
+  expect(wrapper.findAll("nav a").map((a) => a.text())).toEqual([
+    "记录集合",
+    "联系人",
+  ]);
+  expect(other.rows.operations.query!.run).not.toHaveBeenCalled();
+  await wrapper
+    .findAll("nav a")
+    .find((a) => a.text() === "联系人")!
+    .trigger("click");
+  await flushPromises();
+  expect(f.model.navigation.current).toBe(other.rows);
+  expect(other.rows.operations.query!.run).toHaveBeenCalledTimes(1);
+  expect(wrapper.find('button[aria-label="编辑"]').exists()).toBe(false);
+  f.model.session.userPermissions.grants = [];
+  await flushPromises();
+  expect(wrapper.findAll("nav a")).toHaveLength(0);
+  expect(wrapper.text()).toContain("暂无可用内容。");
+  expect(domain.members.rows).toBe(f.rows);
+});
+
+it("invalidates removed domain collections and their stale navigation links", async () => {
+  const f = fixture();
+  const domain = reactive({
+    kind: "domain" as const,
+    key: "domain",
+    label: "领域",
+    members: { rows: f.rows },
+  });
+  f.model.members = { domain };
+  wrapper = await render(f.model);
+  const oldLink = wrapper.find("nav a");
+  const visit = vi.fn();
+  f.model.navigation.visit = visit;
+  f.model.members = {};
+  await oldLink.trigger("click");
+  await flushPromises();
+  expect(visit).not.toHaveBeenCalled();
+  expect(wrapper.findAll("nav a")).toHaveLength(0);
+  expect(wrapper.text()).toContain("暂无可用内容。");
+});
+
+it("uses Material domain tabs with real links and preserves each collection context", async () => {
+  const f = fixture();
+  const second = fixture();
+  second.rows.key = "contacts";
+  second.rows.label = "联系人";
+  f.model.members = {
+    customerDomain: {
+      kind: "domain",
+      key: "customerDomain",
+      label: "客户领域",
+      members: { rows: f.rows, contacts: second.rows },
+    },
+  };
+  wrapper = await render(f.model);
+  const tabs = wrapper.get('[role="tablist"][aria-label="客户领域"]');
+  expect(tabs.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([
+    "记录集合",
+    "联系人",
+  ]);
+  expect(tabs.findAll('[role="tab"]')[0]!.attributes("aria-selected")).toBe(
+    "true",
+  );
+  expect(second.rows.operations.query!.run).not.toHaveBeenCalled();
+  f.term.value = "keep customer search";
+  f.rows.page = 3;
+  const contactTab = tabs.findAll('[role="tab"]')[1]!;
+  expect(contactTab.attributes("href")).toBe("/contacts");
+  await contactTab.trigger("click", { ctrlKey: true });
+  expect(f.model.navigation.current).toBe(f.rows);
+  await contactTab.trigger("keydown", { key: " ", code: "Space" });
+  await flushPromises();
+  expect(f.model.navigation.current).toBe(second.rows);
+  expect(second.rows.operations.query!.run).toHaveBeenCalledTimes(1);
+  second.term.value = "keep contact search";
+  second.rows.page = 4;
+  await wrapper
+    .get('[role="tablist"]')
+    .findAll('[role="tab"]')[0]!
+    .trigger("click");
+  await flushPromises();
+  expect(f.rows.page).toBe(3);
+  expect(f.term.value).toBe("keep customer search");
+  expect(f.rows.operations.query!.run).toHaveBeenCalledTimes(1);
+  await wrapper
+    .get('[role="tablist"]')
+    .findAll('[role="tab"]')[1]!
+    .trigger("click");
+  await flushPromises();
+  expect(second.rows.page).toBe(4);
+  expect(second.term.value).toBe("keep contact search");
+  expect(second.rows.operations.query!.run).toHaveBeenCalledTimes(1);
+  const oldTab = wrapper.get('[role="tablist"]').findAll('[role="tab"]')[0]!;
+  const visit = vi.fn();
+  f.model.navigation.visit = visit;
+  f.model.session.userPermissions = {
+    owner: f.owner,
+    administrator: false,
+    grants: [
+      {
+        node: second.rows,
+        read: true,
+        write: false,
+        operations: { query: true },
+      },
+    ],
+  };
+  await oldTab.trigger("click");
+  await flushPromises();
+  expect(visit).not.toHaveBeenCalled();
+  expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
 });

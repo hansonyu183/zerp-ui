@@ -66,6 +66,13 @@ export async function directPresentationSmoke(page) {
   await dialog.getByRole("button", { name: "关闭", exact: true }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });
+  const domainTabs = page.getByRole("tablist", {
+    name: "客户领域",
+    exact: true,
+  });
+  await expect(domainTabs).toBeVisible();
+  expect((await domainTabs.boundingBox()).width).toBeLessThanOrEqual(390);
+
   await expect(page.getByRole("article", { name: "记录 1" })).toBeVisible();
   const mobileEdit = page.getByRole("button", { name: "编辑", exact: true });
   await expect(mobileEdit).toContainText("编辑");

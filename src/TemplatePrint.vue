@@ -150,7 +150,7 @@ watch(
         :disabled="!available"
         :confirm-result="false"
       />
-      <VBtn @click="open = false">关闭</VBtn>
+      <VBtn variant="text" @click="open = false">关闭</VBtn>
     </RecordDialog>
   </template>
 </template>

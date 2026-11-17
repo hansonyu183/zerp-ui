@@ -2,6 +2,8 @@
 import type {
   BusinessModel,
   Collection,
+  DomainGroup,
+  UserPermissions,
   FieldNode,
   ObjectNode,
   Operation,
@@ -68,7 +70,7 @@ const legacyCollectionKind = { ...collection, kind: "collection", } satisfies Co
 // @ts-expect-error 空表需要显式列标题，不能只有 key。
 const missingColumnLabel = { ...collection, columns: [{ key: "name" }], } satisfies Collection;
 // prettier-ignore
-// @ts-expect-error 根 members 只接收独立集合。
+// @ts-expect-error 根 members 只接收独立集合或领域分组，不接收记录。
 const wrongRoot = { ...model, members: { record: object }, } satisfies BusinessModel;
 // prettier-ignore
 // @ts-expect-error 导航只能指向集合。
@@ -230,3 +232,45 @@ const sectionRecords = {...navigationSection, items: [records]} satisfies typeof
 // @ts-expect-error 分类固定第二层，不能递归。
 const recursiveSection = {...navigationSection, sections: [navigationSection]} satisfies typeof navigationSection;
 void [sectionRecord, sectionRecords, recursiveSection];
+
+const domain = {
+  kind: "domain",
+  key: "customers",
+  label: "客户领域",
+  members: { customers: collection },
+} satisfies DomainGroup;
+const groupedModel = {
+  ...model,
+  members: { customers: domain, standalone: collection },
+} satisfies BusinessModel;
+// prettier-ignore
+// @ts-expect-error 领域只有集合，不接收业务记录。
+const domainRecord = { ...domain, members: { record: object } } satisfies DomainGroup;
+// prettier-ignore
+// @ts-expect-error 领域固定一层，不递归。
+const domainNested = { ...domain, members: { nested: domain } } satisfies DomainGroup;
+// prettier-ignore
+// @ts-expect-error 领域没有整体保存或查询操作。
+const domainSave = { ...domain, operations: { update: operation } } satisfies DomainGroup;
+// prettier-ignore
+// @ts-expect-error 对象字段不能包含领域。
+const domainInObject = { ...object, members: [domain] } satisfies ObjectNode;
+// prettier-ignore
+// @ts-expect-error 领域不是可选中的业务导航目标。
+model.navigation.current = domain;
+// prettier-ignore
+// @ts-expect-error 导航投影引用领域中的集合，不引用领域本身。
+const domainNavigation = { ...model.navigation.groups[0]!, items: [domain] } satisfies BusinessModel["navigation"]["groups"][number];
+void [
+  groupedModel,
+  domainRecord,
+  domainNested,
+  domainSave,
+  domainInObject,
+  domainNavigation,
+];
+
+// prettier-ignore
+// @ts-expect-error 领域不是授权边界，不能替代对子集合的独立授权。
+const domainGrant = { owner: { ledger: "test", operator: "test", generation: "1" }, administrator: false, grants: [{ node: domain, read: true, write: true, operations: {} }] } satisfies UserPermissions;
+void domainGrant;

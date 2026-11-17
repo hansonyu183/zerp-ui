@@ -370,6 +370,29 @@ customers.operations.create = operation(async () => {
   });
   customers.draft = draft;
 });
+const contacts: Collection = reactive({
+  key: "contacts",
+  label: "联系人",
+  columns: [{ key: "name", label: "姓名" }],
+  conditions: object("contact-conditions", "查询条件", [
+    text("contact-term", "联系人关键词"),
+  ]),
+  items: [],
+  selected: null,
+  draft: null,
+  page: 1,
+  pageSize: 20,
+  total: 0,
+  operations: {
+    query: operation(async () => {
+      trace("contacts.query");
+      contacts.items = [
+        object("contact-1", "联系人", [text("name", "姓名", "合成联系人")]),
+      ];
+      contacts.total = 1;
+    }),
+  },
+});
 const empty: Collection = reactive({
   key: "empty",
   label: "空集合",
@@ -525,7 +548,9 @@ function resetBusiness() {
     model.workbench![role].items = [];
     model.workbench![role].selected = null;
   }
-  for (const collection of Object.values(model.members)) {
+  for (const collection of Object.values(model.members).flatMap((member) =>
+    "kind" in member ? Object.values(member.members) : [member],
+  )) {
     collection.items = [];
     collection.selected = null;
     collection.draft = null;
@@ -567,7 +592,7 @@ const signIn = operation(async () => {
             administrator: false,
             grants: [
               {
-                node: model.members.customers!,
+                node: customers,
                 read: true,
                 write: false,
                 operations: { query: true, get: true },
@@ -577,14 +602,24 @@ const signIn = operation(async () => {
           }
         : { owner, administrator: true },
   };
-  model.navigation.current =
-    loginName.value === "viewer" ? model.members.customers! : null;
+  model.navigation.current = loginName.value === "viewer" ? customers : null;
 });
 export const model: BusinessModel = reactive({
   kind: "application",
   label: "静态业务模型",
   brand: { productName: "合成业务示例", companyName: "示例企业" },
-  members: { customers, vouchers, empty, printDemo, ...familyCollections },
+  members: {
+    customerDomain: {
+      kind: "domain",
+      key: "customerDomain",
+      label: "客户领域",
+      members: { customers, contacts },
+    },
+    vouchers,
+    empty,
+    printDemo,
+    ...familyCollections,
+  },
   authentication: {
     form: object("login", "登录", [loginName, loginPassword]),
     operations: {
@@ -630,6 +665,7 @@ export const model: BusinessModel = reactive({
         label: "业务",
         items: [
           customers,
+          contacts,
           vouchers,
           printDemo,
           ...Object.values(familyCollections),
@@ -700,7 +736,10 @@ for (const { role } of workbenchSeeds) model.workbench![role].items = [];
 bindFamilyQueries(() => model.session.owner);
 router.afterEach((to) => {
   model.navigation.current =
-    Object.values(model.members).find(
-      (collection) => model.navigation.href(collection) === to.path,
-    ) ?? null;
+    Object.values(model.members)
+      .flatMap((member) =>
+        "kind" in member ? Object.values(member.members) : [member],
+      )
+      .find((collection) => model.navigation.href(collection) === to.path) ??
+    null;
 });

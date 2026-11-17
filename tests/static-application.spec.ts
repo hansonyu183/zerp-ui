@@ -78,7 +78,7 @@ function fixture() {
     },
     messages: [],
   });
-  return { model, collection: model.members.customers!, query: query.run };
+  return { model, collection: reactive(collection), query: query.run };
 }
 it("shows declared columns for an empty collection and queries the first authorized collection once", async () => {
   const { model, query } = fixture();
@@ -715,7 +715,7 @@ it("captures report scroll before navigation clears the old page and restores it
       configurable: true,
       value: 640,
     });
-    model.navigation.visit(model.members.other!);
+    model.navigation.visit(other);
     await flushPromises();
     Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
     model.navigation.visit(collection);

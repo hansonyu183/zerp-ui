@@ -252,7 +252,7 @@ export interface RecordsNode extends NodeBase {
 }
 
 /** Collection 不属于节点联合，不能作为 ObjectNode 的子明细。 */
-/** 局部关联入口始终归属于根集合；选中记录不成为全局导航目标。 */
+/** 局部关联入口始终归属于独立集合；选中记录不成为全局导航目标。 */
 export interface CollectionTarget {
   collection: Collection;
   record?: ObjectNode;
@@ -374,7 +374,7 @@ export interface Collection {
   navigationLabel?: string;
   /** 已知业务语义的有限图标；未知语义省略并保留文字。 */
   icon?: NavigationIcon;
-  /** 在 BusinessModel.members 中的稳定集合键。 */
+  /** 在所属 BusinessModel.members 或 DomainGroup.members 中的稳定集合键。 */
   key: string;
   label: string;
   columns: Column[];
@@ -408,6 +408,15 @@ export interface Collection {
   };
   /** 自动打印当前页 items，不追加查询；缺省不显示。 */
   printTemple?: PrintTemplate;
+}
+
+/** 仅组织并列独立集合的领域入口；不是业务记录、权限或整体写入边界。 */
+export interface DomainGroup {
+  kind: "domain";
+  key: string;
+  label: string;
+  /** 属性键与集合 key 一致；固定一层，不含字段、记录或嵌套领域。 */
+  members: Record<string, Collection>;
 }
 
 /** 权限仍需同时满足节点业务限制；全体操作名封闭。 */
@@ -493,8 +502,8 @@ export interface BusinessModel {
   kind: "application";
   label: string;
   brand: { productName: string; companyName: string };
-  /** 静态定义的独立集合，不按后端 schema/bindings 动态生成。 */
-  members: Record<string, Collection>;
+  /** 静态定义的独立集合或领域分组，不按后端 schema/bindings 动态生成。 */
+  members: Record<string, Collection | DomainGroup>;
   workbench?: Workbench;
   /** 省略时默认 MD3 浅色；选择持久化由消费者负责。 */
   theme?: {
@@ -521,7 +530,7 @@ export interface BusinessModel {
     groups: {
       key: string;
       label: string;
-      /** 仅允许引用根级 members 中的集合，不提升其记录或子明细。 */
+      /** 仅引用根直属或领域分组内的原集合；领域、记录及子明细不是导航目标。 */
       items: Collection[];
       /** 固定第二层分类，不接受递归分组或所属记录。 */
       sections?: { key: string; label: string; items: Collection[] }[];

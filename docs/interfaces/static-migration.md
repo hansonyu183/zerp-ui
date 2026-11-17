@@ -4,9 +4,9 @@
 
 | 原公开呈现路径/能力 | 唯一静态模型表达 | 保留的可观察行为 |
 | --- | --- | --- |
-| Symbol 应用元数据、任意根业务成员 | BusinessModel 固定属性，members 仅 Collection | 同一根引用，认证前构造、授权后按需读取 |
+| Symbol 应用元数据、任意根业务成员 | BusinessModel 固定属性，members 为 Collection 或 DomainGroup；领域 members 仅 Collection | 同一根引用，认证前构造、授权后按需读取 |
 | 认证/账户对象级操作 | authentication.form/operations，account.profile/password/operations | 匿名、恢复、强制改密、账户入口不等待当前页查询 |
-| 根对象聚合及 navigationProjection | navigation.groups/current 仅指向根 Collection | 权限裁剪、空组隐藏、正常链接、工作台/首个获权集合回退；href/visit(null) 通过消费者同步首页路由 |
+| 根对象聚合及 navigationProjection | DomainGroup 组织集合；navigation.groups/current 仅指向独立 Collection | 权限裁剪、空组隐藏、正常链接、工作台/首个获权集合回退；href/visit(null) 通过消费者同步首页路由 |
 | CollectionNode.element/list/query | Collection.columns/conditions/items/selected/draft | 空表标题、分页、覆盖式查看/编辑/新增、失败保留输入 |
 | ObjectNode.form、对象命名属性 | ObjectNode.members 有序数组 | 直接更新模型，null label 隐藏整节点，零/单/多组 Material Tab |
 | array element 模板及所属明细 | RecordsNode.columns/items/selected/create/remove | 本地增删、直接编辑、随父保存，不建立独立提交 |
@@ -22,10 +22,10 @@
 | 对象式工作台及分散读取 | 根 workbench 固定四块 RecordsNode、统一 load | 桌面一横三竖、手机纵排；当前 owner 首次获权进入加载，失败重试 |
 | disabledReason | 必需 Operation.disabled、统一 messages | 禁用置灰与调用前重检；阻塞/未知结果持续反馈，不恢复旧协议 |
 
-有限能力补齐已回写 [#152](https://github.com/hansonyu183/zerp-ui/issues/152#issuecomment-6898112824) 和 [#159](https://github.com/hansonyu183/zerp-ui/issues/159#issuecomment-6898113213)。不扩展 standard/voucher 种类，不恢复旧公开模型或任意命令。`CollectionTarget` 只封装根集合及可选记录，没有对象级全局导航。
+有限能力补齐已回写 [#152](https://github.com/hansonyu183/zerp-ui/issues/152#issuecomment-6898112824) 和 [#159](https://github.com/hansonyu183/zerp-ui/issues/159#issuecomment-6898113213)。不扩展 standard/voucher 种类，不恢复旧公开模型或任意命令。`CollectionTarget` 只封装独立集合及可选记录，没有对象级全局导航。
 
 验证以 `@zerp/ui` 的 BusinessApplication、`@zerp/ui/model` 与同一 tgz 物理独立安装为面；模型/模板算法定向检查按 #159 的已确认边界执行。具体源码 SHA、命令、退出码、包摘要、UI 条款证据和未完成项回写相应 GitHub 工单。合成消费者及模拟回调不证明真实 ZERP API/E2E。
 
-#164 补齐 menu/tree 的显式 InteractionAction：operation 仅在用户选择时执行，受固定 interact 权限、节点写入资格、业务禁用及执行中状态约束。related/download 不接受动作目标，CollectionTarget 继续只表达真实根集合与可选记录。
+#164 补齐 menu/tree 的显式 InteractionAction：operation 仅在用户选择时执行，受固定 interact 权限、节点写入资格、业务禁用及执行中状态约束。related/download 不接受动作目标，CollectionTarget 继续只表达真实独立集合与可选记录。
 
-#167 补齐：脚本各独立文件以 download + InteractionDownload 映射消费者下载回调，不替换根集合 export；固定 download 授权可读且允许只读内容，维持原下载按钮。无需虚假命令集合或伪装菜单。
+#167 补齐：脚本各独立文件以 download + InteractionDownload 映射消费者下载回调，不替换独立集合 export；固定 download 授权可读且允许只读内容，维持原下载按钮。无需虚假命令集合或伪装菜单。

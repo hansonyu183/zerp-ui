@@ -1,3 +1,4 @@
+import { modelCollections } from "./model-collections";
 import { toRaw } from "vue";
 import type { CollectionTarget } from "./business-model";
 import type { DirectRuntime } from "./direct-model-runtime";
@@ -7,7 +8,7 @@ export function readableTarget(
 ) {
   const parents = target.record ? runtime.ancestors(target.record) : [];
   return (
-    Object.values(runtime.model().members).some(
+    modelCollections(runtime.model()).some(
       (collection) => toRaw(collection) === toRaw(target.collection),
     ) &&
     runtime.readable(target.collection) &&

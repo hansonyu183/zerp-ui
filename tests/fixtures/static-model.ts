@@ -94,8 +94,8 @@ export function fixture() {
   });
   return {
     model,
-    rows: model.members.rows!,
-    record: model.members.rows!.items[0]!,
+    rows,
+    record,
     name,
     term,
     owner,

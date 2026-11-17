@@ -108,7 +108,7 @@ function fixture(fields: FieldNode[] = []) {
     },
     messages: [],
   });
-  return { model, collection: model.members.records! };
+  return { model, collection: reactive(collection) };
 }
 let mounted: VueWrapper | undefined;
 afterEach(async () => {
