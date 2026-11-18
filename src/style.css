@@ -124,12 +124,20 @@
   justify-content: center;
   gap: 0.5rem;
 }
-.zerp-reference {
-  padding: 0.5rem;
+.zerp-reference-field {
+  min-inline-size: 0;
 }
-.zerp-reference ul {
-  list-style: none;
-  padding: 0;
+.zerp-reference-feedback {
+  position: relative;
+  flex: 0 0 var(--zerp-control-size);
+  inline-size: var(--zerp-control-size);
+  block-size: 24px;
+  align-self: center;
+}
+.zerp-reference-feedback .zerp-field-error.v-btn {
+  pointer-events: auto;
+  top: 50%;
+  transform: translateY(-50%);
 }
 .zerp-shell {
   min-height: 100vh;

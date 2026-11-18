@@ -126,6 +126,30 @@
       "anchor": "restores Material primary, ordinary and destructive action hierarchy",
       "surface": "source/public-entry",
       "assertion": "查询柔和主题色、保存实心主题色、删除危险色、关闭文字按钮，保留操作语义"
+    },
+    "package-auth-alignment": {
+      "file": "scripts/auth-alignment-smoke.mjs",
+      "anchor": "authentication-reference-text-password-alignment",
+      "surface": "tgz/browser",
+      "assertion": "390/1440px认证表单普通引用、账号和密码可见控件左右边界及高度一致，登录按钮左边界对齐"
+    },
+    "package-field-alignment": {
+      "file": "scripts/field-alignment-smoke.mjs",
+      "anchor": "export async function fieldAlignmentSmoke",
+      "surface": "tgz/browser",
+      "assertion": "筛选、编辑/只读、所属明细表格与手机卡片的可见字段匹配所属容器；错误按钮位于控件内且不遮挡下拉箭头"
+    },
+    "package-readonly-reference-feedback": {
+      "file": "scripts/field-alignment-smoke.mjs",
+      "anchor": "readonly-reference-feedback-reachable",
+      "surface": "tgz/browser",
+      "assertion": "普通只读身份的引用保持禁用、控件边界对齐，错误原因入口仍可正常点击查看"
+    },
+    "package-application-alignment": {
+      "file": "scripts/application-alignment-smoke.mjs",
+      "anchor": "application-pages-and-components-alignment",
+      "surface": "tgz/browser",
+      "assertion": "逐个访问全部合成业务入口及其详情/Tab、账户/改密、工作台、密钥修改和打印预览；390/1440px验证字段、操作区、Tab、表格、菜单及iframe边界，无文档横向溢出，弹窗位于顶栏下方"
     }
   },
   "clauses": [
@@ -197,13 +221,13 @@
     },
     {
       "id": "UI-THEME-06",
-      "checks": ["package-layout"],
+      "checks": ["package-layout", "package-auth-alignment"],
       "remaining": "仅代表性动作和48px顶栏；compact输入、全控件触控区域未遍历；常规间距由 Agent 判断，见Q2。",
       "requirementSha256": "cdde125112369892849fa47f8b8510488357a3c7d0bfd51e25c2eb98adf285da"
     },
     {
       "id": "UI-SHELL-01",
-      "checks": ["package-layout"],
+      "checks": ["package-layout", "package-application-alignment"],
       "remaining": "只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。",
       "requirementSha256": "8512160cfa5df367ad12b6af33e50b40fe971fba38b23a8269451ef29b5d86cf"
     },
@@ -230,14 +254,19 @@
       "checks": [
         "package-feedback",
         "package-full",
-        "package-reference-feedback"
+        "package-reference-feedback",
+        "package-field-alignment"
       ],
-      "remaining": "已覆盖成功/失败消息及长引用读取错误在表单/所属明细行的几何和重试；其他消息更新、警告/状态、其他字段校验路径尚未穷举。",
+      "remaining": "已覆盖成功/失败消息及长引用读取错误在表单/所属明细行的几何和重试；其他消息更新、警告/状态、其他字段校验路径尚未穷举。 引用错误按钮内置且不挤窄控件、遮挡下拉箭头有代表性几何映射。",
       "requirementSha256": "9594e2dc174041e0c668e5e8b68268824e6eaa56affa241a49154cb717381209"
     },
     {
       "id": "UI-SHELL-06",
-      "checks": ["unit-feedback", "unit-overlay"],
+      "checks": [
+        "unit-feedback",
+        "unit-overlay",
+        "package-readonly-reference-feedback"
+      ],
       "remaining": "保存失败与反馈关闭不改模型事实；未知结果核实和消费者禁用需新宿主定向测试覆盖，不能用普通刷新替代核实。",
       "requirementSha256": "67a065ec7c5759c8aa9fef986f9b9d552d923fc4a8b4a51f9793b2901a77ffa5"
     },
@@ -261,7 +290,11 @@
     },
     {
       "id": "UI-MOBILE-01",
-      "checks": ["package-layout", "unit-actions"],
+      "checks": [
+        "package-layout",
+        "unit-actions",
+        "package-application-alignment"
+      ],
       "remaining": "仅代表卡片字段和无横溢；合计、完整身份、选择、适用明细尚未全部验证。",
       "requirementSha256": "7917befe3ba5718a9587d2fadf3aa5a477edc812f7129b9bb5a49da3f3b0a5b5"
     },
@@ -291,7 +324,11 @@
     },
     {
       "id": "UI-ACTION-03",
-      "checks": ["unit-actions", "unit-review"],
+      "checks": [
+        "unit-actions",
+        "unit-review",
+        "package-readonly-reference-feedback"
+      ],
       "remaining": "覆盖代表权限撤销/禁用和独立处理输入；所有业务族及状态组合未穷举。",
       "requirementSha256": "24a024fcaa89464b24aef4e87e08f9eebab2911268ed900e181672ba3fae3d41"
     },
@@ -309,15 +346,24 @@
     },
     {
       "id": "UI-FORM-02",
-      "checks": ["unit-overlay", "package-layout"],
+      "checks": [
+        "unit-overlay",
+        "package-layout",
+        "package-application-alignment"
+      ],
       "remaining": "列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。",
       "requirementSha256": "b272d73879603b95708f3986205aad898dab2ef0d4f573804193c676a455c8c7"
     },
     {
       "id": "UI-FORM-03",
-      "checks": ["package-layout"],
-      "remaining": "代表场景筛选4列/编辑3列已验；容器窄宽/短表单/长文本/子表整行未覆盖；Q1/Q2由 Agent 按现有要求判断。",
-      "requirementSha256": "aaccffda9dcd740115f7276e0928b38f99bdac784b828df1d04154f94b1209c9"
+      "checks": [
+        "package-layout",
+        "package-auth-alignment",
+        "package-field-alignment",
+        "package-application-alignment"
+      ],
+      "remaining": "全部合成业务导航入口、账户、工作台及其详情/Tab/预览在390/1440px有边界检查；真实消费者和全部字段值、尺寸、隐藏状态组合未穷举。",
+      "requirementSha256": "70bbcdcf08c6e37a095c9b1cc802f69c69118167836fc5991c6df2c8cdff85eb"
     },
     {
       "id": "UI-FORM-04",

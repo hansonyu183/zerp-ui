@@ -1,5 +1,10 @@
 import { expect } from "@playwright/test";
 import {
+  fieldAlignmentSmoke,
+  readonlyReferenceFeedbackSmoke,
+} from "./field-alignment-smoke.mjs";
+import { authAlignmentSmoke } from "./auth-alignment-smoke.mjs";
+import {
   settleLayout,
   directPresentationSmoke,
   workbenchPresentationSmoke,
@@ -8,6 +13,11 @@ import {
 // Public UI only, run by check-package against a physically installed tgz.
 export async function uiPreferencesSmoke(page, options = {}) {
   const assertions = [];
+  const alignment = await authAlignmentSmoke(page);
+  assertions.push({
+    clauses: ["UI-FORM-03", "UI-THEME-06", "UI-SHELL-05"],
+    ...alignment,
+  });
   await expect(page.locator(".zerp-auth-page")).toHaveClass(
     /v-theme--zerp-md3-light/,
   );
@@ -229,9 +239,6 @@ export async function uiPreferencesSmoke(page, options = {}) {
       "success-error-appearance-and-dismissal-preserve-field-and-row-geometry",
     result: "passed",
   });
-  await keyword.fill("引用反馈");
-  await page.getByRole("button", { name: "查询", exact: true }).click();
-  await page.getByRole("button", { name: "编辑", exact: true }).click();
   const feedbackDialog = page
     .getByRole("dialog")
     .filter({ hasText: "表单引用" });
@@ -269,6 +276,10 @@ export async function uiPreferencesSmoke(page, options = {}) {
       ),
     ).toBe(true);
     await stable(container, baseline);
+    await fieldAlignmentSmoke(
+      feedbackDialog,
+      `${page.viewportSize().width}px error: ${label}`,
+    );
     await details
       .getByRole("button", { name: "重试引用", exact: true })
       .click();
@@ -280,21 +291,28 @@ export async function uiPreferencesSmoke(page, options = {}) {
     expect(Math.abs(restored.height - baseline.height)).toBeLessThan(1);
     expect(Math.abs(restored.width - baseline.width)).toBeLessThan(1);
   }
-  const referenceForm = feedbackDialog.locator(".zerp-direct-form").filter({
-    has: page.getByRole("combobox", { name: "表单引用", exact: true }),
-  });
-  await stableReferenceFailure("表单引用", referenceForm);
-  await feedbackDialog
-    .getByRole("tab", { name: "联系人", exact: true })
-    .click();
-  const ownedRow = feedbackDialog
-    .getByRole("table")
-    .locator("tbody tr")
-    .first();
-  await stableReferenceFailure("明细引用", ownedRow);
-  await feedbackDialog
-    .getByRole("button", { name: "关闭", exact: true })
-    .click();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+    await keyword.fill("引用反馈");
+    await page.getByRole("button", { name: "查询", exact: true }).click();
+    await page.getByRole("button", { name: "编辑", exact: true }).click();
+    const referenceForm = feedbackDialog.locator(".zerp-direct-form").filter({
+      has: page.getByRole("combobox", { name: "表单引用", exact: true }),
+    });
+    await stableReferenceFailure("表单引用", referenceForm);
+    await feedbackDialog
+      .getByRole("tab", { name: "联系人", exact: true })
+      .click();
+    const ownedRow =
+      width === 1440
+        ? feedbackDialog.getByRole("table").locator("tbody tr").first()
+        : feedbackDialog.locator(".zerp-owned-card").first();
+    await stableReferenceFailure("明细引用", ownedRow);
+    await feedbackDialog
+      .getByRole("button", { name: "关闭", exact: true })
+      .click();
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
   assertions.push({
     clauses: ["UI-SHELL-05", "UI-DESKTOP-03"],
     check: "long-reference-load-error-preserves-form-and-owned-row-geometry",
@@ -309,6 +327,18 @@ export async function uiPreferencesSmoke(page, options = {}) {
     clauses: ["UI-WORK-01", "UI-THEME-02"],
     check: "workbench-layout-and-theme",
     result: "passed",
+  });
+  await page
+    .getByRole("button", { name: "账户：合成用户", exact: true })
+    .click();
+  await page.getByRole("menuitem", { name: "退出登录", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "登录名", exact: true })
+    .fill("viewer");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  assertions.push({
+    clauses: ["UI-ACTION-03", "UI-SHELL-06"],
+    ...(await readonlyReferenceFeedbackSmoke(page)),
   });
   return {
     assertions,

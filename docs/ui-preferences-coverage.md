@@ -23,26 +23,26 @@
 | UI-THEME-03 | [unit-theme](#unit-theme)、[package-theme](#package-theme) | 主题菜单位于明暗左侧的几何顺序尚无断言；真实消费者持久化另验收。 |
 | UI-THEME-04 | [unit-buttons](#unit-buttons)、[package-theme](#package-theme) | 公开按钮主次/危险层级、主要按钮样式及查询按钮六种主题明暗颜色有映射；未逐业务族穷举所有按钮。 |
 | UI-THEME-05 | [package-layout](#package-layout) | 仅表格12px及手机编辑输入16px；正文/菜单/导航/反馈和18/16/14px标题尚未逐类验证。 |
-| UI-THEME-06 | [package-layout](#package-layout) | 仅代表性动作和48px顶栏；compact输入、全控件触控区域未遍历；常规间距由 Agent 判断，见Q2。 |
-| UI-SHELL-01 | [package-layout](#package-layout) | 只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。 |
+| UI-THEME-06 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment) | 仅代表性动作和48px顶栏；compact输入、全控件触控区域未遍历；常规间距由 Agent 判断，见Q2。 |
+| UI-SHELL-01 | [package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。 |
 | UI-SHELL-02 | 无自动断言 | 未断言所有顶栏子项顺序、品牌内容和首页跳转。 |
 | UI-SHELL-03 | 无自动断言 | 未定向检查慢业务读取时账户可达、窄屏文字收起与账户全部入口。 |
 | UI-SHELL-04 | 无自动断言 | 主标题几何及业务名重复需检查；语义重复待人工审查。 |
-| UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback) | 已覆盖成功/失败消息及长引用读取错误在表单/所属明细行的几何和重试；其他消息更新、警告/状态、其他字段校验路径尚未穷举。 |
-| UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay) | 保存失败与反馈关闭不改模型事实；未知结果核实和消费者禁用需新宿主定向测试覆盖，不能用普通刷新替代核实。 |
+| UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback)、[package-field-alignment](#package-field-alignment) | 已覆盖成功/失败消息及长引用读取错误在表单/所属明细行的几何和重试；其他消息更新、警告/状态、其他字段校验路径尚未穷举。 引用错误按钮内置且不挤窄控件、遮挡下拉箭头有代表性几何映射。 |
+| UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay)、[package-readonly-reference-feedback](#package-readonly-reference-feedback) | 保存失败与反馈关闭不改模型事实；未知结果核实和消费者禁用需新宿主定向测试覆盖，不能用普通刷新替代核实。 |
 | UI-DESKTOP-01 | [package-layout](#package-layout) | 仅代表表格存在/字号；字段完整性与超宽策略未穷举，尽量避免横滚处理方式由 Agent 按现有要求判断，见Q3。 |
 | UI-DESKTOP-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 第二操作列有断言；排序必须在相关表头且不占筛选栏尚无定向证据。 |
 | UI-DESKTOP-03 | [package-reference-feedback](#package-reference-feedback) | 表格内编辑简洁模式及字段校验前后行高尚无公开浏览器断言。 |
-| UI-MOBILE-01 | [package-layout](#package-layout)、[unit-actions](#unit-actions) | 仅代表卡片字段和无横溢；合计、完整身份、选择、适用明细尚未全部验证。 |
+| UI-MOBILE-01 | [package-layout](#package-layout)、[unit-actions](#unit-actions)、[package-application-alignment](#package-application-alignment) | 仅代表卡片字段和无横溢；合计、完整身份、选择、适用明细尚未全部验证。 |
 | UI-MOBILE-02 | 无自动断言 | 流式短字段同排、长值换行、名称和值同行尚无几何断言；样本由 Agent 按现有要求选择，见Q3。 |
 | UI-MOBILE-03 | 无自动断言 | 首行左右对齐/缺省稳定、全选文字/数量/半选/禁用尚无直接宿主定向证据。 |
 | UI-ACTION-01 | [unit-actions](#unit-actions) | 可用动作与更多入口有证据；普通动作3项上限、图标语义及手机收纳边界待补；流程特例不泛化。 |
 | UI-ACTION-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 手机短文字已验，桌面图标及hover/focus hint尚未完整验证。 |
-| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review) | 覆盖代表权限撤销/禁用和独立处理输入；所有业务族及状态组合未穷举。 |
+| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback) | 覆盖代表权限撤销/禁用和独立处理输入；所有业务族及状态组合未穷举。 |
 | UI-ACTION-04 | 无自动断言 | 新增各入口、标题与成功提示的一致性，以及其他动作文案尚无统一断言。 |
 | UI-FORM-01 | [unit-model](#unit-model)、[unit-review](#unit-review) | 直接编辑、复杂结构有代表用例；查看/新增/编辑完整字段顺序同构尚未逐路径断言。 |
-| UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout) | 列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。 |
-| UI-FORM-03 | [package-layout](#package-layout) | 代表场景筛选4列/编辑3列已验；容器窄宽/短表单/长文本/子表整行未覆盖；Q1/Q2由 Agent 按现有要求判断。 |
+| UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。 |
+| UI-FORM-03 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-field-alignment](#package-field-alignment)、[package-application-alignment](#package-application-alignment) | 全部合成业务导航入口、账户、工作台及其详情/Tab/预览在390/1440px有边界检查；真实消费者和全部字段值、尺寸、隐藏状态组合未穷举。 |
 | UI-FORM-04 | [unit-tabs](#unit-tabs)、[package-layout](#package-layout)、[unit-review](#unit-review)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-05 | [unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[unit-reactivity](#unit-reactivity) | 新模型数组顺序、空label详情隐藏及显式列保留有源码映射；动态结构全组合尚未穷举。 |
 | UI-FORM-06 | [unit-model](#unit-model)、[unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[package-tab-input](#package-tab-input)、[package-full](#package-full)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
@@ -193,6 +193,30 @@
 [tests/business-shell-preferences.spec.ts](../tests/business-shell-preferences.spec.ts) · source/public-entry
 
 定位：`restores Material primary, ordinary and destructive action hierarchy`。查询柔和主题色、保存实心主题色、删除危险色、关闭文字按钮，保留操作语义。
+
+### package-auth-alignment
+
+[scripts/auth-alignment-smoke.mjs](../scripts/auth-alignment-smoke.mjs) · tgz/browser
+
+定位：`authentication-reference-text-password-alignment`。390/1440px认证表单普通引用、账号和密码可见控件左右边界及高度一致，登录按钮左边界对齐。
+
+### package-field-alignment
+
+[scripts/field-alignment-smoke.mjs](../scripts/field-alignment-smoke.mjs) · tgz/browser
+
+定位：`export async function fieldAlignmentSmoke`。筛选、编辑/只读、所属明细表格与手机卡片的可见字段匹配所属容器；错误按钮位于控件内且不遮挡下拉箭头。
+
+### package-readonly-reference-feedback
+
+[scripts/field-alignment-smoke.mjs](../scripts/field-alignment-smoke.mjs) · tgz/browser
+
+定位：`readonly-reference-feedback-reachable`。普通只读身份的引用保持禁用、控件边界对齐，错误原因入口仍可正常点击查看。
+
+### package-application-alignment
+
+[scripts/application-alignment-smoke.mjs](../scripts/application-alignment-smoke.mjs) · tgz/browser
+
+定位：`application-pages-and-components-alignment`。逐个访问全部合成业务入口及其详情/Tab、账户/改密、工作台、密钥修改和打印预览；390/1440px验证字段、操作区、Tab、表格、菜单及iframe边界，无文档横向溢出，弹窗位于顶栏下方。
 
 ## 执行与维护
 

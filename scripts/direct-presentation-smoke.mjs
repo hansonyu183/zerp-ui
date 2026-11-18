@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import { fieldAlignmentSmoke } from "./field-alignment-smoke.mjs";
 
 export async function settleLayout(page) {
   await page.evaluate(async () => {
@@ -19,6 +20,12 @@ export async function settleLayout(page) {
 // Runs against the independently installed public package; no model or VM access.
 export async function directPresentationSmoke(page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  const alignment = [
+    await fieldAlignmentSmoke(
+      page.locator(".zerp-shell-content"),
+      "desktop filters",
+    ),
+  ];
   const firstFilter = await page
     .getByRole("textbox", { name: "关键词", exact: true })
     .boundingBox();
@@ -41,6 +48,9 @@ export async function directPresentationSmoke(page) {
   await settleLayout(page);
   const field = dialog.getByRole("textbox", { name: "客户名称", exact: true });
   await expect(field).toBeEditable();
+  alignment.push(
+    await fieldAlignmentSmoke(dialog, "desktop edit and read-only fields"),
+  );
   const barBox = await page.locator(".v-app-bar").boundingBox();
   const dialogBox = await dialog.boundingBox();
   expect(barBox.height).toBe(48);
@@ -63,6 +73,9 @@ export async function directPresentationSmoke(page) {
     .boundingBox();
   expect(Math.abs(codeBox.y - thirdField.y)).toBeLessThan(2);
   expect(fourthField.y).toBeGreaterThan(codeBox.y);
+  await dialog.getByRole("tab", { name: "联系人", exact: true }).click();
+  alignment.push(await fieldAlignmentSmoke(dialog, "desktop owned records"));
+
   await dialog.getByRole("button", { name: "关闭", exact: true }).click();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -80,6 +93,11 @@ export async function directPresentationSmoke(page) {
   await mobileEdit.click();
   await settleLayout(page);
   await expect(field).toHaveCSS("font-size", "16px");
+  alignment.push(
+    await fieldAlignmentSmoke(dialog, "mobile edit and read-only fields"),
+  );
+  await dialog.getByRole("tab", { name: "联系人", exact: true }).click();
+  alignment.push(await fieldAlignmentSmoke(dialog, "mobile owned cards"));
   const mobileBox = await dialog.boundingBox();
   const mobileBar = await page.locator(".v-app-bar").boundingBox();
   expect(mobileBox.y).toBeGreaterThanOrEqual(mobileBar.y + mobileBar.height);
@@ -93,6 +111,7 @@ export async function directPresentationSmoke(page) {
     desktop: true,
     mobile: true,
     overlayAndFocus: true,
+    alignment,
   };
 }
 

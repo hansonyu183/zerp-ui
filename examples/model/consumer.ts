@@ -53,6 +53,16 @@ const object = (
     members,
     operations: {},
   });
+const loginLedger: FieldNode = reactive({
+  kind: "reference",
+  key: "ledger",
+  label: "账套",
+  value: null,
+  multiple: false,
+  readOnly: false,
+  required: true,
+  options: [{ id: "synthetic", label: "合成账套", selectable: true }],
+});
 const loginName = text("username", "登录名");
 const loginPassword: FieldNode = reactive({
   kind: "password",
@@ -284,6 +294,16 @@ const customers: Collection = reactive({
     text("owner", "负责人条件"),
     text("status", "状态条件"),
     text("contact", "联系条件"),
+    {
+      kind: "reference",
+      key: "ledger-filter",
+      label: "账套条件",
+      value: null,
+      multiple: false,
+      readOnly: false,
+      required: false,
+      options: [{ id: "synthetic", label: "合成账套", selectable: true }],
+    },
   ]),
   items: [],
   selected: null,
@@ -621,7 +641,7 @@ export const model: BusinessModel = reactive({
     ...familyCollections,
   },
   authentication: {
-    form: object("login", "登录", [loginName, loginPassword]),
+    form: object("login", "登录", [loginLedger, loginName, loginPassword]),
     operations: {
       signIn,
       recover: operation(async () => {

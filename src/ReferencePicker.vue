@@ -220,7 +220,7 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="zerp-field-input">
+  <div class="zerp-reference-field">
     <VAutocomplete
       v-model:menu="open"
       v-model:search="search"
@@ -290,18 +290,22 @@ onBeforeUnmount(() => {
           >
         </VListItem>
       </template>
+      <template #append-inner>
+        <span class="zerp-reference-feedback" @click.stop @mousedown.stop>
+          <FieldFeedback
+            :id="feedbackId"
+            :label="label"
+            :messages="feedback"
+            :focused="focused"
+          >
+            <template #actions
+              ><VBtn v-if="error" :disabled="busy" @click.stop="load"
+                >重试引用</VBtn
+              ></template
+            >
+          </FieldFeedback>
+        </span>
+      </template>
     </VAutocomplete>
-    <FieldFeedback
-      :id="feedbackId"
-      :label="label"
-      :messages="feedback"
-      :focused="focused"
-    >
-      <template #actions
-        ><VBtn v-if="error" :disabled="busy" @click.stop="load"
-          >重试引用</VBtn
-        ></template
-      >
-    </FieldFeedback>
   </div>
 </template>

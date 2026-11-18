@@ -62,6 +62,7 @@ export function shellDefaults(choice: ThemeChoice) {
     },
     VTextField: { ...defaults?.VTextField, density: "compact" },
     VSelect: { ...defaults?.VSelect, density: "compact" },
+    VAutocomplete: { ...defaults?.VAutocomplete, density: "compact" },
     VTextarea: { ...defaults?.VTextarea, density: "compact" },
     VFileInput: { ...defaults?.VFileInput, density: "compact" },
     VCheckbox: {
