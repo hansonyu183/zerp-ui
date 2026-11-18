@@ -29,11 +29,15 @@ export async function uiPreferencesSmoke(page, options = {}) {
     .fill("synthetic-only");
   await page.getByRole("button", { name: "登录", exact: true }).click();
   const navigation = page.getByRole("navigation", { name: "主导航" });
+  const home = navigation.getByRole("link", { name: "工作台", exact: true });
+  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("aria-current", "page");
   await navigation.getByText("业务", { exact: true }).click();
-  await navigation.getByRole("link", { name: "客户", exact: true }).click();
+  const customers = navigation.getByRole("link", { name: "客户", exact: true });
+  await customers.click();
   await page.getByText("合成客户甲", { exact: true }).waitFor();
   const domainTabs = page.getByRole("tablist", {
-    name: "客户领域",
+    name: "客户",
     exact: true,
   });
   await expect(
@@ -54,11 +58,24 @@ export async function uiPreferencesSmoke(page, options = {}) {
   await expect(contactTab).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByText("合成联系人", { exact: true })).toBeVisible();
+  await expect(customers).toHaveAttribute("aria-current", "page");
+  await expect(
+    navigation.getByRole("link", { name: "联系人", exact: true }),
+  ).toHaveCount(0);
   await domainTabs.getByRole("tab", { name: "客户", exact: true }).click();
   await expect(filterInput).toHaveValue("保留领域查询输入");
   await filterInput.fill("");
+  await home.click();
+  await expect(page.locator(".zerp-workbench")).toBeVisible();
+  await customers.click();
   assertions.push({
-    clauses: ["UI-FORM-04", "UI-FORM-06", "UI-FORM-07", "UI-SCOPE-02"],
+    clauses: [
+      "UI-FORM-04",
+      "UI-FORM-06",
+      "UI-FORM-07",
+      "UI-NAV-03",
+      "UI-SCOPE-02",
+    ],
     check: "material-domain-tabs-keyboard-links-and-input",
     result: "passed",
   });

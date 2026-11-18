@@ -23,7 +23,7 @@ it("observes direct input and backend results while preserving record identity",
   await pending;
   expect(displayed.value).toBe("backend");
   expect(rows.selected).toBe(record);
-  expect(model.navigation.groups[0]!.items[0]).toBe(rows);
+  expect(model.navigation.current).toBe(rows);
 });
 it("reacts to ordered members, explicit columns, operation state and session permissions", async () => {
   const { model, record, rows, owner } = fixture();
@@ -34,7 +34,7 @@ it("reacts to ordered members, explicit columns, operation state and session per
       rows.columns,
       rows.operations,
       model.session,
-      model.navigation.groups,
+      model.members,
     ],
     observed,
     { deep: true },

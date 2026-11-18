@@ -82,7 +82,14 @@ function fixture(fields: FieldNode[] = []) {
     kind: "application",
     label: "合成",
     brand: { productName: "合成", companyName: "测试" },
-    members: { records: collection },
+    members: {
+      records: {
+        kind: "domain",
+        key: "records",
+        label: collection.label,
+        members: { records: collection },
+      },
+    },
     authentication: {
       form: object("登录"),
       operations: { signIn: op(), recover: op() },
@@ -100,7 +107,6 @@ function fixture(fields: FieldNode[] = []) {
     },
     navigation: {
       current: null,
-      groups: [{ key: "main", label: "业务", items: [collection] }],
       href: () => "/records",
       visit(target) {
         model.navigation.current = target;

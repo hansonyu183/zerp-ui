@@ -4,6 +4,7 @@ import type {
   BusinessModel,
   BusinessNode,
   Collection,
+  DomainGroup,
   FieldNode,
   ObjectNode,
   Operation,
@@ -39,6 +40,17 @@ export const object = (
     members,
     operations: {},
   });
+export function domainOf(
+  collection: Collection,
+  label = collection.label,
+): DomainGroup {
+  return {
+    kind: "domain",
+    key: collection.key,
+    label,
+    members: { [collection.key]: collection },
+  };
+}
 export function fixture() {
   const name = field();
   const record = object("r1", "记录", [name]);
@@ -62,7 +74,7 @@ export function fixture() {
     kind: "application",
     label: "公开模型测试",
     brand: { productName: "Test", companyName: "Synthetic" },
-    members: { rows },
+    members: { rows: domainOf(rows) },
     authentication: {
       form: object("login", "登录", [field("username", "登录名", "")]),
       operations: { signIn: operation(), recover: operation() },
@@ -82,7 +94,6 @@ export function fixture() {
     },
     navigation: {
       current: rows,
-      groups: [{ key: "main", label: "业务", items: [rows] }],
       href(collection) {
         return collection ? `/${collection.key}` : "/";
       },

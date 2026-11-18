@@ -11,7 +11,7 @@
 - 公开组件仅 BusinessApplication，直接定义的 BusinessModel 与 modelMetadata 来自 @zerp/ui/model；旧页面工厂及装配样本仅供私有运行时回归。
 - 各业务族运行时固定交互语义；字段/局部区块仅暴露所辖值、必要目录、模式与局部事件。输入直接更新模型值；业务回调和后端负责写入、冲突、请求有效性与未知结果恢复。
 - 不增加旧版兼容层、重复实现或任意模板/render/字符串命令；现有依赖可满足需求时优先复用。
-- 必须使用消费者源码直接定义的完整静态 BusinessModel。严禁运行时向后端查询字段结构，或从登录、恢复、application、列表、详情、新增、报表等响应中的 definition/schema/fields/metadata 推导、补齐或替换模型结构；不得以“动态业务事实”、缓存或归一化包装规避。根 members 允许独立 Collection 或仅组织入口的 DomainGroup；领域分组不拥有整体保存，各集合独立查询、授权和保存。字段、领域/字段分组、列、节点类型和关系在源码确定，后端数据只更新既定模型的业务值、身份、权限及操作资格。详见 docs/ui-preferences.md 的 UI-BOUND-03。
+- 必须使用消费者源码直接定义的完整静态 BusinessModel。严禁运行时向后端查询字段结构，或从登录、恢复、application、列表、详情、新增、报表等响应中的 definition/schema/fields/metadata 推导、补齐或替换模型结构；不得以“动态业务事实”、缓存或归一化包装规避。根 members 允许业务栏目、领域分组或独立 Collection。侧栏由源码静态结构生成；栏目内的分类与领域按成员数组顺序呈现。领域分组不拥有整体保存，各集合独立查询、授权和保存。字段、领域/字段分组、列、节点类型和关系在源码确定，后端数据只更新既定模型的业务值、身份、权限及操作资格。详见 docs/ui-preferences.md 的 UI-BOUND-03。
 
 ## 个性化 UI 规范
 

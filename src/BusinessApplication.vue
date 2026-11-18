@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { modelCollections } from "./model-collections";
+import { categoryDomains, modelCollections } from "./model-collections";
 import { computed, provide, watch, h, ref, toRaw, onBeforeUnmount } from "vue";
 import { clearReferenceScope } from "./reference-directory";
 import type {
@@ -42,53 +42,51 @@ function changeTheme(value: ThemeChoice) {
 }
 const navigationIds = new WeakMap<object, number>();
 let nextNavigationId = 0;
-function navigationKey(
-  group: string,
-  section: string | null,
-  node: Collection,
-) {
-  const raw = toRaw(node);
+function domainEntry(domain: DomainGroup, path: string[], section?: string) {
+  if (domain.hiddenFromNavigation) return [];
+  const collections = Object.values(domain.members).filter(runtime.readable);
+  const target = collections[0];
+  if (!target) return [];
+  const raw = toRaw(target);
   if (!navigationIds.has(raw)) navigationIds.set(raw, ++nextNavigationId);
-  return JSON.stringify([
-    runtime.scope.value,
-    group,
-    section,
-    navigationIds.get(raw),
-  ]);
+  return [
+    {
+      domain,
+      target,
+      collections,
+      key: JSON.stringify([runtime.scope.value, path, navigationIds.get(raw)]),
+      section:
+        section === undefined
+          ? undefined
+          : { key: JSON.stringify(path.slice(0, -1)), caption: section },
+    },
+  ];
 }
-const groups = computed(() => {
-  const allowed = (node: Collection) =>
-    modelCollections(props.model).includes(node) && runtime.readable(node);
-  return props.model.navigation.groups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter(allowed),
-      sections: (group.sections ?? [])
-        .map((section) => ({
-          ...section,
-          items: section.items.filter(allowed),
-        }))
-        .filter((section) => section.items.length),
-    }))
-    .filter((group) => group.items.length || group.sections.length);
-});
+const groups = computed(() =>
+  Object.values(props.model.members).flatMap((member) => {
+    if (!("kind" in member)) return [];
+    const entries =
+      member.kind === "domain"
+        ? domainEntry(member, [member.key])
+        : member.members.flatMap((child) =>
+            child.kind === "domain"
+              ? domainEntry(child, [member.key, child.key])
+              : child.members.flatMap((domain) =>
+                  domainEntry(
+                    domain,
+                    [member.key, child.key, domain.key],
+                    child.label,
+                  ),
+                ),
+          );
+    return entries.length ? [{ member, entries }] : [];
+  }),
+);
 const navigationEntries = computed(() =>
-  groups.value.flatMap((group) => [
-    ...group.items.map((node) => ({
-      node,
-      key: navigationKey(group.key, null, node),
-      group: group.key,
-      section: undefined,
-    })),
-    ...group.sections.flatMap((section) =>
-      section.items.map((node) => ({
-        node,
-        key: navigationKey(group.key, section.key, node),
-        group: group.key,
-        section: { key: section.key, caption: section.label },
-      })),
-    ),
-  ]),
+  groups.value.flatMap((group) => group.entries),
+);
+const homeKey = computed(() =>
+  JSON.stringify([runtime.scope.value, "workbench"]),
 );
 const accountView = ref<ObjectNode | null>(null);
 const current = computed<Collection | null>(() => {
@@ -100,12 +98,7 @@ const current = computed<Collection | null>(() => {
     : null;
 });
 watch(
-  [
-    () => props.model.navigation.current,
-    groups,
-    () => props.model.workbench,
-    runtime.ready,
-  ],
+  [current, groups, () => props.model.workbench, runtime.ready],
   () => {
     if (
       !runtime.ready.value ||
@@ -114,39 +107,61 @@ watch(
       props.model.workbench
     )
       return;
-    const first = navigationEntries.value[0]?.node;
+    const first = navigationEntries.value[0]?.target;
     if (first) props.model.navigation.visit(first);
   },
   { immediate: true },
 );
-const navigation = computed<NavigationGroup[]>(() =>
-  props.model.session.state === "password-required"
-    ? []
-    : groups.value.map((group) => ({
-        key: group.key,
-        caption: group.label,
-        items: navigationEntries.value
-          .filter((entry) => entry.group === group.key)
-          .map(({ node, key, section }) => ({
-            key,
-            section,
-            caption: node.navigationLabel ?? node.label,
-            icon: node.icon,
-            to: props.model.navigation.href(node),
-          })),
-      })),
-);
-const selectedKey = computed(
-  () =>
-    navigationEntries.value.find((entry) => entry.node === current.value)
-      ?.key ?? null,
-);
+const navigation = computed<NavigationGroup[]>(() => {
+  if (props.model.session.state !== "ready" || !runtime.ready.value) return [];
+  const items: NavigationGroup[] = groups.value.map(({ member, entries }) => ({
+    key: member.key,
+    caption: member.label,
+    ungrouped: member.kind === "domain",
+    items: entries.map(({ domain, target, key, section }) => ({
+      key,
+      section,
+      caption: domain.label,
+      icon: domain.icon,
+      to: props.model.navigation.href(target),
+    })),
+  }));
+  if (props.model.workbench)
+    items.unshift({
+      key: homeKey.value,
+      caption: "工作台",
+      ungrouped: true,
+      items: [
+        {
+          key: homeKey.value,
+          caption: "工作台",
+          icon: "home",
+          to: props.model.navigation.href(null),
+        },
+      ],
+    });
+  return items;
+});
+const selectedKey = computed(() => {
+  if (accountView.value) return null;
+  if (!current.value) return props.model.workbench ? homeKey.value : null;
+  return (
+    navigationEntries.value.find((entry) =>
+      entry.collections.includes(current.value!),
+    )?.key ?? null
+  );
+});
 function visitKey(key: string) {
   if (!runtime.ready.value || props.model.session.state !== "ready") return;
-  const entry = navigationEntries.value.find((entry) => entry.key === key);
-  if (entry && runtime.readable(entry.node)) {
+  if (key === homeKey.value && props.model.workbench) {
     accountView.value = null;
-    props.model.navigation.visit(entry.node);
+    props.model.navigation.visit(null);
+    return;
+  }
+  const entry = navigationEntries.value.find((entry) => entry.key === key);
+  if (entry && runtime.readable(entry.target)) {
+    accountView.value = null;
+    props.model.navigation.visit(entry.target);
   }
 }
 const brand = computed(() => ({
@@ -233,17 +248,25 @@ const target = computed(() =>
     ? props.model.account.password
     : (accountView.value ?? current.value),
 );
-const domain = computed(() =>
-  Object.values(props.model.members).find(
-    (member): member is DomainGroup =>
-      "kind" in member &&
-      Object.values(member.members).includes(current.value!),
-  ),
-);
+const domain = computed(() => {
+  const collection = current.value;
+  if (!collection) return;
+  return Object.values(props.model.members)
+    .flatMap((member) =>
+      !("kind" in member)
+        ? []
+        : member.kind === "domain"
+          ? [member]
+          : categoryDomains(member),
+    )
+    .find((group) => Object.values(group.members).includes(collection));
+});
 const pageTarget = computed(() =>
   accountView.value || props.model.session.state === "password-required"
     ? target.value
-    : (domain.value ?? target.value),
+    : domain.value && Object.keys(domain.value.members).length > 1
+      ? domain.value
+      : target.value,
 );
 const page = computed<PageDefinition>(() => {
   const node = pageTarget.value,

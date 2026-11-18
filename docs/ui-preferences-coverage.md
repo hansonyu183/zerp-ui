@@ -50,7 +50,7 @@
 | UI-FORM-08 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[unit-overlay](#unit-overlay) | 直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。 |
 | UI-NAV-01 | [unit-shell](#unit-shell) | 仅默认收起及修饰键；直属入口、无标题/无切换提示尚未完整断言。 |
 | UI-NAV-02 | [unit-shell](#unit-shell) | 修饰键有证据；图标语义、未知文本、手机选择关闭抽屉、桌面收起及新标签待补。 |
-| UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain) | 领域内集合的独立授权、按需查询及保存有公开入口源码断言；完整客户领域类型示例仅编译，真实消费者业务名称、Router、权限及七集合行为另行验收。 |
+| UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。 |
 | UI-NAV-04 | 无自动断言 | 重复导航/目录与实际入口需逐路径审查，不以旧私有组件测试作为新入口符合证据。 |
 | UI-NAV-05 | [package-full](#package-full) | 新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。 |
 | UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full) | 构造无业务查询和工作台按需读取有包映射；慢页面账户可达有源码定向映射。 |
@@ -174,7 +174,7 @@
 
 [tests/static-navigation.spec.ts](../tests/static-navigation.spec.ts) · source/public-entry
 
-定位：`keeps domain collections independently authorized, queried and saved`。领域内集合按各自授权裁剪、仅访问时查询、独立保存，拒绝跨集合串写；移除领域后旧导航失效。
+定位：`keeps domain collections independently authorized, queried and saved`。每个领域单侧栏链接，切换集合保持高亮；域内独立授权、按需查询、独立保存；移除领域后旧链接失效。
 
 ### unit-domain-tabs
 

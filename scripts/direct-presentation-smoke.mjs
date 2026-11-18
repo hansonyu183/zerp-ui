@@ -80,7 +80,7 @@ export async function directPresentationSmoke(page) {
 
   await page.setViewportSize({ width: 390, height: 844 });
   const domainTabs = page.getByRole("tablist", {
-    name: "客户领域",
+    name: "客户",
     exact: true,
   });
   await expect(domainTabs).toBeVisible();

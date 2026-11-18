@@ -3,6 +3,7 @@ import type {
   BusinessModel,
   Collection,
   DomainGroup,
+  DomainSection,
   UserPermissions,
   FieldNode,
   ObjectNode,
@@ -219,26 +220,23 @@ const invalidWorkbenchTarget: Workbench["manageReports"] = object;
 model.navigation.href(collection, collection);
 void [workbenchTargets, managementTarget, invalidWorkbenchTarget];
 
-const navigationSection: NonNullable<
-  BusinessModel["navigation"]["groups"][number]["sections"]
->[number] = { key: "section", label: "分类", items: [collection] };
-// prettier-ignore
-// @ts-expect-error 分类只接受根 Collection，拒绝记录。
-const sectionRecord = {...navigationSection, items: [object]} satisfies typeof navigationSection;
-// prettier-ignore
-// @ts-expect-error 分类不接受所属 RecordsNode。
-const sectionRecords = {...navigationSection, items: [records]} satisfies typeof navigationSection;
-// prettier-ignore
-// @ts-expect-error 分类固定第二层，不能递归。
-const recursiveSection = {...navigationSection, sections: [navigationSection]} satisfies typeof navigationSection;
-void [sectionRecord, sectionRecords, recursiveSection];
-
 const domain = {
   kind: "domain",
   key: "customers",
   label: "客户领域",
   members: { customers: collection },
 } satisfies DomainGroup;
+const section: DomainSection = {
+  kind: "section",
+  key: "A",
+  label: "采购",
+  members: [domain],
+};
+// @ts-expect-error 单据分类只接受领域。
+const sectionCollection: DomainSection = { ...section, members: [collection] };
+// @ts-expect-error 单据分类固定一层。
+const nestedSection: DomainSection = { ...section, members: [section] };
+void [sectionCollection, nestedSection];
 const groupedModel = {
   ...model,
   members: { customers: domain, standalone: collection },
@@ -259,15 +257,20 @@ const domainInObject = { ...object, members: [domain] } satisfies ObjectNode;
 // @ts-expect-error 领域不是可选中的业务导航目标。
 model.navigation.current = domain;
 // prettier-ignore
-// @ts-expect-error 导航投影引用领域中的集合，不引用领域本身。
-const domainNavigation = { ...model.navigation.groups[0]!, items: [domain] } satisfies BusinessModel["navigation"]["groups"][number];
+// @ts-expect-error 领域不能传入集合路由。
+model.navigation.href(domain);
+const legacyNavigation = {
+  ...model.navigation,
+  // @ts-expect-error 菜单从业务成员派生，路由不再维护一份投影。
+  groups: [],
+} satisfies BusinessModel["navigation"];
 void [
   groupedModel,
   domainRecord,
   domainNested,
   domainSave,
   domainInObject,
-  domainNavigation,
+  legacyNavigation,
 ];
 
 // prettier-ignore

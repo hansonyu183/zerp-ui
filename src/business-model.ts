@@ -370,10 +370,6 @@ export interface PrintTemplate {
 
 /** 独立查询和写入的业务集合；普通资料与 AA/AB 等单据共用。 */
 export interface Collection {
-  /** 仅导航显示；页面标题仍使用 label。 */
-  navigationLabel?: string;
-  /** 已知业务语义的有限图标；未知语义省略并保留文字。 */
-  icon?: NavigationIcon;
   /** 在所属 BusinessModel.members 或 DomainGroup.members 中的稳定集合键。 */
   key: string;
   label: string;
@@ -415,8 +411,27 @@ export interface DomainGroup {
   kind: "domain";
   key: string;
   label: string;
+  icon?: NavigationIcon;
+  /** 停用等业务状态可收起侧栏入口；已授权链接仍可直达。 */
+  hiddenFromNavigation?: boolean;
   /** 属性键与集合 key 一致；固定一层，不含字段、记录或嵌套领域。 */
   members: Record<string, Collection>;
+}
+
+/** 栏目内可折叠的业务分类，例如单据下的采购。 */
+export interface DomainSection {
+  kind: "section";
+  key: string;
+  label: string;
+  members: DomainGroup[];
+}
+
+/** 顶层业务栏目；成员顺序决定侧栏顺序。 */
+export interface BusinessCategory {
+  kind: "category";
+  key: string;
+  label: string;
+  members: (DomainGroup | DomainSection)[];
 }
 
 /** 权限仍需同时满足节点业务限制；全体操作名封闭。 */
@@ -502,8 +517,8 @@ export interface BusinessModel {
   kind: "application";
   label: string;
   brand: { productName: string; companyName: string };
-  /** 静态定义的独立集合或领域分组，不按后端 schema/bindings 动态生成。 */
-  members: Record<string, Collection | DomainGroup>;
+  /** 栏目和领域生成侧栏；直属集合可直接定位，不生成菜单项。 */
+  members: Record<string, BusinessCategory | DomainGroup | Collection>;
   workbench?: Workbench;
   /** 省略时默认 MD3 浅色；选择持久化由消费者负责。 */
   theme?: {
@@ -527,14 +542,6 @@ export interface BusinessModel {
   navigation: {
     /** null 表示工作台；未配置时进入首个获权集合，无获权集合时显示空工作区。 */
     current: Collection | null;
-    groups: {
-      key: string;
-      label: string;
-      /** 仅引用根直属或领域分组内的原集合；领域、记录及子明细不是导航目标。 */
-      items: Collection[];
-      /** 固定第二层分类，不接受递归分组或所属记录。 */
-      sections?: { key: string; label: string; items: Collection[] }[];
-    }[];
     /** null 为首页；消费者同时同步所属 Router，不扩大业务导航目标。 */
     href(collection: Collection | null, record?: ObjectNode): string;
     visit(collection: Collection | null, record?: ObjectNode): void;

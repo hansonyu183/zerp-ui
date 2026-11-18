@@ -1,8 +1,22 @@
-import type { BusinessModel, Collection } from "./business-model";
+import type {
+  BusinessCategory,
+  BusinessModel,
+  Collection,
+} from "./business-model";
 
-/** 领域只组织入口；每个集合仍作为独立授权、查询和写入边界。 */
-export function modelCollections(model: BusinessModel): Collection[] {
-  return Object.values(model.members).flatMap((member) =>
-    "kind" in member ? Object.values(member.members) : [member],
+export function categoryDomains(category: BusinessCategory) {
+  return category.members.flatMap((member) =>
+    member.kind === "section" ? member.members : [member],
   );
+}
+
+/** 栏目和领域只组织入口；集合仍是独立的授权和写入边界。 */
+export function modelCollections(model: BusinessModel): Collection[] {
+  return Object.values(model.members).flatMap((member) => {
+    if (!("kind" in member)) return [member];
+    if (member.kind === "domain") return Object.values(member.members);
+    return categoryDomains(member).flatMap((domain) =>
+      Object.values(domain.members),
+    );
+  });
 }

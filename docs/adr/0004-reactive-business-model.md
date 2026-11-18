@@ -45,3 +45,7 @@
 用户要求保留客户领域下多个并列集合的对象结构，修订上文“根 members 只包含 Collection”及“全局导航仅指向根级集合”的限制。BusinessModel.members 允许 Collection 或 DomainGroup；领域分组固定一层，仅包含独立 Collection，不属于 BusinessNode，不提供整体 query/update，也不成为授权或保存边界。各集合继续独立查询、授权和保存，导航和有限目标引用领域中的原集合；字段分组与 RecordsNode 的随父保存语义不变。
 
 此决定保留模型业务入口的领域归属，同时避免把领域误建为可保存 ObjectNode。导航仍由显式 groups/sections 投影，不增加递归导航配置或独立领域导航目标。领域内容区使用真正的 Material Tabs 切换各独立集合，结构顺序、单/零组处理、按需读取及切换保留上下文沿用 UI 规范。静态结构、会话清理及消费者业务职责沿用现行规则。正式规格及本次验收见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)，接口及完整客户领域例子见 [接口工件](../interfaces/README.md)；历史发行证据不变。
+
+## 2026-11-18 修订：从业务成员生成侧栏
+
+用户确认侧栏只展示领域，并移除独立导航投影。BusinessCategory 与可选 DomainSection 用成员数组表达层级和顺序，DomainGroup 组织原 Collection。工作台作为已配置应用的独立入口位于侧栏顶部，品牌仍链接首页。路由保持 current、href、visit，消费者继续持有 Router。此修订取代前文显式导航投影的决定。

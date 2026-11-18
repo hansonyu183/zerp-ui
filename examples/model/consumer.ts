@@ -1,6 +1,7 @@
 import { reactive, ref } from "vue";
 import type {
   BusinessModel,
+  DomainGroup,
   Collection,
   FieldNode,
   ObjectNode,
@@ -416,7 +417,6 @@ const contacts: Collection = reactive({
 const empty: Collection = reactive({
   key: "empty",
   label: "空集合",
-  navigationLabel: "E 空集合",
   columns: [{ key: "title", label: "空集合列标题" }],
   conditions: object("empty-conditions", "查询条件", []),
   items: [],
@@ -561,6 +561,28 @@ const shortcut = (
   selected: null,
   operations: {},
 });
+function asDomain(
+  collection: Collection,
+  label = collection.label,
+): DomainGroup {
+  return {
+    kind: "domain",
+    key: collection.key,
+    label,
+    members: { [collection.key]: collection },
+  };
+}
+function collections(): Collection[] {
+  return Object.values(model.members).flatMap((member) => {
+    if (!("kind" in member)) return [member];
+    if (member.kind === "domain") return Object.values(member.members);
+    return member.members.flatMap((child) =>
+      child.kind === "domain"
+        ? Object.values(child.members)
+        : child.members.flatMap((domain) => Object.values(domain.members)),
+    );
+  });
+}
 let generation = 0;
 function resetBusiness() {
   clearFamilyInputs();
@@ -568,9 +590,7 @@ function resetBusiness() {
     model.workbench![role].items = [];
     model.workbench![role].selected = null;
   }
-  for (const collection of Object.values(model.members).flatMap((member) =>
-    "kind" in member ? Object.values(member.members) : [member],
-  )) {
+  for (const collection of collections()) {
     collection.items = [];
     collection.selected = null;
     collection.draft = null;
@@ -629,16 +649,30 @@ export const model: BusinessModel = reactive({
   label: "静态业务模型",
   brand: { productName: "合成业务示例", companyName: "示例企业" },
   members: {
-    customerDomain: {
-      kind: "domain",
-      key: "customerDomain",
-      label: "客户领域",
-      members: { customers, contacts },
+    business: {
+      kind: "category",
+      key: "business",
+      label: "业务",
+      members: [
+        {
+          kind: "domain",
+          key: "customerDomain",
+          label: "客户",
+          members: { customers, contacts },
+        },
+        asDomain(vouchers),
+        asDomain(printDemo),
+        ...Object.values(familyCollections).map((collection) =>
+          asDomain(collection),
+        ),
+        {
+          kind: "section",
+          key: "examples",
+          label: "示例分类",
+          members: [asDomain(empty, "E 空集合")],
+        },
+      ],
     },
-    vouchers,
-    empty,
-    printDemo,
-    ...familyCollections,
   },
   authentication: {
     form: object("login", "登录", [loginLedger, loginName, loginPassword]),
@@ -679,20 +713,6 @@ export const model: BusinessModel = reactive({
   session: { state: "anonymous", owner: null, userPermissions: null },
   navigation: {
     current: null,
-    groups: [
-      {
-        key: "business",
-        label: "业务",
-        items: [
-          customers,
-          contacts,
-          vouchers,
-          printDemo,
-          ...Object.values(familyCollections),
-        ],
-        sections: [{ key: "examples", label: "示例分类", items: [empty] }],
-      },
-    ],
     href(collection, record) {
       return collection
         ? `/business/${encodeURIComponent(collection.key)}${record ? `?id=${encodeURIComponent(record.identity ?? record.key)}` : ""}`
@@ -756,10 +776,7 @@ for (const { role } of workbenchSeeds) model.workbench![role].items = [];
 bindFamilyQueries(() => model.session.owner);
 router.afterEach((to) => {
   model.navigation.current =
-    Object.values(model.members)
-      .flatMap((member) =>
-        "kind" in member ? Object.values(member.members) : [member],
-      )
-      .find((collection) => model.navigation.href(collection) === to.path) ??
-    null;
+    collections().find(
+      (collection) => model.navigation.href(collection) === to.path,
+    ) ?? null;
 });

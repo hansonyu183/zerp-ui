@@ -10,29 +10,35 @@ model 入口仅导出类型，没有 Vue/Vuetify/CSS 运行时依赖。完整静
 
 ## 领域、对象与集合
 
-`ObjectNode` 的 `family` 固定区分 `standard` 和 `voucher`；单据额外提供只读 `type` 和封闭单据操作。AA、AB 使用同一类型，不建立 VoucherNode 或 VoucherCollection 平行接口。`Collection` 不属于 BusinessNode，只承载独立业务边界；BusinessModel.members 接收 Collection 或 DomainGroup，属性键与成员 key 一致；DomainGroup.members 的属性键也与集合 key 一致。导航只引用根直属或领域内的原 Collection 对象。集合可提供既有有限 `NavigationIcon`：home、catalog、settings、report、voucher、workflow；宿主将该业务语义传给统一外壳，未知语义省略 icon 并保留文字，不接受任意图标名。
+`ObjectNode` 用 `family` 区分 `standard` 和 `voucher`，单据额外提供只读 `type` 和封闭单据操作。`Collection` 承载独立查询、权限和保存边界。栏目、分类与领域组织业务入口。
 
-2026-11-17 用户确认新增 `DomainGroup = { kind: "domain", key, label, members: Record<string, Collection> }`。领域是固定一层的业务入口组织，不是 ObjectNode/BusinessNode，不包含字段、记录、业务值、操作、会话或授权。根直属集合和领域分组可并存；领域内集合以原引用参加 navigation、CollectionTarget、工作台链接与权限映射，不复制出第二份独立集合。集合 key 在所属 members 中稳定唯一，跨领域定位使用集合引用，不依赖全局 key 唯一。
+- 根 `BusinessModel.members` 接受 `BusinessCategory`、`DomainGroup` 或直属 `Collection`，根栏目和领域依照成员对象的属性枚举顺序。
+- `BusinessCategory.members` 是有序的领域与折叠分类数组。`DomainSection.members` 是有序领域数组。键在同层唯一，分类固定一层。
+- `DomainGroup.members` 保留有序的集合对象，属性键与集合 key 一致。每个集合只定义一次，路由、工作台、关联和权限使用原集合引用。
 
 ```text
-BusinessModel
-└─ 客户领域（DomainGroup）
-   ├─ 客户集合
-   ├─ 账款设置集合
-   ├─ 联系人集合
-   ├─ 分类集合
-   ├─ 分组集合
-   ├─ 属性定义集合
-   └─ 相关字典集合
+BusinessModel.members
+├─ 基础资料（BusinessCategory）
+│  └─ 客户（DomainGroup）
+│     ├─ 客户（Collection）
+│     ├─ 账款设置（Collection）
+│     ├─ 联系人（Collection）
+│     └─ …
+└─ 单据（BusinessCategory）
+   └─ 采购（DomainSection）
+      ├─ AA 采购订单（DomainGroup，持有 AA 集合）
+      └─ AB 采购收货（DomainGroup，持有 AB 集合）
 ```
 
-分组只组织业务入口，不拥有整体保存；各集合独立持有 conditions、items、selected、draft、分页和 operations，独立查询、授权和保存。领域不产生 query/update、不批量读取子集合、不引入共同提交或权限继承。ObjectNode.members 继续只接受 BusinessNode，RecordsNode 仍随父保存；二者均不接收 DomainGroup 或 Collection。导航 groups/sections 仍显式决定菜单名称、顺序与层级，领域不增加递归导航树或第二套布局协议；可在一个导航组内列出该领域的集合，撤权后隐藏无权集合及空组。领域内容区按模型顺序用真正的 Material Tabs 呈现多个获权集合，单集合直接展示，零集合无空容器；默认首个可见集合，显式直达集合链接仍选中对应 Tab。切换保留各集合输入、条件和分页，已访问集合不因 Tab 往返重复查询；只挂载当前集合，不预读其他 Tab。Tab 使用对应集合的真实 href/visit，保留修饰键及键盘操作；领域自身不增加独立导航目标或保存操作。领域本身不能作为 current、href/visit、CollectionTarget 或权限 grant 的目标。
+侧栏显示栏目的折叠结构及领域链接。领域标签与可选有限语义图标由 `DomainGroup` 提供，链接以该领域第一个可读集合为目标。不可读的领域、空栏目和空分类自动隐藏。消费者可用 `hiddenFromNavigation` 表达单据类型停用等业务事实，已授权的集合链接仍可直达。根直属集合可通过路由、工作台或关联进入。
+
+领域内容区按模型顺序用 Material Tabs 呈现多个获权集合，单集合直接展示。直达链接选中对应 Tab，切换 Tab 保持侧栏领域高亮。切换保留集合输入、条件和分页，已访问集合在 Tab 间往返时不重复查询，只挂载当前集合。各集合独立持有条件、结果、选择、分页、草稿及操作。字段分组及 RecordsNode 所属明细保留各自语义。
 
 对象 `members` 数组决定字段和分组的顺序，同一对象内 `key` 唯一。`label: null` 隐藏整个节点的详情/编辑呈现，不隐藏它的业务值，也不阻止显式 columns 或打印路径引用；权限拒绝优先于任何显示投影。columns 的 key 直接引用记录成员，标题始终采用列自己的 label；不从首条记录推断空集合结构。数据行缺少声明的列成员是模型错误，应显示可定位的反馈，不静默猜测字段。
 
 RecordsNode 只表达所属明细和工作台行；明细增删操作改变本地模型，随父对象保存，无独立查询/分页/提交。嵌套对象若只有分组含义则不提供独立 update。新增回调直接构造新记录及字段，不从 column 或已有记录克隆结构。源代码中的记录示例供回调实施时参考，不是恢复 element 的模型模板；每条新记录必须持有独立节点。
 
-全局导航不能指向记录、明细、认证或账户对象；详情及编辑保留于集合 selected/draft。配置 workbench 时 current 为 null 表示工作台；未配置时，按导航投影顺序选择首个获权集合；无获权集合时显示空工作区。认证/强制改密状态优先于业务位置。导航 href/visit 的 Collection | null 参数中，null 专指首页；品牌链接使用 href(null)，普通点击通过 visit(null) 同步消费者路由，修饰键和新标签保留原生链接语义。
+`navigation` 只保留 `current`、`href` 和 `visit`。`current` 指向集合或为 `null`。配置工作台时 `null` 显示工作台，侧栏顶部的工作台链接和品牌链接均使用 `href(null)`，普通点击通过 `visit(null)` 同步消费者路由。未配置工作台时进入首个可见领域的首个可读集合，没有可见领域时显示空工作区。认证与强制改密优先于业务位置。详情和编辑保留在所属集合的 `selected/draft` 中。
 
 ## 操作、权限与会话
 

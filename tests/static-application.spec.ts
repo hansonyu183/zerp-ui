@@ -3,6 +3,7 @@ import { reactive } from "vue";
 import { expect, it, vi } from "vitest";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { BusinessApplication } from "../src/index";
+import { domainOf } from "./fixtures/static-model";
 import type {
   BusinessModel,
   ObjectNode,
@@ -52,7 +53,7 @@ function fixture() {
     kind: "application",
     label: "合成应用",
     brand: { productName: "合成", companyName: "测试" },
-    members: { customers: collection },
+    members: { customers: domainOf(collection) },
     authentication: {
       form: object("login", "登录"),
       operations: { signIn: operation(), recover: operation() },
@@ -70,7 +71,6 @@ function fixture() {
     },
     navigation: {
       current: null,
-      groups: [{ key: "main", label: "业务", items: [collection] }],
       href: () => "/customers",
       visit(node) {
         model.navigation.current = node;
@@ -81,12 +81,12 @@ function fixture() {
   return { model, collection: reactive(collection), query: query.run };
 }
 it("shows declared columns for an empty collection and queries the first authorized collection once", async () => {
-  const { model, query } = fixture();
+  const { model, collection, query } = fixture();
   const wrapper = mount(BusinessApplication, { props: { model } });
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
   expect(query).toHaveBeenCalledTimes(1);
-  expect(model.navigation.current).toBe(model.members.customers);
+  expect(model.navigation.current).toBe(collection);
   wrapper.unmount();
 });
 it("keeps the same root through anonymous authentication and isolates mismatched owners", async () => {
@@ -147,7 +147,9 @@ it("denies ordinary collection access by default and restores granted collection
   };
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
-  expect(model.members.customers).toBe(collection);
+  expect(model.members.customers).toMatchObject({
+    members: { customers: collection },
+  });
   wrapper.unmount();
 });
 it("does not load a configured workbench again on return and retries a failed load explicitly", async () => {
@@ -566,6 +568,17 @@ it("uses the consumer homepage URL and notifies its null navigation callback whi
   await flushPromises();
   const home = wrapper.get('a[aria-label="合成：首页"]');
   expect(home.attributes("href")).toBe("/custom/home");
+  const workbench = wrapper.get('nav a[href="/custom/home"]');
+  expect(workbench.text()).toContain("工作台");
+  expect(wrapper.findAll("nav a")[0]!.element).toBe(workbench.element);
+  await workbench.trigger("click", { ctrlKey: true });
+  expect(visit).not.toHaveBeenCalled();
+  await workbench.trigger("click");
+  expect(visit).toHaveBeenCalledWith(null);
+  expect(workbench.attributes("aria-current")).toBe("page");
+  model.navigation.current = collection;
+  visit.mockClear();
+  await flushPromises();
   await home.trigger("click", { ctrlKey: true });
   expect(visit).not.toHaveBeenCalled();
   expect(model.navigation.current).toBe(collection);
@@ -699,8 +712,7 @@ it("captures report scroll before navigation clears the old page and restores it
     conditions: object("other-conditions", "条件"),
     report: undefined,
   };
-  model.members.other = other;
-  model.navigation.groups[0]!.items.push(other);
+  model.members.other = domainOf(other);
   const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   const descriptor = Object.getOwnPropertyDescriptor(window, "scrollY");
   const frame = globalThis.requestAnimationFrame;
@@ -986,19 +998,17 @@ it("keeps a nested object own update boundary editable from a view-only parent w
   ).toBeDefined();
   wrapper.unmount();
 });
-it("projects known finite collection icons and keeps collections with unknown semantics as text links", async () => {
+it("projects known finite domain icons and renders other domains as text links", async () => {
   const { model, collection } = fixture();
-  collection.icon = "catalog";
+  model.members.customers = { ...domainOf(collection), icon: "catalog" };
   const unknown: Collection = {
     ...collection,
     key: "custom",
     label: "未知业务",
-    icon: undefined,
     conditions: object("custom-conditions"),
     items: [],
   };
-  model.members.custom = unknown;
-  model.navigation.groups[0]!.items.push(unknown);
+  model.members.custom = domainOf(unknown);
   const wrapper = mount(BusinessApplication, {
     props: { model },
     attachTo: document.body,

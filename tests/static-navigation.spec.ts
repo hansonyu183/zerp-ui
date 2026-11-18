@@ -1,24 +1,37 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
 import { reactive } from "vue";
-import { fixture } from "./fixtures/static-model";
+import { domainOf, fixture } from "./fixtures/static-model";
 import { render, click, input } from "./fixtures/static-host";
 let wrapper: Awaited<ReturnType<typeof render>> | undefined;
 afterEach(() => {
   wrapper?.unmount();
   document.body.innerHTML = "";
 });
-it("projects direct roots and fixed second-level sections, preserving page titles and real links", async () => {
+it("derives ordered domain links and folded sections, preserving page titles and real links", async () => {
   const f = fixture();
-  f.rows.navigationLabel = "AB 业务入口";
-  f.model.navigation.groups = [
-    {
+  const second = { ...f.rows, key: "second", label: "AC 业务入口" };
+  const stopped = { ...f.rows, key: "history", label: "历史集合" };
+  f.model.members = {
+    historyContext: { ...f.rows, key: "historyContext", label: "历史上下文" },
+    main: {
+      kind: "category",
       key: "main",
-      label: "业务",
-      items: [],
-      sections: [{ key: "a", label: "A 分类", items: [f.rows] }],
+      label: "单据",
+      members: [
+        {
+          kind: "section",
+          key: "a",
+          label: "A 分类",
+          members: [
+            { ...domainOf(stopped), hiddenFromNavigation: true },
+            domainOf(f.rows, "AB 业务入口"),
+            domainOf(second),
+          ],
+        },
+      ],
     },
-  ];
+  };
   f.model.navigation.current = null;
   wrapper = await render(f.model);
   expect(f.model.navigation.current).toBe(f.rows);
@@ -26,6 +39,10 @@ it("projects direct roots and fixed second-level sections, preserving page title
   expect(section.exists()).toBe(true);
   expect(section.attributes("open")).toBeUndefined();
   expect(section.find("summary").text()).toBe("A 分类");
+  expect(wrapper.findAll("nav a").map((item) => item.text())).toEqual([
+    "AB 业务入口",
+    "AC 业务入口",
+  ]);
   const link = section.find("a");
   expect(link.text()).toBe("AB 业务入口");
   expect(link.attributes("href")).toBe("/rows");
@@ -37,12 +54,15 @@ it("projects direct roots and fixed second-level sections, preserving page title
   expect(visit).not.toHaveBeenCalled();
   await link.trigger("click");
   expect(visit).toHaveBeenCalledWith(f.rows);
+  f.model.navigation.current = stopped;
+  await flushPromises();
+  expect(wrapper.get("h1").text()).toBe("历史集合");
+  expect(wrapper.find("nav [aria-current]").exists()).toBe(false);
 });
 it("rechecks stale links against permissions and owner without remapping removed indexes", async () => {
   const f = fixture();
   const second = { ...f.rows, key: "second", label: "第二集合" };
-  f.model.members.second = second;
-  f.model.navigation.groups[0]!.items.push(second);
+  f.model.members.second = domainOf(second);
   wrapper = await render(f.model);
   const oldLink = wrapper
     .findAll("nav a")
@@ -65,7 +85,7 @@ it("rechecks stale links against permissions and owner without remapping removed
   await oldLink.trigger("click");
   expect(visit.mock.calls.some(([root]) => root === f.rows)).toBe(false);
   expect(
-    visit.mock.calls.filter(([root]) => root === f.model.members.second),
+    visit.mock.calls.filter(([root]) => root?.key === second.key),
   ).toHaveLength(1); // authorized fallback only
   visit.mockClear();
   f.model.session.owner = { ...f.owner, generation: "2" };
@@ -77,24 +97,34 @@ it("rechecks stale links against permissions and owner without remapping removed
 it("prunes unauthorized roots, empty sections and groups, and falls back through sections in declared order", async () => {
   const f = fixture();
   const blocked = { ...f.rows, key: "blocked", label: "不可见集合" };
-  f.model.members.blocked = blocked;
-  f.model.navigation.groups = [
-    {
+  f.model.members = {
+    hidden: {
+      kind: "category",
       key: "hidden",
       label: "空组",
-      items: [blocked],
-      sections: [{ key: "empty", label: "空分类", items: [] }],
+      members: [domainOf(blocked)],
     },
-    {
+    visible: {
+      kind: "category",
       key: "visible",
       label: "有权组",
-      items: [],
-      sections: [
-        { key: "denied", label: "撤权分类", items: [blocked] },
-        { key: "allowed", label: "获权分类", items: [f.rows] },
+      members: [
+        { kind: "section", key: "empty", label: "空分类", members: [] },
+        {
+          kind: "section",
+          key: "denied",
+          label: "撤权分类",
+          members: [domainOf(blocked)],
+        },
+        {
+          kind: "section",
+          key: "allowed",
+          label: "获权分类",
+          members: [domainOf(f.rows)],
+        },
       ],
     },
-  ];
+  };
   f.model.session.userPermissions = {
     owner: f.owner,
     administrator: false,
@@ -127,10 +157,6 @@ it("keeps domain collections independently authorized, queried and saved", async
     members: { rows: f.rows, contacts: other.rows },
   });
   f.model.members = { customers: domain, standalone };
-  f.model.navigation.groups = [
-    { key: "customers", label: "客户领域", items: [f.rows, other.rows] },
-    { key: "other", label: "其他", items: [standalone] },
-  ];
   f.model.session.userPermissions = {
     owner: f.owner,
     administrator: false,
@@ -144,7 +170,7 @@ it("keeps domain collections independently authorized, queried and saved", async
     ],
   };
   wrapper = await render(f.model);
-  expect(wrapper.findAll("nav a").map((a) => a.text())).toEqual(["记录集合"]);
+  expect(wrapper.findAll("nav a").map((a) => a.text())).toEqual(["客户领域"]);
   expect(f.rows.operations.query!.run).toHaveBeenCalledTimes(1);
   expect(other.rows.operations.query!.run).not.toHaveBeenCalled();
   expect(standalone.operations.query!.run).not.toHaveBeenCalled();
@@ -161,19 +187,24 @@ it("keeps domain collections independently authorized, queried and saved", async
     operations: { query: true },
   });
   await flushPromises();
-  expect(wrapper.findAll("nav a").map((a) => a.text())).toEqual([
-    "记录集合",
-    "联系人",
-  ]);
+  const link = wrapper.get("nav a");
+  expect(wrapper.findAll("nav a").map((a) => a.text())).toEqual(["客户领域"]);
+  expect(link.attributes("href")).toBe("/rows");
   expect(other.rows.operations.query!.run).not.toHaveBeenCalled();
   await wrapper
-    .findAll("nav a")
-    .find((a) => a.text() === "联系人")!
+    .get('[role="tablist"]')
+    .findAll('[role="tab"]')[1]!
     .trigger("click");
   await flushPromises();
   expect(f.model.navigation.current).toBe(other.rows);
+  expect(link.attributes("aria-current")).toBe("page");
   expect(other.rows.operations.query!.run).toHaveBeenCalledTimes(1);
   expect(wrapper.find('button[aria-label="编辑"]').exists()).toBe(false);
+  f.model.session.userPermissions.grants.shift();
+  await flushPromises();
+  expect(wrapper.get("nav a").attributes("href")).toBe("/contacts");
+  expect(wrapper.get("nav a").attributes("aria-current")).toBe("page");
+  expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
   f.model.session.userPermissions.grants = [];
   await flushPromises();
   expect(wrapper.findAll("nav a")).toHaveLength(0);

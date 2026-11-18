@@ -107,7 +107,7 @@
       "file": "tests/static-navigation.spec.ts",
       "anchor": "keeps domain collections independently authorized, queried and saved",
       "surface": "source/public-entry",
-      "assertion": "领域内集合按各自授权裁剪、仅访问时查询、独立保存，拒绝跨集合串写；移除领域后旧导航失效"
+      "assertion": "每个领域单侧栏链接，切换集合保持高亮；域内独立授权、按需查询、独立保存；移除领域后旧链接失效"
     },
     "unit-domain-tabs": {
       "file": "tests/static-navigation.spec.ts",
@@ -396,7 +396,7 @@
         "package-domain-tabs"
       ],
       "remaining": "领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
-      "requirementSha256": "9b69c76cda02a67411dd242e630bf11107ccdacd15c8f78e4f95780a3b6b8af3"
+      "requirementSha256": "8fde220399009d960e85876817cb711770866e3a5b283d001f4ca4646d564a90"
     },
     {
       "id": "UI-FORM-07",
@@ -433,10 +433,11 @@
         "unit-model",
         "unit-reactivity",
         "package-full",
-        "unit-domain"
+        "unit-domain",
+        "package-domain-tabs"
       ],
-      "remaining": "领域内集合的独立授权、按需查询及保存有公开入口源码断言；完整客户领域类型示例仅编译，真实消费者业务名称、Router、权限及七集合行为另行验收。",
-      "requirementSha256": "256d09b916ff2d8eb01a558472918a7504d1717c13dc17b47cafa3df6595d326"
+      "remaining": "公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。",
+      "requirementSha256": "fe2341644e9571029ab3b884ec11daffebe3bf808846e1bee6a4b66a5cea2928"
     },
     {
       "id": "UI-NAV-04",
@@ -490,7 +491,7 @@
       "id": "UI-SCOPE-01",
       "checks": [],
       "remaining": "真实消费者验收：OIT分类、类型码/首字母排序、停用类型/历史直达/独立配置。本库不得硬编码。",
-      "requirementSha256": "16a39851b0e96706032af67b6ed4734a16d697b7935861b0a0b7c61adca4a8ac"
+      "requirementSha256": "9f3d8f421ed1032f6ff2bc99604692a880e58e9b1f9d14f5f0fd32da9de3184a"
     },
     {
       "id": "UI-SCOPE-02",
@@ -520,7 +521,7 @@
       "id": "UI-BOUND-03",
       "checks": [],
       "remaining": "新增约束，尚无行为断言；待消费者修复后验证无网络建立完整结构、响应不能改结构、API不交付装配字段结构及实际业务路径。库合成测试不代替OIT实际消费者验收。",
-      "requirementSha256": "b47167c5bcd4cf8a5310aa328f752822d3f26bcd070ce88e4f6fe2a823c0bf18"
+      "requirementSha256": "a320f450831339e77b4b5e04db342e309889eca1cf55289c606ff4504e399c8c"
     }
   ]
 }

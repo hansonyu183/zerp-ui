@@ -5,6 +5,7 @@ import { fieldAlignmentSmoke } from "./field-alignment-smoke.mjs";
 // Tour the actual synthetic application's public navigation; no model/VM access.
 export async function applicationAlignmentSmoke(page) {
   const surfaces = [];
+  const pages = new Set();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page
     .getByRole("textbox", { name: "登录名", exact: true })
@@ -85,6 +86,8 @@ export async function applicationAlignmentSmoke(page) {
     });
   }
   await menu();
+  const home = navigation.getByRole("link", { name: "工作台", exact: true });
+  const homeHref = await home.getAttribute("href");
   const links = await navigation.locator("a[href]").evaluateAll((items) =>
     items.map((item) => ({
       label: (() => {
@@ -104,10 +107,9 @@ export async function applicationAlignmentSmoke(page) {
       await expect(drawer).toHaveClass(/v-navigation-drawer--mobile/);
     else await expect(drawer).not.toHaveClass(/v-navigation-drawer--mobile/);
     await settleLayout(page);
-    for (const link of links) {
-      await menu();
-      await navigation.locator(`a[href=${JSON.stringify(link.href)}]`).click();
-      await inspect(content, `${link.label} / 列表与筛选`, width);
+    async function inspectCollection(label) {
+      pages.add(label);
+      await inspect(content, `${label} / 列表与筛选`, width);
       const detail = content
         .locator(".zerp-row-actions")
         .getByRole("button", { name: /^(编辑|查看)$/ })
@@ -121,13 +123,13 @@ export async function applicationAlignmentSmoke(page) {
         await detail.click();
         const dialog = page.getByRole("dialog");
         await expect(dialog).toBeVisible();
-        await inspect(dialog, `${link.label} / 详情`, width);
+        await inspect(dialog, `${label} / 详情`, width);
         const tabs = await dialog.getByRole("tab").allTextContents();
         for (const name of tabs) {
           await dialog
             .getByRole("tab", { name: name.trim(), exact: true })
             .click();
-          await inspect(dialog, `${link.label} / ${name.trim()}`, width);
+          await inspect(dialog, `${label} / ${name.trim()}`, width);
         }
         const preview = dialog.getByRole("button", {
           name: "预览",
@@ -138,13 +140,27 @@ export async function applicationAlignmentSmoke(page) {
           await expect(
             dialog.locator('iframe[title="打印预览"]'),
           ).toBeVisible();
-          await inspect(dialog, `${link.label} / 打印预览`, width);
+          await inspect(dialog, `${label} / 打印预览`, width);
         }
         await dialog.getByRole("button", { name: "关闭", exact: true }).click();
         await expect(dialog).toBeHidden();
       }
     }
-    await page.locator(".zerp-shell-brand").click();
+    for (const link of links.filter((item) => item.href !== homeHref)) {
+      await menu();
+      await navigation.locator(`a[href=${JSON.stringify(link.href)}]`).click();
+      await inspectCollection(link.label);
+
+      // Same-domain collections are now reached through the content tabs.
+      const tabs = content.locator(".zerp-domain [role=tab][href]");
+      for (const tab of await tabs.all()) {
+        if ((await tab.getAttribute("href")) === link.href) continue;
+        await tab.click();
+        await inspectCollection((await tab.textContent()).trim());
+      }
+    }
+    await menu();
+    await home.click();
     await inspect(content, "工作台", width);
     for (const caption of ["名称与头像", "更改密码"]) {
       await page
@@ -178,7 +194,7 @@ export async function applicationAlignmentSmoke(page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   return {
     check: "application-pages-and-components-alignment",
-    pages: links.map((link) => link.label),
+    pages: [...pages],
     surfaces,
     result: "passed",
   };

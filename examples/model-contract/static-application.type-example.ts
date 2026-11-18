@@ -638,7 +638,7 @@ const relatedDictionaries = reactive<Collection>({
 export const customerDomain = reactive({
   kind: "domain",
   key: "customerDomain",
-  label: "客户领域",
+  label: "客户",
   members: {
     customers,
     accountSettings,
@@ -655,7 +655,42 @@ export const model: BusinessModel = reactive({
   kind: "application",
   label: "OIT 合成示例",
   brand: { productName: "OIT 示例", companyName: "" },
-  members: { customerDomain, AA: aa, AB: ab },
+  members: {
+    masters: {
+      kind: "category",
+      key: "masters",
+      label: "基础资料",
+      members: [customerDomain],
+    },
+    vouchers: {
+      kind: "category",
+      key: "vouchers",
+      label: "单据",
+      members: [
+        {
+          kind: "section",
+          key: "A",
+          label: "采购",
+          members: [
+            {
+              kind: "domain",
+              key: "AA",
+              label: aa.label,
+              icon: "voucher",
+              members: { [aa.key]: aa },
+            },
+            {
+              kind: "domain",
+              key: "AB",
+              label: ab.label,
+              icon: "voucher",
+              members: { [ab.key]: ab },
+            },
+          ],
+        },
+      ],
+    },
+  },
   workbench,
   theme: {
     value: { preset: "md3", mode: "light" },
@@ -758,22 +793,6 @@ export const model: BusinessModel = reactive({
   // null 表示工作台；详情与编辑留在集合的 selected/draft 内。
   navigation: {
     current: null,
-    groups: [
-      {
-        key: "masters",
-        label: "客户领域",
-        items: [
-          customers,
-          accountSettings,
-          contacts,
-          categories,
-          customerGroups,
-          attributeDefinitions,
-          relatedDictionaries,
-        ],
-      },
-      { key: "vouchers-A", label: "采购", items: [aa, ab] },
-    ],
     href,
     visit,
   },
