@@ -16,20 +16,20 @@
 | UI-GOV-02 | 无自动断言 | 人工审查：迁移逐路径保留呈现；测试通过不代替全部条款证据。 |
 | UI-GOV-03 | 无自动断言 | 流程验收：用户修订与规范同任务同步，来源可追溯。 |
 | UI-GOV-04 | 无自动断言 | 由 Agent 审查用户决定的时序及冲突；仅业务含义不明或需改变已确认要求的未决项按 UI-GOV-06 在开发交付时集中列出。 |
-| UI-GOV-05 | 无自动断言 | 流程验收：逐条交付证据、缺口及授权内修复；本清单不自动判定任务已遵守。 |
+| UI-GOV-05 | 无自动断言 | 流程审查：按共用组件实际复用关系记录受影响页面族/容器/状态、相关桌面/手机路径、已检/未覆盖范围及源码/安装、合成/真实证据面；清单通过不等于任务已遵守，不固定全量检查数量。 |
 | UI-GOV-06 | 无自动断言 | 流程审查由 Agent 执行：常规文案/UI自主判断；仅将业务含义不明或要求变更在开发交付后合并为一份清单，不逐项询问用户。 |
 | UI-THEME-01 | 无自动断言 | 布局所有权及消费者不补模板仍需架构审查；未穷举业务族。 |
 | UI-THEME-02 | [package-theme](#package-theme)、[package-workbench](#package-workbench) | 认证外壳、工作台、领域Tabs和查询按钮覆盖主题响应；尚未逐控件穷举完整Material语言。 |
 | UI-THEME-03 | [unit-theme](#unit-theme)、[package-theme](#package-theme) | 主题菜单位于明暗左侧的几何顺序尚无断言；真实消费者持久化另验收。 |
-| UI-THEME-04 | [unit-buttons](#unit-buttons)、[package-theme](#package-theme) | 公开按钮主次/危险层级、主要按钮样式及查询按钮六种主题明暗颜色有映射；未逐业务族穷举所有按钮。 |
+| UI-THEME-04 | [unit-buttons](#unit-buttons)、[package-theme](#package-theme) | 公开业务按钮层级及代表性主题响应有映射；认证、全部业务族、弹层的按钮风格/间距及迁移保留尚未逐路径穷举，具体variant映射仍是实现记录。 |
 | UI-THEME-05 | [package-layout](#package-layout) | 仅表格12px及手机编辑输入16px；正文/菜单/导航/反馈和18/16/14px标题尚未逐类验证。 |
 | UI-THEME-06 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment) | 仅代表性动作和48px顶栏；compact输入、全控件触控区域未遍历；常规间距由 Agent 判断，见Q2。 |
 | UI-SHELL-01 | [package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。 |
 | UI-SHELL-02 | 无自动断言 | 未断言所有顶栏子项顺序、品牌内容和首页跳转。 |
 | UI-SHELL-03 | 无自动断言 | 未定向检查慢业务读取时账户可达、窄屏文字收起与账户全部入口。 |
 | UI-SHELL-04 | 无自动断言 | 主标题几何及业务名重复需检查；语义重复待人工审查。 |
-| UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback)、[package-field-alignment](#package-field-alignment) | 已覆盖成功/失败消息及长引用读取错误在表单/所属明细行的几何和重试；其他消息更新、警告/状态、其他字段校验路径尚未穷举。 引用错误按钮内置且不挤窄控件、遮挡下拉箭头有代表性几何映射。 |
-| UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay)、[package-readonly-reference-feedback](#package-readonly-reference-feedback) | 保存失败与反馈关闭不改模型事实；未知结果核实和消费者禁用需新宿主定向测试覆盖，不能用普通刷新替代核实。 |
+| UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback)、[package-field-alignment](#package-field-alignment) | 成功/失败与长引用读取错误的表单/明细几何及重试有映射；引用错误入口不挤窄控件、不遮挡展开箭头有代表性检查，清除操作和其它反馈/字段组合未穷举。 |
+| UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay)、[package-readonly-reference-feedback](#package-readonly-reference-feedback) | 保存失败与反馈关闭不改模型事实、禁用只读引用的原因入口可达有映射；全部业务限制/控件及未知结果核实路径未穷举，实际消费者仍需单独验收。 |
 | UI-DESKTOP-01 | [package-layout](#package-layout) | 仅代表表格存在/字号；字段完整性与超宽策略未穷举，尽量避免横滚处理方式由 Agent 按现有要求判断，见Q3。 |
 | UI-DESKTOP-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 第二操作列有断言；排序必须在相关表头且不占筛选栏尚无定向证据。 |
 | UI-DESKTOP-03 | [package-reference-feedback](#package-reference-feedback) | 表格内编辑简洁模式及字段校验前后行高尚无公开浏览器断言。 |
@@ -42,7 +42,7 @@
 | UI-ACTION-04 | 无自动断言 | 新增各入口、标题与成功提示的一致性，以及其他动作文案尚无统一断言。 |
 | UI-FORM-01 | [unit-model](#unit-model)、[unit-review](#unit-review) | 直接编辑、复杂结构有代表用例；查看/新增/编辑完整字段顺序同构尚未逐路径断言。 |
 | UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。 |
-| UI-FORM-03 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-field-alignment](#package-field-alignment)、[package-application-alignment](#package-application-alignment) | 全部合成业务导航入口、账户、工作台及其详情/Tab/预览在390/1440px有边界检查；真实消费者和全部字段值、尺寸、隐藏状态组合未穷举。 |
+| UI-FORM-03 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-field-alignment](#package-field-alignment)、[package-application-alignment](#package-application-alignment) | 全部合成业务导航入口及账户/工作台的代表性桌面手机布局、认证和引用控件边界有映射；共用布局归属经代码审查，真实消费者和全部字段值/尺寸/隐藏状态组合未穷举。 |
 | UI-FORM-04 | [unit-tabs](#unit-tabs)、[package-layout](#package-layout)、[unit-review](#unit-review)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-05 | [unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[unit-reactivity](#unit-reactivity) | 新模型数组顺序、空label详情隐藏及显式列保留有源码映射；动态结构全组合尚未穷举。 |
 | UI-FORM-06 | [unit-model](#unit-model)、[unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[package-tab-input](#package-tab-input)、[package-full](#package-full)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |

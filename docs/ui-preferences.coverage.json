@@ -180,8 +180,8 @@
     {
       "id": "UI-GOV-05",
       "checks": [],
-      "remaining": "流程验收：逐条交付证据、缺口及授权内修复；本清单不自动判定任务已遵守。",
-      "requirementSha256": "f6d1ae96b1aea1000bc561ba419e539c73b94379254435ef4a7c9c831330abc8"
+      "remaining": "流程审查：按共用组件实际复用关系记录受影响页面族/容器/状态、相关桌面/手机路径、已检/未覆盖范围及源码/安装、合成/真实证据面；清单通过不等于任务已遵守，不固定全量检查数量。",
+      "requirementSha256": "d77da9141460e08fefa753a6d3af409c70990c6fee50e76cdc2e535d2b311ab5"
     },
     {
       "id": "UI-GOV-06",
@@ -210,8 +210,8 @@
     {
       "id": "UI-THEME-04",
       "checks": ["unit-buttons", "package-theme"],
-      "remaining": "公开按钮主次/危险层级、主要按钮样式及查询按钮六种主题明暗颜色有映射；未逐业务族穷举所有按钮。",
-      "requirementSha256": "e614d97ed2d1c43b3f8c757b17631ef2860ccba94bc02b807dea1d797d4bb353"
+      "remaining": "公开业务按钮层级及代表性主题响应有映射；认证、全部业务族、弹层的按钮风格/间距及迁移保留尚未逐路径穷举，具体variant映射仍是实现记录。",
+      "requirementSha256": "1a4a8d8c87923ffe279b410c5b96bb82538c92e92f26e9e92d380038ac6b9238"
     },
     {
       "id": "UI-THEME-05",
@@ -257,8 +257,8 @@
         "package-reference-feedback",
         "package-field-alignment"
       ],
-      "remaining": "已覆盖成功/失败消息及长引用读取错误在表单/所属明细行的几何和重试；其他消息更新、警告/状态、其他字段校验路径尚未穷举。 引用错误按钮内置且不挤窄控件、遮挡下拉箭头有代表性几何映射。",
-      "requirementSha256": "9594e2dc174041e0c668e5e8b68268824e6eaa56affa241a49154cb717381209"
+      "remaining": "成功/失败与长引用读取错误的表单/明细几何及重试有映射；引用错误入口不挤窄控件、不遮挡展开箭头有代表性检查，清除操作和其它反馈/字段组合未穷举。",
+      "requirementSha256": "438ce11105f8a967ef86c8c8849a2fddfb2e328ea7183fc7ae0104106e789c53"
     },
     {
       "id": "UI-SHELL-06",
@@ -267,8 +267,8 @@
         "unit-overlay",
         "package-readonly-reference-feedback"
       ],
-      "remaining": "保存失败与反馈关闭不改模型事实；未知结果核实和消费者禁用需新宿主定向测试覆盖，不能用普通刷新替代核实。",
-      "requirementSha256": "67a065ec7c5759c8aa9fef986f9b9d552d923fc4a8b4a51f9793b2901a77ffa5"
+      "remaining": "保存失败与反馈关闭不改模型事实、禁用只读引用的原因入口可达有映射；全部业务限制/控件及未知结果核实路径未穷举，实际消费者仍需单独验收。",
+      "requirementSha256": "3f3a546a7620c6fb279fa60547f192e4282a0f6bb70c4a961298683b04a1963b"
     },
     {
       "id": "UI-DESKTOP-01",
@@ -362,8 +362,8 @@
         "package-field-alignment",
         "package-application-alignment"
       ],
-      "remaining": "全部合成业务导航入口、账户、工作台及其详情/Tab/预览在390/1440px有边界检查；真实消费者和全部字段值、尺寸、隐藏状态组合未穷举。",
-      "requirementSha256": "70bbcdcf08c6e37a095c9b1cc802f69c69118167836fc5991c6df2c8cdff85eb"
+      "remaining": "全部合成业务导航入口及账户/工作台的代表性桌面手机布局、认证和引用控件边界有映射；共用布局归属经代码审查，真实消费者和全部字段值/尺寸/隐藏状态组合未穷举。",
+      "requirementSha256": "8d5cdc916dcd52b02361c710d743be7e3da220f9dcd2183184939f4de9aef827"
     },
     {
       "id": "UI-FORM-04",
