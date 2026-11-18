@@ -16,9 +16,7 @@ function key(collection: Collection) {
   return ids.get(raw)!;
 }
 const entries = computed(() =>
-  Object.values(props.node.members).filter((collection) =>
-    runtime.readable(collection),
-  ),
+  props.node.members.filter((collection) => runtime.readable(collection)),
 );
 const current = computed(() => {
   const selected = runtime.model().navigation.current;

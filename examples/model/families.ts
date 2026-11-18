@@ -94,7 +94,6 @@ export const batchRecord = object("batch", "批次", [
     key: "entries",
     label: "批次项",
     readOnly: true,
-    columns: [{ key: "result", label: "项结果" }],
     items: [object("entry", "批次项", [batchResult])],
     selected: null,
     operations: {},

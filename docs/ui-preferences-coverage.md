@@ -44,7 +44,7 @@
 | UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。 |
 | UI-FORM-03 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-field-alignment](#package-field-alignment)、[package-application-alignment](#package-application-alignment) | 全部合成业务导航入口及账户/工作台的代表性桌面手机布局、认证和引用控件边界有映射；共用布局归属经代码审查，真实消费者和全部字段值/尺寸/隐藏状态组合未穷举。 |
 | UI-FORM-04 | [unit-tabs](#unit-tabs)、[package-layout](#package-layout)、[unit-review](#unit-review)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
-| UI-FORM-05 | [unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[unit-reactivity](#unit-reactivity) | 新模型数组顺序、空label详情隐藏及显式列保留有源码映射；动态结构全组合尚未穷举。 |
+| UI-FORM-05 | [unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[unit-reactivity](#unit-reactivity)、[unit-ordered-navigation](#unit-ordered-navigation)、[unit-owned-detail-members](#unit-owned-detail-members)、[package-owned-detail-members](#package-owned-detail-members) | 逐行权限差异、空值和零值、空态及结构错误反馈有公开源码入口断言。独立安装的桌面及手机检查覆盖标题和顺序，真实消费者及其它字段组合另验收。 |
 | UI-FORM-06 | [unit-model](#unit-model)、[unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[package-tab-input](#package-tab-input)、[package-full](#package-full)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-07 | [unit-reactivity](#unit-reactivity)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-08 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[unit-overlay](#unit-overlay) | 直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。 |
@@ -121,6 +121,24 @@
 [tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
 
 定位：`uses ordered Material groups`。有序多组、首组默认激活、切换保留输入及隐藏空标签分组。
+
+### unit-ordered-navigation
+
+[tests/static-navigation.spec.ts](../tests/static-navigation.spec.ts) · source/public-entry
+
+定位：`uses array order for root links and domain tabs`。数字形态的根和集合键仍按声明顺序生成侧栏和领域 Tab，并选择首个可读入口。
+
+### unit-owned-detail-members
+
+[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+
+定位：`shares ordered readable detail members`。桌面和手机的空态、行成员标题及顺序、空值和零值、跨行字段权限以及行结构错误反馈。
+
+### package-owned-detail-members
+
+[scripts/ui-preferences-smoke.mjs](../scripts/ui-preferences-smoke.mjs) · tgz/browser
+
+定位：`owned-detail-table-and-cards-use-the-same-member-order-and-labels`。独立安装消费者在 1440/390px 的明细标题及顺序一致。
 
 ### unit-overlay
 

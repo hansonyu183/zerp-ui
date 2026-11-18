@@ -8,13 +8,39 @@ afterEach(() => {
   wrapper?.unmount();
   document.body.innerHTML = "";
 });
+it("uses array order for root links and domain tabs even with numeric keys", async () => {
+  const f = fixture();
+  const second = fixture().rows;
+  const other = fixture().rows;
+  f.rows.key = "20";
+  second.key = "3";
+  second.label = "第二集合";
+  other.key = "1";
+  other.label = "第二领域";
+  f.model.members = [
+    { ...domainOf(f.rows, "第一领域"), members: [f.rows, second] },
+    domainOf(other),
+  ];
+  f.model.navigation.current = null;
+  wrapper = await render(f.model);
+  expect(f.model.navigation.current).toBe(f.rows);
+  expect(wrapper.findAll("nav a").map((link) => link.text())).toEqual([
+    "第一领域",
+    "第二领域",
+  ]);
+  expect(wrapper.get("nav a").attributes("href")).toBe("/20");
+  expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([
+    "记录集合",
+    "第二集合",
+  ]);
+});
 it("derives ordered domain links and folded sections, preserving page titles and real links", async () => {
   const f = fixture();
   const second = { ...f.rows, key: "second", label: "AC 业务入口" };
   const stopped = { ...f.rows, key: "history", label: "历史集合" };
-  f.model.members = {
-    historyContext: { ...f.rows, key: "historyContext", label: "历史上下文" },
-    main: {
+  f.model.members = [
+    { ...f.rows, key: "historyContext", label: "历史上下文" },
+    {
       kind: "category",
       key: "main",
       label: "单据",
@@ -31,7 +57,7 @@ it("derives ordered domain links and folded sections, preserving page titles and
         },
       ],
     },
-  };
+  ];
   f.model.navigation.current = null;
   wrapper = await render(f.model);
   expect(f.model.navigation.current).toBe(f.rows);
@@ -62,7 +88,7 @@ it("derives ordered domain links and folded sections, preserving page titles and
 it("rechecks stale links against permissions and owner without remapping removed indexes", async () => {
   const f = fixture();
   const second = { ...f.rows, key: "second", label: "第二集合" };
-  f.model.members.second = domainOf(second);
+  f.model.members.push(domainOf(second));
   wrapper = await render(f.model);
   const oldLink = wrapper
     .findAll("nav a")
@@ -97,14 +123,14 @@ it("rechecks stale links against permissions and owner without remapping removed
 it("prunes unauthorized roots, empty sections and groups, and falls back through sections in declared order", async () => {
   const f = fixture();
   const blocked = { ...f.rows, key: "blocked", label: "不可见集合" };
-  f.model.members = {
-    hidden: {
+  f.model.members = [
+    {
       kind: "category",
       key: "hidden",
       label: "空组",
       members: [domainOf(blocked)],
     },
-    visible: {
+    {
       kind: "category",
       key: "visible",
       label: "有权组",
@@ -124,7 +150,7 @@ it("prunes unauthorized roots, empty sections and groups, and falls back through
         },
       ],
     },
-  };
+  ];
   f.model.session.userPermissions = {
     owner: f.owner,
     administrator: false,
@@ -154,9 +180,9 @@ it("keeps domain collections independently authorized, queried and saved", async
     kind: "domain" as const,
     key: "customers",
     label: "客户领域",
-    members: { rows: f.rows, contacts: other.rows },
+    members: [f.rows, other.rows],
   });
-  f.model.members = { customers: domain, standalone };
+  f.model.members = [domain, standalone];
   f.model.session.userPermissions = {
     owner: f.owner,
     administrator: false,
@@ -209,7 +235,7 @@ it("keeps domain collections independently authorized, queried and saved", async
   await flushPromises();
   expect(wrapper.findAll("nav a")).toHaveLength(0);
   expect(wrapper.text()).toContain("暂无可用内容。");
-  expect(domain.members.rows).toBe(f.rows);
+  expect(domain.members[0]).toBe(f.rows);
 });
 
 it("invalidates removed domain collections and their stale navigation links", async () => {
@@ -218,14 +244,14 @@ it("invalidates removed domain collections and their stale navigation links", as
     kind: "domain" as const,
     key: "domain",
     label: "领域",
-    members: { rows: f.rows },
+    members: [f.rows],
   });
-  f.model.members = { domain };
+  f.model.members = [domain];
   wrapper = await render(f.model);
   const oldLink = wrapper.find("nav a");
   const visit = vi.fn();
   f.model.navigation.visit = visit;
-  f.model.members = {};
+  f.model.members = [];
   await oldLink.trigger("click");
   await flushPromises();
   expect(visit).not.toHaveBeenCalled();
@@ -238,14 +264,14 @@ it("uses Material domain tabs with real links and preserves each collection cont
   const second = fixture();
   second.rows.key = "contacts";
   second.rows.label = "联系人";
-  f.model.members = {
-    customerDomain: {
+  f.model.members = [
+    {
       kind: "domain",
       key: "customerDomain",
       label: "客户领域",
-      members: { rows: f.rows, contacts: second.rows },
+      members: [f.rows, second.rows],
     },
-  };
+  ];
   wrapper = await render(f.model);
   const tabs = wrapper.get('[role="tablist"][aria-label="客户领域"]');
   expect(tabs.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([

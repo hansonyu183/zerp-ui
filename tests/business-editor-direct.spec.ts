@@ -55,7 +55,6 @@ it("keeps owned detail edits local until the parent save", async () => {
     key: "lines",
     label: "明细",
     readOnly: false,
-    columns: [{ key: "quantity", label: "数量" }],
     items: [object("line", "明细行", [quantity])],
     selected: null,
     operations: {
@@ -77,3 +76,93 @@ it("keeps owned detail edits local until the parent save", async () => {
   await click("保存");
   expect(record.operations.update!.run).toHaveBeenCalledTimes(1);
 });
+
+it.each([1440, 390])(
+  "shares ordered readable detail members at width %i",
+  async (width) => {
+    const previousWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: width,
+    });
+    window.dispatchEvent(new Event("resize"));
+    try {
+      const { model, rows: collection, record, owner } = fixture();
+      const first = object("one", "第一项", [
+        field("z-note", "备注", ""),
+        field("a-quantity", "数量", "0"),
+        field("hidden", null, "标签隐藏值"),
+        field("restricted", "权限字段", "第一行的值"),
+      ]);
+      const second = object("two", "第二项", [
+        field("z-note", "备注", "次行"),
+        field("a-quantity", "数量", "2"),
+        field("hidden", null, "另一个标签隐藏值"),
+        field("restricted", "权限字段", "第二行的值"),
+      ]);
+      const detail: RecordsNode = {
+        kind: "records",
+        key: "lines",
+        label: "明细",
+        readOnly: false,
+        items: [],
+        selected: null,
+        operations: {},
+      };
+      record.members.push(detail);
+      model.session.userPermissions = {
+        owner,
+        administrator: false,
+        grants: [
+          {
+            node: collection,
+            read: true,
+            write: true,
+            operations: { update: true },
+          },
+          {
+            node: second.members[3]!,
+            read: false,
+            write: false,
+            operations: {},
+          },
+        ],
+      };
+      wrapper = await render(model);
+      await click("编辑");
+      const view = () => document.querySelector(".zerp-direct-records")!;
+      expect(view().textContent).toContain("暂无记录");
+      expect(view().querySelector("table, article")).toBeNull();
+
+      const records = record.members.at(-1) as RecordsNode;
+      records.items = [first, second];
+      await flushPromises();
+      const selector =
+        width === 390 ? "article:first-child .zerp-owned-field > span" : "th";
+      expect(
+        Array.from(view().querySelectorAll(selector), (label) =>
+          label.textContent?.trim(),
+        ),
+      ).toEqual(["备注", "数量"]);
+      expect(input("备注").element.value).toBe("");
+      expect(input("数量").element.value).toBe("0");
+      expect(view().textContent).not.toMatch(
+        /权限字段|隐藏值|行成员定义不一致/,
+      );
+
+      second.members.pop();
+      await flushPromises();
+      const error = document.querySelector('[role="alert"]');
+      expect(error?.textContent).toContain(
+        "第 1 项与第 2 项的行成员定义不一致",
+      );
+      expect(error?.textContent).not.toMatch(/权限字段|restricted/);
+    } finally {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: previousWidth,
+      });
+      window.dispatchEvent(new Event("resize"));
+    }
+  },
+);

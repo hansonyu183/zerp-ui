@@ -27,7 +27,7 @@ const oldOperation = { ...operation, disabledReason: "old", } satisfies Operatio
 model.navigation.current = object;
 // prettier-ignore
 // @ts-expect-error Root members cannot be objects.
-model.members.object = object;
+model.members.push(object);
 // prettier-ignore
 // @ts-expect-error Owned records cannot submit independently.
 const recordsSave = { ...records, operations: { update: operation }, } satisfies RecordsNode;

@@ -30,7 +30,6 @@ function setup() {
       key,
       label: key,
       readOnly: true,
-      columns: [{ key: "title", label: "名称" }],
       items,
       selected: null,
       operations: {},
@@ -59,16 +58,38 @@ function setup() {
   f.model.navigation.visit = visit;
   return { ...f, offPage, shortcut, workbench, href, visit };
 }
+it("builds the workbench caption in readable, labeled member order", async () => {
+  const f = setup();
+  const denied = field("restricted", "权限字段", "无权摘要");
+  f.shortcut.members = [
+    field("z-name", "名称", "最近记录"),
+    field("a-count", "数量", "0"),
+    field("hidden", null, "无标签摘要"),
+    denied,
+  ];
+  f.model.session.userPermissions = {
+    owner: f.owner,
+    administrator: false,
+    grants: [
+      { node: f.rows, read: true, write: false, operations: {} },
+      { node: f.workbench.vouchers, read: true, write: false, operations: {} },
+      { node: denied, read: false, write: false, operations: {} },
+    ],
+  };
+  wrapper = await render(f.model);
+  const section = wrapper.get('.zerp-workbench [aria-label="单据"]');
+  expect(section.get("a").text()).toBe("最近记录 · 0");
+});
 it("renders real off-page workbench record and management links without changing selection", async () => {
   const f = setup();
-  f.model.members = {
-    domain: {
+  f.model.members = [
+    {
       kind: "domain",
       key: "domain",
       label: "客户领域",
-      members: { rows: f.rows },
+      members: [f.rows],
     },
-  };
+  ];
   wrapper = await render(f.model);
   const link = wrapper.findAll("a").find((a) => a.text() === "最近记录");
   expect(link).toBeTruthy();
@@ -126,7 +147,7 @@ it("includes each report target record in its own href and preserves modifier cl
 
 it("rejects a record already owned by a different root collection", async () => {
   const f = setup();
-  f.model.members.other = {
+  f.model.members.push({
     ...f.rows,
     key: "other",
     label: "其他",
@@ -134,7 +155,7 @@ it("rejects a record already owned by a different root collection", async () => 
     items: [f.offPage],
     selected: null,
     draft: null,
-  };
+  });
   wrapper = await render(f.model);
   expect(wrapper.findAll("a").some((a) => a.text() === "最近记录")).toBe(false);
   expect(f.rows.selected).toBeNull();

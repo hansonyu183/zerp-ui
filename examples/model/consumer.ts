@@ -130,11 +130,12 @@ function feedbackReference(
   key: string,
   label: string,
 ): Extract<FieldNode, { kind: "reference" }> {
-  let attempt = 0;
+  let failedScope: string | undefined;
   const field: Extract<FieldNode, { kind: "reference" }> = reactive({
     kind: "reference",
     key,
     label,
+    scopeKey: "0",
     readOnly: false,
     required: false,
     multiple: false,
@@ -142,19 +143,23 @@ function feedbackReference(
     options: [],
     load: operation(async () => {
       const owner = JSON.stringify(model.session.owner);
+      const scope = field.scopeKey;
       await Promise.resolve();
       if (
         model.session.state !== "ready" ||
-        JSON.stringify(model.session.owner) !== owner
+        JSON.stringify(model.session.owner) !== owner ||
+        field.scopeKey !== scope
       )
         return;
-      if (++attempt === 1)
+      if (failedScope !== scope) {
+        failedScope = scope;
         throw Error(
           "目录读取失败：" +
             "合成目录暂不可用，请重试以重新读取候选；这是一条用于检验有限滚动区域的合成长消息。\n".repeat(
               50,
             ),
         );
+      }
       field.options = [
         { id: "ready", label: "重试后的候选", selectable: true },
       ];
@@ -162,27 +167,25 @@ function feedbackReference(
   });
   return field;
 }
+function contactLine(key: string, name = "") {
+  return object(key, "联系人", [
+    text("contact", "联系人姓名", name),
+    feedbackReference("feedback-role", "明细引用"),
+  ]);
+}
+let nextContact = 1;
 const lines: RecordsNode = reactive({
   kind: "records",
   key: "contacts",
   label: "联系人",
   readOnly: false,
-  columns: [{ key: "contact", label: "姓名" }],
-  items: [
-    object("contact-1", "联系人", [
-      text("contact", "联系人姓名", "合成联系人"),
-    ]),
-  ],
+  items: [contactLine("contact-1", "合成联系人")],
   selected: null,
   operations: {},
 });
 lines.operations.create = operation(async () => {
   trace("contacts.create");
-  lines.items.push(
-    object(`contact-${lines.items.length + 1}`, "联系人", [
-      text("contact", "联系人姓名"),
-    ]),
-  );
+  lines.items.push(contactLine(`contact-${++nextContact}`));
 });
 lines.operations.remove = operation(async () => {
   trace("contacts.remove");
@@ -191,12 +194,19 @@ lines.operations.remove = operation(async () => {
   lines.selected = null;
 });
 const settlementAccount = text("account", "结算账户", "合成账户");
+const feedbackForm = feedbackReference("feedback-reference", "表单引用");
+function resetFeedbackForm() {
+  feedbackForm.scopeKey = String(Number(feedbackForm.scopeKey) + 1);
+  feedbackForm.options = [];
+  feedbackForm.value = null;
+}
 const customer = object("customer", "客户", [
   text("code", "编号", "C1", true),
   name,
   credit,
   category,
   groups,
+  feedbackForm,
   text("internal", null, "隐藏内部值"),
   object("settlement", "结算", [settlementAccount]),
   lines,
@@ -211,7 +221,11 @@ const currentCustomerFacts = () =>
     category: category.value,
     groups: groups.value,
     contacts: lines.items.map((row) =>
-      row.members.map((member) => ("value" in member ? member.value : null)),
+      row.members.flatMap((member) =>
+        member.kind === "text" && member.key === "contact"
+          ? [member.value]
+          : [],
+      ),
     ),
   });
 const savedCustomerFacts = ref(currentCustomerFacts());
@@ -341,16 +355,7 @@ customers.operations.query = operation(async () => {
   )
     return;
   if (filter.value === "失败") throw Error("合成查询失败");
-  const feedbackCase = filter.value === "引用反馈";
-  customer.members = customer.members.filter(
-    (node) => node.key !== "feedback-reference",
-  );
-  if (feedbackCase)
-    customer.members.push(feedbackReference("feedback-reference", "表单引用"));
-  lines.columns = [
-    { key: "contact", label: "姓名" },
-    ...(feedbackCase ? [{ key: "feedback-role", label: "角色" }] : []),
-  ];
+  if (filter.value === "引用反馈") resetFeedbackForm();
   const facts = JSON.parse(savedCustomerFacts.value) as {
     name: string;
     credit: string;
@@ -365,13 +370,9 @@ customers.operations.query = operation(async () => {
   category.value = facts.category;
   groups.value = facts.groups;
   lines.items = facts.contacts.map((values, index) =>
-    object(`contact-${index + 1}`, "联系人", [
-      text("contact", "联系人姓名", values[0] ?? ""),
-    ]),
+    contactLine(`contact-${index + 1}`, values[0]),
   );
-  if (feedbackCase)
-    for (const row of lines.items)
-      row.members.push(feedbackReference("feedback-role", "明细引用"));
+  nextContact = Math.max(nextContact, lines.items.length);
   customer.identity = "C1";
   customers.items = [customer];
   customers.total = 1;
@@ -454,7 +455,6 @@ const voucher: ObjectNode = reactive({
       key: "rows",
       label: "单据明细",
       readOnly: false,
-      columns: [{ key: "quantity", label: "数量" }],
       items: [object("line-1", "明细", [quantity])],
       selected: null,
       operations: {},
@@ -544,7 +544,6 @@ const shortcut = (
   key,
   label,
   readOnly: true,
-  columns: [{ key: "title", label: "名称" }],
   items: [
     {
       ...object(`${key}-row`, "入口", [
@@ -569,17 +568,17 @@ function asDomain(
     kind: "domain",
     key: collection.key,
     label,
-    members: { [collection.key]: collection },
+    members: [collection],
   };
 }
 function collections(): Collection[] {
-  return Object.values(model.members).flatMap((member) => {
+  return model.members.flatMap((member) => {
     if (!("kind" in member)) return [member];
-    if (member.kind === "domain") return Object.values(member.members);
+    if (member.kind === "domain") return member.members;
     return member.members.flatMap((child) =>
       child.kind === "domain"
-        ? Object.values(child.members)
-        : child.members.flatMap((domain) => Object.values(domain.members)),
+        ? child.members
+        : child.members.flatMap((domain) => domain.members),
     );
   });
 }
@@ -601,6 +600,7 @@ function resetBusiness() {
         condition.value = "";
   }
   filter.value = "";
+  resetFeedbackForm();
   name.value = "";
   settlementAccount.value = "";
   lines.items = [];
@@ -648,8 +648,8 @@ export const model: BusinessModel = reactive({
   kind: "application",
   label: "静态业务模型",
   brand: { productName: "合成业务示例", companyName: "示例企业" },
-  members: {
-    business: {
+  members: [
+    {
       kind: "category",
       key: "business",
       label: "业务",
@@ -658,7 +658,7 @@ export const model: BusinessModel = reactive({
           kind: "domain",
           key: "customerDomain",
           label: "客户",
-          members: { customers, contacts },
+          members: [customers, contacts],
         },
         asDomain(vouchers),
         asDomain(printDemo),
@@ -673,7 +673,7 @@ export const model: BusinessModel = reactive({
         },
       ],
     },
-  },
+  ],
   authentication: {
     form: object("login", "登录", [loginLedger, loginName, loginPassword]),
     operations: {

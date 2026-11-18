@@ -89,7 +89,7 @@ it("reuses unchanged static structure when current business values change", asyn
   const other = fixture().rows;
   other.key = "offscreen";
   other.conditions = unseen;
-  model.members.offscreen = other;
+  model.members.push(other);
   wrapper = await render(model);
   structuralReads = 0;
   name.value = "当前业务新值";

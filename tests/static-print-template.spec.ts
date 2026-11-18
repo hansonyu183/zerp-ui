@@ -256,7 +256,6 @@ describe("finite model print template binding", () => {
       key: "lines",
       label: "明细",
       readOnly: false,
-      columns: collection.columns,
       items: collection.items,
       selected: null,
       operations: {},
@@ -385,7 +384,6 @@ describe("measured print pagination", () => {
       label: "明细",
       readOnly: true,
       items: collection.items,
-      columns: [],
       selected: null,
       operations: {},
     };

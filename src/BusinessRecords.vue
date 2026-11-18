@@ -5,24 +5,55 @@ import { VTable, VCard, VCheckboxBtn } from "vuetify/components";
 import type { RecordsNode, ObjectNode } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
 import BusinessNode from "./BusinessNode.vue";
+import Feedback from "./Feedback.vue";
+import FeedbackRegion from "./FeedbackRegion.vue";
 const props = defineProps<{ node: RecordsNode; readOnly?: boolean }>();
 const runtime = inject(directRuntimeKey)!;
 const { xs } = useDisplay();
 const rows = computed(() =>
-  props.node.items.filter((row) => runtime.readable(row)),
+  props.node.items.filter(runtime.readable).map((row) => ({
+    row,
+    fields: new Map(row.members.map((member) => [member.key, member])),
+  })),
 );
 const columns = computed(() =>
-  props.node.columns.filter((column) =>
-    rows.value.every((row) => {
-      const child = row.members.find((member) => member.key === column.key);
-      return !child || runtime.readable(child);
-    }),
+  [...(rows.value[0]?.fields.values() ?? [])].filter(
+    (column) =>
+      column.label !== null &&
+      rows.value.every(({ fields }) => {
+        const child = fields.get(column.key);
+        return (
+          child?.label === column.label &&
+          child.kind === column.kind &&
+          runtime.readable(child)
+        );
+      }),
   ),
 );
+const modelError = computed(() => {
+  const first = rows.value[0]?.row.members;
+  if (!first) return "";
+  return rows.value
+    .flatMap(({ row, fields }, index) => {
+      if (fields.size !== row.members.length)
+        return [`第 ${index + 1} 项的成员键重复`];
+      if (
+        row.members.length !== first.length ||
+        row.members.some((member, position) => {
+          const expected = first[position]!;
+          return (
+            member.key !== expected.key ||
+            member.label !== expected.label ||
+            member.kind !== expected.kind
+          );
+        })
+      )
+        return [`第 1 项与第 ${index + 1} 项的行成员定义不一致`];
+      return [];
+    })
+    .join("\n");
+});
 const selectable = computed(() => runtime.allowed(props.node, "remove"));
-function field(row: ObjectNode, key: string) {
-  return row.members.find((member) => member.key === key);
-}
 function select(row: ObjectNode, value: boolean | null) {
   if (props.readOnly || !runtime.writable(props.node)) return;
   props.node.selected = value ? row : null;
@@ -30,9 +61,13 @@ function select(row: ObjectNode, value: boolean | null) {
 </script>
 <template>
   <div class="zerp-direct-records">
-    <template v-if="xs">
+    <FeedbackRegion v-if="modelError">
+      <Feedback :message="modelError" kind="error" />
+    </FeedbackRegion>
+    <p v-if="!rows.length">暂无记录</p>
+    <template v-else-if="xs">
       <VCard
-        v-for="(row, index) in rows"
+        v-for="({ row, fields }, index) in rows"
         :key="row.identity ?? row.key"
         class="zerp-owned-card"
         tag="article"
@@ -54,8 +89,7 @@ function select(row: ObjectNode, value: boolean | null) {
           >
             <span>{{ column.label }}</span
             ><BusinessNode
-              v-if="field(row, column.key)"
-              :node="field(row, column.key)!"
+              :node="fields.get(column.key)!"
               :auto-read="false"
               :read-only="readOnly"
             />
@@ -73,7 +107,10 @@ function select(row: ObjectNode, value: boolean | null) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(row, index) in rows" :key="row.identity ?? row.key">
+        <tr
+          v-for="({ row, fields }, index) in rows"
+          :key="row.identity ?? row.key"
+        >
           <td v-if="selectable">
             <VCheckboxBtn
               :aria-label="`选择第 ${index + 1} 项`"
@@ -84,8 +121,7 @@ function select(row: ObjectNode, value: boolean | null) {
           </td>
           <td v-for="column in columns" :key="column.key">
             <BusinessNode
-              v-if="field(row, column.key)"
-              :node="field(row, column.key)!"
+              :node="fields.get(column.key)!"
               :auto-read="false"
               :read-only="readOnly"
             />
@@ -93,7 +129,6 @@ function select(row: ObjectNode, value: boolean | null) {
         </tr>
       </tbody>
     </VTable>
-    <p v-if="!rows.length">暂无记录</p>
   </div>
 </template>
 <style scoped>

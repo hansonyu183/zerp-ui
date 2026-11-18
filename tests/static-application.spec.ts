@@ -53,7 +53,7 @@ function fixture() {
     kind: "application",
     label: "合成应用",
     brand: { productName: "合成", companyName: "测试" },
-    members: { customers: domainOf(collection) },
+    members: [domainOf(collection)],
     authentication: {
       form: object("login", "登录"),
       operations: { signIn: operation(), recover: operation() },
@@ -147,8 +147,8 @@ it("denies ordinary collection access by default and restores granted collection
   };
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
-  expect(model.members.customers).toMatchObject({
-    members: { customers: collection },
+  expect(model.members[0]).toMatchObject({
+    members: [collection],
   });
   wrapper.unmount();
 });
@@ -159,7 +159,6 @@ it("does not load a configured workbench again on return and retries a failed lo
     key,
     label: key,
     readOnly: true,
-    columns: [],
     items: [],
     selected: null,
     operations: {},
@@ -363,7 +362,6 @@ it("edits owned detail rows in a compact desktop table and saves through the par
       key: "lines",
       label: "联系明细",
       readOnly: false,
-      columns: [{ key: "name", label: "名称" }],
       items: [child],
       selected: null,
       operations: { create: operation(), remove: operation() },
@@ -546,7 +544,6 @@ it("uses the consumer homepage URL and notifies its null navigation callback whi
     key,
     label: key,
     readOnly: true,
-    columns: [],
     items: [],
     selected: null,
     operations: {},
@@ -712,7 +709,7 @@ it("captures report scroll before navigation clears the old page and restores it
     conditions: object("other-conditions", "条件"),
     report: undefined,
   };
-  model.members.other = domainOf(other);
+  model.members.push(domainOf(other));
   const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   const descriptor = Object.getOwnPropertyDescriptor(window, "scrollY");
   const frame = globalThis.requestAnimationFrame;
@@ -1000,7 +997,7 @@ it("keeps a nested object own update boundary editable from a view-only parent w
 });
 it("projects known finite domain icons and renders other domains as text links", async () => {
   const { model, collection } = fixture();
-  model.members.customers = { ...domainOf(collection), icon: "catalog" };
+  model.members[0] = { ...domainOf(collection), icon: "catalog" };
   const unknown: Collection = {
     ...collection,
     key: "custom",
@@ -1008,7 +1005,7 @@ it("projects known finite domain icons and renders other domains as text links",
     conditions: object("custom-conditions"),
     items: [],
   };
-  model.members.custom = domainOf(unknown);
+  model.members.push(domainOf(unknown));
   const wrapper = mount(BusinessApplication, {
     props: { model },
     attachTo: document.body,

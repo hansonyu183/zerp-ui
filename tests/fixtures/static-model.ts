@@ -48,7 +48,7 @@ export function domainOf(
     kind: "domain",
     key: collection.key,
     label,
-    members: { [collection.key]: collection },
+    members: [collection],
   };
 }
 export function fixture() {
@@ -74,7 +74,7 @@ export function fixture() {
     kind: "application",
     label: "公开模型测试",
     brand: { productName: "Test", companyName: "Synthetic" },
-    members: { rows: domainOf(rows) },
+    members: [domainOf(rows)],
     authentication: {
       form: object("login", "登录", [field("username", "登录名", "")]),
       operations: { signIn: operation(), recover: operation() },

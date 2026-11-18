@@ -5,10 +5,14 @@ import type {
   PrintTemplate,
   FieldNode,
 } from "@zerp/ui/model";
-const field = (key: string, value: string): FieldNode => ({
+const field = (
+  key: string,
+  value: string,
+  label: string | null = key,
+): FieldNode => ({
   kind: "text",
   key,
-  label: key,
+  label,
   value,
   required: false,
   readOnly: true,
@@ -128,7 +132,7 @@ const template: PrintTemplate = {
 function voucher(): ObjectNode {
   const rows = Array.from({ length: 35 }, (_, i) =>
     object(`line-${i + 1}`, [
-      field("code", `L${String(i + 1).padStart(3, "0")}`),
+      field("code", `L${String(i + 1).padStart(3, "0")}`, null),
       field(
         "description",
         i % 3 === 0
@@ -138,8 +142,9 @@ function voucher(): ObjectNode {
           : i === 1
             ? ""
             : `合成商品${i + 1}`,
+        "商品",
       ),
-      field("quantity", "1"),
+      field("quantity", "1", null),
     ]),
   );
   return object("delivery-demo", [
@@ -150,7 +155,6 @@ function voucher(): ObjectNode {
       key: "lines",
       label: "明细",
       readOnly: true,
-      columns: [{ key: "description", label: "商品" }],
       items: rows,
       selected: null,
       operations: {},

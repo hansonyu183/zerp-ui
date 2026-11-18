@@ -243,8 +243,7 @@ export interface Column {
 /** 对象所属子明细，或工作台内容；不是独立业务集合。 */
 export interface RecordsNode extends NodeBase {
   kind: "records";
-  columns: Column[];
-  /** 按稳定 identity 复用记录；无需 element 模板，也不复制已有行作为新行。 */
+  /** 各行按同一静态定义构造独立节点，members 的顺序及标签决定明细呈现。 */
   items: ObjectNode[];
   selected: ObjectNode | null;
   /** 仅改变所属模型的本地明细；最终保存由父对象 update 完成。 */
@@ -414,8 +413,8 @@ export interface DomainGroup {
   icon?: NavigationIcon;
   /** 停用等业务状态可收起侧栏入口；已授权链接仍可直达。 */
   hiddenFromNavigation?: boolean;
-  /** 属性键与集合 key 一致；固定一层，不含字段、记录或嵌套领域。 */
-  members: Record<string, Collection>;
+  /** 按数组顺序呈现，集合 key 在领域内唯一。 */
+  members: Collection[];
 }
 
 /** 栏目内可折叠的业务分类，例如单据下的采购。 */
@@ -518,7 +517,7 @@ export interface BusinessModel {
   label: string;
   brand: { productName: string; companyName: string };
   /** 栏目和领域生成侧栏；直属集合可直接定位，不生成菜单项。 */
-  members: Record<string, BusinessCategory | DomainGroup | Collection>;
+  members: (BusinessCategory | DomainGroup | Collection)[];
   workbench?: Workbench;
   /** 省略时默认 MD3 浅色；选择持久化由消费者负责。 */
   theme?: {

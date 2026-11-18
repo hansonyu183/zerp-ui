@@ -15,6 +15,8 @@ pnpm add ./zerp-ui-0.47.0.tgz
 
 ## 公开入口与迁移
 
+升级到 0.48.0 时，将根成员和领域集合改为数组，并移除 `RecordsNode.columns`。所属明细的字段顺序和标题由各行的 `ObjectNode.members` 定义。独立集合和打印模板继续声明各自的列数组。详见[静态模型接口](docs/interfaces/README.md)。
+
 ```vue
 <script setup lang="ts">
 import { BusinessApplication } from "@zerp/ui";

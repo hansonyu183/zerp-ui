@@ -72,7 +72,7 @@ const legacyCollectionKind = { ...collection, kind: "collection", } satisfies Co
 const missingColumnLabel = { ...collection, columns: [{ key: "name" }], } satisfies Collection;
 // prettier-ignore
 // @ts-expect-error 根 members 只接收独立集合或领域分组，不接收记录。
-const wrongRoot = { ...model, members: { record: object }, } satisfies BusinessModel;
+const wrongRoot = { ...model, members: [object], } satisfies BusinessModel;
 // prettier-ignore
 // @ts-expect-error 导航只能指向集合。
 const wrongNavigation: BusinessModel["navigation"] = { ...model.navigation, current: object, };
@@ -224,7 +224,7 @@ const domain = {
   kind: "domain",
   key: "customers",
   label: "客户领域",
-  members: { customers: collection },
+  members: [collection],
 } satisfies DomainGroup;
 const section: DomainSection = {
   kind: "section",
@@ -239,14 +239,27 @@ const nestedSection: DomainSection = { ...section, members: [section] };
 void [sectionCollection, nestedSection];
 const groupedModel = {
   ...model,
-  members: { customers: domain, standalone: collection },
+  members: [domain, collection],
 } satisfies BusinessModel;
+const keyedRoot = {
+  ...model,
+  // @ts-expect-error 根成员必须是有序数组。
+  members: { customers: domain },
+} satisfies BusinessModel;
+const keyedDomain = {
+  ...domain,
+  // @ts-expect-error 领域集合必须是有序数组。
+  members: { customers: collection },
+} satisfies DomainGroup;
+// @ts-expect-error 所属明细的呈现来自行成员。
+const explicitDetailColumns = { ...records, columns: [] } satisfies RecordsNode;
+void [keyedRoot, keyedDomain, explicitDetailColumns];
 // prettier-ignore
 // @ts-expect-error 领域只有集合，不接收业务记录。
-const domainRecord = { ...domain, members: { record: object } } satisfies DomainGroup;
+const domainRecord = { ...domain, members: [object] } satisfies DomainGroup;
 // prettier-ignore
 // @ts-expect-error 领域固定一层，不递归。
-const domainNested = { ...domain, members: { nested: domain } } satisfies DomainGroup;
+const domainNested = { ...domain, members: [domain] } satisfies DomainGroup;
 // prettier-ignore
 // @ts-expect-error 领域没有整体保存或查询操作。
 const domainSave = { ...domain, operations: { update: operation } } satisfies DomainGroup;

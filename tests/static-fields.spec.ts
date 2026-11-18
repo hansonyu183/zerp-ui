@@ -82,14 +82,14 @@ function fixture(fields: FieldNode[] = []) {
     kind: "application",
     label: "合成",
     brand: { productName: "合成", companyName: "测试" },
-    members: {
-      records: {
+    members: [
+      {
         kind: "domain",
         key: "records",
         label: collection.label,
-        members: { records: collection },
+        members: [collection],
       },
-    },
+    ],
     authentication: {
       form: object("登录"),
       operations: { signIn: op(), recover: op() },

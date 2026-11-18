@@ -44,7 +44,7 @@ const navigationIds = new WeakMap<object, number>();
 let nextNavigationId = 0;
 function domainEntry(domain: DomainGroup, path: string[], section?: string) {
   if (domain.hiddenFromNavigation) return [];
-  const collections = Object.values(domain.members).filter(runtime.readable);
+  const collections = domain.members.filter(runtime.readable);
   const target = collections[0];
   if (!target) return [];
   const raw = toRaw(target);
@@ -63,7 +63,7 @@ function domainEntry(domain: DomainGroup, path: string[], section?: string) {
   ];
 }
 const groups = computed(() =>
-  Object.values(props.model.members).flatMap((member) => {
+  props.model.members.flatMap((member) => {
     if (!("kind" in member)) return [];
     const entries =
       member.kind === "domain"
@@ -251,7 +251,7 @@ const target = computed(() =>
 const domain = computed(() => {
   const collection = current.value;
   if (!collection) return;
-  return Object.values(props.model.members)
+  return props.model.members
     .flatMap((member) =>
       !("kind" in member)
         ? []
@@ -259,12 +259,12 @@ const domain = computed(() => {
           ? [member]
           : categoryDomains(member),
     )
-    .find((group) => Object.values(group.members).includes(collection));
+    .find((group) => group.members.includes(collection));
 });
 const pageTarget = computed(() =>
   accountView.value || props.model.session.state === "password-required"
     ? target.value
-    : domain.value && Object.keys(domain.value.members).length > 1
+    : domain.value && domain.value.members.length > 1
       ? domain.value
       : target.value,
 );

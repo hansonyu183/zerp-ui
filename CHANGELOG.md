@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.48.0
+
+- 破坏性变更：根 `BusinessModel.members` 与 `DomainGroup.members` 使用数组，侧栏、领域 Tab 和首个可读入口遵循声明顺序。
+- 所属明细移除 `RecordsNode.columns`。桌面表格和手机卡片使用相同的有序获权行成员，保留空值位置。工作台按行成员生成摘要，独立集合与打印模板保留各自的列数组。见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。
+
 ## 0.47.0
 
 - 侧栏从静态业务模型派生。栏目和折叠分类按成员数组排序，每个领域显示一项，进入首个获权集合，切换集合 Tab 保持领域高亮。

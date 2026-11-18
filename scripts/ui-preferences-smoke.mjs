@@ -324,6 +324,15 @@ export async function uiPreferencesSmoke(page, options = {}) {
       width === 1440
         ? feedbackDialog.getByRole("table").locator("tbody tr").first()
         : feedbackDialog.locator(".zerp-owned-card").first();
+    const ownedFields =
+      width === 1440
+        ? feedbackDialog.locator(".zerp-direct-records th")
+        : ownedRow.locator(".zerp-owned-field > span");
+    await expect(ownedFields).toHaveText(
+      width === 1440
+        ? ["选择", "联系人姓名", "明细引用"]
+        : ["联系人姓名", "明细引用"],
+    );
     await stableReferenceFailure("明细引用", ownedRow);
     await feedbackDialog
       .getByRole("button", { name: "关闭", exact: true })
@@ -333,6 +342,11 @@ export async function uiPreferencesSmoke(page, options = {}) {
   assertions.push({
     clauses: ["UI-SHELL-05", "UI-DESKTOP-03"],
     check: "long-reference-load-error-preserves-form-and-owned-row-geometry",
+    result: "passed",
+  });
+  assertions.push({
+    clauses: ["UI-FORM-05", "UI-MOBILE-01"],
+    check: "owned-detail-table-and-cards-use-the-same-member-order-and-labels",
     result: "passed",
   });
 

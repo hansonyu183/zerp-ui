@@ -9,12 +9,7 @@ import {
   VListItem,
   VListItemTitle,
 } from "vuetify/components";
-import type {
-  Workbench,
-  RecordsNode,
-  ObjectNode,
-  FieldNode,
-} from "./business-model";
+import type { Workbench, RecordsNode, ObjectNode } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
 import { formatField } from "./model-format";
 import {
@@ -31,19 +26,22 @@ const sections = computed(() =>
     .map((role) => ({ role, node: props.node[role] }))
     .filter((section) => runtime.readable(section.node)),
 );
-function caption(collection: RecordsNode, row: ObjectNode) {
-  return collection.columns
-    .flatMap((column) => {
-      const field = row.members.find((node) => node.key === column.key);
+function caption(row: ObjectNode) {
+  return row.members
+    .flatMap((field) => {
       if (
-        !field ||
+        field.label === null ||
         !runtime.readable(field) ||
         !("value" in field) ||
-        ["secret", "password", "attachments"].includes(field.kind)
+        field.kind === "interactions" ||
+        field.kind === "output" ||
+        field.kind === "secret" ||
+        field.kind === "password" ||
+        field.kind === "attachments"
       )
         return [];
       try {
-        return [formatField(field as FieldNode)];
+        return [formatField(field)];
       } catch (error) {
         return [error instanceof Error ? error.message : "格式错误"];
       }
@@ -165,9 +163,7 @@ watch(
                   : undefined
               "
               @click="open($event, row)"
-              ><VListItemTitle>{{
-                caption(section.node, row)
-              }}</VListItemTitle></VListItem
+              ><VListItemTitle>{{ caption(row) }}</VListItemTitle></VListItem
             >
           </VList>
           <p v-else>暂无内容</p>

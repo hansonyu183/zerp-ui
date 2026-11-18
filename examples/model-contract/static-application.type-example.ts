@@ -172,10 +172,6 @@ export const aaDraft = reactive({
       key: "lines",
       label: "明细",
       readOnly: false,
-      columns: [
-        { key: "product", label: "产品" },
-        { key: "quantity", label: "数量" },
-      ],
       items: [],
       selected: null,
       // 本地增删行，不独立查询/提交；随 AA 的 update 一起保存。
@@ -436,7 +432,6 @@ const workbench = reactive<Workbench>({
     key: "information",
     label: "重要信息",
     readOnly: true,
-    columns: [{ key: "text", label: "内容" }],
     items: [],
     selected: null,
     operations: {},
@@ -446,7 +441,6 @@ const workbench = reactive<Workbench>({
     key: "vouchers",
     label: "单据",
     readOnly: true,
-    columns: [{ key: "text", label: "名称" }],
     items: [],
     selected: null,
     operations: {},
@@ -456,7 +450,6 @@ const workbench = reactive<Workbench>({
     key: "reports",
     label: "报表",
     readOnly: true,
-    columns: [{ key: "text", label: "名称" }],
     items: [],
     selected: null,
     operations: {},
@@ -466,7 +459,6 @@ const workbench = reactive<Workbench>({
     key: "masters",
     label: "资料",
     readOnly: true,
-    columns: [{ key: "text", label: "名称" }],
     items: [],
     selected: null,
     operations: {},
@@ -639,7 +631,7 @@ export const customerDomain = reactive({
   kind: "domain",
   key: "customerDomain",
   label: "客户",
-  members: {
+  members: [
     customers,
     accountSettings,
     contacts,
@@ -647,7 +639,7 @@ export const customerDomain = reactive({
     customerGroups,
     attributeDefinitions,
     relatedDictionaries,
-  },
+  ],
 } satisfies DomainGroup);
 
 /** 登录前整体传入，登录/登出/再次登录只更新同一响应式对象。 */
@@ -655,14 +647,14 @@ export const model: BusinessModel = reactive({
   kind: "application",
   label: "OIT 合成示例",
   brand: { productName: "OIT 示例", companyName: "" },
-  members: {
-    masters: {
+  members: [
+    {
       kind: "category",
       key: "masters",
       label: "基础资料",
       members: [customerDomain],
     },
-    vouchers: {
+    {
       kind: "category",
       key: "vouchers",
       label: "单据",
@@ -677,20 +669,20 @@ export const model: BusinessModel = reactive({
               key: "AA",
               label: aa.label,
               icon: "voucher",
-              members: { [aa.key]: aa },
+              members: [aa],
             },
             {
               kind: "domain",
               key: "AB",
               label: ab.label,
               icon: "voucher",
-              members: { [ab.key]: ab },
+              members: [ab],
             },
           ],
         },
       ],
     },
-  },
+  ],
   workbench,
   theme: {
     value: { preset: "md3", mode: "light" },

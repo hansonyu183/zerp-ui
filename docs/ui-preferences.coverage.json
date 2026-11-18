@@ -55,6 +55,24 @@
       "surface": "source/public-entry",
       "assertion": "有序多组、首组默认激活、切换保留输入及隐藏空标签分组"
     },
+    "unit-ordered-navigation": {
+      "file": "tests/static-navigation.spec.ts",
+      "anchor": "uses array order for root links and domain tabs",
+      "surface": "source/public-entry",
+      "assertion": "数字形态的根和集合键仍按声明顺序生成侧栏和领域 Tab，并选择首个可读入口"
+    },
+    "unit-owned-detail-members": {
+      "file": "tests/business-editor-direct.spec.ts",
+      "anchor": "shares ordered readable detail members",
+      "surface": "source/public-entry",
+      "assertion": "桌面和手机的空态、行成员标题及顺序、空值和零值、跨行字段权限以及行结构错误反馈"
+    },
+    "package-owned-detail-members": {
+      "file": "scripts/ui-preferences-smoke.mjs",
+      "anchor": "owned-detail-table-and-cards-use-the-same-member-order-and-labels",
+      "surface": "tgz/browser",
+      "assertion": "独立安装消费者在 1440/390px 的明细标题及顺序一致"
+    },
     "unit-overlay": {
       "file": "tests/business-list-preferences.spec.ts",
       "anchor": "opens detail over retained conditions",
@@ -379,9 +397,16 @@
     },
     {
       "id": "UI-FORM-05",
-      "checks": ["unit-tabs", "unit-review", "unit-reactivity"],
-      "remaining": "新模型数组顺序、空label详情隐藏及显式列保留有源码映射；动态结构全组合尚未穷举。",
-      "requirementSha256": "f196c45bcf9faa7bfdc30557ccb4bec5a2d8cf93f3696d7e74dfd9e3cdb56755"
+      "checks": [
+        "unit-tabs",
+        "unit-review",
+        "unit-reactivity",
+        "unit-ordered-navigation",
+        "unit-owned-detail-members",
+        "package-owned-detail-members"
+      ],
+      "remaining": "逐行权限差异、空值和零值、空态及结构错误反馈有公开源码入口断言。独立安装的桌面及手机检查覆盖标题和顺序，真实消费者及其它字段组合另验收。",
+      "requirementSha256": "012e171a43544b4835bf5483edc0d454775b228207cfe062cee028678b10a5da"
     },
     {
       "id": "UI-FORM-06",
