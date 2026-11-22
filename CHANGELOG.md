@@ -174,14 +174,14 @@
 - 修复标量与引用值数组的编辑投影，保持业务回调原始值形状；数组可声明只读。
 - 同一正式 tgz 验证两个独立模型消费者；OIT 接入和真实 API 验收仍由 #126 承担，发行证据见 #128。
 
-## 0.31.1
-
 ## 0.32.0
 
 - Breaking: 唯一组件入口切换为只绑定 model 的 BusinessApplication；移除 AuthPage/AppPage、define…Page、旧定义工厂和投影装配接口，无兼容转发。
 - 纯 model 子入口提供响应式节点及所有固定业务操作族；保留必要业务事实和端口类型，内部复用现有草稿/写入/原请求引擎。
 - 全部消费者收口到 model 与 model-business；发行门禁对同一 tgz 验证两者的类型、构建、单实例和实际交互，并支持公开下载原包复验。
 - API/Session/Router/加密仍归消费者；本库合成证据不代表 oit-go/ZERP 已接入。正式发行证据见 #125。
+
+## 0.31.1
 
 - Restore exact property-name precedence for dotted native fields while retaining 0.31 report/task and voucher/batch projections (#121). The standalone voucher consumer covers reading, editing and cancelling these fields.
 
@@ -190,7 +190,15 @@
 - Add model-derived report parameters, read-only result columns and task inputs (#118), reusing the existing query and operation lifecycles. Reference fields retain ID values and fixed models infer the consumer value types.
 - Add public BusinessType projection for dedicated voucher header/detail editors, nested row initial values and finite field conditions (#119). Existing operation/batch request identity and recovery lifecycle remain authoritative.
 
-# 0.29.1
+## 0.30.1
+
+- Resolve explicitly declared literal field names containing dots before nested paths, matching existing value reads and updates. Native voucher extension identifiers retain their original identity (#119).
+
+## 0.30.0
+
+- Add public BusinessType projection for dedicated voucher header/detail editors, nested row initial values and finite field conditions (#119). Existing operation/batch request identity and recovery lifecycle remain authoritative.
+
+## 0.29.1
 
 - 整合 #116 账户/工作台/偏好模型与 #117 数组初始化、表单分区顺序修复，独立固定发行。
 
@@ -198,33 +206,13 @@
 
 - 模型数组新增行的标量初值与分区顺序（#117）；集成完整账户/工作台及偏好模型（#116）。
 
-# 0.28.1
+## 0.28.1
 
 - 常用报表偏好消费业务模型名称和字段；保持幂等设置及核对恢复运行时。对应 #116。
 
-# 0.28.0
+## 0.28.0
 
 - 账户和工作台消费统一业务模型；公开字段与枚举列的有序投影。对应 #116。
-
-# Changelog
-
-## 0.45.1
-
-- 详情读取尚未结束时关闭，焦点回到同记录的禁用操作提示；读取完成后在原位置转到可用按钮，避免焦点落到 BODY。
-
-## 0.45.0
-
-- 单据详情异步更新行操作后，关闭仍恢复同一记录的焦点；首读采用明确读取状态，空集合保留操作列，集合动作稳定置于表格前（#178）。
-
-- 纯前端 JSON 单据打印按真实浏览器字体测量明细，rowHeight/headerHeight 改为最小高度，自动换行撑高、分页并重复表头；超高单行定位报错。
-- 增加有限 pageNumber 元素、列文本样式及 A4 合成送货单示例，保留末尾汇总/签字区整体换页与权限/printable 重检；关闭或切换作用域取消旧排版。
-- 新增 check:print 定向同 tgz 独立安装、构建示例与真实 PDF 验收（#179）。
-
-## 0.44.0 (candidate)
-
-- 破坏性迁移至固定普通属性的静态 BusinessModel：统一 ObjectNode、Collection、有序 members 及所属 RecordsNode，移除 Symbol/form/element 公开协议。
-- 统一会话、权限、固定操作禁用、普通/树形引用、精确显示格式与有限 JSON 模板打印；保留已有业务族及 UI 呈现。
-- 公开 model 类型与可运行合成消费者同步迁移；同一 tgz 物理独立安装验收，正式发行和真实产品接入另行处理，见 #159。
 
 ## 0.27.1
 

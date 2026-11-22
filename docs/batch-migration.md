@@ -1,5 +1,7 @@
 # 合成原请求与批次转换边界
 
+> 本文记录 0.11.1 的合成批次迁移验收。下文页面入口和命令对应[该版本源码](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.11.1)。现行模型的写入与恢复职责见[静态模型迁移](interfaces/static-migration.md)。
+
 正式要求：[父规格 #58](https://github.com/hansonyu183/zerp-ui/issues/58)、[#62](https://github.com/hansonyu183/zerp-ui/issues/62)。本说明描述消费者承担的证据核对；不定义公共兼容协议，不是 OIT 或其他生产转换器。
 
 `examples/capabilities/legacy-conversion.ts` 只识别示例的有限 `synthetic-single-v1` / `synthetic-batch-v1` 工件。示例入口为 `/migration-single` 和 `/migration-batch`，通过公开 `AppPage`、`defineTaskPage`、`defineBatchPage` 与同一安装包运行。全部资料、原请求与权威账本均为合成数据。
