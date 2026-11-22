@@ -56,7 +56,7 @@ export async function businessInteractionSmoke(page) {
   await query.click();
   await expect(record).toBeVisible();
 
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 390, height: 480 });
   await page.getByRole("button", { name: "编辑", exact: true }).click();
   const editor = page.getByRole("dialog");
   const name = editor.getByRole("textbox", { name: "客户名称", exact: true });
@@ -69,11 +69,15 @@ export async function businessInteractionSmoke(page) {
   await name.fill("需要核对客户名称");
   await expect(save).toBeEnabled();
 
-  await name.scrollIntoViewIfNeeded();
+  await save.scrollIntoViewIfNeeded();
   await settleLayout(page);
   const before = await name.boundingBox();
   const body = editor.locator(".zerp-record-dialog__body");
-  const viewportHeight = await body.evaluate((element) => element.clientHeight);
+  const viewport = await body.evaluate((element) => ({
+    height: element.clientHeight,
+    scroll: element.scrollTop,
+  }));
+  expect(viewport.scroll).toBeGreaterThan(0);
   await save.click();
   const specificFailure = editor.getByText("请先核对客户名称。", {
     exact: true,
@@ -85,12 +89,14 @@ export async function businessInteractionSmoke(page) {
   await expect(
     page.getByText("操作失败，请检查业务信息后重试。", { exact: true }),
   ).toHaveCount(0);
-  await name.scrollIntoViewIfNeeded();
   await settleLayout(page);
   const after = await name.boundingBox();
-  await expect
-    .poll(() => body.evaluate((element) => element.clientHeight))
-    .toBe(viewportHeight);
+  expect(
+    await body.evaluate((element) => ({
+      height: element.clientHeight,
+      scroll: element.scrollTop,
+    })),
+  ).toEqual(viewport);
   for (const coordinate of ["x", "y", "width", "height"])
     expect(Math.abs(before[coordinate] - after[coordinate])).toBeLessThan(1);
   await expect(name).toBeEditable();
