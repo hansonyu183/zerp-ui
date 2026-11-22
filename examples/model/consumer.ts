@@ -461,7 +461,13 @@ const empty: Collection = reactive({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: {},
+  operations: {
+    query: operation(async () => {
+      trace("empty.query");
+      empty.items = [];
+      empty.total = 0;
+    }),
+  },
 });
 const quantity: FieldNode = reactive({
   kind: "decimal",
