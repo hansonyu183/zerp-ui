@@ -82,7 +82,7 @@ records 表格的 rowHeight 和 headerHeight 为最小高度；真实浏览器�
 
 对象只区分 standard/voucher。既有资料审批、流程、处理、批次、报表及输出通过固定的 document/workflow/processing/batch/report/output 能力表达，各自 operations 的键由类型封闭。它们不改变对象成员结构，不构成另一个宿主或任意命令配置。
 
-OutputNode 保留已经生成的有限文档及显式实体结果确认；InteractionNode 复用有限问题、目录和网格。其关联目标以及报表下钻的 CollectionTarget 都指向独立集合，可选记录放入集合 selected。Collection.report 保留消费者提供的合计和结构事实。详细对应见[迁移清单](static-migration.md)。
+OutputNode 保留已经生成的有限文档及显式实体结果确认；InteractionNode 复用有限问题、目录和网格。关联和报表下钻通过 CollectionTarget 引用独立集合及可选记录，记录链接和权限边界见下文“工作台与记录目标链接”。Collection.report 保留消费者提供的合计和结构事实。详细对应见[迁移清单](static-migration.md)。
 
 pageNumber 元素沿用文本样式及区域坐标，分页完成后输出“第 X / Y 页”。明细后的 record band 可绑定消费者提供的合计字段并包含签字文案，只输出一次，空间不足时整体移到下一页。列支持有限文本样式，包括字体、字号、粗体、对齐、行距与换行；不执行公式或业务汇总。排版过程按当前 UI 作用域取消，关闭预览、修改数据或切换会话使旧排版失效。规格修订及验收见 #179。
 
@@ -94,7 +94,7 @@ pageNumber 元素沿用文本样式及区域坐标，分页完成后输出“第
 
 ## 脚本菜单与树动作
 
-menu/tree 项既可关联真实独立集合，也可明确提供 InteractionAction（kind=action，operation 为必需 disabled 与 run 的有限操作）。动作需要所属 InteractionNode 的写入资格和 interact 操作授权，执行中禁止重复；条目或操作被替换、所属节点移除、会话/模型切换后隔离迟到失败反馈。业务回调负责在实际回写前验证有效性。related/download 仍只使用 CollectionTarget，不接受动作，不劫持导航执行命令。规格见 #164。
+menu/tree 项既可关联真实独立集合，也可明确提供 InteractionAction（kind=action，operation 为必需 disabled 与 run 的有限操作）。动作需要所属 InteractionNode 的写入资格和 interact 操作授权，执行中禁止重复；条目或操作被替换、所属节点移除、会话/模型切换后隔离迟到失败反馈。业务回调负责在实际回写前验证有效性。related 使用 CollectionTarget，download 支持集合导出与下文的独立文件下载。两者均不接受 InteractionAction。规格见 #164。
 
 引用字段的可选 scopeKey 只表示候选目录业务依赖/代际。变化时旧缓存和迟到目录失效，下一次需要时重新读取，保留历史选值；消费者仍须核对 load 结果的 owner/依赖有效性。owner 作用域由宿主提供，无须重复编码。见 #165。
 

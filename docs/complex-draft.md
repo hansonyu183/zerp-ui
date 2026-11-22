@@ -1,5 +1,7 @@
 # 复杂资料与草稿协作
 
+> 本文记录 #60 的历史草稿协作验收，对应[旧版消费者源码](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.11.0)。当前包的接入与运行命令见[模型示例](../examples/model/README.md)。
+
 正式范围见 [#58](https://github.com/hansonyu183/zerp-ui/issues/58) 与 [#60](https://github.com/hansonyu183/zerp-ui/issues/60)。`examples/capabilities/complex-draft.ts` 是合成消费者，使用公开 `@zerp/ui` 包入口定义资料，通过 `AppPage` 运行。使用 package scripts 中的 `dev:capabilities` 后打开 `/complex`；`check:capabilities` 会把示例复制到独立消费者，以 tgz 安装后执行相同交互。
 
 ## 已有契约覆盖

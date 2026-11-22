@@ -1,6 +1,6 @@
 # Structured print output (#58 / #59)
 
-The public `PrintDocument` is a physical sheet description consumed only through `BusinessApplication` model operation printing facts. It is not HTML or CSS. Business pagination, expressions, subtotals, bitmap/barcode generation and print authorization remain consumer responsibilities. Every supplied page produces one output page.
+`PrintDocument` describes physical sheets. To display a prepared document in `BusinessApplication`, supply it as `OutputNode.value`. It is not HTML or CSS. Business pagination, expressions, subtotals, bitmap/barcode generation and print authorization remain consumer responsibilities. Every supplied page produces one output page.
 
 Coordinates, sizes and `lineWidth` are millimetres. Document `rotation` is clockwise 0, 90, 180 or 270 degrees around the sheet centre, translated to the output page so all original sheet corners remain inside the rotated dimensions. Item coordinates always refer to the original width/height. Output width/height swap for 90/270. Negative/outside geometry is rejected before rendering; content and rotated watermarks are clipped at the sheet boundary. Watermarks are a library-owned overlay above all items, rotate around their own centre and accept opacity 0..1. They cannot supply markup/styles.
 
@@ -10,17 +10,17 @@ Fonts are the finite `sans-serif`, `serif`, `monospace`, and `cjk-sans` choices.
 
 Images remain embedded PNG/JPEG/WebP/GIF only, contained within the supplied box. SVG, remote URLs, scripts, arbitrary families, invalid geometry/opacity/strokes/rotation are rejected. Browser image decoding rejects malformed data. Generate high-resolution bitmaps with sufficient quiet zones; the synthetic QR sample is decoded from the browser-rendered output, including its rotated sheet. The library does not generate business barcodes.
 
-Only explicit clicking while the consumer grants `state: "opened"` opens the native dialog. Loading, recovery, and reload do not print. Closing/cancelling the native dialog does not report physical success; printed/not-printed remain explicit operation facts. Font/image readiness does not grant authorization. Revoking authorization immediately disables the opening action.
+For `OutputNode`, the native dialog opens on an explicit click with current node `print` authorization and ready fonts and images. A disabled print operation or a busy node blocks opening. Loading, recovery, and reload leave the native dialog closed. Consumers report physical outcomes through explicit `confirmPrinted` and `confirmNotPrinted` operations.
 
 ## Migration and evidence
 
 Existing documents continue using default unrotated dimensions, existing finite generic families and clipped text. For physical stroke parity, set `lineWidth` explicitly rather than relying on the previous 1px default. Set line height and wrapping explicitly where old layouts depended on browser defaults. Convert legacy watermarks/rotation to these structured facts; never copy old CSS or arbitrary font-family strings. No OIT/production parser or fallback runtime is provided.
 
-The model-business consumer's print fixture is synthetic. Its tgz smoke checks rendered millimetres, two PDF pages with the rotated MediaBox, actual bitmap QR decoding, Chinese text and wrap/clipping geometry, font availability and native-dialog authorization. Browser PDF/bitmap output is evidence of browser rendering only; no physical printer, production data or real ZERP API was tested.
+The historical synthetic print fixture's tgz smoke checked rendered millimetres, two PDF pages with the rotated MediaBox, actual bitmap QR decoding, Chinese text and wrap/clipping geometry, font availability and native-dialog authorization. Browser PDF/bitmap output is evidence of browser rendering only; no physical printer, production data or real ZERP API was tested.
 
 ## Rotated PDF regression (#65, 0.11.2)
 
-The library uses explicit millimetre translation/rotation from the top-left origin and strict containment on fixed page/sheet boxes. This preserves the same logical coordinate contract while preventing Chromium print fragmentation from moving multiline baselines or clipping rotated footers. Screen preview alone does not establish PDF geometry. The public model-business consumer accepts finite `?rotation=0|90|180|270` choices on `/printing`; its three-page synthetic fixture is checked in the installed tgz and built example. PDF.js inspects actual PDF baselines in logical millimetres and renders each PDF page to verify footer ink and decode the QR bitmap. The checks include page count, physical MediaBox, line spacing and per-page footers. PDF tooling is development-only.
+The library uses explicit millimetre translation/rotation from the top-left origin and strict containment on fixed page/sheet boxes. This preserves the same logical coordinate contract while preventing Chromium print fragmentation from moving multiline baselines or clipping rotated footers. Screen preview alone does not establish PDF geometry. The [0.11.2 fixture](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.11.2/docs/printing/contract.md) accepted `?rotation=0|90|180|270` on `/printing` and exercised three synthetic pages in both the installed tgz and built example. PDF.js inspects actual PDF baselines in logical millimetres and renders each PDF page to verify footer ink and decode the QR bitmap. The checks include page count, physical MediaBox, line spacing and per-page footers. PDF tooling is development-only. The current `check:print` runs the measured JSON template scenario described below. The rotation and QR results above are historical evidence.
 
 ## Measured JSON voucher templates (#179)
 

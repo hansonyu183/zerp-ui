@@ -1,4 +1,4 @@
-> 0.32.0 迁移说明：以下表格保留历史 Material/能力验收依据；旧页面装配仅作私有深模块回归，当前公开入口为 BusinessApplication。当前同一 tgz 的消费者与实际门禁见 package.json、README 和 #125；历史脚本名称不作为当前可执行命令。打印 PDF/位图/二维码及旋转检查已迁入 model-business 消费者。
+> 本文保留旧版合成消费者的验收记录。当前组件入口、安装包与验证命令见[项目说明](../../README.md)，现行能力对应见[静态模型迁移](../interfaces/static-migration.md)。
 
 # Material 对照矩阵
 

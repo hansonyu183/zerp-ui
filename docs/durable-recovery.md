@@ -1,5 +1,7 @@
 # 耐久原请求与消费者存储
 
+> 本文记录旧版页面装配的原请求恢复验收，对应[旧版消费者源码](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.11.0)。现行模型由消费者业务回调与后端承担未知结果恢复，见 [ADR-0004](adr/0004-reactive-business-model.md)。
+
 `OperationPersistence` 和 `WritePersistence` 已提供原请求恢复协议。库持有发送、未知结果锁、终态读取与完成生命周期；消费者持有存储事务、权威证据及其完整绑定。页面恢复只核实原请求，不重放创建、保存或办理。
 
 本次补强保持公开入口 `AuthPage` / `AppPage` 和既有有限端口：

@@ -563,9 +563,9 @@
     },
     {
       "id": "UI-PRINT-01",
-      "requirementSha256": "af478ec189086091ab096e1690d32c1bc2739feb6854c4890e2ee236336b1be2",
+      "requirementSha256": "533c5845f3ce88a6e387cb40c1b5e7b0ca80fc4b9e366710776bf853fd9cbd0f",
       "checks": ["package-print-template"],
-      "remaining": "仅覆盖合成 A4 单据与浏览器 PDF；跨平台字体度量、真实消费者权限与业务汇总、实体打印设备另验收。"
+      "remaining": "仅覆盖合成 A4 单据与浏览器 PDF；跨平台字体度量、真实消费者权限与业务汇总、实体打印设备另验收。 XLSX 设计输入与自动转换为标准 JSON 尚待实现及验收。"
     },
     {
       "id": "UI-SCOPE-01",
