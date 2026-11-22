@@ -584,26 +584,26 @@ it("blocks edited and uncertain values from printing until consumer confirms the
   collection.printTemple = template;
   const wrapper = await show(model);
   const pagePrint = () =>
-    wrapper.findAll("button").find((button) => button.text() === "当前页打印")!;
-  expect(pagePrint().attributes("disabled")).toBeUndefined();
+    wrapper.findAll("button").find((button) => button.text() === "当前页打印");
+  expect(pagePrint()?.element.disabled).toBe(false);
   await wrapper
     .get('[role="dialog"] input[aria-label="code"]')
     .setValue("unsaved");
   expect(collection.selected!.printable).toBe(false);
   await clickText("关闭");
-  expect(pagePrint().attributes("disabled")).toBeDefined();
+  expect(pagePrint()).toBeUndefined();
   expect(wrapper.text()).toContain("当前页有未确认保存的记录");
   expect(collection.operations.query!.run).toHaveBeenCalledTimes(1);
   await wrapper.get('button[aria-label="编辑"]').trigger("click");
   await flushPromises();
   await clickText("保存");
-  expect(pagePrint().attributes("disabled")).toBeDefined();
+  expect(pagePrint()).toBeUndefined();
   await clickText("保存");
   expect(facts.state).toBe("unknown");
-  expect(pagePrint().attributes("disabled")).toBeDefined();
+  expect(pagePrint()).toBeUndefined();
   await clickText("保存");
   expect(collection.selected!.printable).toBe(true);
-  expect(pagePrint().attributes("disabled")).toBeUndefined();
+  expect(pagePrint()?.element.disabled).toBe(false);
   expect(collection.operations.query!.run).toHaveBeenCalledTimes(1);
 });
 

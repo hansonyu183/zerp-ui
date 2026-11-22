@@ -177,3 +177,47 @@ it("isolates late failure feedback after opening a different collection", async 
   expect(document.body.textContent).not.toContain("旧集合失败");
   expect(document.querySelector('[role="alert"]')).toBeNull();
 });
+
+it("updates row operations when eligibility or permission changes and keeps running actions guarded", async () => {
+  const { model, rows, record, owner } = fixture();
+  let complete!: () => void;
+  const remove = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        complete = resolve;
+      }),
+  );
+  record.operations.delete = operation(remove);
+  const removeButton = () =>
+    document.querySelector<HTMLButtonElement>('button[aria-label="删除"]');
+  wrapper = await render(model);
+  const previous = removeButton()!;
+  record.operations.delete.disabled = true;
+  previous.click();
+  await flushPromises();
+  expect(removeButton()).toBeNull();
+  expect(remove).not.toHaveBeenCalled();
+
+  record.operations.delete.disabled = false;
+  model.session.userPermissions = {
+    owner,
+    administrator: false,
+    grants: [
+      { node: rows, read: true, write: true, operations: { query: true } },
+    ],
+  };
+  await flushPromises();
+  expect(removeButton()).toBeNull();
+  expect(document.querySelector('button[aria-label="查看"]')).not.toBeNull();
+  if (!model.session.userPermissions.administrator)
+    model.session.userPermissions.grants[0]!.operations.delete = true;
+  await flushPromises();
+  expect(removeButton()?.disabled).toBe(false);
+  await click("删除");
+  expect(removeButton()?.disabled).toBe(true);
+  await click("删除");
+  expect(remove).toHaveBeenCalledTimes(1);
+  complete();
+  await flushPromises();
+  expect(removeButton()?.disabled).toBe(false);
+});

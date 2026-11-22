@@ -230,14 +230,15 @@ it("edits the selected record directly, preserves failed input, and prevents dis
     "changed",
   );
   const save = () =>
-    dialog.findAll("button").find((button) => button.text() === "保存")!;
-  expect(save().attributes("disabled")).toBeDefined();
-  await save().trigger("click");
+    dialog.findAll("button").find((button) => button.text() === "保存");
+  expect(save()).toBeUndefined();
+  expect(dialog.text()).toContain("当前无法保存。");
   expect(update).not.toHaveBeenCalled();
   collection.selected!.operations.update!.disabled = false;
   await flushPromises();
-  await save().trigger("click");
-  await save().trigger("click");
+  expect(dialog.text()).not.toContain("当前无法保存。");
+  await save()!.trigger("click");
+  await save()!.trigger("click");
   expect(update).toHaveBeenCalledTimes(1);
   release();
   await flushPromises();

@@ -49,8 +49,6 @@ type Menu = Extract<
 function menuEntry(entry: Menu["items"][number], current: () => boolean) {
   const target = entry.target;
   if ("kind" in target) {
-    if (!questions.value || !runtime.interactionVisible(questions.value))
-      return null;
     const operation = target.operation;
     const blocked = () =>
       !alive ||
@@ -62,9 +60,10 @@ function menuEntry(entry: Menu["items"][number], current: () => boolean) {
       !!entry.disabled ||
       operation.disabled ||
       !runtime.interactable(questions.value);
+    if (blocked()) return null;
     return {
       ...entry,
-      disabled: blocked() || busy.value,
+      disabled: busy.value,
       target: { kind: "action" as const, operation, blocked },
     };
   }
@@ -96,30 +95,33 @@ const interactions = computed<readonly Interaction<Intent>[]>(
             target.operation !== operation ||
             !!item.disabled ||
             operation.disabled;
+          if (blocked()) return [];
           return [
             {
               ...item,
-              disabled: blocked() || busy.value,
+              disabled: busy.value,
               target: { kind: "fileDownload", operation, blocked },
             },
           ];
         }
-        return runtime.allowed(target.collection, "export")
-          ? [
+        const source = questions.value;
+        const blocked = () =>
+          !alive ||
+          !source?.items.includes(item) ||
+          props.node !== source ||
+          item.target !== target ||
+          !!item.disabled ||
+          !readable(target) ||
+          !runtime.available(target.collection, "export");
+        return blocked()
+          ? []
+          : [
               {
                 ...item,
-                target: {
-                  kind: "download",
-                  target,
-                  blocked: () => !!item.disabled,
-                },
-                disabled:
-                  item.disabled ||
-                  runtime.operations(target.collection).export?.disabled ||
-                  runtime.busy.value.has(target.collection),
+                target: { kind: "download", target, blocked },
+                disabled: runtime.busy.value.has(target.collection),
               },
-            ]
-          : [];
+            ];
       }
       if (item.kind === "related") {
         const source = questions.value;
@@ -143,36 +145,33 @@ const interactions = computed<readonly Interaction<Intent>[]>(
             ]
           : [];
       }
-      if (item.kind === "menu" || item.kind === "tree")
-        return [
-          {
-            ...item,
-            items: item.items.flatMap((entry) => {
-              const source = questions.value;
-              const current = () =>
-                props.node === source &&
-                !!source?.items.includes(item) &&
-                item.items.includes(entry);
-              const mapped = menuEntry(entry, current);
-              if (!mapped) return [];
-              return [
-                {
-                  ...mapped,
-                  children: entry.children?.flatMap((child) => {
-                    const mappedChild = menuEntry(
-                      child,
-                      () =>
-                        current() &&
-                        !entry.disabled &&
-                        !!entry.children?.includes(child),
-                    );
-                    return mappedChild ? [mappedChild] : [];
-                  }),
-                },
-              ];
-            }),
-          },
-        ];
+      if (item.kind === "menu" || item.kind === "tree") {
+        const source = questions.value;
+        const items = item.items.flatMap((entry) => {
+          const current = () =>
+            props.node === source &&
+            !!source?.items.includes(item) &&
+            item.items.includes(entry);
+          const mapped = menuEntry(entry, current);
+          if (!mapped) return [];
+          return [
+            {
+              ...mapped,
+              children: entry.children?.flatMap((child) => {
+                const mappedChild = menuEntry(
+                  child,
+                  () =>
+                    current() &&
+                    !entry.disabled &&
+                    !!entry.children?.includes(child),
+                );
+                return mappedChild ? [mappedChild] : [];
+              }),
+            },
+          ];
+        });
+        return items.length ? [{ ...item, items }] : [];
+      }
       if (
         item.kind === "message" ||
         item.kind === "confirm" ||
@@ -225,8 +224,9 @@ function visit(intent: Intent) {
     <PrintPreview
       v-if="output.value"
       :document="output.value"
-      :allowed="runtime.allowed(node, 'print')"
-      :disabled="busy || runtime.operations(node).print?.disabled"
+      :allowed="true"
+      :action-available="() => runtime.available(node, 'print')"
+      :disabled="busy"
       @opened="runtime.run(node, 'print')"
     />
     <p v-else>尚未生成预览</p>

@@ -7,10 +7,12 @@ import FeedbackRegion from "./FeedbackRegion.vue";
 const props = defineProps<{
   document: PrintDocument;
   allowed: boolean;
+  actionAvailable?: () => boolean;
   disabled?: boolean;
   confirmResult?: boolean;
 }>();
 const emit = defineEmits<{ opened: [] }>();
+const actionVisible = computed(() => props.actionAvailable?.() ?? true);
 const frame = ref<HTMLIFrameElement>(),
   ready = ref(false),
   error = ref("");
@@ -71,7 +73,14 @@ onBeforeUnmount(() => {
   ready.value = false;
 });
 function print() {
-  if (!props.allowed || props.disabled || !ready.value || !markup.value) return;
+  if (
+    !actionVisible.value ||
+    !props.allowed ||
+    props.disabled ||
+    !ready.value ||
+    !markup.value
+  )
+    return;
   try {
     frame.value?.contentWindow?.print();
     emit("opened");
@@ -84,6 +93,7 @@ function print() {
   <section aria-label="打印输出">
     <FeedbackRegion><Feedback :message="error" kind="error" /></FeedbackRegion
     ><VBtn
+      v-if="actionVisible"
       type="button"
       :disabled="!allowed || disabled || !ready || !markup"
       @click="print"

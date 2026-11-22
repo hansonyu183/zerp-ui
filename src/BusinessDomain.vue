@@ -80,6 +80,7 @@ function visit(event: MouseEvent | KeyboardEvent, collection: Collection) {
       "
       :class="{ 'zerp-form-panel': entries.length > 1 }"
     >
+      <h2 v-if="current.label !== node.label">{{ current.label }}</h2>
       <BusinessNode :key="key(current)" :node="current" :auto-read="autoRead" />
     </div>
   </section>

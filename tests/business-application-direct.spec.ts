@@ -132,8 +132,11 @@ it("uses consumer-created drafts and reopens them without creating twice", async
   expect(rows.operations.create.run).toHaveBeenCalledTimes(1);
   const save = Array.from(
     document.querySelectorAll<HTMLButtonElement>("button"),
-  ).find((button) => button.textContent?.trim() === "保存")!;
-  expect(save.disabled).toBe(true);
+  ).find((button) => button.textContent?.trim() === "保存");
+  expect(save).toBeUndefined();
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+    "当前无法保存。",
+  );
 });
 it("does not advertise absent queries or advance disabled pagination", async () => {
   const { model, rows } = fixture();
@@ -163,14 +166,14 @@ it("keeps consumer unknown-result restrictions through refresh and feedback dism
   const saved = () =>
     Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
       (button) => button.textContent?.trim() === "保存",
-    )!;
-  expect(saved().disabled).toBe(true);
+    );
+  expect(saved()).toBeUndefined();
   await click("关闭");
   await click("查询");
   expect(record.operations.update!.disabled).toBe(true);
   expect(rows.operations.query!.run).toHaveBeenCalledTimes(2);
   await click("编辑");
-  expect(saved().disabled).toBe(true);
+  expect(saved()).toBeUndefined();
   await click("核对结果");
   expect(record.operations.reconcile.run).toHaveBeenCalledTimes(1);
   expect(record.operations.update!.disabled).toBe(true);

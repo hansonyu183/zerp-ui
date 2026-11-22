@@ -13,7 +13,6 @@ import { VBtn } from "vuetify/components";
 import {
   directRuntimeKey,
   members,
-  labels,
   isCollection,
   type Node,
   type CollectionNode,
@@ -26,6 +25,7 @@ import type {
 } from "./business-model";
 import BusinessField from "./BusinessField.vue";
 import BusinessFeedback from "./BusinessFeedback.vue";
+import BusinessActionGroup from "./BusinessActionGroup.vue";
 import BusinessCollection from "./BusinessCollection.vue";
 import BusinessRecords from "./BusinessRecords.vue";
 import RecordDialog from "./RecordDialog.vue";
@@ -40,6 +40,7 @@ const props = withDefaults(
     autoRead?: boolean;
     readOnly?: boolean;
     filter?: boolean;
+    editing?: boolean;
   }>(),
   { autoRead: true },
 );
@@ -73,8 +74,8 @@ const runs = computed(() => {
   return result;
 });
 const actions = computed(() =>
-  Object.entries(runtime.operations(props.node)).filter(
-    ([key]) =>
+  Object.keys(runtime.operations(props.node)).filter(
+    (key) =>
       key !== "query" &&
       !(
         key === "print" &&
@@ -98,27 +99,26 @@ const actions = computed(() =>
           "audit",
           "openVoucher",
         ].includes(key)) &&
-      runtime.allowed(props.node, key, props.publicAuth),
+      runtime.available(props.node, key, props.publicAuth),
   ),
 );
-function actionStyle(action: string) {
-  if (["delete", "remove", "void", "reverse"].includes(action))
-    return { color: "error", variant: "tonal" as const };
-  if (
-    [
-      "signIn",
-      "changePassword",
-      "update",
-      "create",
-      "submit",
-      "approve",
-      "complete",
-      "publish",
-    ].includes(action)
-  )
-    return { color: "primary", variant: "flat" as const };
-  return { color: "", variant: "tonal" as const };
-}
+const saveUnavailable = computed(() => {
+  const node = props.node;
+  return (
+    !isCollection(node) &&
+    node.kind === "object" &&
+    (props.editing ||
+      (node === runtime.model().account.profile && runtime.writable(node))) &&
+    !actions.value.includes("update") &&
+    (!!node.operations.update ||
+      !runtime.editable(node, { availableOnly: true })) &&
+    !runtime
+      .messagesFor(node)
+      .some(
+        (message) => message.level === "warning" || message.level === "error",
+      )
+  );
+});
 const pending = computed(() => runtime.busy.value.has(toRaw(props.node)));
 const dialogReady = ref(false);
 onMounted(
@@ -152,11 +152,7 @@ function closeDetail() {
   detailMode.value = "edit";
   printRequested.value = false;
 }
-const queryAvailable = computed(
-  () =>
-    runtime.allowed(props.node, "query") &&
-    !runtime.operations(props.node).query?.disabled,
-);
+const queryAvailable = computed(() => runtime.available(props.node, "query"));
 const canQuery = computed(() => queryAvailable.value && !pending.value);
 const queryView = computed(() =>
   isCollection(props.node) ? runtime.queryView(props.node) : undefined,
@@ -294,21 +290,13 @@ onBeforeUnmount(() => {
           >
         </div>
         <TemplatePrint :collection="collection" />
-        <div
+        <BusinessActionGroup
           v-if="actions.length"
-          class="zerp-business-actions__group"
-          role="group"
+          :actions="actions"
+          :pending="pending"
           :aria-label="`${node.label ?? ''}操作`"
-        >
-          <VBtn
-            v-for="[action, operation] in actions"
-            :key="action"
-            v-bind="actionStyle(action)"
-            :disabled="pending || operation.disabled"
-            @click="runtime.run(node, action, publicAuth)"
-            >{{ labels[action] ?? action }}</VBtn
-          >
-        </div>
+          @action="runtime.run(node, $event, publicAuth)"
+        />
         <VBtn
           v-if="
             collection.draft &&
@@ -335,6 +323,7 @@ onBeforeUnmount(() => {
       <RecordDialog
         v-if="dialogReady && detail && runtime.readable(detail)"
         :title="collection.draft === detail ? '新增' : (detail.label ?? '')"
+        header-close
         :return-focus="
           collection.draft === detail ? undefined : restoreDetailFocus
         "
@@ -342,6 +331,10 @@ onBeforeUnmount(() => {
       >
         <BusinessNode
           :node="detail"
+          :editing="
+            collection.draft === detail ||
+            (detailMode === 'edit' && runtime.writable(detail))
+          "
           :read-only="
             collection.draft === detail
               ? false
@@ -359,7 +352,6 @@ onBeforeUnmount(() => {
           :record="detail"
           :auto-open="printRequested"
         />
-        <VBtn variant="text" @click="closeDetail">关闭</VBtn>
         <template #feedback>
           <BusinessFeedback :target="detail" />
         </template>
@@ -382,21 +374,16 @@ onBeforeUnmount(() => {
       :read-only="readOnly || (!publicAuth && !runtime.writable(node))"
       :scope="runtime.scope.value"
     />
-    <div
+    <BusinessActionGroup
+      v-if="!isCollection(node) && (actions.length || saveUnavailable)"
       class="zerp-business-actions"
-      v-if="!isCollection(node) && actions.length"
-      role="group"
+      :actions="actions"
+      :pending="pending"
       :aria-label="`${node.label ?? ''}操作`"
+      @action="runtime.run(node, $event, publicAuth)"
     >
-      <VBtn
-        v-for="[action, operation] in actions"
-        :key="action"
-        v-bind="actionStyle(action)"
-        :disabled="pending || operation.disabled"
-        @click="runtime.run(node, action, publicAuth)"
-        >{{ labels[action] ?? action }}</VBtn
-      >
-    </div>
+      <p v-if="saveUnavailable" role="status">当前无法保存。</p>
+    </BusinessActionGroup>
   </section>
 </template>
 <style scoped>
