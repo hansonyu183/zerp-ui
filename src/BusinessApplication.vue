@@ -8,20 +8,13 @@ import type {
   DomainGroup,
   ObjectNode,
 } from "./business-model";
-import {
-  createDirectRuntime,
-  directRuntimeKey,
-  isCollection,
-  type Node,
-} from "./direct-model-runtime";
-import { VBtn } from "vuetify/components";
+import { createDirectRuntime, directRuntimeKey } from "./direct-model-runtime";
 import BusinessNode from "./BusinessNode.vue";
 import BusinessDomain from "./BusinessDomain.vue";
 import BusinessWorkbench from "./BusinessWorkbench.vue";
 import AppPage from "./AppPage.vue";
 import AuthFrame from "./AuthFrame.vue";
-import FeedbackRegion from "./FeedbackRegion.vue";
-import Feedback from "./Feedback.vue";
+import BusinessFeedback from "./BusinessFeedback.vue";
 import { snapshotPage, type PageDefinition } from "./pages";
 import {
   defaultThemeChoice,
@@ -176,73 +169,6 @@ const brand = computed(() => ({
 const accountPresentation = computed(() => ({
   label: props.model.account.label,
 }));
-const messageOwners = new WeakMap<object, string>();
-watch(
-  () => props.model.messages.slice(),
-  (items) => {
-    for (const item of items)
-      if (!messageOwners.has(toRaw(item)))
-        messageOwners.set(toRaw(item), runtime.scope.value);
-  },
-  { immediate: true, flush: "sync" },
-);
-const messages = computed(() =>
-  props.model.messages.filter(
-    (message) =>
-      messageOwners.get(toRaw(message)) === runtime.scope.value &&
-      (!message.target || runtime.readable(message.target)),
-  ),
-);
-function locate(target: Node) {
-  const collection = isCollection(target)
-    ? target
-    : runtime.ancestors(target).find(isCollection);
-  if (collection && runtime.readable(collection)) {
-    if (!isCollection(target)) {
-      const record = [...runtime.ancestors(target), target].find(
-        (node) =>
-          !isCollection(node) &&
-          node.kind === "object" &&
-          runtime.ancestors(node).at(-1) === collection,
-      );
-      if (record && !isCollection(record) && record.kind === "object")
-        collection.selected = record;
-    }
-    props.model.navigation.visit(collection);
-  }
-}
-function feedback() {
-  return h(FeedbackRegion, {}, () => [
-    h(Feedback, { message: runtime.error.value, kind: "error" }),
-    ...messages.value.map((message) =>
-      h(
-        Feedback,
-        {
-          key: message.id,
-          message: message.text,
-          kind:
-            message.level === "error"
-              ? "error"
-              : message.level === "warning"
-                ? "warning"
-                : "status",
-        },
-        message.target
-          ? () =>
-              h(
-                VBtn,
-                {
-                  variant: "text",
-                  color: "primary",
-                  onClick: () => message.target && locate(message.target),
-                },
-                () => "查看",
-              )
-          : undefined,
-      ),
-    ),
-  ]);
-}
 const target = computed(() =>
   props.model.session.state === "password-required"
     ? props.model.account.password
@@ -285,7 +211,7 @@ const page = computed<PageDefinition>(() => {
           : workbench
             ? h(BusinessWorkbench, { node: workbench })
             : h("p", "暂无可用内容。"),
-        feedback(),
+        h(BusinessFeedback),
       ],
     }),
   };
@@ -347,7 +273,7 @@ watch(target, () => runtime.invalidate(), { flush: "sync" });
       public-auth
       :auto-read="false"
     />
-    <component :is="feedback" />
+    <BusinessFeedback />
   </AuthFrame>
   <div v-else @click.capture="goHome">
     <AppPage
