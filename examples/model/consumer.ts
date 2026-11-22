@@ -238,17 +238,31 @@ Object.defineProperty(customer, "printable", {
 customer.operations.get = operation(async () => {
   trace("customer.get");
 });
-customer.operations.update = operation(async () => {
-  trace("customer.update");
-  if (name.value === "失败") throw Error("合成保存失败，请修改名称后重试。");
-  savedCustomerFacts.value = currentCustomerFacts();
-  model.messages.push({
-    id: String(Date.now()),
-    level: "success",
-    text: `已保存：${name.value}`,
-    target: customer,
-  });
-});
+customer.operations.update = {
+  get disabled() {
+    return name.value === "暂不可保存";
+  },
+  async run() {
+    trace("customer.update");
+    if (name.value === "需要核对客户名称") {
+      model.messages.push({
+        id: "customer-name-verification",
+        level: "error",
+        text: "请先核对客户名称。",
+        target: customer,
+      });
+      throw Error("合成校验失败");
+    }
+    if (name.value === "失败") throw Error("合成保存失败，请修改名称后重试。");
+    savedCustomerFacts.value = currentCustomerFacts();
+    model.messages.push({
+      id: String(Date.now()),
+      level: "success",
+      text: `已保存：${name.value}`,
+      target: customer,
+    });
+  },
+};
 const itemTemplate: PrintTemplate = reactive({
   label: "客户打印",
   page: { width: 100, height: 100, margin: 5 },
@@ -345,17 +359,37 @@ const customers: Collection = reactive({
     ],
   },
 });
+let retryableCustomerQueryFailed = false;
 customers.operations.query = operation(async () => {
+  const keyword = filter.value;
   const owner = JSON.stringify(model.session.owner);
   trace("customers.query");
-  await Promise.resolve();
+  if (keyword === "可重试读取" && !retryableCustomerQueryFailed)
+    await new Promise((resolve) => setTimeout(resolve, 450));
+  else await Promise.resolve();
   if (
     JSON.stringify(model.session.owner) !== owner ||
-    model.session.state !== "ready"
+    model.session.state !== "ready" ||
+    filter.value !== keyword
   )
     return;
-  if (filter.value === "失败") throw Error("合成查询失败");
-  if (filter.value === "引用反馈") resetFeedbackForm();
+  if (keyword === "失败") throw Error("合成查询失败");
+  if (keyword === "可重试读取" && !retryableCustomerQueryFailed) {
+    retryableCustomerQueryFailed = true;
+    model.messages.push({
+      id: "customer-query-retry",
+      level: "error",
+      text: "客户查询暂不可用，请重试。",
+      target: customers,
+    });
+    throw Error("合成查询失败");
+  }
+  if (keyword === "空结果") {
+    customers.items = [];
+    customers.total = 0;
+    return;
+  }
+  if (keyword === "引用反馈") resetFeedbackForm();
   const facts = JSON.parse(savedCustomerFacts.value) as {
     name: string;
     credit: string;
@@ -375,7 +409,7 @@ customers.operations.query = operation(async () => {
   nextContact = Math.max(nextContact, lines.items.length);
   customer.identity = "C1";
   customers.items = [customer];
-  customers.total = 1;
+  customers.total = keyword === "可重试读取" ? customers.pageSize + 1 : 1;
 });
 customers.operations.create = operation(async () => {
   trace("customers.create");
@@ -600,6 +634,7 @@ function resetBusiness() {
         condition.value = "";
   }
   filter.value = "";
+  retryableCustomerQueryFailed = false;
   resetFeedbackForm();
   name.value = "";
   settlementAccount.value = "";

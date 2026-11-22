@@ -191,7 +191,7 @@ export async function directModelSmoke(page) {
       .fill("失败");
     await page.getByRole("button", { name: "查询", exact: true }).click();
     await expect(
-      page.getByRole("alert").filter({ hasText: "操作失败" }),
+      page.getByRole("alert").filter({ hasText: "查询失败" }),
     ).toBeVisible();
     await page
       .getByRole("textbox", { name: "关键词", exact: true })

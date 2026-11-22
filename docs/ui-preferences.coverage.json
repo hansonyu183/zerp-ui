@@ -168,6 +168,18 @@
       "anchor": "application-pages-and-components-alignment",
       "surface": "tgz/browser",
       "assertion": "逐个访问全部合成业务入口及其详情/Tab、账户/改密、工作台、密钥修改和打印预览；390/1440px验证字段、操作区、Tab、表格、菜单及iframe边界，无文档横向溢出，弹窗位于顶栏下方"
+    },
+    "package-query-states": {
+      "file": "scripts/business-interaction-smoke.mjs",
+      "anchor": "query-loading-single-feedback-retry-pagination-and-success-empty",
+      "surface": "tgz/browser",
+      "assertion": "已有结果的查询显示读取中、一次失败反馈与未更新标识，原条件重试恢复分页，成功空结果隐藏分页"
+    },
+    "package-save-qualification": {
+      "file": "scripts/business-interaction-smoke.mjs",
+      "anchor": "mobile-save-qualification-and-unobstructed-specific-feedback",
+      "surface": "tgz/browser",
+      "assertion": "手机编辑的保存随资格隐藏及恢复；模型失败文案只出现一次，字段不位移且可正常触达"
     }
   },
   "clauses": [
@@ -273,9 +285,11 @@
         "package-feedback",
         "package-full",
         "package-reference-feedback",
-        "package-field-alignment"
+        "package-field-alignment",
+        "package-query-states",
+        "package-save-qualification"
       ],
-      "remaining": "成功/失败与长引用读取错误的表单/明细几何及重试有映射；引用错误入口不挤窄控件、不遮挡展开箭头有代表性检查，清除操作和其它反馈/字段组合未穷举。",
+      "remaining": "覆盖代表性保存、查询失败和长引用错误的布局、去重、正文可操作及重试；所有字段和反馈组合未穷举。",
       "requirementSha256": "438ce11105f8a967ef86c8c8849a2fddfb2e328ea7183fc7ae0104106e789c53"
     },
     {
@@ -283,9 +297,11 @@
       "checks": [
         "unit-feedback",
         "unit-overlay",
-        "package-readonly-reference-feedback"
+        "package-readonly-reference-feedback",
+        "package-query-states",
+        "package-save-qualification"
       ],
-      "remaining": "保存失败与反馈关闭不改模型事实、禁用只读引用的原因入口可达有映射；全部业务限制/控件及未知结果核实路径未穷举，实际消费者仍需单独验收。",
+      "remaining": "覆盖代表性只读引用、保存阻塞原因及查询重试；所有核实操作和业务族状态组合未穷举。",
       "requirementSha256": "3f3a546a7620c6fb279fa60547f192e4282a0f6bb70c4a961298683b04a1963b"
     },
     {
@@ -345,10 +361,11 @@
       "checks": [
         "unit-actions",
         "unit-review",
-        "package-readonly-reference-feedback"
+        "package-readonly-reference-feedback",
+        "package-save-qualification"
       ],
-      "remaining": "覆盖代表权限撤销/禁用和独立处理输入；所有业务族及状态组合未穷举。",
-      "requirementSha256": "24a024fcaa89464b24aef4e87e08f9eebab2911268ed900e181672ba3fae3d41"
+      "remaining": "覆盖代表性撤权与禁用、编辑及运行中互斥。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。",
+      "requirementSha256": "a92571239d027c3fe10bf9956eb4bb7e1fb2d8fe3461c549a6078fe5aca65a18"
     },
     {
       "id": "UI-ACTION-04",
