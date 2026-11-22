@@ -28,8 +28,8 @@
 | UI-SHELL-02 | 无自动断言 | 未断言所有顶栏子项顺序、品牌内容和首页跳转。 |
 | UI-SHELL-03 | 无自动断言 | 未定向检查慢业务读取时账户可达、窄屏文字收起与账户全部入口。 |
 | UI-SHELL-04 | 无自动断言 | 主标题几何及业务名重复需检查；语义重复待人工审查。 |
-| UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback)、[package-field-alignment](#package-field-alignment) | 成功/失败与长引用读取错误的表单/明细几何及重试有映射；引用错误入口不挤窄控件、不遮挡展开箭头有代表性检查，清除操作和其它反馈/字段组合未穷举。 |
-| UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay)、[package-readonly-reference-feedback](#package-readonly-reference-feedback) | 保存失败与反馈关闭不改模型事实、禁用只读引用的原因入口可达有映射；全部业务限制/控件及未知结果核实路径未穷举，实际消费者仍需单独验收。 |
+| UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback)、[package-field-alignment](#package-field-alignment)、[package-query-states](#package-query-states)、[package-save-qualification](#package-save-qualification) | 覆盖代表性保存、查询失败和长引用错误的布局、去重、正文可操作及重试；所有字段和反馈组合未穷举。 |
+| UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-query-states](#package-query-states)、[package-save-qualification](#package-save-qualification) | 覆盖代表性只读引用、保存阻塞原因及查询重试；所有核实操作和业务族状态组合未穷举。 |
 | UI-DESKTOP-01 | [package-layout](#package-layout) | 仅代表表格存在/字号；字段完整性与超宽策略未穷举，尽量避免横滚处理方式由 Agent 按现有要求判断，见Q3。 |
 | UI-DESKTOP-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 第二操作列有断言；排序必须在相关表头且不占筛选栏尚无定向证据。 |
 | UI-DESKTOP-03 | [package-reference-feedback](#package-reference-feedback) | 表格内编辑简洁模式及字段校验前后行高尚无公开浏览器断言。 |
@@ -38,7 +38,7 @@
 | UI-MOBILE-03 | 无自动断言 | 首行左右对齐/缺省稳定、全选文字/数量/半选/禁用尚无直接宿主定向证据。 |
 | UI-ACTION-01 | [unit-actions](#unit-actions) | 可用动作与更多入口有证据；普通动作3项上限、图标语义及手机收纳边界待补；流程特例不泛化。 |
 | UI-ACTION-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 手机短文字已验，桌面图标及hover/focus hint尚未完整验证。 |
-| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback) | 覆盖代表权限撤销/禁用和独立处理输入；所有业务族及状态组合未穷举。 |
+| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-save-qualification](#package-save-qualification) | 覆盖代表性撤权与禁用、编辑及运行中互斥。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。 |
 | UI-ACTION-04 | 无自动断言 | 新增各入口、标题与成功提示的一致性，以及其他动作文案尚无统一断言。 |
 | UI-FORM-01 | [unit-model](#unit-model)、[unit-review](#unit-review) | 直接编辑、复杂结构有代表用例；查看/新增/编辑完整字段顺序同构尚未逐路径断言。 |
 | UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。 |
@@ -235,6 +235,18 @@
 [scripts/application-alignment-smoke.mjs](../scripts/application-alignment-smoke.mjs) · tgz/browser
 
 定位：`application-pages-and-components-alignment`。逐个访问全部合成业务入口及其详情/Tab、账户/改密、工作台、密钥修改和打印预览；390/1440px验证字段、操作区、Tab、表格、菜单及iframe边界，无文档横向溢出，弹窗位于顶栏下方。
+
+### package-query-states
+
+[scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
+
+定位：`query-loading-single-feedback-retry-pagination-and-success-empty`。已有结果的查询显示读取中、一次失败反馈与未更新标识，原条件重试恢复分页，成功空结果隐藏分页。
+
+### package-save-qualification
+
+[scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
+
+定位：`mobile-save-qualification-and-unobstructed-specific-feedback`。手机编辑的保存随资格隐藏及恢复；模型失败文案只出现一次，字段不位移且可正常触达。
 
 ## 执行与维护
 
