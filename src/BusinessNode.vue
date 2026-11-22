@@ -25,6 +25,7 @@ import type {
   FieldNode,
 } from "./business-model";
 import BusinessField from "./BusinessField.vue";
+import BusinessFeedback from "./BusinessFeedback.vue";
 import BusinessCollection from "./BusinessCollection.vue";
 import BusinessRecords from "./BusinessRecords.vue";
 import RecordDialog from "./RecordDialog.vue";
@@ -151,11 +152,18 @@ function closeDetail() {
   detailMode.value = "edit";
   printRequested.value = false;
 }
-const canQuery = computed(
+const queryAvailable = computed(
   () =>
     runtime.allowed(props.node, "query") &&
-    !runtime.operations(props.node).query?.disabled &&
-    !pending.value,
+    !runtime.operations(props.node).query?.disabled,
+);
+const canQuery = computed(() => queryAvailable.value && !pending.value);
+const queryView = computed(() =>
+  isCollection(props.node) ? runtime.queryView(props.node) : undefined,
+);
+const reading = computed(() => queryView.value?.state === "loading");
+const queryFailure = computed(() =>
+  queryView.value?.state === "failure" ? queryView.value : undefined,
 );
 async function query(page = 1) {
   if (!canQuery.value) return;
@@ -252,14 +260,39 @@ onBeforeUnmount(() => {
     <template v-else-if="isCollection(node)">
       <BusinessNode :node="collection.conditions" :auto-read="false" filter />
       <div class="zerp-business-actions">
-        <VBtn
-          color="primary"
-          variant="tonal"
-          v-if="runtime.allowed(node, 'query')"
-          :disabled="!canQuery"
-          @click="query()"
-          >查询</VBtn
+        <div
+          v-if="queryAvailable || reading || queryFailure"
+          class="zerp-business-query"
         >
+          <VBtn
+            v-if="queryAvailable"
+            color="primary"
+            variant="tonal"
+            :loading="reading"
+            :disabled="!canQuery"
+            @click="query()"
+            >查询</VBtn
+          >
+          <div
+            class="zerp-business-query__status"
+            :tabindex="queryFailure ? 0 : undefined"
+          >
+            <span v-if="reading" role="status">正在读取…</span>
+            <div v-else-if="queryFailure" role="alert">
+              {{ queryFailure.error }}
+              <span v-if="collection.items.some(runtime.readable)">
+                已有结果未更新。
+              </span>
+            </div>
+          </div>
+          <VBtn
+            v-if="queryFailure && queryAvailable"
+            variant="text"
+            :disabled="!canQuery"
+            @click="query(queryFailure.retryPage)"
+            >重试</VBtn
+          >
+        </div>
         <TemplatePrint :collection="collection" />
         <div
           v-if="actions.length"
@@ -288,7 +321,7 @@ onBeforeUnmount(() => {
       </div>
       <BusinessCollection
         :node="collection"
-        :loading="pending"
+        :query-view="queryView"
         :can-query="canQuery"
         @page="query"
         @open="openDetail"
@@ -327,6 +360,9 @@ onBeforeUnmount(() => {
           :auto-open="printRequested"
         />
         <VBtn variant="text" @click="closeDetail">关闭</VBtn>
+        <template #feedback>
+          <BusinessFeedback :target="detail" />
+        </template>
       </RecordDialog>
     </template>
     <BusinessRecords
@@ -364,6 +400,21 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
+.zerp-business-query {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 13rem;
+  min-inline-size: 0;
+}
+.zerp-business-query__status {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: var(--zerp-control-size, 2rem);
+  align-content: safe center;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
 section {
   min-width: 0;
   container-type: inline-size;

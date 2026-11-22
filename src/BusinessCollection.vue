@@ -11,6 +11,7 @@ import {
   directRuntimeKey,
   labels,
   type CollectionNode,
+  type DirectRuntime,
   type ObjectNode,
   type Node,
 } from "./direct-model-runtime";
@@ -20,7 +21,7 @@ import { readableTarget as targetReadable, visitTarget } from "./model-target";
 type Values = Record<string, string | number | boolean | null>;
 const props = defineProps<{
   node: CollectionNode;
-  loading: boolean;
+  queryView?: ReturnType<DirectRuntime["queryView"]>;
   canQuery: boolean;
 }>();
 const emit = defineEmits<{
@@ -304,10 +305,15 @@ function visit(value: ReportCell<CollectionTarget>, row: Values) {
   <DataList
     :columns="columns"
     :result="{ items: projected.rows, total: node.total }"
-    :page="node.page"
+    :page="
+      queryView?.state === 'success'
+        ? node.page
+        : (queryView?.page ?? node.page)
+    "
     :page-size="node.pageSize"
-    :loading="loading"
-    :paging-disabled="!canQuery"
+    :loading="queryView?.state === 'loading'"
+    :result-state="queryView?.state ?? 'idle'"
+    :paging-disabled="!canQuery || queryView?.state === 'failure'"
     :row-key="key"
     :summary="summary"
     :presentation="presentation"

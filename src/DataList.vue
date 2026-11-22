@@ -52,6 +52,7 @@ const props = defineProps<{
   disabled?: boolean;
   pagingDisabled?: boolean;
   emptyCaption?: string;
+  resultState?: "idle" | "loading" | "success" | "failure";
   wide?: boolean;
   rowKey?: (row: R) => K;
   summary?: ReportSummary<R>;
@@ -291,7 +292,9 @@ function display(row: Partial<R>, column: Column<R>) {
     <FeedbackRegion
       ><Feedback :message="presentationError" kind="error"
     /></FeedbackRegion>
-    <div v-if="loading && !result.items.length" role="status">正在读取…</div>
+    <div v-if="!resultState && loading && !result.items.length" role="status">
+      正在读取…
+    </div>
     <template v-if="!presentationError && (!loading || result.items.length)">
       <p v-if="summary">{{ summary.caption }}</p>
       <div v-if="xs && selectedKeys !== undefined" class="zerp-card-selection">
@@ -568,10 +571,23 @@ function display(row: Partial<R>, column: Column<R>) {
           </component>
         </component>
       </component>
-      <p v-if="!loading && !result.items.length">
+      <p
+        v-if="
+          (!resultState || resultState === 'success') &&
+          !loading &&
+          !result.items.length
+        "
+      >
         {{ emptyCaption ?? "暂无数据" }}
       </p>
-      <nav aria-label="分页">
+      <nav
+        v-if="
+          !resultState ||
+          result.items.length ||
+          (resultState === 'success' && page > 1 && (result.total ?? 0) > 0)
+        "
+        aria-label="分页"
+      >
         <VBtn
           type="button"
           :disabled="page <= 1 || loading || disabled || pagingDisabled"
