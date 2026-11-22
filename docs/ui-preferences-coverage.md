@@ -2,7 +2,7 @@
 
 由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
-共 53 条：34 条有自动断言映射（均为部分覆盖），19 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
+共 53 条：36 条有自动断言映射（均为部分覆盖），17 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
 
 验证策略：流程条款由任务审查；消费者专属条款由真实消费者验收；文案及常规 UI 语义审查由 Agent 按现有要求判断，不逐项询问用户；仅业务含义不明或需改变已确认要求时，在完成其余开发后按 UI-GOV-06 留一份交付清单。本库检查使用合成模型，不是实际 OIT/ZERP API/E2E。定向检查不是数学证明或全状态穷举。
 
@@ -23,11 +23,11 @@
 | UI-THEME-03 | [unit-theme](#unit-theme)、[package-theme](#package-theme) | 主题菜单位于明暗左侧的几何顺序尚无断言；真实消费者持久化另验收。 |
 | UI-THEME-04 | [unit-buttons](#unit-buttons)、[package-theme](#package-theme) | 公开业务按钮层级及代表性主题响应有映射；认证、全部业务族、弹层的按钮风格/间距及迁移保留尚未逐路径穷举，具体variant映射仍是实现记录。 |
 | UI-THEME-05 | [package-layout](#package-layout) | 仅表格12px及手机编辑输入16px；正文/菜单/导航/反馈和18/16/14px标题尚未逐类验证。 |
-| UI-THEME-06 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment) | 仅代表性动作和48px顶栏；compact输入、全控件触控区域未遍历；常规间距由 Agent 判断，见Q2。 |
+| UI-THEME-06 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-mobile-detail-close](#package-mobile-detail-close)、[package-related-navigation](#package-related-navigation) | 代表性桌面动作、48px 顶栏、手机详情关闭和关联链接已覆盖；全部控件尺寸未穷举。 |
 | UI-SHELL-01 | [package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。 |
 | UI-SHELL-02 | 无自动断言 | 未断言所有顶栏子项顺序、品牌内容和首页跳转。 |
 | UI-SHELL-03 | 无自动断言 | 未定向检查慢业务读取时账户可达、窄屏文字收起与账户全部入口。 |
-| UI-SHELL-04 | 无自动断言 | 主标题几何及业务名重复需检查；语义重复待人工审查。 |
+| UI-SHELL-04 | [package-related-navigation](#package-related-navigation) | 核对代表性关联目的集合的可见标题；所有导航目标和业务名称重复仍需按路径审查。 |
 | UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback)、[package-field-alignment](#package-field-alignment)、[package-query-states](#package-query-states)、[package-save-qualification](#package-save-qualification) | 覆盖代表性保存、查询失败和长引用错误的布局、去重、正文可操作及重试；所有字段和反馈组合未穷举。 |
 | UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-query-states](#package-query-states)、[package-save-qualification](#package-save-qualification) | 覆盖代表性只读引用、保存阻塞原因及查询重试；所有核实操作和业务族状态组合未穷举。 |
 | UI-DESKTOP-01 | [package-layout](#package-layout) | 仅代表表格存在/字号；字段完整性与超宽策略未穷举，尽量避免横滚处理方式由 Agent 按现有要求判断，见Q3。 |
@@ -36,13 +36,13 @@
 | UI-MOBILE-01 | [package-layout](#package-layout)、[unit-actions](#unit-actions)、[package-application-alignment](#package-application-alignment) | 仅代表卡片字段和无横溢；合计、完整身份、选择、适用明细尚未全部验证。 |
 | UI-MOBILE-02 | 无自动断言 | 流式短字段同排、长值换行、名称和值同行尚无几何断言；样本由 Agent 按现有要求选择，见Q3。 |
 | UI-MOBILE-03 | 无自动断言 | 首行左右对齐/缺省稳定、全选文字/数量/半选/禁用尚无直接宿主定向证据。 |
-| UI-ACTION-01 | [unit-actions](#unit-actions) | 可用动作与更多入口有证据；普通动作3项上限、图标语义及手机收纳边界待补；流程特例不泛化。 |
+| UI-ACTION-01 | [unit-actions](#unit-actions)、[unit-mobile-action-overflow](#unit-mobile-action-overflow) | 操作可用性、手机详情主操作与更多入口有代表性证据；图标语义及各类宽度和流程组合未穷举。 |
 | UI-ACTION-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 手机短文字已验，桌面图标及hover/focus hint尚未完整验证。 |
-| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-save-qualification](#package-save-qualification) | 覆盖代表性撤权与禁用、编辑及运行中互斥。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。 |
+| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-save-qualification](#package-save-qualification)、[unit-available-operations](#unit-available-operations) | 覆盖代表性撤权与禁用、编辑及运行中互斥。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。 |
 | UI-ACTION-04 | 无自动断言 | 新增各入口、标题与成功提示的一致性，以及其他动作文案尚无统一断言。 |
-| UI-FORM-01 | [unit-model](#unit-model)、[unit-review](#unit-review) | 直接编辑、复杂结构有代表用例；查看/新增/编辑完整字段顺序同构尚未逐路径断言。 |
-| UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。 |
-| UI-FORM-03 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-field-alignment](#package-field-alignment)、[package-application-alignment](#package-application-alignment) | 全部合成业务导航入口及账户/工作台的代表性桌面手机布局、认证和引用控件边界有映射；共用布局归属经代码审查，真实消费者和全部字段值/尺寸/隐藏状态组合未穷举。 |
+| UI-FORM-01 | [unit-model](#unit-model)、[unit-review](#unit-review)、[package-mobile-readonly-values](#package-mobile-readonly-values) | 直接编辑、复杂结构和手机只读长值有代表用例；查看、新增与编辑的完整字段顺序组合未穷举。 |
+| UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout)、[package-application-alignment](#package-application-alignment)、[package-mobile-detail-close](#package-mobile-detail-close) | 手机长详情的焦点、筛选、页码和非零滚动均有代表用例；所有新增及复杂弹层路径未穷举。 |
+| UI-FORM-03 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-field-alignment](#package-field-alignment)、[package-application-alignment](#package-application-alignment)、[package-mobile-readonly-values](#package-mobile-readonly-values) | 全部合成业务导航入口及账户/工作台的代表性桌面手机布局、认证和引用控件边界有映射；共用布局归属经代码审查，真实消费者和全部字段值/尺寸/隐藏状态组合未穷举。 |
 | UI-FORM-04 | [unit-tabs](#unit-tabs)、[package-layout](#package-layout)、[unit-review](#unit-review)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-05 | [unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[unit-reactivity](#unit-reactivity)、[unit-ordered-navigation](#unit-ordered-navigation)、[unit-owned-detail-members](#unit-owned-detail-members)、[package-owned-detail-members](#package-owned-detail-members) | 逐行权限差异、空值和零值、空态及结构错误反馈有公开源码入口断言。独立安装的桌面及手机检查覆盖标题和顺序，真实消费者及其它字段组合另验收。 |
 | UI-FORM-06 | [unit-model](#unit-model)、[unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[package-tab-input](#package-tab-input)、[package-full](#package-full)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
@@ -51,7 +51,7 @@
 | UI-NAV-01 | [unit-shell](#unit-shell) | 仅默认收起及修饰键；直属入口、无标题/无切换提示尚未完整断言。 |
 | UI-NAV-02 | [unit-shell](#unit-shell) | 修饰键有证据；图标语义、未知文本、手机选择关闭抽屉、桌面收起及新标签待补。 |
 | UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。 |
-| UI-NAV-04 | 无自动断言 | 重复导航/目录与实际入口需逐路径审查，不以旧私有组件测试作为新入口符合证据。 |
+| UI-NAV-04 | [package-related-navigation](#package-related-navigation) | 合成手机详情检查有序关联入口及真实导航目标；其它消费者的页面和目录路径需逐项审查。 |
 | UI-NAV-05 | [package-full](#package-full) | 新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。 |
 | UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full) | 构造无业务查询和工作台按需读取有包映射；慢页面账户可达有源码定向映射。 |
 | UI-WORK-01 | [unit-shell](#unit-shell)、[package-workbench](#package-workbench) | 固定4角色桌面/手机几何和主题有代表证据；空角色/全部业务状态仍需定向验收。 |
@@ -247,6 +247,36 @@
 [scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
 
 定位：`mobile-save-qualification-and-unobstructed-specific-feedback`。手机编辑的保存随资格隐藏及恢复；模型失败文案只出现一次，字段不位移且可正常触达。
+
+### unit-available-operations
+
+[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+
+定位：`updates row operations when eligibility or permission changes`。业务操作资格及撤权即时反馈，调用前重检及执行互斥。
+
+### unit-mobile-action-overflow
+
+[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+
+定位：`keeps the primary record action in reach on phones`。手机详情最常用操作直达，次要操作收纳并可执行。
+
+### package-mobile-detail-close
+
+[scripts/mobile-detail-smoke.mjs](../scripts/mobile-detail-smoke.mjs) · tgz/browser
+
+定位：`scrolled-mobile-record-close-and-context`。长详情独立滚动、标题区关闭、键盘关闭、焦点及列表上下文恢复。
+
+### package-mobile-readonly-values
+
+[scripts/mobile-detail-smoke.mjs](../scripts/mobile-detail-smoke.mjs) · tgz/browser
+
+定位：`mobile-readonly-full-values-and-desktop-single-line`。手机只读文本完整换行，桌面短文本保留单行呈现。
+
+### package-related-navigation
+
+[scripts/mobile-detail-smoke.mjs](../scripts/mobile-detail-smoke.mjs) · tgz/browser
+
+定位：`mobile-related-link-wrap-and-collection-heading`。手机关联入口的同行及换行、可点击尺寸、真实链接和目标集合标题。
 
 ## 执行与维护
 

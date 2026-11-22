@@ -180,6 +180,36 @@
       "anchor": "mobile-save-qualification-and-unobstructed-specific-feedback",
       "surface": "tgz/browser",
       "assertion": "手机编辑的保存随资格隐藏及恢复；模型失败文案只出现一次，字段不位移且可正常触达"
+    },
+    "unit-available-operations": {
+      "file": "tests/business-list-preferences.spec.ts",
+      "anchor": "updates row operations when eligibility or permission changes",
+      "surface": "source/public-entry",
+      "assertion": "业务操作资格及撤权即时反馈，调用前重检及执行互斥"
+    },
+    "unit-mobile-action-overflow": {
+      "file": "tests/business-editor-direct.spec.ts",
+      "anchor": "keeps the primary record action in reach on phones",
+      "surface": "source/public-entry",
+      "assertion": "手机详情最常用操作直达，次要操作收纳并可执行"
+    },
+    "package-mobile-detail-close": {
+      "file": "scripts/mobile-detail-smoke.mjs",
+      "anchor": "scrolled-mobile-record-close-and-context",
+      "surface": "tgz/browser",
+      "assertion": "长详情独立滚动、标题区关闭、键盘关闭、焦点及列表上下文恢复"
+    },
+    "package-mobile-readonly-values": {
+      "file": "scripts/mobile-detail-smoke.mjs",
+      "anchor": "mobile-readonly-full-values-and-desktop-single-line",
+      "surface": "tgz/browser",
+      "assertion": "手机只读文本完整换行，桌面短文本保留单行呈现"
+    },
+    "package-related-navigation": {
+      "file": "scripts/mobile-detail-smoke.mjs",
+      "anchor": "mobile-related-link-wrap-and-collection-heading",
+      "surface": "tgz/browser",
+      "assertion": "手机关联入口的同行及换行、可点击尺寸、真实链接和目标集合标题"
     }
   },
   "clauses": [
@@ -251,8 +281,13 @@
     },
     {
       "id": "UI-THEME-06",
-      "checks": ["package-layout", "package-auth-alignment"],
-      "remaining": "仅代表性动作和48px顶栏；compact输入、全控件触控区域未遍历；常规间距由 Agent 判断，见Q2。",
+      "checks": [
+        "package-layout",
+        "package-auth-alignment",
+        "package-mobile-detail-close",
+        "package-related-navigation"
+      ],
+      "remaining": "代表性桌面动作、48px 顶栏、手机详情关闭和关联链接已覆盖；全部控件尺寸未穷举。",
       "requirementSha256": "cdde125112369892849fa47f8b8510488357a3c7d0bfd51e25c2eb98adf285da"
     },
     {
@@ -275,8 +310,8 @@
     },
     {
       "id": "UI-SHELL-04",
-      "checks": [],
-      "remaining": "主标题几何及业务名重复需检查；语义重复待人工审查。",
+      "checks": ["package-related-navigation"],
+      "remaining": "核对代表性关联目的集合的可见标题；所有导航目标和业务名称重复仍需按路径审查。",
       "requirementSha256": "4c7d01e662e1ccabe9a0670ce84607cf771a6a214683aa17b2eeb20bce1fa2e2"
     },
     {
@@ -346,8 +381,8 @@
     },
     {
       "id": "UI-ACTION-01",
-      "checks": ["unit-actions"],
-      "remaining": "可用动作与更多入口有证据；普通动作3项上限、图标语义及手机收纳边界待补；流程特例不泛化。",
+      "checks": ["unit-actions", "unit-mobile-action-overflow"],
+      "remaining": "操作可用性、手机详情主操作与更多入口有代表性证据；图标语义及各类宽度和流程组合未穷举。",
       "requirementSha256": "f6352333f5a6229c61a4d77281eea059401155b5560e8aa03a4bee3dd692e6fd"
     },
     {
@@ -362,7 +397,8 @@
         "unit-actions",
         "unit-review",
         "package-readonly-reference-feedback",
-        "package-save-qualification"
+        "package-save-qualification",
+        "unit-available-operations"
       ],
       "remaining": "覆盖代表性撤权与禁用、编辑及运行中互斥。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。",
       "requirementSha256": "a92571239d027c3fe10bf9956eb4bb7e1fb2d8fe3461c549a6078fe5aca65a18"
@@ -375,8 +411,8 @@
     },
     {
       "id": "UI-FORM-01",
-      "checks": ["unit-model", "unit-review"],
-      "remaining": "直接编辑、复杂结构有代表用例；查看/新增/编辑完整字段顺序同构尚未逐路径断言。",
+      "checks": ["unit-model", "unit-review", "package-mobile-readonly-values"],
+      "remaining": "直接编辑、复杂结构和手机只读长值有代表用例；查看、新增与编辑的完整字段顺序组合未穷举。",
       "requirementSha256": "1caae29909cf8e53fc0b51a062a8afc5f0e498ef71dae45952da126a2f9248f2"
     },
     {
@@ -384,9 +420,10 @@
       "checks": [
         "unit-overlay",
         "package-layout",
-        "package-application-alignment"
+        "package-application-alignment",
+        "package-mobile-detail-close"
       ],
-      "remaining": "列表持续挂载、编辑覆盖、关闭焦点有证据；新增/查看及非零列表滚动的浏览器往返尚待补。",
+      "remaining": "手机长详情的焦点、筛选、页码和非零滚动均有代表用例；所有新增及复杂弹层路径未穷举。",
       "requirementSha256": "b272d73879603b95708f3986205aad898dab2ef0d4f573804193c676a455c8c7"
     },
     {
@@ -395,7 +432,8 @@
         "package-layout",
         "package-auth-alignment",
         "package-field-alignment",
-        "package-application-alignment"
+        "package-application-alignment",
+        "package-mobile-readonly-values"
       ],
       "remaining": "全部合成业务导航入口及账户/工作台的代表性桌面手机布局、认证和引用控件边界有映射；共用布局归属经代码审查，真实消费者和全部字段值/尺寸/隐藏状态组合未穷举。",
       "requirementSha256": "8d5cdc916dcd52b02361c710d743be7e3da220f9dcd2183184939f4de9aef827"
@@ -483,8 +521,8 @@
     },
     {
       "id": "UI-NAV-04",
-      "checks": [],
-      "remaining": "重复导航/目录与实际入口需逐路径审查，不以旧私有组件测试作为新入口符合证据。",
+      "checks": ["package-related-navigation"],
+      "remaining": "合成手机详情检查有序关联入口及真实导航目标；其它消费者的页面和目录路径需逐项审查。",
       "requirementSha256": "f7e1e32e7f7e8ef583ec87e9e20042b38167649a519c21f199302ab2707b4c58"
     },
     {

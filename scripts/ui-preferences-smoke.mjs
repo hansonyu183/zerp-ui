@@ -5,6 +5,7 @@ import {
 } from "./field-alignment-smoke.mjs";
 import { authAlignmentSmoke } from "./auth-alignment-smoke.mjs";
 import { businessInteractionSmoke } from "./business-interaction-smoke.mjs";
+import { mobileDetailSmoke } from "./mobile-detail-smoke.mjs";
 import {
   settleLayout,
   directPresentationSmoke,
@@ -374,6 +375,8 @@ export async function uiPreferencesSmoke(page, options = {}) {
     ...(await readonlyReferenceFeedbackSmoke(page)),
   });
   assertions.push(...(await businessInteractionSmoke(page)));
+  await page.goto(new URL("/", page.url()).href);
+  assertions.push(...(await mobileDetailSmoke(page)));
   return {
     assertions,
     presentation,
