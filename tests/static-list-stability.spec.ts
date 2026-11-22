@@ -31,7 +31,7 @@ it("keeps first-read status separate from an empty result and its pagination", a
   expect(wrapper.text()).not.toContain("暂无记录");
   complete();
   await flushPromises();
-  expect(wrapper.find('nav[aria-label="分页"]').exists()).toBe(true);
+  expect(wrapper.find('nav[aria-label="分页"]').exists()).toBe(false);
   expect(wrapper.text()).toContain("暂无记录");
 });
 it("restores focus to the same record after async detail changes edit into view", async () => {

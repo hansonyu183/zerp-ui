@@ -10,7 +10,12 @@ import type {
   InteractionAction,
 } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
-import { readableTarget, targetHref, visitTarget } from "./model-target";
+import {
+  availableTarget,
+  readableTarget,
+  targetHref,
+  visitTarget,
+} from "./model-target";
 const props = defineProps<{
   node: OutputNode | InteractionNode;
   readOnly?: boolean;
@@ -67,7 +72,7 @@ function menuEntry(entry: Menu["items"][number], current: () => boolean) {
       target: { kind: "action" as const, operation, blocked },
     };
   }
-  return readable(target)
+  return !entry.disabled && availableTarget(runtime, target)
     ? {
         ...entry,
         target: {
@@ -126,7 +131,7 @@ const interactions = computed<readonly Interaction<Intent>[]>(
       if (item.kind === "related") {
         const source = questions.value;
         const target = item.target;
-        return readable(target)
+        return !item.disabled && availableTarget(runtime, target)
           ? [
               {
                 ...item,

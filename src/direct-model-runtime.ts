@@ -35,14 +35,19 @@ export function members(node: Node): [string, BusinessNode][] {
 }
 type QueryView =
   | { state: "loading" | "success"; page: number }
-  | { state: "failure"; page: number; retryPage: number; error: string };
+  | {
+      state: "failure";
+      page: number;
+      retryPage: number;
+      canRetry: () => boolean;
+      error: string;
+    };
 export interface DirectRuntime {
   model: () => BusinessModel;
   scope: ComputedRef<string>;
   ready: ComputedRef<boolean>;
   busy: Ref<Set<object>>;
   feedback: ReturnType<typeof directFeedback>;
-  messagesFor: ReturnType<typeof directFeedback>["messagesFor"];
   queryView(collection: Collection): QueryView | undefined;
   reportViews: Map<object, { left: number; top: number }>;
   contains(node: Node): boolean;
@@ -50,7 +55,7 @@ export interface DirectRuntime {
   readable(node: Node): boolean;
   writable(node: Node): boolean;
   independent(node: Node): boolean;
-  editable(node: Node, options?: { availableOnly: boolean }): boolean;
+  editable(node: Node): boolean;
   allowed(node: Node, action: string, publicAuth?: boolean): boolean;
   operations(node: Node): Record<string, Operation>;
   available(node: Node, action: string, publicAuth?: boolean): boolean;
@@ -71,6 +76,32 @@ export interface DirectRuntime {
   runWorkbench(once?: boolean): Promise<void>;
   invalidate(scopeChanged?: boolean): void;
 }
+// Track only the live condition values. The token invalidates retry without
+// copying the query payload or writing a previous value back into the model.
+function trackConditions(node: BusinessNode) {
+  if (node.kind === "object") {
+    node.members.forEach(trackConditions);
+  } else if (node.kind === "records") {
+    node.items.forEach(trackConditions);
+  } else if (node.kind !== "output") {
+    const value = node.value;
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if ("id" in entry) void entry.id;
+      }
+    } else if (value && typeof value === "object") {
+      Object.values(value);
+    }
+  }
+}
+function retryGuard(collection: Collection) {
+  const revision = computed(() => {
+    trackConditions(collection.conditions);
+    return Symbol();
+  });
+  const requested = revision.value;
+  return () => revision.value === requested;
+}
 export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   const ownerKey = (owner: Owner | null) =>
     owner
@@ -85,8 +116,13 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     );
   });
   const busy = ref(new Set<object>());
-  const feedback = directFeedback(model, scope, readable, ancestors);
   const executions = new Map<object, symbol>();
+  const feedbackExecutions = new Set<symbol>();
+  const feedback = directFeedback(model, scope, readable, ancestors, () =>
+    feedbackExecutions.size === 1
+      ? feedbackExecutions.values().next().value
+      : undefined,
+  );
   const queries = shallowRef(
     shallowReactive(new WeakMap<Collection, QueryView>()),
   );
@@ -282,7 +318,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       allowed(node, action, publicAuth) && !operations(node)[action]?.disabled
     );
   }
-  function editable(node: Node, { availableOnly = false } = {}) {
+  function editable(node: Node) {
     const readOnlyActions = new Set([
       "get",
       "delete",
@@ -297,9 +333,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     return (
       writable(node) &&
       Object.keys(operations(node)).some(
-        (action) =>
-          !readOnlyActions.has(action) &&
-          (availableOnly ? available(node, action) : allowed(node, action)),
+        (action) => !readOnlyActions.has(action) && allowed(node, action),
       )
     );
   }
@@ -319,6 +353,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       collection = options.query && toRaw(options.query),
       previous = collection && queryViews.get(collection),
       retryPage = collection?.page,
+      canRetry = options.query && retryGuard(options.query),
       stillPresent = feedback.capture(options.target),
       reading: QueryView | undefined = collection && {
         state: "loading",
@@ -328,6 +363,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         start === epoch && owner === scope.value && valid() && stillPresent();
     if (collection && reading) queryViews.set(collection, reading);
     executions.set(key, execution);
+    feedbackExecutions.add(execution);
     busy.value.add(key);
     try {
       await op.run();
@@ -338,14 +374,16 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         const notice = feedback.specific(
           messages,
           options.target,
-          executions.size === 1,
+          execution,
+          !!collection,
         );
-        if (collection && reading && retryPage !== undefined) {
+        if (collection && reading && canRetry && retryPage !== undefined) {
           if (notice) feedback.place(notice, collection, true);
           queryViews.set(collection, {
             state: "failure",
             page: reading.page,
             retryPage,
+            canRetry,
             error: notice ? `查询失败：${notice.text}` : "查询失败，请重试。",
           });
         } else if (notice) {
@@ -357,11 +395,11 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       if (options.propagate) throw cause;
     } finally {
       if (
-        options.target &&
         !current() &&
         (!executions.has(key) || executions.get(key) === execution)
       )
-        feedback.discard(messages, options.target);
+        feedback.discard(messages, options.target, execution);
+      feedbackExecutions.delete(execution);
       if (collection && queryViews.get(collection) === reading) {
         if (previous) queryViews.set(collection, previous);
         else queryViews.delete(collection);
@@ -489,7 +527,6 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     ready,
     busy,
     feedback,
-    messagesFor: feedback.messagesFor,
     queryView: (collection) => queries.value.get(toRaw(collection)),
     reportViews,
     contains: (node) => paths().has(toRaw(node)),

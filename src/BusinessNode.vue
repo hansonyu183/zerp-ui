@@ -109,14 +109,7 @@ const saveUnavailable = computed(() => {
     node.kind === "object" &&
     (props.editing ||
       (node === runtime.model().account.profile && runtime.writable(node))) &&
-    !actions.value.includes("update") &&
-    (!!node.operations.update ||
-      !runtime.editable(node, { availableOnly: true })) &&
-    !runtime
-      .messagesFor(node)
-      .some(
-        (message) => message.level === "warning" || message.level === "error",
-      )
+    !actions.value.includes("update")
   );
 });
 const pending = computed(() => runtime.busy.value.has(toRaw(props.node)));
@@ -161,6 +154,10 @@ const reading = computed(() => queryView.value?.state === "loading");
 const queryFailure = computed(() =>
   queryView.value?.state === "failure" ? queryView.value : undefined,
 );
+function retryQuery() {
+  const failure = queryFailure.value;
+  if (failure?.canRetry()) void query(failure.retryPage);
+}
 async function query(page = 1) {
   if (!canQuery.value) return;
   collection.value.page = page;
@@ -256,10 +253,7 @@ onBeforeUnmount(() => {
     <template v-else-if="isCollection(node)">
       <BusinessNode :node="collection.conditions" :auto-read="false" filter />
       <div class="zerp-business-actions">
-        <div
-          v-if="queryAvailable || reading || queryFailure"
-          class="zerp-business-query"
-        >
+        <div class="zerp-business-query">
           <VBtn
             v-if="queryAvailable"
             color="primary"
@@ -280,12 +274,13 @@ onBeforeUnmount(() => {
                 已有结果未更新。
               </span>
             </div>
+            <BusinessFeedback :target="collection" exact />
           </div>
           <VBtn
-            v-if="queryFailure && queryAvailable"
+            v-if="queryFailure?.canRetry() && queryAvailable"
             variant="text"
             :disabled="!canQuery"
-            @click="query(queryFailure.retryPage)"
+            @click="retryQuery"
             >重试</VBtn
           >
         </div>
@@ -353,7 +348,15 @@ onBeforeUnmount(() => {
           :auto-open="printRequested"
         />
         <template #feedback>
-          <BusinessFeedback :target="detail" />
+          <BusinessFeedback
+            :target="detail"
+            fixed
+            :blocked="
+              (collection.draft === detail ||
+                (detailMode === 'edit' && runtime.editable(detail))) &&
+              !runtime.available(detail, 'update')
+            "
+          />
         </template>
       </RecordDialog>
     </template>

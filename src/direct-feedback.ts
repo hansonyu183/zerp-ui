@@ -18,21 +18,39 @@ export function directFeedback(
   scope: Ref<string>,
   readable: (node: Node) => boolean,
   ancestors: (node: Node) => Node[],
+  soleExecution: () => symbol | undefined,
 ) {
   const owners = new WeakMap<
     Message,
-    { model: BusinessModel; scope: string }
+    {
+      model: BusinessModel;
+      scope: string;
+      revision: string;
+      execution?: symbol;
+    }
   >();
   const overrides = shallowReactive(new WeakMap<Message, Placement>());
-  const localTargets = shallowReactive(new Map<Node, symbol>());
+  const localTargets = shallowReactive(
+    new Map<Node, { token: symbol; exact: boolean }>(),
+  );
   const fallback = shallowRef<Failure>();
   watch(
-    () => model().messages.slice(),
+    () =>
+      model().messages.map(
+        (message) =>
+          [message, JSON.stringify([message.level, message.text])] as const,
+      ),
     (messages) => {
-      for (const message of messages) {
+      for (const [message, revision] of messages) {
         const key = toRaw(message);
-        if (!owners.has(key))
-          owners.set(key, { model: toRaw(model()), scope: scope.value });
+        const owner = owners.get(key);
+        if (owner?.revision !== revision)
+          owners.set(key, {
+            model: owner?.model ?? toRaw(model()),
+            scope: owner?.scope ?? scope.value,
+            revision,
+            execution: soleExecution(),
+          });
       }
     },
     { immediate: true, flush: "sync" },
@@ -64,24 +82,22 @@ export function directFeedback(
       ancestors(target).some((ancestor) => toRaw(ancestor) === toRaw(node))
     );
   }
-  function messagesFor(node: Node) {
-    return notices.value.filter((message) => {
-      const target = targetOf(message);
-      return target && beneath(target, node);
-    });
-  }
-  function presentWith(node: Node) {
+  function presentWith(node: Node, exact: boolean) {
     const key = toRaw(node);
-    const token = Symbol();
-    localTargets.set(key, token);
+    const placement = { token: Symbol(), exact };
+    localTargets.set(key, placement);
     return () => {
-      if (localTargets.get(key) === token) localTargets.delete(key);
+      if (localTargets.get(key) === placement) localTargets.delete(key);
     };
   }
   function location(target: Node | null) {
     if (!target) return null;
-    for (const node of [target, ...ancestors(target).slice().reverse()])
-      if (localTargets.has(toRaw(node))) return toRaw(node);
+    const key = toRaw(target);
+    if (localTargets.has(key)) return key;
+    for (const node of ancestors(target).slice().reverse()) {
+      const placement = localTargets.get(toRaw(node));
+      if (placement && !placement.exact) return toRaw(node);
+    }
     return null;
   }
   function capture(node?: Node) {
@@ -116,29 +132,43 @@ export function directFeedback(
   function changed(
     before: ReturnType<typeof start>,
     node: Node | undefined,
-    untargeted: boolean,
+    execution: symbol,
   ) {
-    return notices.value.filter(
-      (message) =>
-        (message.target ? node && beneath(message.target, node) : untargeted) &&
-        before.get(toRaw(message)) !==
-          JSON.stringify([message.level, message.text]),
-    );
+    return notices.value.filter((message) => {
+      const owner = owners.get(toRaw(message));
+      const author = owner?.execution;
+      return (
+        before.get(toRaw(message)) !== owner?.revision &&
+        (message.target
+          ? (!author || author === execution) &&
+            node &&
+            beneath(message.target, node)
+          : author === execution)
+      );
+    });
   }
   function specific(
     before: ReturnType<typeof start>,
     node: Node | undefined,
-    untargeted: boolean,
+    execution: symbol,
+    collapse: boolean,
   ) {
-    const matches = changed(before, node, untargeted);
-    return (
-      matches.filter((message) => message.level === "error").at(-1) ??
-      matches.filter((message) => message.level === "warning").at(-1)
-    );
+    const related = changed(before, node, execution);
+    const errors = related.filter((message) => message.level === "error");
+    const warnings = related.filter((message) => message.level === "warning");
+    const selected = errors.at(-1) ?? warnings.at(-1);
+    if (collapse)
+      for (const message of [...errors, ...warnings])
+        if (message !== selected) place(message, node ?? null, true);
+    return selected;
   }
-  function discard(before: ReturnType<typeof start>, target: Node) {
-    for (const message of changed(before, target, false))
-      place(message, target, true);
+  function discard(
+    before: ReturnType<typeof start>,
+    target: Node | undefined,
+    execution: symbol,
+  ) {
+    for (const message of changed(before, target, execution))
+      place(message, target ?? null, true);
   }
   function place(message: Message, target: Node | null, consumed = false) {
     overrides.set(toRaw(message), { target, text: message.text, consumed });
@@ -152,7 +182,6 @@ export function directFeedback(
   }
 
   return {
-    messagesFor,
     presentWith,
     capture,
     presentation,

@@ -202,13 +202,29 @@ it("preserves read-only navigation, business disable and the legacy get entry", 
   f.shortcut.readOnly = true;
   const get = vi.fn(async () => {});
   f.shortcut.operations.get = operation(get);
-  f.shortcut.operations.get.disabled = true;
   wrapper = await render(f.model);
-  const disabled = wrapper.findAll("a").find((a) => a.text() === "最近记录")!;
+  const previous = wrapper.findAll("a").find((a) => a.text() === "最近记录")!;
+  f.shortcut.operations.get.disabled = true;
+  f.model.messages.push({
+    id: "workbench-blocker",
+    level: "warning",
+    text: "最近记录暂不可读取",
+    target: f.shortcut,
+  });
   const denied = new MouseEvent("click", { bubbles: true, cancelable: true });
-  disabled.element.dispatchEvent(denied);
+  previous.element.dispatchEvent(denied);
   expect(denied.defaultPrevented).toBe(true);
   expect(f.visit).not.toHaveBeenCalled();
+  await flushPromises();
+  expect(wrapper.findAll("a").some((a) => a.text() === "最近记录")).toBe(false);
+  const caption = wrapper
+    .findAll(".zerp-workbench-links .v-list-item")
+    .find((item) => item.text() === "最近记录")!;
+  expect(caption.attributes("role")).toBe("listitem");
+  expect(caption.attributes("tabindex")).toBeUndefined();
+  const card = wrapper.get('.zerp-workbench [aria-label="单据"]');
+  expect(card.text()).toContain("最近记录暂不可读取");
+  expect(card.find('button[aria-label="关闭警告提示"]').exists()).toBe(false);
   f.shortcut.operations.get.disabled = false;
   await flushPromises();
   await wrapper

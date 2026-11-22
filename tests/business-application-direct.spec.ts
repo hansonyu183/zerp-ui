@@ -273,3 +273,21 @@ it("presents one specific save failure in the active record dialog", async () =>
   expect(document.querySelectorAll('[role="alert"]')).toHaveLength(1);
   expect(document.body.textContent).not.toContain("操作失败");
 });
+
+it("keeps save availability explicit even when the record has a different warning", async () => {
+  const { model, record } = fixture();
+  wrapper = await render(model);
+  await click("编辑");
+  model.messages.push({
+    id: "unrelated-warning",
+    level: "warning",
+    text: "另一项业务提醒",
+    target: record,
+  });
+  record.operations.update!.disabled = true;
+  await flushPromises();
+
+  const dialog = document.querySelector('[role="dialog"]');
+  expect(dialog?.textContent).toContain("当前无法保存。");
+  expect(dialog?.textContent).toContain("另一项业务提醒");
+});
