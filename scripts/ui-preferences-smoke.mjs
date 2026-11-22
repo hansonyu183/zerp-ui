@@ -249,7 +249,7 @@ export async function uiPreferencesSmoke(page, options = {}) {
   ).toBeVisible();
   await stable(row, rowBefore);
   await keyword.fill("");
-  await page.getByRole("button", { name: "重试", exact: true }).click();
+  await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(page.getByRole("alert")).toBeHidden();
   await stable(row, rowBefore);
   assertions.push({
