@@ -4,6 +4,7 @@ import type {
   DomainGroup,
   Collection,
   FieldNode,
+  InteractionNode,
   ObjectNode,
   Operation,
   Owner,
@@ -475,6 +476,62 @@ const voucher: ObjectNode = reactive({
     }),
   },
 });
+const voucherKeyword = text("keyword", "单据筛选");
+const voucherDetailLinks: InteractionNode = {
+  kind: "interactions",
+  key: "links",
+  label: "单据关联",
+  readOnly: true,
+  value: {},
+  items: (
+    [
+      ["关联联系人", contacts],
+      ["客户资料", customers],
+      ["资料办理", familyCollections.documents],
+      ["流程办理", familyCollections.workflows],
+      ["批量办理", familyCollections.batches],
+      ["经营报表", reports],
+    ] as const
+  ).map(([label, collection]) => ({
+    id: collection.key,
+    kind: "related",
+    label,
+    target: { collection },
+  })),
+};
+const voucherDetails = Array.from({ length: 24 }, (_, index) => {
+  const code = `MD${String(index + 1).padStart(3, "0")}`;
+  const record = object(code, "合成手机详情", [
+    text("number", "单据编号", code, true),
+    text("status", "单据状态", "已核实", true),
+  ]);
+  record.family = "voucher";
+  record.identity = code;
+  record.readOnly = true;
+  if (code === "MD017") {
+    const details = text(
+      "details",
+      "完整办理记录",
+      Array.from(
+        { length: 28 },
+        (_, line) => `第 ${line + 1} 行：这项合成操作已核实。`,
+      ).join("\n") + "\n办理记录结尾",
+      true,
+    );
+    details.kind = "longText";
+    record.members.push(
+      text(
+        "remark",
+        "单据备注",
+        "这是一条手机上需要完整阅读的单据备注。".repeat(8) + "备注结尾",
+        true,
+      ),
+      details,
+      voucherDetailLinks,
+    );
+  }
+  return record;
+});
 const vouchers: Collection = reactive({
   key: "vouchers",
   label: "单据",
@@ -483,18 +540,21 @@ const vouchers: Collection = reactive({
     { key: "number", label: "单据编号" },
     { key: "status", label: "单据状态" },
   ],
-  conditions: object("voucher-conditions", "查询条件", []),
+  conditions: object("voucher-conditions", "查询条件", [voucherKeyword]),
   items: [],
   selected: null,
   draft: null,
   page: 1,
-  pageSize: 20,
+  pageSize: 12,
   total: 0,
   operations: {
     query: operation(async () => {
       trace("vouchers.query");
-      vouchers.items = [voucher];
-      vouchers.total = 1;
+      const records =
+        voucherKeyword.value === "手机详情" ? voucherDetails : [voucher];
+      const offset = (vouchers.page - 1) * vouchers.pageSize;
+      vouchers.items = records.slice(offset, offset + vouchers.pageSize);
+      vouchers.total = records.length;
     }),
   },
 });

@@ -302,6 +302,7 @@ onBeforeUnmount(() => {
       <RecordDialog
         v-if="dialogReady && detail && runtime.readable(detail)"
         :title="collection.draft === detail ? '新增' : (detail.label ?? '')"
+        header-close
         :return-focus="
           collection.draft === detail ? undefined : restoreDetailFocus
         "
@@ -326,7 +327,6 @@ onBeforeUnmount(() => {
           :record="detail"
           :auto-open="printRequested"
         />
-        <VBtn variant="text" @click="closeDetail">关闭</VBtn>
       </RecordDialog>
     </template>
     <BusinessRecords

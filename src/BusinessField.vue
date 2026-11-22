@@ -7,6 +7,7 @@ import {
   VTextarea,
   VSelect,
 } from "vuetify/components";
+import { useDisplay } from "vuetify";
 import type { FieldNode, ReferenceValue } from "./business-model";
 import type { ReferenceAdapter } from "./contracts";
 import ReferencePicker from "./ReferencePicker.vue";
@@ -22,6 +23,13 @@ const props = defineProps<{
 }>();
 const runtime = inject(directRuntimeKey)!;
 const disabled = computed(() => props.readOnly || props.node.readOnly);
+const { xs } = useDisplay();
+const wrapReadOnlyText = computed(
+  () =>
+    xs.value &&
+    disabled.value &&
+    (props.node.kind === "text" || props.node.kind === "longText"),
+);
 const secret = computed(() =>
   props.node.kind === "secret" ? props.node : null,
 );
@@ -163,7 +171,10 @@ function setValue(value: unknown) {
     @update:model-value="setValue"
   />
   <VTextarea
-    v-else-if="node.kind === 'longText'"
+    v-else-if="node.kind === 'longText' || wrapReadOnlyText"
+    :auto-grow="wrapReadOnlyText"
+    :rows="wrapReadOnlyText ? 1 : undefined"
+    :class="{ 'zerp-readonly-text': wrapReadOnlyText }"
     density="compact"
     hide-details
     :label="node.label ?? undefined"
@@ -204,3 +215,9 @@ function setValue(value: unknown) {
     /></FeedbackRegion>
   </div>
 </template>
+
+<style scoped>
+.zerp-readonly-text :deep(textarea) {
+  overflow-wrap: anywhere;
+}
+</style>
