@@ -65,8 +65,11 @@ function setup(run = vi.fn(async () => {})) {
   });
   return { ...f, node, action, run, visit };
 }
+function action(label: string) {
+  return wrapper!.findAll("button,a").find((b) => b.text() === label);
+}
 async function click(label: string) {
-  const button = wrapper!.findAll("button,a").find((b) => b.text() === label)!;
+  const button = action(label)!;
   expect(button).toBeTruthy();
   await button.trigger("click");
   await flushPromises();
@@ -103,13 +106,13 @@ it("requires download permission while allowing authorized read-only downloads",
     f.model.session.userPermissions.grants[0]!.operations.download = true;
   target.operation.disabled = true;
   await flushPromises();
-  await click("下载文件");
+  expect(action("下载文件")).toBeUndefined();
   expect(run).not.toHaveBeenCalled();
   target.operation.disabled = false;
   const entry = f.node.items[0]!;
   if (entry.kind === "download") entry.disabled = true;
   await flushPromises();
-  await click("下载文件");
+  expect(action("下载文件")).toBeUndefined();
   expect(run).not.toHaveBeenCalled();
   if (entry.kind === "download") entry.disabled = false;
   await flushPromises();
@@ -247,11 +250,14 @@ it("rechecks explicit interaction permission, read-only and disabled state", asy
   )
     f.model.session.userPermissions.grants[0]!.operations.interact = true;
   await flushPromises();
+  const previous = action("重新计算")!;
   f.node.readOnly = true;
-  await click("重新计算");
+  await previous.trigger("click");
+  expect(action("重新计算")).toBeUndefined();
   f.node.readOnly = false;
   f.action.operation.disabled = true;
-  await click("重新计算");
+  await flushPromises();
+  expect(action("重新计算")).toBeUndefined();
   expect(f.run).not.toHaveBeenCalled();
   f.action.operation.disabled = false;
   await flushPromises();

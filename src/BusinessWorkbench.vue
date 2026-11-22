@@ -131,12 +131,8 @@ watch(
 <template>
   <section class="zerp-workbench" aria-label="工作台">
     <VBtn
-      v-if="node.load"
-      :disabled="
-        node.load.disabled ||
-        runtime.busy.value.has(toRaw(node)) ||
-        !sections.length
-      "
+      v-if="node.load && !node.load.disabled && sections.length"
+      :disabled="runtime.busy.value.has(toRaw(node))"
       @click="runtime.runWorkbench()"
       >刷新</VBtn
     >

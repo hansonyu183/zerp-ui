@@ -5,7 +5,7 @@ export type { NavigationIcon } from "./shell";
 import type { Interaction } from "./collaboration";
 import type { ReportPresentation, ReportSummary } from "./report";
 
-/** 操作缺省时无入口；存在但 disabled 为 true 时置灰且不得调用 run。 */
+/** 操作缺省、未获授权或 disabled 为 true 时不显示入口，也不得调用 run。 */
 export interface Operation {
   disabled: boolean;
   /** 读取当前模型值，结果直接更新模型；业务有效性及迟到回写由消费者控制。 */

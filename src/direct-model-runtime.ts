@@ -42,12 +42,12 @@ export interface DirectRuntime {
   readable(node: Node): boolean;
   writable(node: Node): boolean;
   independent(node: Node): boolean;
-  editable(node: Node): boolean;
+  editable(node: Node, options?: { availableOnly: boolean }): boolean;
   allowed(node: Node, action: string, publicAuth?: boolean): boolean;
   operations(node: Node): Record<string, Operation>;
+  available(node: Node, action: string, publicAuth?: boolean): boolean;
   run(node: Node, action: string, publicAuth?: boolean): Promise<void>;
   interactable(node: InteractionNode): boolean;
-  interactionVisible(node: InteractionNode): boolean;
   downloadable(node: InteractionNode): boolean;
   runDownload(
     node: InteractionNode,
@@ -266,7 +266,12 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       permitted(node, action)
     );
   }
-  function editable(node: Node) {
+  function available(node: Node, action: string, publicAuth = false) {
+    return (
+      allowed(node, action, publicAuth) && !operations(node)[action]?.disabled
+    );
+  }
+  function editable(node: Node, { availableOnly = false } = {}) {
     const readOnlyActions = new Set([
       "get",
       "delete",
@@ -281,7 +286,9 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     return (
       writable(node) &&
       Object.keys(operations(node)).some(
-        (action) => !readOnlyActions.has(action) && allowed(node, action),
+        (action) =>
+          !readOnlyActions.has(action) &&
+          (availableOnly ? available(node, action) : allowed(node, action)),
       )
     );
   }
@@ -360,9 +367,6 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   function interactable(node: InteractionNode) {
     return writable(node) && permitted(node, "interact");
   }
-  function interactionVisible(node: InteractionNode) {
-    return writeAllowed(node) && permitted(node, "interact");
-  }
   async function runInteraction(
     node: InteractionNode,
     operation: Operation,
@@ -434,9 +438,9 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       (!isCollection(node) && node.kind === "object" && editable(node)),
     allowed,
     operations,
+    available,
     run,
     interactable,
-    interactionVisible,
     runInteraction,
     downloadable,
     runDownload,
