@@ -1,6 +1,6 @@
 import { modelCollections } from "./model-collections";
 import { toRaw } from "vue";
-import type { CollectionTarget } from "./business-model";
+import type { CollectionTarget, ObjectNode } from "./business-model";
 import type { DirectRuntime } from "./direct-model-runtime";
 export function readableTarget(
   runtime: DirectRuntime,
@@ -18,13 +18,28 @@ export function readableTarget(
         runtime.readable(target.record)))
   );
 }
+export function canOpenRecord(runtime: DirectRuntime, record: ObjectNode) {
+  return (
+    runtime.readable(record) &&
+    (!runtime.operations(record).get || runtime.available(record, "get"))
+  );
+}
+export function availableTarget(
+  runtime: DirectRuntime,
+  target: CollectionTarget,
+) {
+  return (
+    readableTarget(runtime, target) &&
+    (!target.record || canOpenRecord(runtime, target.record))
+  );
+}
 export function targetHref(runtime: DirectRuntime, target: CollectionTarget) {
-  return readableTarget(runtime, target)
+  return availableTarget(runtime, target)
     ? runtime.model().navigation.href(target.collection, target.record)
     : undefined;
 }
 export function visitTarget(runtime: DirectRuntime, target: CollectionTarget) {
-  if (!readableTarget(runtime, target)) return;
+  if (!availableTarget(runtime, target)) return;
   if (target.record) target.collection.selected = target.record;
   runtime.model().navigation.visit(target.collection, target.record);
 }

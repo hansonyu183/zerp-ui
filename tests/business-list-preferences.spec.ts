@@ -120,12 +120,20 @@ it("keeps prior rows marked stale and uses one concrete query failure", async ()
       .fn(async () => {})
       .mockImplementationOnce(async () => {})
       .mockImplementationOnce(async () => {
-        model.messages.push({
-          id: "query-denied",
-          level: "error",
-          text: "该范围暂不可读取",
-          target: rows,
-        });
+        model.messages.push(
+          {
+            id: "query-warning",
+            level: "warning",
+            text: "该次查询的重复提示",
+            target: rows,
+          },
+          {
+            id: "query-denied",
+            level: "error",
+            text: "该范围暂不可读取",
+            target: rows,
+          },
+        );
         throw Error("read failed");
       }),
   );
@@ -140,14 +148,20 @@ it("keeps prior rows marked stale and uses one concrete query failure", async ()
   expect(alerts).toHaveLength(1);
   expect(alerts[0]?.textContent).toContain("该范围暂不可读取");
   expect(alerts[0]?.textContent).toContain("已有结果未更新");
+  expect(document.body.textContent).not.toContain("该次查询的重复提示");
   await click("重试");
   expect(rows.page).toBe(2);
   expect(document.querySelectorAll('[role="alert"]')).toHaveLength(0);
 });
 
-it.each(["error", "success"] as const)(
-  "isolates late %s feedback after opening a different collection",
-  async (level) => {
+it.each([
+  ["error", true],
+  ["success", true],
+  ["error", false],
+  ["success", false],
+] as const)(
+  "isolates late %s feedback after opening a different collection (targeted: %s)",
+  async (level, targeted) => {
     const { model, rows } = fixture();
     const other = fixture().rows;
     other.key = "other";
@@ -164,7 +178,7 @@ it.each(["error", "success"] as const)(
           id: "old-query-outcome",
           level,
           text: "旧集合结果",
-          target: rows,
+          target: targeted ? rows : null,
         });
         if (level === "error") throw Error("stale callback failure");
       }),
@@ -223,4 +237,65 @@ it("updates row operations when eligibility or permission changes and keeps runn
   complete();
   await flushPromises();
   expect(removeButton()?.disabled).toBe(false);
+});
+
+it("uses a fresh first-page query after failed conditions are edited", async () => {
+  const { model, rows, term } = fixture();
+  rows.total = 60;
+  term.value = "original";
+  const read = vi
+    .fn(async () => {})
+    .mockImplementationOnce(async () => {})
+    .mockImplementationOnce(async () => {
+      throw Error("read failed");
+    })
+    .mockImplementationOnce(async () => {
+      expect(rows.page).toBe(1);
+      expect(term.value).toBe("new conditions");
+    });
+  rows.operations.query = operation(read);
+  wrapper = await render(model);
+  await click("下一页");
+  const retry = () =>
+    wrapper!.findAll("button").some((b) => b.text() === "重试");
+  expect(retry()).toBe(true);
+
+  await input("条件").setValue("new conditions");
+  await flushPromises();
+  expect(retry()).toBe(false);
+  await click("查询");
+  expect(read).toHaveBeenCalledTimes(3);
+  expect(document.querySelector('[role="alert"]')).toBeNull();
+});
+
+it("hides detail actions when a configured read is unavailable", async () => {
+  const { model, record } = fixture();
+  record.operations.get = operation();
+  record.operations.get.disabled = true;
+  wrapper = await render(model);
+  expect(document.querySelector('button[aria-label="编辑"]')).toBeNull();
+  expect(document.querySelector("tbody")?.textContent).toContain("initial");
+  delete record.operations.get;
+  await flushPromises();
+  expect(document.querySelector('button[aria-label="编辑"]')).not.toBeNull();
+});
+
+it("keeps a supplied collection blocker next to the query operation", async () => {
+  const { model, rows } = fixture();
+  rows.operations.query!.disabled = true;
+  model.messages.push({
+    id: "query-blocked",
+    level: "warning",
+    text: "需要先维护查询范围",
+    target: rows,
+  });
+  wrapper = await render(model);
+  const collection = wrapper.get('section[aria-label="记录集合"]');
+  expect(collection.text()).toContain("需要先维护查询范围");
+  expect(collection.find('button[aria-label="关闭警告提示"]').exists()).toBe(
+    false,
+  );
+  expect(document.body.textContent?.split("需要先维护查询范围")).toHaveLength(
+    2,
+  );
 });

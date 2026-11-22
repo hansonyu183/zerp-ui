@@ -12,8 +12,11 @@ import {
 import type { Workbench, RecordsNode, ObjectNode } from "./business-model";
 import { directRuntimeKey } from "./direct-model-runtime";
 import { formatField } from "./model-format";
+import BusinessFeedback from "./BusinessFeedback.vue";
 import {
   readableTarget,
+  availableTarget,
+  canOpenRecord,
   targetHref,
   visitTarget,
   plainClick,
@@ -57,20 +60,21 @@ function rows(section: RecordsNode) {
         readableTarget(runtime, props.node.targets.get(row)!)),
   );
 }
-function blocked(row: ObjectNode) {
-  return props.node.targets?.has(row)
-    ? !!row.operations.get?.disabled || runtime.busy.value.has(toRaw(row))
-    : !runtime.allowed(row, "get") ||
-        !!row.operations.get?.disabled ||
-        runtime.busy.value.has(toRaw(row));
+function canOpen(row: ObjectNode) {
+  const target = props.node.targets?.get(row);
+  return target
+    ? canOpenRecord(runtime, row) && availableTarget(runtime, target)
+    : runtime.available(row, "get");
+}
+function pending(row: ObjectNode) {
+  return runtime.busy.value.has(toRaw(row));
 }
 function open(event: MouseEvent | KeyboardEvent, row: ObjectNode) {
   const target = props.node.targets?.get(row);
   if (
     !sections.value.some((section) => section.node.items.includes(row)) ||
-    !runtime.readable(row) ||
-    blocked(row) ||
-    (target && !readableTarget(runtime, target))
+    !canOpen(row) ||
+    pending(row)
   ) {
     event.preventDefault();
     return;
@@ -96,7 +100,7 @@ function manage(event: MouseEvent) {
   if (
     !target ||
     !runtime.readable(props.node.reports) ||
-    !readableTarget(runtime, target)
+    !availableTarget(runtime, target)
   ) {
     event.preventDefault();
     return;
@@ -152,9 +156,10 @@ watch(
             <VListItem
               v-for="row in rows(section.node)"
               :key="row.identity ?? row.key"
-              :disabled="blocked(row)"
+              :link="canOpen(row)"
+              :disabled="canOpen(row) && pending(row)"
               :href="
-                node.targets?.get(row)
+                canOpen(row) && node.targets?.get(row)
                   ? targetHref(runtime, node.targets.get(row)!)
                   : undefined
               "
@@ -167,13 +172,18 @@ watch(
             v-if="
               section.role === 'reports' &&
               node.manageReports &&
-              readableTarget(runtime, node.manageReports)
+              availableTarget(runtime, node.manageReports)
             "
             :href="targetHref(runtime, node.manageReports)"
             variant="text"
             @click="manage"
             >管理常用报表</VBtn
           >
+          <BusinessFeedback
+            :target="section.node"
+            fixed
+            :blocked="node.load?.disabled"
+          />
         </VCardText>
       </VCard>
     </div>

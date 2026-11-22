@@ -9,7 +9,12 @@ import {
 import Feedback from "./Feedback.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
 
-const props = defineProps<{ target?: Node }>();
+const props = defineProps<{
+  target?: Node;
+  exact?: boolean;
+  fixed?: boolean;
+  blocked?: boolean;
+}>();
 const runtime = inject(directRuntimeKey)!;
 const presentation = computed(() =>
   runtime.feedback.presentation(props.target),
@@ -18,7 +23,7 @@ const presentation = computed(() =>
 watch(
   () => props.target,
   (target, _previous, onCleanup) => {
-    if (target) onCleanup(runtime.feedback.presentWith(target));
+    if (target) onCleanup(runtime.feedback.presentWith(target, !!props.exact));
   },
   { immediate: true },
 );
@@ -43,19 +48,28 @@ function persistent(target: Node | null) {
   return (
     !!target &&
     !!props.target &&
-    (Object.entries(runtime.operations(props.target)).some(
-      ([action, operation]) =>
-        operation.disabled && runtime.allowed(props.target!, action),
-    ) ||
-      (runtime.allowed(props.target, "reconcile") &&
-        !runtime.operations(props.target).reconcile?.disabled))
+    (!!props.blocked ||
+      Object.entries(runtime.operations(target)).some(
+        ([action, operation]) =>
+          operation.disabled && runtime.allowed(target, action),
+      ) ||
+      runtime.available(target, "reconcile"))
   );
 }
 </script>
 <template>
   <component
     :is="target ? 'div' : FeedbackRegion"
-    :class="target ? 'zerp-business-feedback' : 'zerp-business-page-feedback'"
+    :tabindex="
+      target && (presentation.failure || presentation.messages.length)
+        ? 0
+        : undefined
+    "
+    :class="{
+      'zerp-business-feedback': target,
+      'zerp-business-feedback--fixed': fixed,
+      'zerp-business-page-feedback': !target,
+    }"
   >
     <Feedback
       v-if="presentation.failure"
@@ -95,7 +109,12 @@ function persistent(target: Node | null) {
   overflow: auto;
   overscroll-behavior: contain;
 }
-.zerp-business-feedback:not(:has(.zerp-feedback)) {
+.zerp-business-feedback--fixed {
+  block-size: var(--zerp-control-size, 2rem);
+}
+.zerp-business-feedback:not(.zerp-business-feedback--fixed):not(
+    :has(.zerp-feedback)
+  ) {
   display: none;
 }
 /* Keep the dialog surface clear of notices from the page behind it. */
@@ -104,8 +123,5 @@ function persistent(target: Node | null) {
     .zerp-feedback-stack:has(> .zerp-business-page-feedback)
 ) {
   z-index: 1;
-}
-:global(.zerp-record-dialog-overlay--detail.v-dialog) {
-  align-items: flex-start;
 }
 </style>

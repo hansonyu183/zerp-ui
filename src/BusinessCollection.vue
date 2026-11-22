@@ -18,7 +18,7 @@ import {
 } from "./direct-model-runtime";
 import type { FieldNode } from "./business-model";
 import { formatField } from "./model-format";
-import { readableTarget as targetReadable, visitTarget } from "./model-target";
+import { availableTarget, canOpenRecord, visitTarget } from "./model-target";
 type Values = Record<string, string | number | boolean | null>;
 const props = defineProps<{
   node: CollectionNode;
@@ -109,7 +109,9 @@ const rowOperations = new Set([
 function actions(row: Values): RowAction[] {
   const source = original(row);
   if (!source || !runtime.readable(source)) return [];
-  const result: RowAction[] = [runtime.editable(source) ? "edit" : "view"];
+  const result: RowAction[] = canOpenRecord(runtime, source)
+    ? [runtime.editable(source) ? "edit" : "view"]
+    : [];
   const itemTemplate = props.node.itemPrintTemple;
   if (
     itemTemplate &&
@@ -242,7 +244,7 @@ const presentation = computed<ReportPresentation<Values, string> | undefined>(
   },
 );
 function readableTarget(target: CollectionTarget) {
-  return targetReadable(runtime, target);
+  return availableTarget(runtime, target);
 }
 
 function cell(
@@ -255,7 +257,7 @@ function cell(
   const fact = props.node.report?.cells?.find(
     (fact) => toRaw(fact.row) === toRaw(source!) && fact.field === key,
   );
-  if (!fact || !readableTarget(fact.target)) return;
+  if (!fact || fact.disabled || !readableTarget(fact.target)) return;
   const value = {
     kind: fact.kind,
     target: fact.target,
