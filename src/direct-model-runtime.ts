@@ -324,7 +324,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         state: "loading",
         page: previous?.page ?? collection.page,
       },
-      current = () => start === epoch && owner === scope.value && valid();
+      current = () =>
+        start === epoch && owner === scope.value && valid() && stillPresent();
     if (collection && reading) queryViews.set(collection, reading);
     executions.set(key, execution);
     busy.value.add(key);
@@ -333,33 +334,34 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       if (collection && current())
         queryViews.set(collection, { state: "success", page: collection.page });
     } catch (cause) {
-      const active = current() && stillPresent();
-      const notice = feedback.specific(
-        messages,
-        options.target,
-        active && executions.size === 1,
-      );
-      if (!active) {
-        if (
-          notice &&
-          (!executions.has(key) || executions.get(key) === execution)
-        )
-          feedback.place(notice, options.target ?? null, true);
-      } else if (collection && reading && retryPage !== undefined) {
-        if (notice) feedback.place(notice, collection, true);
-        queryViews.set(collection, {
-          state: "failure",
-          page: reading.page,
-          retryPage,
-          error: notice ? `查询失败：${notice.text}` : "查询失败，请重试。",
-        });
-      } else if (notice) {
-        feedback.place(notice, notice.target ?? options.target ?? null);
-      } else {
-        feedback.fail(options.target ?? null);
+      if (current()) {
+        const notice = feedback.specific(
+          messages,
+          options.target,
+          executions.size === 1,
+        );
+        if (collection && reading && retryPage !== undefined) {
+          if (notice) feedback.place(notice, collection, true);
+          queryViews.set(collection, {
+            state: "failure",
+            page: reading.page,
+            retryPage,
+            error: notice ? `查询失败：${notice.text}` : "查询失败，请重试。",
+          });
+        } else if (notice) {
+          feedback.place(notice, notice.target ?? options.target ?? null);
+        } else {
+          feedback.fail(options.target ?? null);
+        }
       }
       if (options.propagate) throw cause;
     } finally {
+      if (
+        options.target &&
+        !current() &&
+        (!executions.has(key) || executions.get(key) === execution)
+      )
+        feedback.discard(messages, options.target);
       if (collection && queryViews.get(collection) === reading) {
         if (previous) queryViews.set(collection, previous);
         else queryViews.delete(collection);

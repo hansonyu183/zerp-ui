@@ -113,21 +113,32 @@ export function directFeedback(
       ]),
     );
   }
+  function changed(
+    before: ReturnType<typeof start>,
+    node: Node | undefined,
+    untargeted: boolean,
+  ) {
+    return notices.value.filter(
+      (message) =>
+        (message.target ? node && beneath(message.target, node) : untargeted) &&
+        before.get(toRaw(message)) !==
+          JSON.stringify([message.level, message.text]),
+    );
+  }
   function specific(
     before: ReturnType<typeof start>,
     node: Node | undefined,
     untargeted: boolean,
   ) {
-    const matches = notices.value.filter(
-      (message) =>
-        (message.level === "warning" || message.level === "error") &&
-        (message.target ? node && beneath(message.target, node) : untargeted) &&
-        before.get(toRaw(message)) !==
-          JSON.stringify([message.level, message.text]),
-    );
+    const matches = changed(before, node, untargeted);
     return (
-      matches.findLast((message) => message.level === "error") ?? matches.at(-1)
+      matches.filter((message) => message.level === "error").at(-1) ??
+      matches.filter((message) => message.level === "warning").at(-1)
     );
+  }
+  function discard(before: ReturnType<typeof start>, target: Node) {
+    for (const message of changed(before, target, false))
+      place(message, target, true);
   }
   function place(message: Message, target: Node | null, consumed = false) {
     overrides.set(toRaw(message), { target, text: message.text, consumed });
@@ -147,6 +158,7 @@ export function directFeedback(
     presentation,
     start,
     specific,
+    discard,
     place,
     fail,
     clear: () => (fallback.value = undefined),

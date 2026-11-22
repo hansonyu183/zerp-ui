@@ -145,38 +145,41 @@ it("keeps prior rows marked stale and uses one concrete query failure", async ()
   expect(document.querySelectorAll('[role="alert"]')).toHaveLength(0);
 });
 
-it("isolates late failure feedback after opening a different collection", async () => {
-  const { model, rows } = fixture();
-  const other = fixture().rows;
-  other.key = "other";
-  other.label = "另一集合";
-  model.members.push(domainOf(other));
-  let finish!: () => void;
-  const pending = new Promise<void>((resolve) => {
-    finish = resolve;
-  });
-  rows.operations.query = operation(
-    vi.fn(async () => {
-      await pending;
-      model.messages.push({
-        id: "old-query-failed",
-        level: "error",
-        text: "旧集合失败",
-        target: rows,
-      });
-      throw Error("stale callback failure");
-    }),
-  );
-  wrapper = await render(model);
-  model.navigation.current = other;
-  await flushPromises();
-  finish();
-  await flushPromises();
+it.each(["error", "success"] as const)(
+  "isolates late %s feedback after opening a different collection",
+  async (level) => {
+    const { model, rows } = fixture();
+    const other = fixture().rows;
+    other.key = "other";
+    other.label = "另一集合";
+    model.members.push(domainOf(other));
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    rows.operations.query = operation(
+      vi.fn(async () => {
+        await pending;
+        model.messages.push({
+          id: "old-query-outcome",
+          level,
+          text: "旧集合结果",
+          target: rows,
+        });
+        if (level === "error") throw Error("stale callback failure");
+      }),
+    );
+    wrapper = await render(model);
+    model.navigation.current = other;
+    await flushPromises();
+    finish();
+    await flushPromises();
 
-  expect(document.body.textContent).toContain("另一集合");
-  expect(document.body.textContent).not.toContain("旧集合失败");
-  expect(document.querySelector('[role="alert"]')).toBeNull();
-});
+    expect(document.body.textContent).toContain("另一集合");
+    expect(document.body.textContent).not.toContain("旧集合结果");
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+  },
+);
 
 it("updates row operations when eligibility or permission changes and keeps running actions guarded", async () => {
   const { model, rows, record, owner } = fixture();
