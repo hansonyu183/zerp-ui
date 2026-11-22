@@ -166,3 +166,39 @@ it.each([1440, 390])(
     }
   },
 );
+
+it("keeps the primary record action in reach on phones and gathers secondary actions", async () => {
+  const previousWidth = Object.getOwnPropertyDescriptor(window, "innerWidth");
+  Object.defineProperty(window, "innerWidth", {
+    configurable: true,
+    value: 390,
+  });
+  window.dispatchEvent(new Event("resize"));
+  try {
+    const { model, record } = fixture();
+    record.operations.get = operation();
+    record.operations.delete = operation();
+    record.operations.reconcile = operation();
+    wrapper = await render(model);
+    await click("编辑");
+    const dialog = document.querySelector('[role="dialog"]')!;
+    const buttons = () =>
+      Array.from(dialog.querySelectorAll<HTMLButtonElement>("button"));
+    expect(
+      buttons().some((button) => button.textContent?.trim() === "保存"),
+    ).toBe(true);
+    expect(
+      buttons().some((button) => button.textContent?.trim() === "删除"),
+    ).toBe(false);
+    buttons()
+      .find((button) => button.getAttribute("aria-label") === "更多操作")!
+      .click();
+    await flushPromises();
+    await click("核对结果");
+    expect(record.operations.reconcile.run).toHaveBeenCalledTimes(1);
+  } finally {
+    if (previousWidth)
+      Object.defineProperty(window, "innerWidth", previousWidth);
+    window.dispatchEvent(new Event("resize"));
+  }
+});

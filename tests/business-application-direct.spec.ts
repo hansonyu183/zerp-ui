@@ -23,7 +23,7 @@ it("edits the same model in an overlay and retains failed-save input", async () 
   expect(document.body.textContent).toContain("操作失败");
   expect(record.operations.update.run).toHaveBeenCalledTimes(1);
 });
-it("displays disabled operations, rechecks their state and prevents duplicate invocation", async () => {
+it("hides unavailable queries and prevents duplicate invocation after restoration", async () => {
   const { model, rows } = fixture();
   let done!: () => void;
   const run = vi.fn(
@@ -37,9 +37,8 @@ it("displays disabled operations, rechecks their state and prevents duplicate in
   wrapper = await render(model);
   const query = Array.from(
     document.querySelectorAll<HTMLButtonElement>("button"),
-  ).find((button) => button.textContent?.trim() === "查询")!;
-  expect(query.disabled).toBe(true);
-  await click("查询");
+  ).find((button) => button.textContent?.trim() === "查询");
+  expect(query).toBeUndefined();
   expect(run).not.toHaveBeenCalled();
   rows.operations.query.disabled = false;
   await flushPromises();
@@ -133,8 +132,11 @@ it("uses consumer-created drafts and reopens them without creating twice", async
   expect(rows.operations.create.run).toHaveBeenCalledTimes(1);
   const save = Array.from(
     document.querySelectorAll<HTMLButtonElement>("button"),
-  ).find((button) => button.textContent?.trim() === "保存")!;
-  expect(save.disabled).toBe(true);
+  ).find((button) => button.textContent?.trim() === "保存");
+  expect(save).toBeUndefined();
+  expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+    "当前无法保存。",
+  );
 });
 it("does not advertise absent queries or advance disabled pagination", async () => {
   const { model, rows } = fixture();
@@ -164,14 +166,14 @@ it("keeps consumer unknown-result restrictions through refresh and feedback dism
   const saved = () =>
     Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
       (button) => button.textContent?.trim() === "保存",
-    )!;
-  expect(saved().disabled).toBe(true);
+    );
+  expect(saved()).toBeUndefined();
   await click("关闭");
   await click("查询");
   expect(record.operations.update!.disabled).toBe(true);
   expect(rows.operations.query!.run).toHaveBeenCalledTimes(2);
   await click("编辑");
-  expect(saved().disabled).toBe(true);
+  expect(saved()).toBeUndefined();
   await click("核对结果");
   expect(record.operations.reconcile.run).toHaveBeenCalledTimes(1);
   expect(record.operations.update!.disabled).toBe(true);
@@ -247,3 +249,45 @@ it.each(["info", "success", "warning", "error"] as const)(
     expect(record.operations.update!.disabled).toBe(true);
   },
 );
+
+it("presents one specific save failure in the active record dialog", async () => {
+  const { model, record } = fixture();
+  record.operations.update = operation(
+    vi.fn(async () => {
+      model.messages.push({
+        id: "save-failed",
+        level: "error",
+        text: "名称已存在，请替换",
+        target: record,
+      });
+      throw Error("write failed");
+    }),
+  );
+  wrapper = await render(model);
+  await click("编辑");
+  await click("保存");
+  const dialog = document.querySelector('[role="dialog"]');
+  expect(dialog?.querySelector('[role="alert"]')?.textContent).toContain(
+    "名称已存在，请替换",
+  );
+  expect(document.querySelectorAll('[role="alert"]')).toHaveLength(1);
+  expect(document.body.textContent).not.toContain("操作失败");
+});
+
+it("keeps save availability explicit even when the record has a different warning", async () => {
+  const { model, record } = fixture();
+  wrapper = await render(model);
+  await click("编辑");
+  model.messages.push({
+    id: "unrelated-warning",
+    level: "warning",
+    text: "另一项业务提醒",
+    target: record,
+  });
+  record.operations.update!.disabled = true;
+  await flushPromises();
+
+  const dialog = document.querySelector('[role="dialog"]');
+  expect(dialog?.textContent).toContain("当前无法保存。");
+  expect(dialog?.textContent).toContain("另一项业务提醒");
+});

@@ -13,7 +13,6 @@ import { VBtn } from "vuetify/components";
 import {
   directRuntimeKey,
   members,
-  labels,
   isCollection,
   type Node,
   type CollectionNode,
@@ -25,6 +24,8 @@ import type {
   FieldNode,
 } from "./business-model";
 import BusinessField from "./BusinessField.vue";
+import BusinessFeedback from "./BusinessFeedback.vue";
+import BusinessActionGroup from "./BusinessActionGroup.vue";
 import BusinessCollection from "./BusinessCollection.vue";
 import BusinessRecords from "./BusinessRecords.vue";
 import RecordDialog from "./RecordDialog.vue";
@@ -39,6 +40,7 @@ const props = withDefaults(
     autoRead?: boolean;
     readOnly?: boolean;
     filter?: boolean;
+    editing?: boolean;
   }>(),
   { autoRead: true },
 );
@@ -72,8 +74,8 @@ const runs = computed(() => {
   return result;
 });
 const actions = computed(() =>
-  Object.entries(runtime.operations(props.node)).filter(
-    ([key]) =>
+  Object.keys(runtime.operations(props.node)).filter(
+    (key) =>
       key !== "query" &&
       !(
         key === "print" &&
@@ -97,27 +99,19 @@ const actions = computed(() =>
           "audit",
           "openVoucher",
         ].includes(key)) &&
-      runtime.allowed(props.node, key, props.publicAuth),
+      runtime.available(props.node, key, props.publicAuth),
   ),
 );
-function actionStyle(action: string) {
-  if (["delete", "remove", "void", "reverse"].includes(action))
-    return { color: "error", variant: "tonal" as const };
-  if (
-    [
-      "signIn",
-      "changePassword",
-      "update",
-      "create",
-      "submit",
-      "approve",
-      "complete",
-      "publish",
-    ].includes(action)
-  )
-    return { color: "primary", variant: "flat" as const };
-  return { color: "", variant: "tonal" as const };
-}
+const saveUnavailable = computed(() => {
+  const node = props.node;
+  return (
+    !isCollection(node) &&
+    node.kind === "object" &&
+    (props.editing ||
+      (node === runtime.model().account.profile && runtime.writable(node))) &&
+    !actions.value.includes("update")
+  );
+});
 const pending = computed(() => runtime.busy.value.has(toRaw(props.node)));
 const dialogReady = ref(false);
 onMounted(
@@ -151,12 +145,19 @@ function closeDetail() {
   detailMode.value = "edit";
   printRequested.value = false;
 }
-const canQuery = computed(
-  () =>
-    runtime.allowed(props.node, "query") &&
-    !runtime.operations(props.node).query?.disabled &&
-    !pending.value,
+const queryAvailable = computed(() => runtime.available(props.node, "query"));
+const canQuery = computed(() => queryAvailable.value && !pending.value);
+const queryView = computed(() =>
+  isCollection(props.node) ? runtime.queryView(props.node) : undefined,
 );
+const reading = computed(() => queryView.value?.state === "loading");
+const queryFailure = computed(() =>
+  queryView.value?.state === "failure" ? queryView.value : undefined,
+);
+function retryQuery() {
+  const failure = queryFailure.value;
+  if (failure?.canRetry()) void query(failure.retryPage);
+}
 async function query(page = 1) {
   if (!canQuery.value) return;
   collection.value.page = page;
@@ -252,30 +253,45 @@ onBeforeUnmount(() => {
     <template v-else-if="isCollection(node)">
       <BusinessNode :node="collection.conditions" :auto-read="false" filter />
       <div class="zerp-business-actions">
-        <VBtn
-          color="primary"
-          variant="tonal"
-          v-if="runtime.allowed(node, 'query')"
-          :disabled="!canQuery"
-          @click="query()"
-          >查询</VBtn
-        >
-        <TemplatePrint :collection="collection" />
-        <div
-          v-if="actions.length"
-          class="zerp-business-actions__group"
-          role="group"
-          :aria-label="`${node.label ?? ''}操作`"
-        >
+        <div class="zerp-business-query">
           <VBtn
-            v-for="[action, operation] in actions"
-            :key="action"
-            v-bind="actionStyle(action)"
-            :disabled="pending || operation.disabled"
-            @click="runtime.run(node, action, publicAuth)"
-            >{{ labels[action] ?? action }}</VBtn
+            v-if="queryAvailable"
+            color="primary"
+            variant="tonal"
+            :loading="reading"
+            :disabled="!canQuery"
+            @click="query()"
+            >查询</VBtn
+          >
+          <div
+            class="zerp-business-query__status"
+            :tabindex="queryFailure ? 0 : undefined"
+          >
+            <span v-if="reading" role="status">正在读取…</span>
+            <div v-else-if="queryFailure" role="alert">
+              {{ queryFailure.error }}
+              <span v-if="collection.items.some(runtime.readable)">
+                已有结果未更新。
+              </span>
+            </div>
+            <BusinessFeedback :target="collection" exact />
+          </div>
+          <VBtn
+            v-if="queryFailure?.canRetry() && queryAvailable"
+            variant="text"
+            :disabled="!canQuery"
+            @click="retryQuery"
+            >重试</VBtn
           >
         </div>
+        <TemplatePrint :collection="collection" />
+        <BusinessActionGroup
+          v-if="actions.length"
+          :actions="actions"
+          :pending="pending"
+          :aria-label="`${node.label ?? ''}操作`"
+          @action="runtime.run(node, $event, publicAuth)"
+        />
         <VBtn
           v-if="
             collection.draft &&
@@ -288,7 +304,7 @@ onBeforeUnmount(() => {
       </div>
       <BusinessCollection
         :node="collection"
-        :loading="pending"
+        :query-view="queryView"
         :can-query="canQuery"
         @page="query"
         @open="openDetail"
@@ -302,6 +318,7 @@ onBeforeUnmount(() => {
       <RecordDialog
         v-if="dialogReady && detail && runtime.readable(detail)"
         :title="collection.draft === detail ? '新增' : (detail.label ?? '')"
+        header-close
         :return-focus="
           collection.draft === detail ? undefined : restoreDetailFocus
         "
@@ -309,6 +326,10 @@ onBeforeUnmount(() => {
       >
         <BusinessNode
           :node="detail"
+          :editing="
+            collection.draft === detail ||
+            (detailMode === 'edit' && runtime.writable(detail))
+          "
           :read-only="
             collection.draft === detail
               ? false
@@ -326,7 +347,17 @@ onBeforeUnmount(() => {
           :record="detail"
           :auto-open="printRequested"
         />
-        <VBtn variant="text" @click="closeDetail">关闭</VBtn>
+        <template #feedback>
+          <BusinessFeedback
+            :target="detail"
+            fixed
+            :blocked="
+              (collection.draft === detail ||
+                (detailMode === 'edit' && runtime.editable(detail))) &&
+              !runtime.available(detail, 'update')
+            "
+          />
+        </template>
       </RecordDialog>
     </template>
     <BusinessRecords
@@ -346,24 +377,34 @@ onBeforeUnmount(() => {
       :read-only="readOnly || (!publicAuth && !runtime.writable(node))"
       :scope="runtime.scope.value"
     />
-    <div
+    <BusinessActionGroup
+      v-if="!isCollection(node) && (actions.length || saveUnavailable)"
       class="zerp-business-actions"
-      v-if="!isCollection(node) && actions.length"
-      role="group"
+      :actions="actions"
+      :pending="pending"
       :aria-label="`${node.label ?? ''}操作`"
+      @action="runtime.run(node, $event, publicAuth)"
     >
-      <VBtn
-        v-for="[action, operation] in actions"
-        :key="action"
-        v-bind="actionStyle(action)"
-        :disabled="pending || operation.disabled"
-        @click="runtime.run(node, action, publicAuth)"
-        >{{ labels[action] ?? action }}</VBtn
-      >
-    </div>
+      <p v-if="saveUnavailable" role="status">当前无法保存。</p>
+    </BusinessActionGroup>
   </section>
 </template>
 <style scoped>
+.zerp-business-query {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 13rem;
+  min-inline-size: 0;
+}
+.zerp-business-query__status {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: var(--zerp-control-size, 2rem);
+  align-content: safe center;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
 section {
   min-width: 0;
   container-type: inline-size;

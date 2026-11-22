@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, toRaw } from "vue";
+import { useDisplay } from "vuetify";
 import DataList from "./DataList.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
 import Feedback from "./Feedback.vue";
@@ -11,16 +12,17 @@ import {
   directRuntimeKey,
   labels,
   type CollectionNode,
+  type DirectRuntime,
   type ObjectNode,
   type Node,
 } from "./direct-model-runtime";
 import type { FieldNode } from "./business-model";
 import { formatField } from "./model-format";
-import { readableTarget as targetReadable, visitTarget } from "./model-target";
+import { availableTarget, canOpenRecord, visitTarget } from "./model-target";
 type Values = Record<string, string | number | boolean | null>;
 const props = defineProps<{
   node: CollectionNode;
-  loading: boolean;
+  queryView?: ReturnType<DirectRuntime["queryView"]>;
   canQuery: boolean;
 }>();
 const emit = defineEmits<{
@@ -29,6 +31,7 @@ const emit = defineEmits<{
   print: [record: ObjectNode];
 }>();
 const runtime = inject(directRuntimeKey)!;
+const { xs } = useDisplay();
 function field(row: ObjectNode, key: string) {
   return row.members.find((member) => member.key === key);
 }
@@ -85,60 +88,55 @@ function key(row: Values) {
   const node = original(row)!;
   return node.identity ?? String(props.node.items.indexOf(node));
 }
+const rowOperations = new Set([
+  ...Object.keys(businessRowActions),
+  "delete",
+  "submit",
+  "approve",
+  "withdraw",
+  "reverse",
+  "calculate",
+  "clone",
+  "send",
+  "unapprove",
+  "complete",
+  "uncomplete",
+  "void",
+  "unvoid",
+  "enable",
+  "disable",
+]);
 function actions(row: Values): RowAction[] {
   const source = original(row);
   if (!source || !runtime.readable(source)) return [];
-  const result: RowAction[] = [runtime.editable(source) ? "edit" : "view"];
-  if (props.node.itemPrintTemple && runtime.allowed(props.node, "itemPrint"))
+  const result: RowAction[] = canOpenRecord(runtime, source)
+    ? [runtime.editable(source) ? "edit" : "view"]
+    : [];
+  const itemTemplate = props.node.itemPrintTemple;
+  if (
+    itemTemplate &&
+    source.identity !== null &&
+    source.printable &&
+    runtime.allowed(props.node, "itemPrint")
+  )
     result.push("print");
-  const available = new Set([
-    ...Object.keys(businessRowActions),
-    "delete",
-    "submit",
-    "approve",
-    "withdraw",
-    "reverse",
-    "calculate",
-    "clone",
-    "send",
-    "unapprove",
-    "complete",
-    "uncomplete",
-    "void",
-    "unvoid",
-    "enable",
-    "disable",
-  ]);
   for (const action of Object.keys(runtime.operations(source)))
-    if (available.has(action) && runtime.allowed(source, action))
+    if (
+      rowOperations.has(action) &&
+      !(action === "print" && itemTemplate) &&
+      runtime.available(source, action)
+    )
       result.push(action as RowAction);
   return result;
 }
 function showAllActions(row: Values) {
-  return !!original(row)?.workflow;
+  return !xs.value && !!original(row)?.workflow;
 }
 function reasons(row: Values): Partial<Record<RowAction, string>> {
   const source = original(row);
-  if (!source) return {};
-  return Object.fromEntries(
-    actions(row)
-      .filter(
-        (action) =>
-          runtime.busy.value.has(toRaw(source)) ||
-          (action === "print" &&
-            !!props.node.itemPrintTemple &&
-            (!source.printable || source.identity === null)) ||
-          (action !== "edit" &&
-            action !== "view" &&
-            runtime.operations(source)[action]?.disabled),
-      )
-      .map((action) => [
-        action,
-        action === "print" && !source.printable
-          ? "保存或核实当前记录后打印"
-          : "当前不可用",
-      ]),
-  );
+  return source && runtime.busy.value.has(toRaw(source))
+    ? Object.fromEntries(actions(row).map((action) => [action, "正在处理"]))
+    : {};
 }
 function select(action: RowAction, row: Values) {
   const source = original(row);
@@ -246,7 +244,7 @@ const presentation = computed<ReportPresentation<Values, string> | undefined>(
   },
 );
 function readableTarget(target: CollectionTarget) {
-  return targetReadable(runtime, target);
+  return availableTarget(runtime, target);
 }
 
 function cell(
@@ -259,7 +257,7 @@ function cell(
   const fact = props.node.report?.cells?.find(
     (fact) => toRaw(fact.row) === toRaw(source!) && fact.field === key,
   );
-  if (!fact || !readableTarget(fact.target)) return;
+  if (!fact || fact.disabled || !readableTarget(fact.target)) return;
   const value = {
     kind: fact.kind,
     target: fact.target,
@@ -304,10 +302,15 @@ function visit(value: ReportCell<CollectionTarget>, row: Values) {
   <DataList
     :columns="columns"
     :result="{ items: projected.rows, total: node.total }"
-    :page="node.page"
+    :page="
+      queryView?.state === 'success'
+        ? node.page
+        : (queryView?.page ?? node.page)
+    "
     :page-size="node.pageSize"
-    :loading="loading"
-    :paging-disabled="!canQuery"
+    :loading="queryView?.state === 'loading'"
+    :result-state="queryView?.state ?? 'idle'"
+    :paging-disabled="!canQuery || queryView?.state === 'failure'"
     :row-key="key"
     :summary="summary"
     :presentation="presentation"

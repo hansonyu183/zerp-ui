@@ -53,10 +53,9 @@ const blockedReason = computed(() =>
       ? "正在处理，请稍后打印。"
       : "",
 );
-const available = computed(
+const eligible = computed(
   () =>
     !props.disabled &&
-    !pending.value &&
     permitted.value &&
     !unconfirmed.value &&
     (props.record
@@ -65,6 +64,7 @@ const available = computed(
         props.collection.draft !== props.record
       : printableRows.value.length > 0),
 );
+const available = computed(() => eligible.value && !pending.value);
 const preview = ref<{ document?: PrintDocument; error?: string }>({});
 const layingOut = ref(false);
 watch(
@@ -132,7 +132,7 @@ watch(
 </script>
 <template>
   <template v-if="template && permitted">
-    <VBtn :disabled="!available" @click="open = available">{{
+    <VBtn v-if="eligible" :disabled="pending" @click="open = available">{{
       record ? "单条打印" : "当前页打印"
     }}</VBtn>
     <FeedbackRegion v-if="!open"
@@ -147,6 +147,7 @@ watch(
         v-if="preview.document"
         :document="preview.document"
         :allowed="permitted"
+        :action-available="() => eligible"
         :disabled="!available"
         :confirm-result="false"
       />

@@ -4,6 +4,7 @@ import type {
   DomainGroup,
   Collection,
   FieldNode,
+  InteractionNode,
   ObjectNode,
   Operation,
   Owner,
@@ -238,17 +239,31 @@ Object.defineProperty(customer, "printable", {
 customer.operations.get = operation(async () => {
   trace("customer.get");
 });
-customer.operations.update = operation(async () => {
-  trace("customer.update");
-  if (name.value === "失败") throw Error("合成保存失败，请修改名称后重试。");
-  savedCustomerFacts.value = currentCustomerFacts();
-  model.messages.push({
-    id: String(Date.now()),
-    level: "success",
-    text: `已保存：${name.value}`,
-    target: customer,
-  });
-});
+customer.operations.update = {
+  get disabled() {
+    return name.value === "暂不可保存";
+  },
+  async run() {
+    trace("customer.update");
+    if (name.value === "需要核对客户名称") {
+      model.messages.push({
+        id: "customer-name-verification",
+        level: "error",
+        text: "请先核对客户名称。",
+        target: customer,
+      });
+      throw Error("合成校验失败");
+    }
+    if (name.value === "失败") throw Error("合成保存失败，请修改名称后重试。");
+    savedCustomerFacts.value = currentCustomerFacts();
+    model.messages.push({
+      id: String(Date.now()),
+      level: "success",
+      text: `已保存：${name.value}`,
+      target: customer,
+    });
+  },
+};
 const itemTemplate: PrintTemplate = reactive({
   label: "客户打印",
   page: { width: 100, height: 100, margin: 5 },
@@ -345,17 +360,37 @@ const customers: Collection = reactive({
     ],
   },
 });
+let retryableCustomerQueryFailed = false;
 customers.operations.query = operation(async () => {
+  const keyword = filter.value;
   const owner = JSON.stringify(model.session.owner);
   trace("customers.query");
-  await Promise.resolve();
+  if (keyword === "可重试读取" && !retryableCustomerQueryFailed)
+    await new Promise((resolve) => setTimeout(resolve, 450));
+  else await Promise.resolve();
   if (
     JSON.stringify(model.session.owner) !== owner ||
-    model.session.state !== "ready"
+    model.session.state !== "ready" ||
+    filter.value !== keyword
   )
     return;
-  if (filter.value === "失败") throw Error("合成查询失败");
-  if (filter.value === "引用反馈") resetFeedbackForm();
+  if (keyword === "失败") throw Error("合成查询失败");
+  if (keyword === "可重试读取" && !retryableCustomerQueryFailed) {
+    retryableCustomerQueryFailed = true;
+    model.messages.push({
+      id: "customer-query-retry",
+      level: "error",
+      text: "客户查询暂不可用，请重试。",
+      target: customers,
+    });
+    throw Error("合成查询失败");
+  }
+  if (keyword === "空结果") {
+    customers.items = [];
+    customers.total = 0;
+    return;
+  }
+  if (keyword === "引用反馈") resetFeedbackForm();
   const facts = JSON.parse(savedCustomerFacts.value) as {
     name: string;
     credit: string;
@@ -375,7 +410,7 @@ customers.operations.query = operation(async () => {
   nextContact = Math.max(nextContact, lines.items.length);
   customer.identity = "C1";
   customers.items = [customer];
-  customers.total = 1;
+  customers.total = keyword === "可重试读取" ? customers.pageSize + 1 : 1;
 });
 customers.operations.create = operation(async () => {
   trace("customers.create");
@@ -426,7 +461,13 @@ const empty: Collection = reactive({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: {},
+  operations: {
+    query: operation(async () => {
+      trace("empty.query");
+      empty.items = [];
+      empty.total = 0;
+    }),
+  },
 });
 const quantity: FieldNode = reactive({
   kind: "decimal",
@@ -475,6 +516,62 @@ const voucher: ObjectNode = reactive({
     }),
   },
 });
+const voucherKeyword = text("keyword", "单据筛选");
+const voucherDetailLinks: InteractionNode = {
+  kind: "interactions",
+  key: "links",
+  label: "单据关联",
+  readOnly: true,
+  value: {},
+  items: (
+    [
+      ["关联联系人", contacts],
+      ["客户资料", customers],
+      ["资料办理", familyCollections.documents],
+      ["流程办理", familyCollections.workflows],
+      ["批量办理", familyCollections.batches],
+      ["经营报表", reports],
+    ] as const
+  ).map(([label, collection]) => ({
+    id: collection.key,
+    kind: "related",
+    label,
+    target: { collection },
+  })),
+};
+const voucherDetails = Array.from({ length: 24 }, (_, index) => {
+  const code = `MD${String(index + 1).padStart(3, "0")}`;
+  const record = object(code, "合成手机详情", [
+    text("number", "单据编号", code, true),
+    text("status", "单据状态", "已核实", true),
+  ]);
+  record.family = "voucher";
+  record.identity = code;
+  record.readOnly = true;
+  if (code === "MD017") {
+    const details = text(
+      "details",
+      "完整办理记录",
+      Array.from(
+        { length: 28 },
+        (_, line) => `第 ${line + 1} 行：这项合成操作已核实。`,
+      ).join("\n") + "\n办理记录结尾",
+      true,
+    );
+    details.kind = "longText";
+    record.members.push(
+      text(
+        "remark",
+        "单据备注",
+        "这是一条手机上需要完整阅读的单据备注。".repeat(8) + "备注结尾",
+        true,
+      ),
+      details,
+      voucherDetailLinks,
+    );
+  }
+  return record;
+});
 const vouchers: Collection = reactive({
   key: "vouchers",
   label: "单据",
@@ -483,18 +580,21 @@ const vouchers: Collection = reactive({
     { key: "number", label: "单据编号" },
     { key: "status", label: "单据状态" },
   ],
-  conditions: object("voucher-conditions", "查询条件", []),
+  conditions: object("voucher-conditions", "查询条件", [voucherKeyword]),
   items: [],
   selected: null,
   draft: null,
   page: 1,
-  pageSize: 20,
+  pageSize: 12,
   total: 0,
   operations: {
     query: operation(async () => {
       trace("vouchers.query");
-      vouchers.items = [voucher];
-      vouchers.total = 1;
+      const records =
+        voucherKeyword.value === "手机详情" ? voucherDetails : [voucher];
+      const offset = (vouchers.page - 1) * vouchers.pageSize;
+      vouchers.items = records.slice(offset, offset + vouchers.pageSize);
+      vouchers.total = records.length;
     }),
   },
 });
@@ -600,6 +700,7 @@ function resetBusiness() {
         condition.value = "";
   }
   filter.value = "";
+  retryableCustomerQueryFailed = false;
   resetFeedbackForm();
   name.value = "";
   settlementAccount.value = "";

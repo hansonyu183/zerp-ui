@@ -4,6 +4,8 @@ import {
   readonlyReferenceFeedbackSmoke,
 } from "./field-alignment-smoke.mjs";
 import { authAlignmentSmoke } from "./auth-alignment-smoke.mjs";
+import { businessInteractionSmoke } from "./business-interaction-smoke.mjs";
+import { mobileDetailSmoke } from "./mobile-detail-smoke.mjs";
 import {
   settleLayout,
   directPresentationSmoke,
@@ -244,10 +246,14 @@ export async function uiPreferencesSmoke(page, options = {}) {
   const rowBefore = await row.boundingBox();
   await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(
-    page.getByRole("alert").filter({ hasText: "操作失败" }),
+    page.getByRole("alert").filter({ hasText: "查询失败" }),
   ).toBeVisible();
   await stable(row, rowBefore);
-  await page.getByRole("button", { name: "关闭错误提示", exact: true }).click();
+  await keyword.fill("");
+  await expect(
+    page.getByRole("button", { name: "重试", exact: true }),
+  ).toBeHidden();
+  await page.getByRole("button", { name: "查询", exact: true }).click();
   await expect(page.getByRole("alert")).toBeHidden();
   await stable(row, rowBefore);
   assertions.push({
@@ -371,6 +377,9 @@ export async function uiPreferencesSmoke(page, options = {}) {
     clauses: ["UI-ACTION-03", "UI-SHELL-06"],
     ...(await readonlyReferenceFeedbackSmoke(page)),
   });
+  assertions.push(...(await businessInteractionSmoke(page)));
+  await page.goto(new URL("/", page.url()).href);
+  assertions.push(...(await mobileDetailSmoke(page)));
   return {
     assertions,
     presentation,

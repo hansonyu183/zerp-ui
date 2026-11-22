@@ -193,6 +193,7 @@ onBeforeUnmount(() => {
       </div>
       <VBtn
         v-else-if="item.kind === 'related' || item.kind === 'download'"
+        :class="{ 'zerp-interactions__related': item.kind === 'related' }"
         type="button"
         variant="text"
         color=""
@@ -204,3 +205,25 @@ onBeforeUnmount(() => {
     </template>
   </section>
 </template>
+
+<style scoped>
+@media (max-width: 599px) {
+  .zerp-interactions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .zerp-interactions > :not(.zerp-interactions__related) {
+    flex: 0 0 100%;
+    min-inline-size: 0;
+  }
+  .zerp-interactions__related {
+    block-size: auto;
+    max-inline-size: 100%;
+  }
+  .zerp-interactions__related :deep(.v-btn__content) {
+    min-inline-size: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+</style>

@@ -1,7 +1,10 @@
 import { modelCollections } from "./model-collections";
+import { directFeedback } from "./direct-feedback";
 import {
   computed,
   ref,
+  shallowReactive,
+  shallowRef,
   toRaw,
   type ComputedRef,
   type Ref,
@@ -30,12 +33,22 @@ export function members(node: Node): [string, BusinessNode][] {
     ? node.members.map((child) => [child.key, child])
     : [];
 }
+type QueryView =
+  | { state: "loading" | "success"; page: number }
+  | {
+      state: "failure";
+      page: number;
+      retryPage: number;
+      canRetry: () => boolean;
+      error: string;
+    };
 export interface DirectRuntime {
   model: () => BusinessModel;
   scope: ComputedRef<string>;
   ready: ComputedRef<boolean>;
   busy: Ref<Set<object>>;
-  error: Ref<string>;
+  feedback: ReturnType<typeof directFeedback>;
+  queryView(collection: Collection): QueryView | undefined;
   reportViews: Map<object, { left: number; top: number }>;
   contains(node: Node): boolean;
   ancestors(node: Node): Node[];
@@ -45,9 +58,9 @@ export interface DirectRuntime {
   editable(node: Node): boolean;
   allowed(node: Node, action: string, publicAuth?: boolean): boolean;
   operations(node: Node): Record<string, Operation>;
+  available(node: Node, action: string, publicAuth?: boolean): boolean;
   run(node: Node, action: string, publicAuth?: boolean): Promise<void>;
   interactable(node: InteractionNode): boolean;
-  interactionVisible(node: InteractionNode): boolean;
   downloadable(node: InteractionNode): boolean;
   runDownload(
     node: InteractionNode,
@@ -63,6 +76,32 @@ export interface DirectRuntime {
   runWorkbench(once?: boolean): Promise<void>;
   invalidate(scopeChanged?: boolean): void;
 }
+// Track only the live condition values. The token invalidates retry without
+// copying the query payload or writing a previous value back into the model.
+function trackConditions(node: BusinessNode) {
+  if (node.kind === "object") {
+    node.members.forEach(trackConditions);
+  } else if (node.kind === "records") {
+    node.items.forEach(trackConditions);
+  } else if (node.kind !== "output") {
+    const value = node.value;
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if ("id" in entry) void entry.id;
+      }
+    } else if (value && typeof value === "object") {
+      Object.values(value);
+    }
+  }
+}
+function retryGuard(collection: Collection) {
+  const revision = computed(() => {
+    trackConditions(collection.conditions);
+    return Symbol();
+  });
+  const requested = revision.value;
+  return () => revision.value === requested;
+}
 export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   const ownerKey = (owner: Owner | null) =>
     owner
@@ -76,9 +115,17 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       ownerKey(s.userPermissions.owner) === scope.value
     );
   });
-  const busy = ref(new Set<object>()),
-    error = ref("");
+  const busy = ref(new Set<object>());
   const executions = new Map<object, symbol>();
+  const feedbackExecutions = new Set<symbol>();
+  const feedback = directFeedback(model, scope, readable, ancestors, () =>
+    feedbackExecutions.size === 1
+      ? feedbackExecutions.values().next().value
+      : undefined,
+  );
+  const queries = shallowRef(
+    shallowReactive(new WeakMap<Collection, QueryView>()),
+  );
   const reportViews = new Map<object, { left: number; top: number }>();
   let epoch = 0;
   const workbenchLoads = new WeakMap<object, Set<string>>();
@@ -266,6 +313,11 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       permitted(node, action)
     );
   }
+  function available(node: Node, action: string, publicAuth = false) {
+    return (
+      allowed(node, action, publicAuth) && !operations(node)[action]?.disabled
+    );
+  }
   function editable(node: Node) {
     const readOnlyActions = new Set([
       "get",
@@ -289,23 +341,69 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     key: object,
     op: Operation,
     valid: () => boolean,
-    propagate = false,
+    options: { propagate?: boolean; query?: Collection; target?: Node } = {},
   ) {
     key = toRaw(key);
     if (op.disabled || busy.value.has(key) || !valid()) return;
     const start = epoch,
       owner = scope.value,
-      execution = Symbol();
+      execution = Symbol(),
+      messages = feedback.start(),
+      queryViews = queries.value,
+      collection = options.query && toRaw(options.query),
+      previous = collection && queryViews.get(collection),
+      retryPage = collection?.page,
+      canRetry = options.query && retryGuard(options.query),
+      stillPresent = feedback.capture(options.target),
+      reading: QueryView | undefined = collection && {
+        state: "loading",
+        page: previous?.page ?? collection.page,
+      },
+      current = () =>
+        start === epoch && owner === scope.value && valid() && stillPresent();
+    if (collection && reading) queryViews.set(collection, reading);
     executions.set(key, execution);
+    feedbackExecutions.add(execution);
     busy.value.add(key);
-    error.value = "";
     try {
       await op.run();
+      if (collection && current())
+        queryViews.set(collection, { state: "success", page: collection.page });
     } catch (cause) {
-      if (start === epoch && owner === scope.value && valid())
-        error.value = "操作失败，请检查业务信息后重试。";
-      if (propagate) throw cause;
+      if (current()) {
+        const notice = feedback.specific(
+          messages,
+          options.target,
+          execution,
+          !!collection,
+        );
+        if (collection && reading && canRetry && retryPage !== undefined) {
+          if (notice) feedback.place(notice, collection, true);
+          queryViews.set(collection, {
+            state: "failure",
+            page: reading.page,
+            retryPage,
+            canRetry,
+            error: notice ? `查询失败：${notice.text}` : "查询失败，请重试。",
+          });
+        } else if (notice) {
+          feedback.place(notice, notice.target ?? options.target ?? null);
+        } else {
+          feedback.fail(options.target ?? null);
+        }
+      }
+      if (options.propagate) throw cause;
     } finally {
+      if (
+        !current() &&
+        (!executions.has(key) || executions.get(key) === execution)
+      )
+        feedback.discard(messages, options.target, execution);
+      feedbackExecutions.delete(execution);
+      if (collection && queryViews.get(collection) === reading) {
+        if (previous) queryViews.set(collection, previous);
+        else queryViews.delete(collection);
+      }
       if (executions.get(key) === execution) {
         executions.delete(key);
         busy.value.delete(key);
@@ -342,7 +440,11 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
           },
         },
         valid,
-        action === "load",
+        {
+          propagate: action === "load",
+          target: publicAuth ? undefined : node,
+          query: isCollection(node) && action === "query" ? node : undefined,
+        },
       );
   }
   async function runAccount(action: "signOut" | "changePassword" = "signOut") {
@@ -360,15 +462,14 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   function interactable(node: InteractionNode) {
     return writable(node) && permitted(node, "interact");
   }
-  function interactionVisible(node: InteractionNode) {
-    return writeAllowed(node) && permitted(node, "interact");
-  }
   async function runInteraction(
     node: InteractionNode,
     operation: Operation,
     valid: () => boolean,
   ) {
-    await execute(node, operation, () => interactable(node) && valid());
+    await execute(node, operation, () => interactable(node) && valid(), {
+      target: node,
+    });
   }
   function downloadable(node: InteractionNode) {
     return readable(node) && permitted(node, "download");
@@ -378,7 +479,9 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     operation: Operation,
     valid: () => boolean,
   ) {
-    await execute(node, operation, () => downloadable(node) && valid());
+    await execute(node, operation, () => downloadable(node) && valid(), {
+      target: node,
+    });
   }
   async function runWorkbench(once = false) {
     const w = model().workbench;
@@ -407,8 +510,9 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   }
   function invalidate(scopeChanged = false) {
     epoch++;
-    error.value = "";
+    feedback.clear();
     if (scopeChanged) {
+      queries.value = shallowReactive(new WeakMap());
       reportViews.clear();
       executions.clear();
       busy.value.clear();
@@ -422,7 +526,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     scope,
     ready,
     busy,
-    error,
+    feedback,
+    queryView: (collection) => queries.value.get(toRaw(collection)),
     reportViews,
     contains: (node) => paths().has(toRaw(node)),
     ancestors,
@@ -434,9 +539,9 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       (!isCollection(node) && node.kind === "object" && editable(node)),
     allowed,
     operations,
+    available,
     run,
     interactable,
-    interactionVisible,
     runInteraction,
     downloadable,
     runDownload,
