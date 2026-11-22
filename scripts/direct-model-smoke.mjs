@@ -155,7 +155,7 @@ export async function directModelSmoke(page) {
     const rowPrint = page
       .getByRole("table")
       .getByRole("button", { name: "打印", exact: true });
-    await expect(rowPrint).toBeDisabled();
+    await expect(rowPrint).toHaveCount(0);
     await dialog.getByRole("button", { name: "保存", exact: true }).click();
     await expect(rowPrint).toBeEnabled();
     await close();
