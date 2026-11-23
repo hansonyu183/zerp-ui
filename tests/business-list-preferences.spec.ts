@@ -31,13 +31,17 @@ it("puts row actions in the second column and opens detail over retained conditi
   expect(rows.page).toBe(3);
   expect(document.querySelector("table")).not.toBeNull();
 });
-it("keeps null-label values available for explicit column references", async () => {
+it("excludes unreadable fields from explicit columns and detail", async () => {
   const { model, name } = fixture();
-  name.label = null;
+  name.readable = false;
   wrapper = await render(model);
-  expect(document.querySelector("table")?.textContent).toContain("initial");
+  expect(document.querySelector("table")?.textContent).not.toContain("initial");
   await click("编辑");
   expect(document.querySelector('input[aria-label="名称"]')).toBeNull();
+  name.readable = true;
+  await flushPromises();
+  expect(document.querySelector("table")?.textContent).toContain("initial");
+  expect(input("名称").element.value).toBe("initial");
 });
 
 it("keeps all qualified workflow actions directly reachable while ordinary rows use the menu", async () => {
@@ -196,7 +200,7 @@ it.each([
 );
 
 it("updates row operations when eligibility or permission changes and keeps running actions guarded", async () => {
-  const { model, rows, record, owner } = fixture();
+  const { model, record } = fixture();
   let complete!: () => void;
   const remove = vi.fn(
     () =>
@@ -215,19 +219,11 @@ it("updates row operations when eligibility or permission changes and keeps runn
   expect(removeButton()).toBeNull();
   expect(remove).not.toHaveBeenCalled();
 
-  record.operations.delete.disabled = false;
-  model.session.userPermissions = {
-    owner,
-    administrator: false,
-    grants: [
-      { node: rows, read: true, write: true, operations: { query: true } },
-    ],
-  };
+  record.operations.update!.disabled = true;
   await flushPromises();
   expect(removeButton()).toBeNull();
   expect(document.querySelector('button[aria-label="查看"]')).not.toBeNull();
-  if (!model.session.userPermissions.administrator)
-    model.session.userPermissions.grants[0]!.operations.delete = true;
+  record.operations.delete.disabled = false;
   await flushPromises();
   expect(removeButton()?.disabled).toBe(false);
   await click("删除");
@@ -278,6 +274,67 @@ it("hides detail actions when a configured read is unavailable", async () => {
   delete record.operations.get;
   await flushPromises();
   expect(document.querySelector('button[aria-label="编辑"]')).not.toBeNull();
+});
+
+it.each(["standard", "voucher"] as const)(
+  "keeps %s approval separate from edit eligibility",
+  async (family) => {
+    const { model, record } = fixture();
+    record.family = family;
+    delete record.operations.update;
+    record.document = { operations: { approve: operation() } };
+    wrapper = await render(model);
+    const action = (key: string) =>
+      document.querySelector(`[data-row-action="${key}"]`);
+    expect(action("view")).not.toBeNull();
+    expect(action("approve")).not.toBeNull();
+    expect(action("edit")).toBeNull();
+    record.operations.update = operation();
+    await flushPromises();
+    expect(action("edit")).not.toBeNull();
+    record.operations.update.disabled = true;
+    await flushPromises();
+    expect(action("view")).not.toBeNull();
+    expect(action("edit")).toBeNull();
+  },
+);
+
+it("shows newly available approval inside an already open record", async () => {
+  const { model, record } = fixture();
+  delete record.operations.update;
+  const approve = operation();
+  approve.disabled = true;
+  record.workflow = { operations: { approveChild: approve } };
+  wrapper = await render(model);
+  await click("查看");
+  const detail = wrapper.get('[role="dialog"]');
+  expect(detail.text()).not.toContain("批准子项");
+  approve.disabled = false;
+  await flushPromises();
+  expect(detail.text()).toContain("批准子项");
+  approve.disabled = true;
+  await flushPromises();
+  expect(detail.text()).not.toContain("批准子项");
+});
+
+it("locates a record message through the explicit navigation target", async () => {
+  const { model, rows, record } = fixture();
+  const visit = vi.fn();
+  model.navigation.visit = visit;
+  model.messages.push({
+    id: "record-notice",
+    level: "warning",
+    text: "请查看记录",
+    target: record,
+  });
+  wrapper = await render(model);
+  const feedback = wrapper.get('[aria-label="页面消息"]');
+  await feedback
+    .findAll("button")
+    .find((button) => button.text() === "查看")!
+    .trigger("click");
+  expect(visit).toHaveBeenCalledWith(rows, record);
+  expect(rows.selected).toBeNull();
 });
 
 it("keeps a supplied collection blocker next to the query operation", async () => {

@@ -22,7 +22,7 @@ const row = (id: string): ObjectNode => ({
   members: [
     {
       key: "amount",
-      label: null,
+      label: "编号",
       kind: "decimal",
       value: "9007199254740993.995",
       required: false,
@@ -312,14 +312,14 @@ describe("finite model print template binding", () => {
         dirty,
         () => true,
       ),
-    ).toThrow("尚未确认保存");
+    ).toThrow("此记录当前不可打印");
     expect(() =>
       bindPrintTemplate(
         template,
         { ...collection, items: [row("saved"), dirty] },
         () => true,
       ),
-    ).toThrow("尚未确认保存");
+    ).toThrow("当前页有不可打印的记录");
   });
 });
 

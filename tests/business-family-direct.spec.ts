@@ -181,7 +181,7 @@ it("keeps processing input writable while execution is disabled without a fake s
   record.processing = { operations: { run: operation() } };
   record.processing.operations.run!.disabled = true;
   wrapper = await render(model);
-  await click("编辑");
+  await click("查看");
   await input("名称").setValue("input");
   expect(input("名称").element.readOnly).toBe(false);
   expect(
@@ -193,7 +193,7 @@ it("keeps processing input writable while execution is disabled without a fake s
     document.querySelectorAll<HTMLButtonElement>("button"),
   ).find((button) => button.textContent?.trim() === "运行");
   expect(execute).toBeUndefined();
-  expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+  expect(document.querySelector('[role="dialog"]')?.textContent).not.toContain(
     "当前无法保存。",
   );
 });
@@ -259,7 +259,7 @@ it("keeps explicit writable output confirmations reachable without fake CRUD sav
     operations: { preview: operation(), confirmNotPrinted: confirmed },
   };
   wrapper = await render(model);
-  await click("编辑");
+  await click("查看");
   await click("确认未打印");
   expect(confirmed.run).toHaveBeenCalledTimes(1);
   expect(record.operations.update).toBeUndefined();

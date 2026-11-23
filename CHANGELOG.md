@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.49.0
+
+- 破坏性变更：会话只保留 `state` 和 `owner`，移除 `UserPermissions`。节点新增响应式 `readable`，表单和操作继续使用 `readOnly`、`disabled`。`label` 统一为字符串。
+
+- 引用候选随模型更新，详情和反馈定位沿用消费者路由，打印预览随读取资格和可打印状态更新。
+
 ## 0.48.0
 
 - 破坏性变更：根 `BusinessModel.members` 与 `DomainGroup.members` 使用数组，侧栏、领域 Tab 和首个可读入口遵循声明顺序。

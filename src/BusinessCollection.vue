@@ -35,10 +35,11 @@ const { xs } = useDisplay();
 function field(row: ObjectNode, key: string) {
   return row.members.find((member) => member.key === key);
 }
+const readableRows = computed(() => props.node.items.filter(runtime.readable));
 const columns = computed<Column<Values>[]>(() =>
   props.node.columns
     .filter((column) =>
-      props.node.items.every((row) => {
+      readableRows.value.every((row) => {
         const n = field(row, column.key);
         return !n || runtime.readable(n);
       }),
@@ -55,8 +56,7 @@ function display(node: Node | undefined): Values[string] {
   }
 }
 const modelError = computed(() =>
-  props.node.items
-    .filter((row) => runtime.readable(row))
+  readableRows.value
     .flatMap((row) =>
       props.node.columns
         .filter((column) => !field(row, column.key))
@@ -69,18 +69,16 @@ const modelError = computed(() =>
 );
 const projected = computed(() => {
   const originals = new Map<Values, ObjectNode>();
-  const rows = props.node.items
-    .filter((row) => runtime.readable(row))
-    .map((row) => {
-      const values = Object.fromEntries(
-        columns.value.map((column) => [
-          column.key,
-          display(field(row, column.key)),
-        ]),
-      );
-      originals.set(values, row);
-      return values;
-    });
+  const rows = readableRows.value.map((row) => {
+    const values = Object.fromEntries(
+      columns.value.map((column) => [
+        column.key,
+        display(field(row, column.key)),
+      ]),
+    );
+    originals.set(values, row);
+    return values;
+  });
   return { rows, originals };
 });
 const original = (row: Values) => projected.value.originals.get(row);
@@ -110,7 +108,7 @@ function actions(row: Values): RowAction[] {
   const source = original(row);
   if (!source || !runtime.readable(source)) return [];
   const result: RowAction[] = canOpenRecord(runtime, source)
-    ? [runtime.editable(source) ? "edit" : "view"]
+    ? [runtime.available(source, "update") ? "edit" : "view"]
     : [];
   const itemTemplate = props.node.itemPrintTemple;
   if (

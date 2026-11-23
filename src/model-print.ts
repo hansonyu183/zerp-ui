@@ -49,7 +49,7 @@ export function bindPrintTemplate(
     ? [record]
     : (source as Collection).items.filter(readable);
   if (roots.some((row) => row.identity === null || !row.printable))
-    throw Error("记录尚未确认保存，请保存或核实后再打印。");
+    throw Error(record ? "此记录当前不可打印。" : "当前页有不可打印的记录。");
   function resolve(current: ObjectNode, path: readonly string[]): BusinessNode {
     if (!readable(current)) throw Error("没有读取打印记录的权限。");
     let node: BusinessNode = current;

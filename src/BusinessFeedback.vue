@@ -32,17 +32,23 @@ function locate(target: Node) {
     ? target
     : runtime.ancestors(target).find(isCollection);
   if (!collection || !runtime.readable(target)) return;
-  if (!isCollection(target)) {
-    const record = [...runtime.ancestors(target), target].find(
-      (node) =>
-        !isCollection(node) &&
-        node.kind === "object" &&
-        runtime.ancestors(node).at(-1) === collection,
+  const record = [...runtime.ancestors(target), target].find(
+    (node) =>
+      !isCollection(node) &&
+      node.kind === "object" &&
+      runtime.ancestors(node).at(-1) === collection,
+  );
+  runtime
+    .model()
+    .navigation.visit(
+      collection,
+      record &&
+        !isCollection(record) &&
+        record.kind === "object" &&
+        record.identity !== null
+        ? record
+        : undefined,
     );
-    if (record && !isCollection(record) && record.kind === "object")
-      collection.selected = record;
-  }
-  runtime.model().navigation.visit(collection);
 }
 function persistent(target: Node | null) {
   return (

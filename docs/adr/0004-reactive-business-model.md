@@ -51,3 +51,7 @@
 ## 2026-11-18 修订：从业务成员生成侧栏
 
 用户确认侧栏只展示领域，并移除独立导航投影。BusinessCategory 与可选 DomainSection 用成员数组表达层级和顺序，DomainGroup 组织原 Collection。工作台作为已配置应用的独立入口位于侧栏顶部，品牌仍链接首页。路由保持 current、href、visit，消费者继续持有 Router。此修订取代前文显式导航投影的决定。
+
+## 2026-11-23 修订：节点直接表达读取资格
+
+本修订取代根级权限清单及空标签隐藏规则。会话保留状态与 owner。消费者通过节点的 `readable`、`readOnly` 和操作的 `disabled` 更新同一个响应式模型。UI 按当前值呈现，后端负责请求鉴权。接口细节见[静态模型接口](../interfaces/README.md#操作与会话)。

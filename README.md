@@ -4,11 +4,11 @@
 
 ## 固定版本安装
 
-当前版本为 [ui-v0.48.0](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.48.0)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.48.0.tgz` 与 `SHA256SUMS`，核对摘要后安装：
+当前版本为 [ui-v0.49.0](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.49.0)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.49.0.tgz` 与 `SHA256SUMS`，核对摘要后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.48.0.tgz
+pnpm add ./zerp-ui-0.49.0.tgz
 ```
 
 0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，通过 `createShellThemes()` 初始化 `createVuetify`。
@@ -16,6 +16,8 @@ pnpm add ./zerp-ui-0.48.0.tgz
 ## 公开入口与迁移
 
 升级到 0.48.0 时，将根成员和领域集合改为数组，并移除 `RecordsNode.columns`。所属明细的字段顺序和标题由各行的 `ObjectNode.members` 定义。独立集合和打印模板继续声明各自的列数组。详见[静态模型接口](docs/interfaces/README.md)。
+
+升级到 0.49.0 时，移除会话权限清单，通过节点的 `readable`、`readOnly` 和操作的 `disabled` 更新界面。将节点的空标签改为字符串。固定安装 0.48.0 的消费者应查阅[该版本的接口](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.48.0/docs/interfaces/README.md)。
 
 ```vue
 <script setup lang="ts">
@@ -27,11 +29,11 @@ import { model } from "./consumer";
 
 `@zerp/ui/model` 仅导出构造模型所需的类型，原生 Node 加载时没有运行时值或 Vue/Vuetify/CSS 依赖。唯一类型源为 `src/business-model.ts`，不再提供 `modelMetadata` Symbol。完整静态对象在登录前构造；登录、退出、再次登录沿用同一根引用。
 
-静态模型的根 `members` 包含业务栏目 `BusinessCategory`、领域 `DomainGroup` 或直属 `Collection`；领域分组仅组织一层并列集合，多个获权集合用 Material Tabs 切换，单集合直接展示；切换保留各自输入、条件与分页，不拥有整体保存，各集合独立查询、授权和保存。集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label: null` 隐藏整个详情/编辑节点，但不撤销授权列、打印和计算的显式引用。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
+静态模型的根 `members` 包含业务栏目 `BusinessCategory`、领域 `DomainGroup` 或直属 `Collection`；领域分组仅组织一层并列集合，多个获权集合用 Material Tabs 切换，单集合直接展示；切换保留各自输入、条件与分页，不拥有整体保存，各集合独立查询、授权和保存。集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label` 是显示名称。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
 
 输入直接更新字段值；`Operation` 必须提供 `disabled` 与无参数异步 `run()`。业务回调处理 API、冲突、请求有效性和未知结果恢复。库不保存编辑基线、冻结请求或前端原请求日志，不拦截普通草稿离开。旧公开结构没有兼容入口。仍有效的流程、处理、批次、报表与输出分别使用固定能力属性；不是任意命令、页面模板或组件映射。
 
-权限来自 `session.userPermissions`，归属当前 `owner`；普通用户的独立边界及操作默认拒绝，内部节点继承并只能收窄。管理员不能覆盖业务 `readOnly/disabled`。库保留完整模型结构并裁剪呈现，后端仍须实际鉴权。退出时消费者清空会话业务数据和缓存、使旧回写失效；库隔离旧忙碌状态及反馈。
+消费者在模型上更新节点的 `readable`、表单的 `readOnly` 和操作的 `disabled`。UI 响应这些值更新呈现，后端负责实际鉴权。`session` 只携带状态和 `owner`。退出时消费者清空会话业务数据和缓存并使旧回写失效，库清理旧忙碌状态及反馈。
 
 侧栏从业务模型中的栏目、分类和领域派生。消费者通过 `href/visit/current` 同步 Router。选中详情与新增在所属集合覆盖式容器中呈现，保留列表、条件和分页。配置工作台时，侧栏首项和品牌链接都可以进入工作台，路由以 `current: null` 表示首页。没有工作台时，首页进入第一个可见领域的首个获权集合。工作台固定四块 `information/vouchers/reports/masters`，桌面一横三竖、手机纵排；统一 `load` 按 owner 首次进入执行，失败可重试。
 

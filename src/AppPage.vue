@@ -52,6 +52,7 @@ const props = withDefaults(
     active?: boolean;
     footer: string;
     account?: ShellAccount;
+    accountActions?: readonly AccountIntent[];
     theme?: ThemeChoice;
   }>(),
   { theme: () => defaultThemeChoice, active: true },
@@ -118,11 +119,14 @@ const labels = computed<Record<AccountIntent, string>>(() => ({
   "sign-out": "退出登录",
   ...props.account?.captions,
 }));
-const accountActions: readonly AccountIntent[] = [
+const defaultAccountActions: readonly AccountIntent[] = [
   "profile",
   "change-password",
   "sign-out",
 ];
+const accountActions = computed(
+  () => props.accountActions ?? defaultAccountActions,
+);
 const presets = ["md1", "md2", "md3"] as const;
 function preset(value: ThemeChoice["preset"]) {
   if (props.active) emit("update:theme", { ...props.theme, preset: value });

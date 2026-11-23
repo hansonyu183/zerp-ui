@@ -49,9 +49,8 @@ const collection = computed(() => props.node as CollectionNode);
 const records = computed(() => props.node as RecordsNode);
 const field = computed(() => props.node as FieldNode);
 const visible = computed(() =>
-  members(props.node).filter(
-    ([, node]) =>
-      node.label !== null && (props.publicAuth || runtime.readable(node)),
+  members(props.node).filter(([, node]) =>
+    props.publicAuth ? node.readable !== false : runtime.readable(node),
   ),
 );
 const runs = computed(() => {
@@ -137,6 +136,15 @@ const detail = computed(() =>
     ? collection.value.draft
     : collection.value.selected,
 );
+const detailReadOnly = computed(() => {
+  const record = detail.value;
+  if (!record || collection.value.draft === record) return false;
+  if (printRequested.value) return true;
+  return (
+    !runtime.handleable(record) &&
+    (detailMode.value === "read" || !runtime.editable(record))
+  );
+});
 function closeDetail() {
   if (collection.value.draft === detail.value)
     dismissedDraft.value = detail.value;
@@ -328,20 +336,16 @@ onBeforeUnmount(() => {
           :node="detail"
           :editing="
             collection.draft === detail ||
-            (detailMode === 'edit' && runtime.writable(detail))
+            (detailMode === 'edit' && runtime.editable(detail))
           "
-          :read-only="
-            collection.draft === detail
-              ? false
-              : detailMode === 'read' || !runtime.editable(detail)
-          "
+          :read-only="detailReadOnly"
         />
         <TemplatePrint
           v-if="
             collection.draft !== detail &&
             (collection.items.includes(detail) ||
               collection.selected === detail) &&
-            (detailMode === 'read' || !runtime.editable(detail))
+            detailReadOnly
           "
           :collection="collection"
           :record="detail"

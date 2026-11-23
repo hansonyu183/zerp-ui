@@ -17,7 +17,7 @@ it("uses ordered Material groups and keeps input when switching tabs", async () 
     object("first-group", "第一组", [first]),
     object("hidden-group", "隐藏组", [field("secret", "不可见", "hidden")]),
   ];
-  record.members[2]!.label = null;
+  record.members[2]!.readable = false;
   wrapper = await render(model);
   await click("编辑");
   const tabs = Array.from(
@@ -87,17 +87,17 @@ it.each([1440, 390])(
     });
     window.dispatchEvent(new Event("resize"));
     try {
-      const { model, rows: collection, record, owner } = fixture();
+      const { model, record } = fixture();
       const first = object("one", "第一项", [
         field("z-note", "备注", ""),
         field("a-quantity", "数量", "0"),
-        field("hidden", null, "标签隐藏值"),
+        field("hidden", "隐藏字段", "标签隐藏值"),
         field("restricted", "权限字段", "第一行的值"),
       ]);
       const second = object("two", "第二项", [
         field("z-note", "备注", "次行"),
         field("a-quantity", "数量", "2"),
-        field("hidden", null, "另一个标签隐藏值"),
+        field("hidden", "隐藏字段", "另一个标签隐藏值"),
         field("restricted", "权限字段", "第二行的值"),
       ]);
       const detail: RecordsNode = {
@@ -110,24 +110,9 @@ it.each([1440, 390])(
         operations: {},
       };
       record.members.push(detail);
-      model.session.userPermissions = {
-        owner,
-        administrator: false,
-        grants: [
-          {
-            node: collection,
-            read: true,
-            write: true,
-            operations: { update: true },
-          },
-          {
-            node: second.members[3]!,
-            read: false,
-            write: false,
-            operations: {},
-          },
-        ],
-      };
+      first.members[2]!.readable = false;
+      second.members[2]!.readable = false;
+      second.members[3]!.readable = false;
       wrapper = await render(model);
       await click("编辑");
       const view = () => document.querySelector(".zerp-direct-records")!;

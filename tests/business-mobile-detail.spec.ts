@@ -25,6 +25,7 @@ it("closes a record from its title area and returns focus without clearing the q
   const { model, rows, record, term } = fixture();
   viewport(390);
   record.readOnly = true;
+  record.operations.update!.disabled = true;
   rows.page = 2;
   rows.total = 21;
   term.value = "保留的条件";
@@ -55,6 +56,7 @@ it("presents a mobile read-only text value in a wrapping labeled field", async (
   viewport(390);
   const { model, record, name } = fixture();
   record.readOnly = true;
+  record.operations.update!.disabled = true;
   name.value = "需要完整阅读的单据内容".repeat(30);
   wrapper = await render(model);
   await click("查看");

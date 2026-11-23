@@ -103,7 +103,6 @@ function fixture(fields: FieldNode[] = []) {
     session: {
       state: "ready",
       owner,
-      userPermissions: { owner, administrator: true },
     },
     navigation: {
       current: null,
@@ -208,6 +207,24 @@ function reference(
         value: { id: "history", label: "历史客户" },
       };
 }
+it("updates an open reference from new model options without a directory reload", async () => {
+  const ref = reference("reference", false);
+  if (ref.kind !== "reference") throw Error("fixture");
+  ref.options = [{ id: "before", label: "旧候选", selectable: true }];
+  const { model, collection } = fixture([ref]);
+  const field = collection.conditions.members[0]!;
+  if (field.kind !== "reference") throw Error("fixture");
+  field.load = op();
+  await show(model);
+  await openReference("选择客户");
+  expect(document.body.textContent).toContain("旧候选");
+  field.options = [{ id: "after", label: "新候选", selectable: true }];
+  await flushPromises();
+  expect(document.body.textContent).toContain("新候选");
+  expect(document.body.textContent).not.toContain("旧候选");
+  expect(field.load.run).toHaveBeenCalledTimes(1);
+});
+
 it("loads reference directories once, retries a failed load, and searches locally without clearing historical labels", async () => {
   const ref = reference("reference", false);
   if (ref.kind !== "reference") throw Error("fixture");
@@ -325,38 +342,19 @@ const template: PrintTemplate = {
     },
   ],
 };
-it("generates permission-controlled current-page printing without querying more records or confirming physical output", async () => {
+it("generates template-controlled current-page printing without querying more records or confirming physical output", async () => {
   const { model, collection } = fixture();
   const row = object("formal", [text("code", "current-only")]);
   row.identity = "formal";
   row.printable = true;
   collection.items = [row];
   collection.total = 999;
-  collection.printTemple = template;
-  const owner = model.session.owner!;
-  model.session = {
-    state: "ready",
-    owner,
-    userPermissions: {
-      owner,
-      administrator: false,
-      grants: [
-        {
-          node: collection,
-          read: true,
-          write: false,
-          operations: { query: true },
-        },
-      ],
-    },
-  };
   const query = collection.operations.query!.run;
   const wrapper = await show(model);
   expect(
     wrapper.findAll("button").some((button) => button.text() === "当前页打印"),
   ).toBe(false);
-  if (!model.session.userPermissions.administrator)
-    model.session.userPermissions.grants[0]!.operations.print = true;
+  collection.printTemple = template;
   await flushPromises();
   await clickText("当前页打印");
   expect(query).toHaveBeenCalledTimes(1);
@@ -379,6 +377,15 @@ it("generates permission-controlled current-page printing without querying more 
   expect(print).toHaveBeenCalledTimes(1);
   expect(query).toHaveBeenCalledTimes(1);
   expect(model.messages).toHaveLength(0);
+  const printButton = wrapper
+    .findAll("button")
+    .find((button) => button.text() === "打开打印窗口")!;
+  collection.items[0]!.members[0]!.readable = false;
+  (printButton.element as HTMLButtonElement).click();
+  await flushPromises();
+  expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
+  expect(wrapper.text()).toContain("打印字段不存在或无权读取");
+  expect(print).toHaveBeenCalledTimes(1);
   collection.items[0]!.printable = false;
   await flushPromises();
   expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
@@ -472,7 +479,6 @@ it("isolates an old candidate read across an owner change and reloads the new sc
   model.session = {
     state: "ready",
     owner,
-    userPermissions: { owner, administrator: true },
   };
   field.options = [];
   await flushPromises();
@@ -592,7 +598,8 @@ it("blocks edited and uncertain values from printing until consumer confirms the
   expect(collection.selected!.printable).toBe(false);
   await clickText("关闭");
   expect(pagePrint()).toBeUndefined();
-  expect(wrapper.text()).toContain("当前页有未确认保存的记录");
+  expect(wrapper.text()).toContain("当前页有不可打印的记录。");
+  expect(wrapper.text()).not.toContain("未确认保存");
   expect(collection.operations.query!.run).toHaveBeenCalledTimes(1);
   await wrapper.get('button[aria-label="编辑"]').trigger("click");
   await flushPromises();

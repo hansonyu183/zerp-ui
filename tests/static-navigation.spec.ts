@@ -95,18 +95,7 @@ it("rechecks stale links against permissions and owner without remapping removed
     .find((a) => a.text() === "记录集合")!;
   const visit = vi.fn();
   f.model.navigation.visit = visit;
-  f.model.session.userPermissions = {
-    owner: f.owner,
-    administrator: false,
-    grants: [
-      {
-        node: second,
-        read: true,
-        write: false,
-        operations: {},
-      },
-    ],
-  };
+  f.rows.readable = false;
   // Click before the queued DOM patch: the old key must never map to the next root.
   await oldLink.trigger("click");
   expect(visit.mock.calls.some(([root]) => root === f.rows)).toBe(false);
@@ -114,7 +103,7 @@ it("rechecks stale links against permissions and owner without remapping removed
     visit.mock.calls.filter(([root]) => root?.key === second.key),
   ).toHaveLength(1); // authorized fallback only
   visit.mockClear();
-  f.model.session.owner = { ...f.owner, generation: "2" };
+  f.model.session = { state: "recovering", owner: null };
   await oldLink.trigger("click");
   expect(visit).not.toHaveBeenCalled();
   await flushPromises();
@@ -151,11 +140,7 @@ it("prunes unauthorized roots, empty sections and groups, and falls back through
       ],
     },
   ];
-  f.model.session.userPermissions = {
-    owner: f.owner,
-    administrator: false,
-    grants: [{ node: f.rows, read: true, write: false, operations: {} }],
-  };
+  blocked.readable = false;
   f.model.navigation.current = null;
   wrapper = await render(f.model);
   expect(f.model.navigation.current).toBe(f.rows);
@@ -163,7 +148,7 @@ it("prunes unauthorized roots, empty sections and groups, and falls back through
   expect(wrapper.find("nav").text()).not.toMatch(
     /空组|空分类|撤权分类|不可见集合/,
   );
-  f.model.session.userPermissions.grants = [];
+  f.rows.readable = false;
   await flushPromises();
   expect(wrapper.findAll("nav a")).toHaveLength(0);
   expect(wrapper.text()).toContain("暂无可用内容。");
@@ -183,18 +168,9 @@ it("keeps domain collections independently authorized, queried and saved", async
     members: [f.rows, other.rows],
   });
   f.model.members = [domain, standalone];
-  f.model.session.userPermissions = {
-    owner: f.owner,
-    administrator: false,
-    grants: [
-      {
-        node: f.rows,
-        read: true,
-        write: true,
-        operations: { query: true, update: true },
-      },
-    ],
-  };
+  other.rows.readable = false;
+  standalone.readable = false;
+  other.record.operations.update!.disabled = true;
   wrapper = await render(f.model);
   expect(wrapper.findAll("nav a").map((a) => a.text())).toEqual(["客户领域"]);
   expect(f.rows.operations.query!.run).toHaveBeenCalledTimes(1);
@@ -206,12 +182,7 @@ it("keeps domain collections independently authorized, queried and saved", async
   expect(f.record.operations.update!.run).toHaveBeenCalledTimes(1);
   expect(other.record.operations.update!.run).not.toHaveBeenCalled();
   expect(other.name.value).toBe("initial");
-  f.model.session.userPermissions.grants.push({
-    node: other.rows,
-    read: true,
-    write: false,
-    operations: { query: true },
-  });
+  other.rows.readable = true;
   await flushPromises();
   const link = wrapper.get("nav a");
   expect(wrapper.findAll("nav a").map((a) => a.text())).toEqual(["客户领域"]);
@@ -226,12 +197,12 @@ it("keeps domain collections independently authorized, queried and saved", async
   expect(link.attributes("aria-current")).toBe("page");
   expect(other.rows.operations.query!.run).toHaveBeenCalledTimes(1);
   expect(wrapper.find('button[aria-label="编辑"]').exists()).toBe(false);
-  f.model.session.userPermissions.grants.shift();
+  f.rows.readable = false;
   await flushPromises();
   expect(wrapper.get("nav a").attributes("href")).toBe("/contacts");
   expect(wrapper.get("nav a").attributes("aria-current")).toBe("page");
   expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
-  f.model.session.userPermissions.grants = [];
+  other.rows.readable = false;
   await flushPromises();
   expect(wrapper.findAll("nav a")).toHaveLength(0);
   expect(wrapper.text()).toContain("暂无可用内容。");
@@ -313,18 +284,7 @@ it("uses Material domain tabs with real links and preserves each collection cont
   const oldTab = wrapper.get('[role="tablist"]').findAll('[role="tab"]')[0]!;
   const visit = vi.fn();
   f.model.navigation.visit = visit;
-  f.model.session.userPermissions = {
-    owner: f.owner,
-    administrator: false,
-    grants: [
-      {
-        node: second.rows,
-        read: true,
-        write: false,
-        operations: { query: true },
-      },
-    ],
-  };
+  f.rows.readable = false;
   await oldTab.trigger("click");
   await flushPromises();
   expect(visit).not.toHaveBeenCalled();

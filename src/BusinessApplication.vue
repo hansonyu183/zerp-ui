@@ -136,7 +136,7 @@ const navigation = computed<NavigationGroup[]>(() => {
   return items;
 });
 const selectedKey = computed(() => {
-  if (accountView.value) return null;
+  if (activeAccountView.value) return null;
   if (!current.value) return props.model.workbench ? homeKey.value : null;
   return (
     navigationEntries.value.find((entry) =>
@@ -169,11 +169,26 @@ const brand = computed(() => ({
 const accountPresentation = computed(() => ({
   label: props.model.account.label,
 }));
-const target = computed(() =>
-  props.model.session.state === "password-required"
-    ? props.model.account.password
-    : (accountView.value ?? current.value),
+const accountActions = computed<AccountIntent[]>(() => {
+  const { account } = props.model;
+  const actions: AccountIntent[] = [];
+  if (runtime.readable(account.profile)) actions.push("profile");
+  if (runtime.readable(account.password)) actions.push("change-password");
+  if (!account.operations.signOut.disabled) actions.push("sign-out");
+  return actions;
+});
+const activeAccountView = computed(() =>
+  accountView.value && runtime.readable(accountView.value)
+    ? accountView.value
+    : null,
 );
+const target = computed(() => {
+  if (props.model.session.state === "password-required") {
+    const password = props.model.account.password;
+    return runtime.readable(password) ? password : null;
+  }
+  return activeAccountView.value ?? current.value;
+});
 const domain = computed(() => {
   const collection = current.value;
   if (!collection) return;
@@ -188,7 +203,7 @@ const domain = computed(() => {
     .find((group) => group.members.includes(collection));
 });
 const pageTarget = computed(() =>
-  accountView.value || props.model.session.state === "password-required"
+  activeAccountView.value || props.model.session.state === "password-required"
     ? target.value
     : domain.value && domain.value.members.length > 1
       ? domain.value
@@ -269,6 +284,7 @@ watch(target, () => runtime.invalidate(), { flush: "sync" });
 <template>
   <AuthFrame v-if="!runtime.ready.value" :brand="brand" :theme="theme">
     <BusinessNode
+      v-if="model.authentication.form.readable !== false"
       :node="model.authentication.form"
       public-auth
       :auto-read="false"
@@ -287,6 +303,7 @@ watch(target, () => runtime.invalidate(), { flush: "sync" });
       :scope="runtime.scope.value"
       footer=""
       :account="accountPresentation"
+      :account-actions="accountActions"
       :theme="theme"
       @update:theme="changeTheme"
       @account-action="accountAction"

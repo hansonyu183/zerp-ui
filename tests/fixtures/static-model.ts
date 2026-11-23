@@ -13,9 +13,9 @@ export const operation = (run = vi.fn(async () => {})): Operation =>
   reactive({ disabled: false, run });
 export const field = (
   key = "name",
-  label: string | null = "名称",
+  label: string = "名称",
   value = "initial",
-) =>
+): Extract<FieldNode, { kind: "text" | "longText" | "password" }> =>
   reactive({
     kind: "text" as const,
     key,
@@ -90,7 +90,6 @@ export function fixture() {
     session: {
       state: "ready",
       owner,
-      userPermissions: { owner, administrator: true },
     },
     navigation: {
       current: rows,

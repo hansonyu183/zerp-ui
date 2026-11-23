@@ -151,6 +151,7 @@ function setValue(value: unknown) {
   <ReferencePicker
     v-else-if="reference"
     :adapter="adapter"
+    :options="reference.options"
     :scope="scope"
     :label="node.label ?? ''"
     :model-value="reference.value"

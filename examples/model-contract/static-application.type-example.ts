@@ -8,9 +8,7 @@ import type {
   Collection,
   DomainGroup,
   ObjectNode,
-  Owner,
   PrintTemplate,
-  UserPermissions,
   Workbench,
 } from "@zerp/ui/model";
 
@@ -66,7 +64,7 @@ export const customerDraft = reactive({
     {
       kind: "text",
       key: "internalCode",
-      label: null,
+      label: "内部编码",
       value: "",
       required: false,
       readOnly: true,
@@ -781,7 +779,7 @@ export const model: BusinessModel = reactive({
       signOut: { disabled: false, run: signOut },
     },
   },
-  session: { state: "anonymous", owner: null, userPermissions: null },
+  session: { state: "anonymous", owner: null },
   // null 表示工作台；详情与编辑留在集合的 selected/draft 内。
   navigation: {
     current: null,
@@ -791,31 +789,7 @@ export const model: BusinessModel = reactive({
   messages: [],
 } satisfies BusinessModel);
 
-/** 后端权限标识映射到现有节点；UI 负责裁剪，不由消费者重新装配模型。 */
-export function customerPermissions(owner: Owner): UserPermissions {
-  return {
-    owner,
-    administrator: false,
-    grants: [
-      {
-        node: customers,
-        read: true,
-        write: true,
-        operations: {
-          query: true,
-          create: true,
-          update: true,
-          print: true,
-          itemPrint: true,
-          load: true,
-        },
-      },
-      { node: workbench.information, read: true, write: false, operations: {} },
-    ],
-  };
-}
-
-// signIn/recover 检查当前请求有效性后写入 model.session；权限 owner 须匹配会话。
+// signIn/recover 检查请求有效性，更新节点和操作后再写入 model.session。
 // create 回调为每次新增直接构造独立记录；上述 draft/line 仅展示源码结构，不复用为多条记录。
 // signOut 撤销授权、清空输入/记录/缓存/消息并使迟到响应失效，根 model 不替换。
 // UI 若直接裁剪对象，负责恢复其结构；消费者负责清空恢复节点中的旧会话业务数据。

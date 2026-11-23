@@ -5,7 +5,7 @@ export type { NavigationIcon } from "./shell";
 import type { Interaction } from "./collaboration";
 import type { ReportPresentation, ReportSummary } from "./report";
 
-/** 操作缺省、未获授权或 disabled 为 true 时不显示入口，也不得调用 run。 */
+/** 操作缺省、所属节点不可读或 disabled 为 true 时省略入口和调用。 */
 export interface Operation {
   disabled: boolean;
   /** 读取当前模型值，结果直接更新模型；业务有效性及迟到回写由消费者控制。 */
@@ -22,9 +22,10 @@ export interface Owner {
 /** key 在同一所属对象内稳定且唯一，不随显示文案或数组重排变化。 */
 interface NodeBase {
   key: string;
-  /** null 隐藏整个节点的对象详情/编辑呈现；不撤销列引用、打印或业务值。 */
-  label: string | null;
-  /** 业务只读事实，权限包括管理员权限均不能覆盖。 */
+  label: string;
+  /** false 排除节点及其所属内容的读取、呈现和操作。缺省可读。 */
+  readable?: boolean;
+  /** 节点及所属表单输入的只读状态。 */
   readOnly: boolean;
 }
 
@@ -372,6 +373,8 @@ export interface Collection {
   /** 在所属 BusinessModel.members 或 DomainGroup.members 中的稳定集合键。 */
   key: string;
   label: string;
+  /** false 排除集合及其所属节点。缺省可读。 */
+  readable?: boolean;
   columns: Column[];
   /** 查询条件与 query 操作分开；输入不自动触发后端查询。 */
   conditions: ObjectNode;
@@ -434,68 +437,9 @@ export interface BusinessCategory {
 }
 
 /** 权限仍需同时满足节点业务限制；全体操作名封闭。 */
-type OperationPermissions = Partial<
-  Record<
-    | keyof ObjectOperations
-    | keyof VoucherOperations
-    | "enable"
-    | "disable"
-    | "start"
-    | "advance"
-    | "createChild"
-    | "approveChild"
-    | "rejectChild"
-    | "retryChild"
-    | "cancelChild"
-    | "openVoucher"
-    | "audit"
-    | "cancel"
-    | "process"
-    | "publish"
-    | "restore"
-    | "validate"
-    | "run"
-    | "stop"
-    | "import"
-    | "executeBatch"
-    | "preview"
-    | "confirmPrinted"
-    | "confirmNotPrinted"
-    | "query"
-    | "create"
-    | "export"
-    | "remove"
-    | "load"
-    | "print"
-    | "itemPrint"
-    | "interact"
-    | "download",
-    boolean
-  >
->;
-
-/** Collection 授权界定独立业务边界，边界内节点继承并可进一步收窄。 */
-export type UserPermissions = { owner: Owner } & (
-  | { administrator: true; grants?: never }
-  | {
-      administrator: false;
-      grants: {
-        node: Collection | BusinessNode;
-        read: boolean;
-        write: boolean;
-        operations: OperationPermissions;
-      }[];
-    }
-);
-
-/** 匿名及恢复阶段不能携带已授权身份；owner 和权限归属还须在运行时核对。 */
 export type Session =
-  | { state: "anonymous" | "recovering"; owner: null; userPermissions: null }
-  | {
-      state: "ready" | "password-required";
-      owner: Owner;
-      userPermissions: UserPermissions;
-    };
+  | { state: "anonymous" | "recovering"; owner: null }
+  | { state: "ready" | "password-required"; owner: Owner };
 
 /** 工作台使用固定布局，不进入独立业务集合，不接受列数或组件配置。 */
 export interface Workbench {

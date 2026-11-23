@@ -30,7 +30,7 @@ const permitted = computed(
 const printableRows = computed(() =>
   props.collection.items.filter((row) => runtime.readable(row)),
 );
-const unconfirmed = computed(() =>
+const hasUnprintableRecord = computed(() =>
   props.record
     ? props.record.identity === null || !props.record.printable
     : printableRows.value.some(
@@ -45,10 +45,10 @@ const pending = computed(
       : printableRows.value.some((row) => runtime.busy.value.has(toRaw(row)))),
 );
 const blockedReason = computed(() =>
-  unconfirmed.value
+  hasUnprintableRecord.value
     ? props.record
-      ? "记录尚未确认保存，请保存或核实后再打印。"
-      : "当前页有未确认保存的记录，请保存或核实后再打印。"
+      ? "此记录当前不可打印。"
+      : "当前页有不可打印的记录。"
     : pending.value
       ? "正在处理，请稍后打印。"
       : "",
@@ -57,7 +57,7 @@ const eligible = computed(
   () =>
     !props.disabled &&
     permitted.value &&
-    !unconfirmed.value &&
+    !hasUnprintableRecord.value &&
     (props.record
       ? (props.collection.items.includes(props.record) ||
           props.collection.selected === props.record) &&
@@ -135,7 +135,7 @@ watch(
     <VBtn v-if="eligible" :disabled="pending" @click="open = available">{{
       record ? "单条打印" : "当前页打印"
     }}</VBtn>
-    <FeedbackRegion v-if="!open"
+    <FeedbackRegion v-if="!open && (!record || autoOpen)"
       ><Feedback :message="blockedReason" kind="warning"
     /></FeedbackRegion>
     <RecordDialog v-if="open" :title="template.label" @close="open = false">
@@ -147,7 +147,7 @@ watch(
         v-if="preview.document"
         :document="preview.document"
         :allowed="permitted"
-        :action-available="() => eligible"
+        :action-available="() => available && !!preview.document"
         :disabled="!available"
         :confirm-result="false"
       />
