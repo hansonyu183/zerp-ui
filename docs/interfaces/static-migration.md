@@ -9,7 +9,7 @@
 | 根对象聚合及 navigationProjection | 用静态 BusinessCategory、DomainSection、DomainGroup 组织业务成员，移除 navigation.groups；current 只指向集合或首页 | 权限裁剪、空组隐藏、正常链接、工作台/首个获权集合回退；href/visit(null) 通过消费者同步首页路由 |
 | CollectionNode.element/list/query | Collection.columns/conditions/items/selected/draft | 空表标题、分页、覆盖式查看/编辑/新增、失败保留输入 |
 | ObjectNode.form、对象命名属性 | ObjectNode.members 有序数组 | 直接更新模型，null label 隐藏整节点，零/单/多组 Material Tab |
-| array element 模板及所属明细 | RecordsNode.items/selected/operations。可见字段、标题及顺序由每行 ObjectNode.members 提供 | 桌面表格和手机卡片显示所有可读行共有的获权且有标签字段，并保留空值位置。无可读行时呈现空态，本地增删随父保存。见[接口修订](README.md#所属明细与工作台行) |
+| array element 模板及所属明细 | RecordsNode.items/selected/operations。可见字段、标题及顺序由每行 ObjectNode.members 提供 | 桌面表格和手机卡片显示所有可读行共有的可读字段，并保留空值位置。无可读行时呈现空态，本地增删随父保存。见[接口修订](README.md#所属明细与工作台行) |
 | family 单据分支 | ObjectNode.family=voucher、只读 type、固定 VoucherOperations | AA/AB 同一运行路径，不按业务类型码猜测操作 |
 | 版本资料、流程、处理及批次操作 | standard/voucher 对象上的固定 document/workflow/processing/batch 能力 | 原封闭操作集、授权、disabled、执行中去重、业务结果由消费者回写 |
 | 报表参数、结果、合计、结构及下钻 | conditions、Collection.report、ObjectNode.report.operations、CollectionTarget | 保留消费者数值/分页/合计与局部选中；返回保留查询和滚动 |

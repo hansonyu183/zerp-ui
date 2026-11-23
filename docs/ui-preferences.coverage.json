@@ -210,6 +210,12 @@
       "anchor": "mobile-related-link-wrap-and-collection-heading",
       "surface": "tgz/browser",
       "assertion": "手机关联入口的同行及换行、可点击尺寸、真实链接和目标集合标题"
+    },
+    "unit-readable-columns": {
+      "file": "tests/business-list-preferences.spec.ts",
+      "anchor": "excludes unreadable fields from explicit columns and detail",
+      "surface": "source/public-entry",
+      "assertion": "字段读取资格恢复后，同步恢复列表列及已打开的详情字段"
     }
   },
   "clauses": [
@@ -401,7 +407,7 @@
         "unit-available-operations"
       ],
       "remaining": "覆盖代表性撤权与禁用、编辑及运行中互斥。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。",
-      "requirementSha256": "a92571239d027c3fe10bf9956eb4bb7e1fb2d8fe3461c549a6078fe5aca65a18"
+      "requirementSha256": "053ca34326780d00ea65410aa7325089a347d15cc67ebeef770b0925182fd11f"
     },
     {
       "id": "UI-ACTION-04",
@@ -458,10 +464,11 @@
         "unit-reactivity",
         "unit-ordered-navigation",
         "unit-owned-detail-members",
-        "package-owned-detail-members"
+        "package-owned-detail-members",
+        "unit-readable-columns"
       ],
       "remaining": "逐行权限差异、空值和零值、空态及结构错误反馈有公开源码入口断言。独立安装的桌面及手机检查覆盖标题和顺序，真实消费者及其它字段组合另验收。",
-      "requirementSha256": "012e171a43544b4835bf5483edc0d454775b228207cfe062cee028678b10a5da"
+      "requirementSha256": "af4cb5ae57435553faf89ec728a591d664b4e6743b0de302f3899cd770c72331"
     },
     {
       "id": "UI-FORM-06",

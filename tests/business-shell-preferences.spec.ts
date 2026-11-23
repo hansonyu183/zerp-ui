@@ -56,7 +56,7 @@ it("closes the account menu when the owner session ends", async () => {
   expect(
     document.querySelector('.v-overlay--active [role="menu"]'),
   ).not.toBeNull();
-  model.session = { state: "anonymous", owner: null, userPermissions: null };
+  model.session = { state: "anonymous", owner: null };
   await flushPromises();
   expect(document.querySelector('.v-overlay--active [role="menu"]')).toBeNull();
 });

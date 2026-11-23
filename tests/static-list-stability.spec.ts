@@ -43,6 +43,7 @@ it("restores focus to the same record after async detail changes edit into view"
         complete = r;
       });
       f.record.readOnly = true;
+      f.record.operations.update!.disabled = true;
     }),
   );
   wrapper = await render(f.model);
@@ -72,10 +73,12 @@ it("restores the disabled hint while detail is still reading, then its available
   f.record.operations.get = operation(
     vi.fn(async () => {
       f.record.readOnly = true;
+      f.record.operations.update!.disabled = true;
       await new Promise<void>((resolve) => {
         complete = resolve;
       });
       f.record.readOnly = false;
+      f.record.operations.update!.disabled = false;
     }),
   );
   wrapper = await render(f.model);
@@ -107,10 +110,12 @@ it("does not reclaim focus after the user moves away from the pending detail hin
   f.record.operations.get = operation(
     vi.fn(async () => {
       f.record.readOnly = true;
+      f.record.operations.update!.disabled = true;
       await new Promise<void>((resolve) => {
         complete = resolve;
       });
       f.record.readOnly = false;
+      f.record.operations.update!.disabled = false;
     }),
   );
   wrapper = await render(f.model);

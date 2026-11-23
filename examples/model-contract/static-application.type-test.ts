@@ -4,7 +4,6 @@ import type {
   Collection,
   DomainGroup,
   DomainSection,
-  UserPermissions,
   FieldNode,
   ObjectNode,
   Operation,
@@ -77,8 +76,8 @@ const wrongRoot = { ...model, members: [object], } satisfies BusinessModel;
 // @ts-expect-error 导航只能指向集合。
 const wrongNavigation: BusinessModel["navigation"] = { ...model.navigation, current: object, };
 // prettier-ignore
-// @ts-expect-error 匿名状态不能携带用户权限。
-const wrongSession = { state: "anonymous", owner: null, userPermissions: { administrator: true }, } satisfies Session;
+// @ts-expect-error 已认证的会话必须有 owner。
+const wrongSession = { state: "ready", owner: null } satisfies Session;
 
 const singleReference = {
   kind: "reference",
@@ -104,7 +103,7 @@ const referenceTarget = { ...singleReference, target: collection, } satisfies Fi
 const wrongTree = { ...singleReference, kind: "treeReference", options: [{ id: "1", label: "根", selectable: true }], } satisfies FieldNode;
 // prettier-ignore
 // @ts-expect-error 文本字段不接受格式配置。
-const textFormat = { kind: "text", key: "name", label: null, readOnly: false, required: false, value: "", format: {}, } satisfies FieldNode;
+const textFormat = { kind: "text", key: "name", label: "名称", readOnly: false, required: false, value: "", format: {}, } satisfies FieldNode;
 // prettier-ignore
 // @ts-expect-error decimal 原值仍为字符串。
 const numericDecimal = { kind: "decimal", key: "price", label: "价格", readOnly: false, required: false, value: 1, } satisfies FieldNode;
@@ -287,6 +286,9 @@ void [
 ];
 
 // prettier-ignore
-// @ts-expect-error 领域不是授权边界，不能替代对子集合的独立授权。
-const domainGrant = { owner: { ledger: "test", operator: "test", generation: "1" }, administrator: false, grants: [{ node: domain, read: true, write: true, operations: {} }] } satisfies UserPermissions;
-void domainGrant;
+// @ts-expect-error label 必须是字符串。
+const nullLabel = { kind: "text", key: "name", label: null, readOnly: false, required: false, value: "" } satisfies FieldNode;
+// prettier-ignore
+// @ts-expect-error Session 仅提供状态和 owner。
+const legacySession = { state: "anonymous", owner: null, presentation: null } satisfies Session;
+void [nullLabel, legacySession];

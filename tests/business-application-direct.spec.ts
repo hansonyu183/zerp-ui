@@ -56,7 +56,6 @@ it("returns the same root to authentication on logout and hides prior data", asy
       model.session = {
         state: "anonymous",
         owner: null,
-        userPermissions: null,
       };
       rows.items = [];
       rows.selected = null;
@@ -86,7 +85,6 @@ it("isolates old busy and late failure feedback after owner changes", async () =
   model.session = {
     state: "ready",
     owner,
-    userPermissions: { owner, administrator: true },
   };
   reject(Error("旧会话失败"));
   await flushPromises();
@@ -162,7 +160,7 @@ it("keeps consumer unknown-result restrictions through refresh and feedback dism
     target: record,
   });
   wrapper = await render(model);
-  await click("编辑");
+  await click("查看");
   const saved = () =>
     Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
       (button) => button.textContent?.trim() === "保存",
@@ -172,7 +170,7 @@ it("keeps consumer unknown-result restrictions through refresh and feedback dism
   await click("查询");
   expect(record.operations.update!.disabled).toBe(true);
   expect(rows.operations.query!.run).toHaveBeenCalledTimes(2);
-  await click("编辑");
+  await click("查看");
   expect(saved()).toBeUndefined();
   await click("核对结果");
   expect(record.operations.reconcile.run).toHaveBeenCalledTimes(1);
@@ -206,7 +204,6 @@ it("keeps a write guard when leaving and returning and makes consumers reject la
   model.session = {
     state: "ready",
     owner,
-    userPermissions: { owner, administrator: true },
   };
   rows.selected = null;
   resolve();
@@ -215,7 +212,7 @@ it("keeps a write guard when leaving and returning and makes consumers reject la
 });
 it("offers the authentication recovery callback in business language", async () => {
   const { model } = fixture();
-  model.session = { state: "recovering", owner: null, userPermissions: null };
+  model.session = { state: "recovering", owner: null };
   wrapper = await render(model);
   await click("恢复会话");
   expect(model.authentication.operations.recover.run).toHaveBeenCalledTimes(1);
@@ -243,7 +240,7 @@ it.each(["info", "success", "warning", "error"] as const)(
     await click(label);
     expect(model.messages).toHaveLength(1);
     expect(record.operations.update!.disabled).toBe(true);
-    await click("编辑");
+    await click("查看");
     await click("核对结果");
     expect(record.operations.reconcile.run).toHaveBeenCalledTimes(1);
     expect(record.operations.update!.disabled).toBe(true);

@@ -67,7 +67,6 @@ function fixture() {
     session: {
       state: "ready",
       owner,
-      userPermissions: { owner, administrator: true },
     },
     navigation: {
       current: null,
@@ -89,15 +88,14 @@ it("shows declared columns for an empty collection and queries the first authori
   expect(model.navigation.current).toBe(collection);
   wrapper.unmount();
 });
-it("keeps the same root through anonymous authentication and isolates mismatched owners", async () => {
+it("keeps the same root through anonymous authentication and hides business collections during session recovery", async () => {
   const { model } = fixture();
-  model.session = { state: "anonymous", owner: null, userPermissions: null };
+  model.session = { state: "anonymous", owner: null };
   const signIn = vi.fn(async () => {
     const owner = { ledger: "synthetic", operator: "next", generation: "2" };
     model.session = {
       state: "ready",
       owner,
-      userPermissions: { owner, administrator: true },
     };
   });
   model.authentication.operations.signIn.run = signIn;
@@ -111,40 +109,18 @@ it("keeps the same root through anonymous authentication and isolates mismatched
   await flushPromises();
   expect(signIn).toHaveBeenCalledTimes(1);
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
-  const currentSession = () => model.session;
-  const session = currentSession();
-  if (session.state === "ready" || session.state === "password-required")
-    model.session = {
-      ...session,
-      owner: { ...session.owner, generation: "3" },
-    };
+  model.session = { state: "recovering", owner: null };
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
   wrapper.unmount();
 });
-it("denies ordinary collection access by default and restores granted collections without deleting structure", async () => {
+it("updates collection readability without deleting structure", async () => {
   const { model, collection } = fixture();
-  const owner = model.session.owner!;
-  model.session = {
-    state: "ready",
-    owner,
-    userPermissions: { owner, administrator: false, grants: [] },
-  };
+  collection.readable = false;
   const wrapper = mount(BusinessApplication, { props: { model } });
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
-  model.session.userPermissions = {
-    owner,
-    administrator: false,
-    grants: [
-      {
-        node: collection,
-        read: true,
-        write: true,
-        operations: { query: true },
-      },
-    ],
-  };
+  collection.readable = true;
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
   expect(model.members[0]).toMatchObject({
@@ -254,9 +230,10 @@ it("hides null-label detail nodes while preserving explicit list columns and ord
   const hidden = {
     kind: "text" as const,
     key: "code",
-    label: null,
+    label: "编号",
     readOnly: false,
     required: false,
+    readable: false,
     value: "hidden-column",
   };
   const first = object("first", "第一组"),
@@ -290,7 +267,7 @@ it("hides null-label detail nodes while preserving explicit list columns and ord
     attachTo: document.body,
   });
   await flushPromises();
-  expect(wrapper.get("table").text()).toContain("hidden-column");
+  expect(wrapper.get("table").text()).not.toContain("hidden-column");
   const dialog = wrapper.get('[role="dialog"]');
   expect(
     dialog.findAll("input").map((input) => input.attributes("aria-label")),
@@ -328,7 +305,6 @@ it("suppresses stale query feedback after a session change and lets the consumer
   model.session = {
     state: "ready",
     owner: nextOwner,
-    userPermissions: { owner: nextOwner, administrator: true },
   };
   await flushPromises();
   rejectOld(Error("old failure"));
@@ -452,9 +428,8 @@ it("opens processing-only records for direct input and executes supplied actions
     attachTo: document.body,
   });
   await flushPromises();
-  const edit = wrapper.find('button[aria-label="编辑"]');
-  expect(edit.exists()).toBe(true);
-  await edit.trigger("click");
+  expect(wrapper.find('button[aria-label="编辑"]').exists()).toBe(false);
+  await wrapper.get('button[aria-label="查看"]').trigger("click");
   await flushPromises();
   const dialog = wrapper.get('[role="dialog"]');
   const input = dialog.get('input[aria-label="编号"]');
@@ -502,23 +477,7 @@ it("lets a readonly collection user enter query criteria while preserving narrow
       value: "",
     },
   ];
-  const owner = model.session.owner!;
-  model.session = {
-    state: "ready",
-    owner,
-    userPermissions: {
-      owner,
-      administrator: false,
-      grants: [
-        {
-          node: collection,
-          read: true,
-          write: false,
-          operations: { query: true },
-        },
-      ],
-    },
-  };
+
   const wrapper = mount(BusinessApplication, { props: { model } });
   await flushPromises();
   const input = wrapper.get('input[aria-label="查询名称"]');
@@ -527,13 +486,7 @@ it("lets a readonly collection user enter query criteria while preserving narrow
   expect((collection.conditions.members[0] as { value: string }).value).toBe(
     "客户",
   );
-  if (!model.session.userPermissions.administrator)
-    model.session.userPermissions.grants.push({
-      node: collection.conditions.members[0]!,
-      read: true,
-      write: false,
-      operations: {},
-    });
+  collection.conditions.members[0]!.readOnly = true;
   await flushPromises();
   expect(input.attributes("readonly")).toBeDefined();
   wrapper.unmount();
@@ -642,16 +595,16 @@ it("keeps qualified workflow row actions directly visible while ordinary actions
     labels.filter(
       (label) =>
         label !== undefined &&
-        ["编辑", "处理", "校验", "运行", "停止"].includes(label),
+        ["查看", "处理", "校验", "运行", "停止"].includes(label),
     ),
   ).toHaveLength(3);
   wrapper.unmount();
 });
-it("offers single-record printing for an independently fetched formal selection outside the current page", async () => {
+it("keeps an unprintable record detail quiet until printing is available", async () => {
   const { model, collection } = fixture();
   const row = object("external", "外部记录");
   row.identity = "external-1";
-  row.printable = true;
+  row.printable = false;
   row.readOnly = true;
   row.members = [
     {
@@ -693,6 +646,12 @@ it("offers single-record printing for an independently fetched formal selection 
   });
   await flushPromises();
   const dialog = wrapper.get('[role="dialog"]');
+  expect(dialog.text()).not.toContain("尚未确认保存");
+  expect(
+    dialog.findAll("button").some((button) => button.text() === "单条打印"),
+  ).toBe(false);
+  collection.selected!.printable = true;
+  await flushPromises();
   expect(
     dialog.findAll("button").some((button) => button.text() === "单条打印"),
   ).toBe(true);
@@ -751,7 +710,10 @@ it("keeps authorized preview and print reachable from a read-only output view wh
     label: "输出预览",
     readOnly: true,
     value: null,
-    operations: { print: operation(), confirmPrinted: operation() },
+    operations: {
+      print: operation(),
+      confirmPrinted: { ...operation(), disabled: true },
+    },
   };
   row.members = [output];
   row.output = {
@@ -805,12 +767,12 @@ it("keeps authorized preview and print reachable from a read-only output view wh
   expect(print!.attributes("disabled")).toBeUndefined();
   wrapper.unmount();
 });
-it("keeps explicit nested output confirmation writable in a view while enforcing grants and business read-only", async () => {
+it("updates nested output confirmation from its operation availability", async () => {
   const { model, collection } = fixture();
   const row = object("output", "输出");
   row.identity = "o1";
   row.printable = true;
-  const confirmed = operation(),
+  const confirmed = reactive(operation()),
     notPrinted = operation();
   const output: import("../src/model").OutputNode = {
     kind: "output",
@@ -844,29 +806,7 @@ it("keeps explicit nested output confirmation writable in a view while enforcing
   };
   collection.items = [row];
   collection.total = 1;
-  const owner = model.session.owner!;
-  model.session = {
-    state: "ready",
-    owner,
-    userPermissions: {
-      owner,
-      administrator: false,
-      grants: [
-        {
-          node: collection,
-          read: true,
-          write: true,
-          operations: {
-            query: true,
-            preview: true,
-            print: true,
-            confirmPrinted: true,
-            confirmNotPrinted: true,
-          },
-        },
-      ],
-    },
-  };
+
   const wrapper = mount(BusinessApplication, {
     props: { model },
     attachTo: document.body,
@@ -895,17 +835,12 @@ it("keeps explicit nested output confirmation writable in a view while enforcing
   await confirmation()!.trigger("click");
   await flushPromises();
   expect(confirmed.run).toHaveBeenCalledTimes(1);
-  if (!model.session.userPermissions.administrator)
-    model.session.userPermissions.grants[0]!.write = false;
+  confirmed.disabled = true;
   await flushPromises();
   expect(confirmation()).toBeUndefined();
-  if (!model.session.userPermissions.administrator)
-    model.session.userPermissions.grants[0]!.write = true;
-  (
-    collection.items[0]!.members[0] as import("../src/model").OutputNode
-  ).readOnly = true;
+  confirmed.disabled = false;
   await flushPromises();
-  expect(confirmation()).toBeUndefined();
+  expect(confirmation()).toBeDefined();
   wrapper.unmount();
 });
 it("keeps a nested object own update boundary editable from a view-only parent without granting business read-only overrides", async () => {
@@ -937,23 +872,7 @@ it("keeps a nested object own update boundary editable from a view-only parent w
   collection.items = [parent];
   collection.selected = parent;
   collection.total = 1;
-  const owner = model.session.owner!;
-  model.session = {
-    state: "ready",
-    owner,
-    userPermissions: {
-      owner,
-      administrator: false,
-      grants: [
-        {
-          node: collection,
-          read: true,
-          write: true,
-          operations: { query: true, update: true },
-        },
-      ],
-    },
-  };
+
   const wrapper = mount(BusinessApplication, {
     props: { model },
     attachTo: document.body,
@@ -980,6 +899,7 @@ it("keeps a nested object own update boundary editable from a view-only parent w
   const currentChild = collection.selected!.members[1] as ObjectNode;
   expect((currentChild.members[0] as { value: string }).value).toBe("changed");
   currentChild.readOnly = true;
+  currentChild.operations.update!.disabled = true;
   await flushPromises();
   expect(
     dialog.get('input[aria-label="子字段"]').attributes("readonly"),
@@ -988,8 +908,7 @@ it("keeps a nested object own update boundary editable from a view-only parent w
     dialog.findAll("button").some((button) => button.text() === "保存"),
   ).toBe(false);
   currentChild.readOnly = false;
-  if (!model.session.userPermissions.administrator)
-    model.session.userPermissions.grants[0]!.write = false;
+  collection.selected!.readOnly = true;
   await flushPromises();
   expect(
     dialog.get('input[aria-label="子字段"]').attributes("readonly"),

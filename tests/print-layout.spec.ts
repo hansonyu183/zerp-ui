@@ -24,7 +24,7 @@ const source: Collection = {
     kind: "object",
     family: "standard",
     key: "conditions",
-    label: null,
+    label: "编号",
     identity: null,
     printable: false,
     readOnly: false,

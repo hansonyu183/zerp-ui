@@ -58,24 +58,15 @@ function setup() {
   f.model.navigation.visit = visit;
   return { ...f, offPage, shortcut, workbench, href, visit };
 }
-it("builds the workbench caption in readable, labeled member order", async () => {
+it("builds the workbench caption in readable member order", async () => {
   const f = setup();
   const denied = field("restricted", "权限字段", "无权摘要");
   f.shortcut.members = [
     field("z-name", "名称", "最近记录"),
     field("a-count", "数量", "0"),
-    field("hidden", null, "无标签摘要"),
     denied,
   ];
-  f.model.session.userPermissions = {
-    owner: f.owner,
-    administrator: false,
-    grants: [
-      { node: f.rows, read: true, write: false, operations: {} },
-      { node: f.workbench.vouchers, read: true, write: false, operations: {} },
-      { node: denied, read: false, write: false, operations: {} },
-    ],
-  };
+  denied.readable = false;
   wrapper = await render(f.model);
   const section = wrapper.get('.zerp-workbench [aria-label="单据"]');
   expect(section.get("a").text()).toBe("最近记录 · 0");
@@ -164,23 +155,7 @@ it("hides revoked workbench targets and rejects an old link before the next rend
   const f = setup();
   wrapper = await render(f.model);
   const link = wrapper.findAll("a").find((a) => a.text() === "最近记录")!;
-  f.model.session = {
-    state: "ready",
-    owner: f.owner,
-    userPermissions: {
-      owner: f.owner,
-      administrator: false,
-      grants: [
-        {
-          node: f.workbench.vouchers,
-          read: true,
-          write: false,
-          operations: {},
-        },
-        { node: f.workbench.reports, read: true, write: false, operations: {} },
-      ],
-    },
-  };
+  f.rows.readable = false;
   const event = new MouseEvent("click", {
     bubbles: true,
     cancelable: true,
@@ -288,7 +263,7 @@ it("isolates target edges after a workbench owner is replaced", async () => {
   const f = setup();
   wrapper = await render(f.model);
   const link = wrapper.findAll("a").find((a) => a.text() === "最近记录")!;
-  f.model.session = { state: "anonymous", owner: null, userPermissions: null };
+  f.model.session = { state: "anonymous", owner: null };
   const event = new MouseEvent("click", { bubbles: true, cancelable: true });
   link.element.dispatchEvent(event);
   expect(event.defaultPrevented).toBe(true);

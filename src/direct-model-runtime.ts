@@ -56,6 +56,7 @@ export interface DirectRuntime {
   writable(node: Node): boolean;
   independent(node: Node): boolean;
   editable(node: Node): boolean;
+  handleable(node: ObjectNode): boolean;
   allowed(node: Node, action: string, publicAuth?: boolean): boolean;
   operations(node: Node): Record<string, Operation>;
   available(node: Node, action: string, publicAuth?: boolean): boolean;
@@ -112,7 +113,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     const s = model().session;
     return (
       (s.state === "ready" || s.state === "password-required") &&
-      ownerKey(s.userPermissions.owner) === scope.value
+      s.owner !== null
     );
   });
   const busy = ref(new Set<object>());
@@ -194,55 +195,21 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     return paths().get(toRaw(node)) ?? [];
   }
   const same = (a: object, b: object) => toRaw(a) === toRaw(b);
-  function grant(node: Node) {
-    const p = model().session.userPermissions;
-    return p && !p.administrator
-      ? p.grants.find((g) => same(g.node, node))
-      : undefined;
-  }
-  function boundary(node: Node): Node {
-    return [...ancestors(node), node][0]!;
-  }
-  function accountNode(node: Node) {
-    return [model().account.profile, model().account.password].some(
-      (account) =>
-        same(account, node) || ancestors(node).some((n) => same(n, account)),
-    );
-  }
   function readable(node: Node): boolean {
     if (!ready.value || !paths().has(toRaw(node))) return false;
-    if (
-      model().session.state === "password-required" &&
-      ![...ancestors(node), node].some((n) => same(n, model().account.password))
-    )
-      return false;
     const chain = [...ancestors(node), node];
-    if (chain.some((n) => grant(n)?.read === false)) return false;
-    if (accountNode(node)) return true;
-    const p = model().session.userPermissions!;
-    return p.administrator || grant(boundary(node))?.read === true;
-  }
-  function writeAllowed(node: Node): boolean {
-    if (!readable(node)) return false;
-    const chain = [...ancestors(node), node];
-    const collection = chain.find(isCollection);
-    if (collection && chain.some((n) => same(n, collection.conditions)))
-      return (
-        allowed(collection, "query") &&
-        chain
-          .slice(chain.indexOf(collection) + 1)
-          .every((n) => grant(n)?.write !== false)
-      );
-    if (chain.some((n) => grant(n)?.write === false)) return false;
-    if (accountNode(node)) return true;
-    const p = model().session.userPermissions!;
-    if (p.administrator) return true;
-    return grant(boundary(node))?.write === true;
+    return (
+      chain.every((member) => member.readable !== false) &&
+      (model().session.state !== "password-required" ||
+        chain.some((member) => same(member, model().account.password)))
+    );
   }
   function writable(node: Node): boolean {
     return (
-      writeAllowed(node) &&
-      ![...ancestors(node), node].some((n) => !isCollection(n) && n.readOnly)
+      readable(node) &&
+      ![...ancestors(node), node].some(
+        (member) => !isCollection(member) && member.readOnly,
+      )
     );
   }
   function operations(node: Node): Record<string, Operation> {
@@ -269,31 +236,6 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         ? { load: node.load }
         : {};
   }
-  const reads = new Set([
-    "get",
-    "query",
-    "export",
-    "preview",
-    "reconcile",
-    "load",
-    "print",
-    "itemPrint",
-  ]);
-  function permitted(node: Node, action: string) {
-    const chain = [...ancestors(node), node];
-    const p = model().session.userPermissions!;
-    if (p.administrator) return true;
-    if (
-      chain.some(
-        (n) => Reflect.get(grant(n)?.operations ?? {}, action) === false,
-      )
-    )
-      return false;
-    if (accountNode(node)) return true;
-    return (
-      Reflect.get(grant(boundary(node))?.operations ?? {}, action) === true
-    );
-  }
   function allowed(node: Node, action: string, publicAuth = false): boolean {
     const automatic =
       isCollection(node) &&
@@ -303,15 +245,12 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     if (publicAuth)
       return (
         same(node, model().authentication.form) &&
+        node.readable !== false &&
         ((model().session.state === "anonymous" &&
           ["signIn", "recover"].includes(action)) ||
           (model().session.state === "recovering" && action === "recover"))
       );
-    return (
-      readable(node) &&
-      (reads.has(action) || writable(node)) &&
-      permitted(node, action)
-    );
+    return readable(node);
   }
   function available(node: Node, action: string, publicAuth = false) {
     return (
@@ -319,22 +258,26 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     );
   }
   function editable(node: Node) {
-    const readOnlyActions = new Set([
-      "get",
-      "delete",
-      "reconcile",
-      "export",
-      "preview",
-      "print",
-      "audit",
-      "openVoucher",
-      "load",
-    ]);
-    return (
-      writable(node) &&
-      Object.keys(operations(node)).some(
-        (action) => !readOnlyActions.has(action) && allowed(node, action),
+    return allowed(node, "update");
+  }
+  function handleable(node: ObjectNode) {
+    if (
+      node.processing &&
+      Object.keys(node.processing.operations).some((action) =>
+        allowed(node, action),
       )
+    )
+      return true;
+    return (
+      [node.document, node.workflow, node.batch, node.report].some(
+        (capability) =>
+          Object.keys(capability?.operations ?? {}).some((action) =>
+            available(node, action),
+          ),
+      ) ||
+      (!!node.output &&
+        (available(node, "confirmPrinted") ||
+          available(node, "confirmNotPrinted")))
     );
   }
   async function execute(
@@ -460,7 +403,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     );
   }
   function interactable(node: InteractionNode) {
-    return writable(node) && permitted(node, "interact");
+    return writable(node);
   }
   async function runInteraction(
     node: InteractionNode,
@@ -472,7 +415,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     });
   }
   function downloadable(node: InteractionNode) {
-    return readable(node) && permitted(node, "download");
+    return readable(node);
   }
   async function runDownload(
     node: InteractionNode,
@@ -534,8 +477,9 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     readable,
     writable,
     editable,
+    handleable,
     independent: (node) =>
-      boundary(node) === node ||
+      ancestors(node).length === 0 ||
       (!isCollection(node) && node.kind === "object" && editable(node)),
     allowed,
     operations,

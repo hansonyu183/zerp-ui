@@ -17,17 +17,15 @@ const rows = computed(() =>
   })),
 );
 const columns = computed(() =>
-  [...(rows.value[0]?.fields.values() ?? [])].filter(
-    (column) =>
-      column.label !== null &&
-      rows.value.every(({ fields }) => {
-        const child = fields.get(column.key);
-        return (
-          child?.label === column.label &&
-          child.kind === column.kind &&
-          runtime.readable(child)
-        );
-      }),
+  [...(rows.value[0]?.fields.values() ?? [])].filter((column) =>
+    rows.value.every(({ fields }) => {
+      const child = fields.get(column.key);
+      return (
+        child?.label === column.label &&
+        child.kind === column.kind &&
+        runtime.readable(child)
+      );
+    }),
   ),
 );
 const modelError = computed(() => {
@@ -53,9 +51,15 @@ const modelError = computed(() => {
     })
     .join("\n");
 });
-const selectable = computed(() => runtime.allowed(props.node, "remove"));
+const selectable = computed(() => runtime.available(props.node, "remove"));
 function select(row: ObjectNode, value: boolean | null) {
-  if (props.readOnly || !runtime.writable(props.node)) return;
+  if (
+    props.readOnly ||
+    !runtime.writable(props.node) ||
+    !selectable.value ||
+    !runtime.readable(row)
+  )
+    return;
   props.node.selected = value ? row : null;
 }
 </script>

@@ -234,7 +234,7 @@ export async function directModelSmoke(page) {
       ],
     ]) {
       await visit(label);
-      dialog = await open();
+      dialog = await open("查看");
       for (const [action, field, expected] of actions) {
         await dialog.getByRole("button", { name: action, exact: true }).click();
         await expect(
@@ -244,7 +244,7 @@ export async function directModelSmoke(page) {
       await close();
     }
     await visit("业务查询");
-    dialog = await open();
+    dialog = await open("查看");
     await dialog
       .getByRole("textbox", { name: "查询数量", exact: true })
       .fill("4");

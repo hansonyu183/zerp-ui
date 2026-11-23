@@ -10,6 +10,7 @@ import {
 } from "./reference-directory";
 const props = defineProps<{
   adapter: ReferenceAdapter;
+  options?: readonly TreeValue[];
   modelValue: ReferenceValue | readonly ReferenceValue[] | null;
   scope: string;
   label: string;
@@ -51,7 +52,15 @@ type TreeValue = ReferenceValue & {
   children?: readonly TreeValue[];
   depth?: number;
 };
-const candidates = shallowRef<readonly TreeValue[]>([]);
+const loadedCandidates = shallowRef<readonly TreeValue[]>([]);
+const previousScopeOptions = shallowRef<readonly TreeValue[]>();
+const candidates = computed(() =>
+  props.options === undefined
+    ? loadedCandidates.value
+    : props.options === previousScopeOptions.value
+      ? []
+      : props.options,
+);
 const expanded = ref(new Set<string>());
 const selected = computed<readonly ReferenceValue[]>(() =>
   Array.isArray(props.modelValue)
@@ -146,7 +155,10 @@ async function load() {
   error.value = "";
   try {
     const values = await lease.value;
-    if (active && request === version) candidates.value = values;
+    if (active && request === version) {
+      if (props.options === undefined) loadedCandidates.value = values;
+      previousScopeOptions.value = undefined;
+    }
   } catch (cause) {
     if (active && request === version) error.value = message(cause);
   } finally {
@@ -175,9 +187,13 @@ watch(
       props.adapter.directory,
       JSON.stringify(props.adapter.dependencies ?? []),
       props.parent?.id,
+      props.options,
     ] as const,
   (value, previous) => {
-    if (value.every((item, index) => item === previous[index])) return;
+    if (value.slice(0, 4).every((item, index) => item === previous[index])) {
+      if (value[4] !== previous[4]) previousScopeOptions.value = undefined;
+      return;
+    }
     version++;
     release?.();
     clearReferenceDirectory(
@@ -190,7 +206,9 @@ watch(
       previous[3] ? { id: previous[3], label: "" } : null,
     );
     open.value = false;
-    candidates.value = [];
+    previousScopeOptions.value =
+      value[4] === previous[4] ? previous[4] : undefined;
+    loadedCandidates.value = [];
     expanded.value = new Set();
     busy.value = false;
     error.value = "";
@@ -204,8 +222,11 @@ function choose(value: ReferenceValue | readonly ReferenceValue[] | null) {
   if (
     values.some(
       (item) =>
-        item.selectable === false &&
-        !selected.value.some((previous) => previous.id === item.id),
+        !selected.value.some((previous) => previous.id === item.id) &&
+        !items.value.some(
+          (candidate) =>
+            candidate.id === item.id && candidate.selectable !== false,
+        ),
     )
   )
     return;

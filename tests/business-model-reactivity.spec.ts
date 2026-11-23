@@ -56,16 +56,9 @@ it("reacts to ordered members, explicit columns, operation state and session per
     model.session = {
       state: "ready",
       owner,
-      userPermissions: {
-        owner,
-        administrator: false,
-        grants: [
-          { node: rows, read: true, write: false, operations: { query: true } },
-        ],
-      },
     };
     await changed();
-    model.session = { state: "anonymous", owner: null, userPermissions: null };
+    model.session = { state: "anonymous", owner: null };
     await changed();
   } finally {
     stop();

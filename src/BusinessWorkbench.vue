@@ -33,7 +33,6 @@ function caption(row: ObjectNode) {
   return row.members
     .flatMap((field) => {
       if (
-        field.label === null ||
         !runtime.readable(field) ||
         !("value" in field) ||
         field.kind === "interactions" ||

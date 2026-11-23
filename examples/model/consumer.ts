@@ -27,7 +27,7 @@ const operation = (run: () => Promise<void>): Operation => ({
 });
 const text = (
   key: string,
-  label: string | null,
+  label: string,
   value = "",
   readOnly = false,
 ): FieldNode & { kind: "text" | "longText" | "password" } =>
@@ -208,7 +208,7 @@ const customer = object("customer", "客户", [
   category,
   groups,
   feedbackForm,
-  text("internal", null, "隐藏内部值"),
+  { ...text("internal", "内部值", "隐藏内部值"), readable: false },
   object("settlement", "结算", [settlementAccount]),
   lines,
 ]);
@@ -239,9 +239,10 @@ Object.defineProperty(customer, "printable", {
 customer.operations.get = operation(async () => {
   trace("customer.get");
 });
+const viewerMode = ref(false);
 customer.operations.update = {
   get disabled() {
-    return name.value === "暂不可保存";
+    return viewerMode.value || name.value === "暂不可保存";
   },
   async run() {
     trace("customer.update");
@@ -342,22 +343,27 @@ const customers: Collection = reactive({
   pageSize: 20,
   total: 0,
   operations: {},
-  itemPrintTemple: itemTemplate,
-  printTemple: {
-    ...itemTemplate,
-    label: "当前页打印",
-    body: [
-      {
-        kind: "records",
-        path: [],
-        headerHeight: 8,
-        rowHeight: 10,
-        columns: [
-          { path: ["name"], label: "名称", width: 45 },
-          { path: ["credit"], label: "额度", width: 45 },
-        ],
-      },
-    ],
+  get itemPrintTemple() {
+    return viewerMode.value ? undefined : itemTemplate;
+  },
+  get printTemple(): PrintTemplate | undefined {
+    if (viewerMode.value) return undefined;
+    return {
+      ...itemTemplate,
+      label: "当前页打印",
+      body: [
+        {
+          kind: "records",
+          path: [],
+          headerHeight: 8,
+          rowHeight: 10,
+          columns: [
+            { path: ["name"], label: "名称", width: 45 },
+            { path: ["credit"], label: "额度", width: 45 },
+          ],
+        },
+      ],
+    };
   },
 });
 let retryableCustomerQueryFailed = false;
@@ -723,28 +729,23 @@ const signIn = operation(async () => {
     operator: loginName.value,
     generation: String(++generation),
   });
-  model.session = {
-    state: "ready",
-    owner,
-    userPermissions:
-      loginName.value === "viewer"
-        ? {
-            owner,
-            administrator: false,
-            grants: [
-              {
-                node: customers,
-                read: true,
-                write: false,
-                operations: { query: true, get: true },
-              },
-              { node: credit, read: false, write: false, operations: {} },
-            ],
-          }
-        : { owner, administrator: true },
-  };
-  model.navigation.current = loginName.value === "viewer" ? customers : null;
+  const viewer = loginName.value === "viewer";
+  viewerMode.value = viewer;
+  for (const collection of collections())
+    collection.readable = !viewer || collection === customers;
+  for (const { role } of workbenchSeeds)
+    model.workbench![role].readable = !viewer;
+  credit.readable = !viewer;
+  customer.readOnly = viewer;
+  customers.operations.create!.disabled = viewer;
+  lines.operations.create!.disabled = viewer;
+  lines.operations.remove!.disabled = viewer;
+  for (const reference of [category, groups, feedbackForm])
+    if ("load" in reference && reference.load) reference.load.disabled = viewer;
+  model.session = { state: "ready", owner };
+  model.navigation.current = viewer ? customers : null;
 });
+
 export const model: BusinessModel = reactive({
   kind: "application",
   label: "静态业务模型",
@@ -804,14 +805,13 @@ export const model: BusinessModel = reactive({
         model.session = {
           state: "anonymous",
           owner: null,
-          userPermissions: null,
         };
         resetBusiness();
         void router.push("/");
       }),
     },
   },
-  session: { state: "anonymous", owner: null, userPermissions: null },
+  session: { state: "anonymous", owner: null },
   navigation: {
     current: null,
     href(collection, record) {
@@ -836,14 +836,9 @@ export const model: BusinessModel = reactive({
         JSON.stringify(model.session.owner) !== requestOwner
       )
         return;
-      const permissions = model.session.userPermissions;
       for (const { role, items } of workbenchSeeds) {
         const block = model.workbench![role];
-        if (
-          permissions.administrator ||
-          permissions.grants.some((grant) => grant.node === block && grant.read)
-        )
-          block.items = items;
+        if (block.readable !== false) block.items = items;
       }
     }),
     information: shortcut("information", "重要信息", null),

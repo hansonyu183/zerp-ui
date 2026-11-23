@@ -82,32 +82,16 @@ function scriptFile(f: ReturnType<typeof setup>, run = vi.fn(async () => {})) {
   f.node.items = [{ kind: "download", id: "file", label: "下载文件", target }];
   return target;
 }
-it("requires download permission while allowing authorized read-only downloads", async () => {
+it("lets an enabled download run from a read-only node", async () => {
   const f = setup(),
     run = vi.fn(async () => {});
   const target = scriptFile(f, run);
   f.node.readOnly = true;
-  f.model.session = {
-    state: "ready",
-    owner: f.owner,
-    userPermissions: {
-      owner: f.owner,
-      administrator: false,
-      grants: [
-        { node: f.rows, read: true, write: false, operations: { query: true } },
-      ],
-    },
-  };
+  target.operation.disabled = true;
   await flushPromises();
   expect(
     wrapper!.findAll("button").some((button) => button.text() === "下载文件"),
   ).toBe(false);
-  if (!f.model.session.userPermissions.administrator)
-    f.model.session.userPermissions.grants[0]!.operations.download = true;
-  target.operation.disabled = true;
-  await flushPromises();
-  expect(action("下载文件")).toBeUndefined();
-  expect(run).not.toHaveBeenCalled();
   target.operation.disabled = false;
   const entry = f.node.items[0]!;
   if (entry.kind === "download") entry.disabled = true;
@@ -167,7 +151,6 @@ it.each(["entry", "node", "owner", "model"] as const)(
       f.model.session = {
         state: "anonymous",
         owner: null,
-        userPermissions: null,
       };
     else await wrapper!.setProps({ model: fixture().model });
     await flushPromises();
@@ -225,30 +208,16 @@ it("executes menu and tree callbacks without navigating", async () => {
   expect(f.visit).not.toHaveBeenCalled();
   expect(f.rows.selected).toBeNull();
 });
-it("rechecks explicit interaction permission, read-only and disabled state", async () => {
+it("rechecks interaction read-only and disabled state", async () => {
   const f = setup();
   await flushPromises();
-  f.model.session = {
-    state: "ready",
-    owner: f.owner,
-    userPermissions: {
-      owner: f.owner,
-      administrator: false,
-      grants: [
-        { node: f.rows, read: true, write: true, operations: { query: true } },
-      ],
-    },
-  };
+  f.action.operation.disabled = true;
   await flushPromises();
   expect(
     wrapper!.findAll("button").some((button) => button.text() === "重新计算"),
   ).toBe(false);
   expect(f.run).not.toHaveBeenCalled();
-  if (
-    f.model.session.userPermissions &&
-    !f.model.session.userPermissions.administrator
-  )
-    f.model.session.userPermissions.grants[0]!.operations.interact = true;
+  f.action.operation.disabled = false;
   await flushPromises();
   const previous = action("重新计算")!;
   f.node.readOnly = true;
@@ -301,12 +270,11 @@ it.each(["entry", "node", "hidden", "owner", "model"] as const)(
     await click("重新计算");
     if (replacement === "entry") f.node.items = [];
     else if (replacement === "node") f.rows.conditions.members = [];
-    else if (replacement === "hidden") f.node.label = null;
+    else if (replacement === "hidden") f.node.readable = false;
     else if (replacement === "owner")
       f.model.session = {
         state: "anonymous",
         owner: null,
-        userPermissions: null,
       };
     else await wrapper!.setProps({ model: fixture().model });
     await flushPromises();
