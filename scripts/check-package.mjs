@@ -16,6 +16,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { applicationAlignmentSmoke } from "./application-alignment-smoke.mjs";
+import { authAlignmentSmoke } from "./auth-alignment-smoke.mjs";
 import { directModelSmoke } from "./direct-model-smoke.mjs";
 import { uiPreferencesSmoke } from "./ui-preferences-smoke.mjs";
 import { templatePrintSmoke } from "./template-print-smoke.mjs";
@@ -23,17 +24,19 @@ const smoke = process.argv.includes("--print-template")
   ? templatePrintSmoke
   : process.argv.includes("--ui-preferences")
     ? uiPreferencesSmoke
-    : async (page) => {
-        const model = await directModelSmoke(page);
-        await page.reload();
-        const alignment = await applicationAlignmentSmoke(page);
-        await page.reload();
-        const preferences = await uiPreferencesSmoke(page, {
-          layout: false,
-          workbench: false,
-        });
-        return { ...model, alignment, preferences };
-      };
+    : process.argv.includes("--auth-alignment")
+      ? authAlignmentSmoke
+      : async (page) => {
+          const model = await directModelSmoke(page);
+          await page.reload();
+          const alignment = await applicationAlignmentSmoke(page);
+          await page.reload();
+          const preferences = await uiPreferencesSmoke(page, {
+            layout: false,
+            workbench: false,
+          });
+          return { ...model, alignment, preferences };
+        };
 const exampleName = "model";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceBase = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -381,7 +384,9 @@ try {
       "public exports",
       "single Vue/Vuetify/Router host resolution and npm installation tree",
       "no failed browser assets",
-      "model-only authentication/customer and business operation interactions",
+      process.argv.includes("--auth-alignment")
+        ? "authentication layout and actions"
+        : "model-only authentication/customer and business operation interactions",
     ],
     exitCode: 0,
   };

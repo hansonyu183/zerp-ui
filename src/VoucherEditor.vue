@@ -521,7 +521,8 @@ const tableColumns = computed(() => {
           <component
             :is="xs ? VCard : 'tr'"
             :tag="xs ? 'article' : undefined"
-            :variant="xs ? 'outlined' : undefined"
+            :variant="xs ? 'flat' : undefined"
+            :border="xs || undefined"
             :class="{ 'zerp-record-card': xs }"
             v-for="(row, index) in visibleValue.rows"
             :key="rowKey(row)"

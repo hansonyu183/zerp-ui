@@ -56,9 +56,10 @@ onBeforeUnmount(() => {
         :aria-label="title"
       >
         <FeedbackHost @target="emit('feedback', $event)">
-          <header v-if="headerClose" class="zerp-record-dialog__header">
+          <header class="zerp-record-dialog__header">
             <VCardTitle>{{ title }}</VCardTitle>
             <VBtn
+              v-if="headerClose"
               type="button"
               variant="text"
               :disabled="blocked"
@@ -67,7 +68,6 @@ onBeforeUnmount(() => {
               关闭
             </VBtn>
           </header>
-          <VCardTitle v-else>{{ title }}</VCardTitle>
           <VCardText class="zerp-record-dialog__body"><slot /></VCardText>
           <slot name="feedback" />
         </FeedbackHost>
@@ -83,9 +83,13 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   flex-shrink: 0;
   padding-inline-end: 0.5rem;
+  border-block-end: thin solid
+    rgba(var(--v-border-color), var(--v-border-opacity));
 }
 .zerp-record-dialog__header .v-card-title {
   min-inline-size: 0;
+  padding-inline: 1rem;
+  font-weight: 500;
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -94,6 +98,7 @@ onBeforeUnmount(() => {
 }
 .zerp-record-dialog__body {
   min-block-size: 0;
+  padding: 1rem;
   overscroll-behavior: contain;
 }
 </style>

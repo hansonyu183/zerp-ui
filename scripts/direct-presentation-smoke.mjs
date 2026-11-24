@@ -20,6 +20,11 @@ export async function settleLayout(page) {
 // Runs against the independently installed public package; no model or VM access.
 export async function directPresentationSmoke(page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  const content = page.locator(".zerp-shell-content");
+  const heading = content.getByRole("heading", { level: 1 });
+  const contentBox = await content.boundingBox();
+  const headingBox = await heading.boundingBox();
+  expect(headingBox.x - contentBox.x).toBeGreaterThan(8);
   const alignment = [
     await fieldAlignmentSmoke(
       page.locator(".zerp-shell-content"),
@@ -48,6 +53,18 @@ export async function directPresentationSmoke(page) {
   await settleLayout(page);
   const field = dialog.getByRole("textbox", { name: "客户名称", exact: true });
   await expect(field).toBeEditable();
+  const dialogTitle = dialog.locator(
+    ".zerp-record-dialog__header .v-card-title",
+  );
+  const dialogInset = await dialogTitle.evaluate((title) => {
+    const card = title.closest(".zerp-record-dialog");
+    return {
+      title: getComputedStyle(title).paddingInlineStart,
+      body: getComputedStyle(card.querySelector(".zerp-record-dialog__body"))
+        .paddingInlineStart,
+    };
+  });
+  expect(dialogInset.title).toBe(dialogInset.body);
   alignment.push(
     await fieldAlignmentSmoke(dialog, "desktop edit and read-only fields"),
   );
@@ -86,7 +103,20 @@ export async function directPresentationSmoke(page) {
   await expect(domainTabs).toBeVisible();
   expect((await domainTabs.boundingBox()).width).toBeLessThanOrEqual(390);
 
-  await expect(page.getByRole("article", { name: "记录 1" })).toBeVisible();
+  const mobileRecord = page.getByRole("article", { name: "记录 1" });
+  await expect(mobileRecord).toBeVisible();
+  await expect(mobileRecord).toHaveClass(/v-card--border/);
+  await expect(mobileRecord).toHaveClass(/v-card--variant-flat/);
+  const mobileRecordBox = await mobileRecord.boundingBox();
+  expect(mobileRecordBox.x).toBeGreaterThan(8);
+  expect(390 - mobileRecordBox.x - mobileRecordBox.width).toBeGreaterThan(8);
+  const queryBox = await page
+    .getByRole("button", { name: "查询", exact: true })
+    .boundingBox();
+  const createBox = await page
+    .getByRole("button", { name: "新增", exact: true })
+    .boundingBox();
+  expect(Math.abs(queryBox.y - createBox.y)).toBeLessThan(2);
   const mobileEdit = page.getByRole("button", { name: "编辑", exact: true });
   await expect(mobileEdit).toContainText("编辑");
   expect((await mobileEdit.boundingBox()).height).toBeGreaterThanOrEqual(48);
@@ -119,6 +149,8 @@ export async function workbenchPresentationSmoke(page) {
   const workbench = page.getByRole("region", { name: "工作台", exact: true });
   const cards = workbench.locator(".zerp-workbench-grid > section");
   await expect(cards).toHaveCount(4);
+  await expect(cards.first()).toHaveClass(/v-card--border/);
+  await expect(cards.first()).toHaveClass(/v-card--variant-flat/);
   await settleLayout(page);
   const rects = () =>
     cards.evaluateAll((items) =>
@@ -128,6 +160,10 @@ export async function workbenchPresentationSmoke(page) {
       }),
     );
   const desktop = await rects();
+  const refresh = await workbench
+    .getByRole("button", { name: "刷新", exact: true })
+    .boundingBox();
+  expect(desktop[0].y).toBeGreaterThan(refresh.y + refresh.height);
   expect(desktop[0].width).toBeGreaterThan(desktop[1].width * 2.9);
   expect(desktop[0].y + desktop[0].height).toBeLessThan(desktop[1].y + 1);
   expect(Math.abs(desktop[1].y - desktop[2].y)).toBeLessThan(1);

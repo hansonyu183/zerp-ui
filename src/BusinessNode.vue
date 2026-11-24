@@ -401,6 +401,11 @@ onBeforeUnmount(() => {
   flex: 1 1 13rem;
   min-inline-size: 0;
 }
+@media (max-width: 599px) {
+  .zerp-business-query {
+    flex-basis: 50%;
+  }
+}
 .zerp-business-query__status {
   flex: 1;
   min-inline-size: 0;

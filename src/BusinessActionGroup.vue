@@ -54,6 +54,7 @@ function choose(action: string) {
       v-for="action in featured"
       :key="action"
       v-bind="style(action)"
+      :block="action === 'signIn'"
       :disabled="pending"
       @click="choose(action)"
       >{{ labels[action] ?? action }}</VBtn

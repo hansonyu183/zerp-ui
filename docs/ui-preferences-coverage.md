@@ -21,9 +21,9 @@
 | UI-THEME-01 | 无自动断言 | 布局所有权及消费者不补模板仍需架构审查；未穷举业务族。 |
 | UI-THEME-02 | [package-theme](#package-theme)、[package-workbench](#package-workbench) | 认证外壳、工作台、领域Tabs和查询按钮覆盖主题响应；尚未逐控件穷举完整Material语言。 |
 | UI-THEME-03 | [unit-theme](#unit-theme)、[package-theme](#package-theme) | 主题菜单位于明暗左侧的几何顺序尚无断言；真实消费者持久化另验收。 |
-| UI-THEME-04 | [unit-buttons](#unit-buttons)、[package-theme](#package-theme) | 公开业务按钮层级及代表性主题响应有映射；认证、全部业务族、弹层的按钮风格/间距及迁移保留尚未逐路径穷举，具体variant映射仍是实现记录。 |
-| UI-THEME-05 | [package-layout](#package-layout) | 仅表格12px及手机编辑输入16px；正文/菜单/导航/反馈和18/16/14px标题尚未逐类验证。 |
-| UI-THEME-06 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-mobile-detail-close](#package-mobile-detail-close)、[package-related-navigation](#package-related-navigation) | 代表性桌面动作、48px 顶栏、手机详情关闭和关联链接已覆盖；全部控件尺寸未穷举。 |
+| UI-THEME-04 | [unit-buttons](#unit-buttons)、[package-theme](#package-theme)、[package-auth-alignment](#package-auth-alignment) | 覆盖公开业务按钮层级、代表性主题响应及登录按钮宽度；各认证状态、业务族和弹层的按钮呈现尚未逐路径穷举。 |
+| UI-THEME-05 | [package-layout](#package-layout) | 覆盖表格12px及手机编辑输入16px；正文、菜单、导航、反馈及认证品牌字号与其他标题尚未逐类验证。 |
+| UI-THEME-06 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-mobile-detail-close](#package-mobile-detail-close)、[package-related-navigation](#package-related-navigation) | 覆盖代表性桌面动作、48px 顶栏、手机登录按钮及认证卡片留白、详情关闭和关联链接；全部控件尺寸未穷举。 |
 | UI-SHELL-01 | [package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。 |
 | UI-SHELL-02 | 无自动断言 | 未断言所有顶栏子项顺序、品牌内容和首页跳转。 |
 | UI-SHELL-03 | 无自动断言 | 未定向检查慢业务读取时账户可达、窄屏文字收起与账户全部入口。 |
@@ -38,7 +38,7 @@
 | UI-MOBILE-03 | 无自动断言 | 首行左右对齐/缺省稳定、全选文字/数量/半选/禁用尚无直接宿主定向证据。 |
 | UI-ACTION-01 | [unit-actions](#unit-actions)、[unit-mobile-action-overflow](#unit-mobile-action-overflow) | 操作可用性、手机详情主操作与更多入口有代表性证据；图标语义及各类宽度和流程组合未穷举。 |
 | UI-ACTION-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 手机短文字已验，桌面图标及hover/focus hint尚未完整验证。 |
-| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-save-qualification](#package-save-qualification)、[unit-available-operations](#unit-available-operations) | 覆盖代表性撤权与禁用、编辑及运行中互斥。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。 |
+| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-save-qualification](#package-save-qualification)、[package-auth-alignment](#package-auth-alignment)、[unit-available-operations](#unit-available-operations) | 覆盖代表性撤权与禁用、编辑及运行中互斥、登录操作和手动会话恢复入口移除。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。 |
 | UI-ACTION-04 | 无自动断言 | 新增各入口、标题与成功提示的一致性，以及其他动作文案尚无统一断言。 |
 | UI-FORM-01 | [unit-model](#unit-model)、[unit-review](#unit-review)、[package-mobile-readonly-values](#package-mobile-readonly-values) | 直接编辑、复杂结构和手机只读长值有代表用例；查看、新增与编辑的完整字段顺序组合未穷举。 |
 | UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout)、[package-application-alignment](#package-application-alignment)、[package-mobile-detail-close](#package-mobile-detail-close) | 手机长详情的焦点、筛选、页码和非零滚动均有代表用例；所有新增及复杂弹层路径未穷举。 |
@@ -72,13 +72,13 @@
 
 [scripts/direct-presentation-smoke.mjs](../scripts/direct-presentation-smoke.mjs) · tgz/browser
 
-定位：`export async function directPresentationSmoke`。代表性客户页：四列筛选/三列编辑、第二操作列、12px表格、32/48px动作、16px手机输入、弹层边界/焦点、手机无溢出。
+定位：`export async function directPresentationSmoke`。代表性客户页：业务区留白、四列筛选/三列编辑、第二操作列、12px表格、32/48px动作、16px手机输入、手机查询与新增同排、手机记录卡片的 Material 细边框、弹层标题与正文对齐、弹层边界/焦点、手机无溢出。
 
 ### package-workbench
 
 [scripts/direct-presentation-smoke.mjs](../scripts/direct-presentation-smoke.mjs) · tgz/browser
 
-定位：`export async function workbenchPresentationSmoke`。工作台四卡片桌面1+3、手机纵排，三主题暗色及恢复浅色。
+定位：`export async function workbenchPresentationSmoke`。工作台四卡片桌面1+3、手机纵排，验证刷新按钮与卡片间距、卡片细边框、三主题暗色及恢复浅色。
 
 ### package-theme
 
@@ -216,7 +216,7 @@
 
 [scripts/auth-alignment-smoke.mjs](../scripts/auth-alignment-smoke.mjs) · tgz/browser
 
-定位：`authentication-reference-text-password-alignment`。390/1440px认证表单普通引用、账号和密码可见控件左右边界及高度一致，登录按钮左边界对齐。
+定位：`authentication-reference-text-password-alignment`。390/1440px 的公开认证页面覆盖卡片留白、品牌与字段左对齐、引用与文本和密码框的左右边界、全宽登录按钮及手动恢复入口移除。手机同时验证登录按钮的触控高度。
 
 ### package-field-alignment
 
