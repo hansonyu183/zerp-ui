@@ -5,13 +5,13 @@
       "file": "scripts/direct-presentation-smoke.mjs",
       "anchor": "export async function directPresentationSmoke",
       "surface": "tgz/browser",
-      "assertion": "代表性客户页：四列筛选/三列编辑、第二操作列、12px表格、32/48px动作、16px手机输入、弹层边界/焦点、手机无溢出"
+      "assertion": "代表性客户页：业务区留白、四列筛选/三列编辑、第二操作列、12px表格、32/48px动作、16px手机输入、手机查询与新增同排、手机记录卡片的 Material 细边框、弹层标题与正文对齐、弹层边界/焦点、手机无溢出"
     },
     "package-workbench": {
       "file": "scripts/direct-presentation-smoke.mjs",
       "anchor": "export async function workbenchPresentationSmoke",
       "surface": "tgz/browser",
-      "assertion": "工作台四卡片桌面1+3、手机纵排，三主题暗色及恢复浅色"
+      "assertion": "工作台四卡片桌面1+3、手机纵排，验证刷新按钮与卡片间距、卡片细边框、三主题暗色及恢复浅色"
     },
     "package-theme": {
       "file": "scripts/ui-preferences-smoke.mjs",
@@ -149,7 +149,7 @@
       "file": "scripts/auth-alignment-smoke.mjs",
       "anchor": "authentication-reference-text-password-alignment",
       "surface": "tgz/browser",
-      "assertion": "390/1440px认证表单普通引用、账号和密码可见控件左右边界及高度一致，登录按钮左边界对齐"
+      "assertion": "390/1440px 的公开认证页面覆盖卡片留白、品牌与字段左对齐、引用与文本和密码框的左右边界、全宽登录按钮及手动恢复入口移除。手机同时验证登录按钮的触控高度"
     },
     "package-field-alignment": {
       "file": "scripts/field-alignment-smoke.mjs",
@@ -275,15 +275,15 @@
     },
     {
       "id": "UI-THEME-04",
-      "checks": ["unit-buttons", "package-theme"],
-      "remaining": "公开业务按钮层级及代表性主题响应有映射；认证、全部业务族、弹层的按钮风格/间距及迁移保留尚未逐路径穷举，具体variant映射仍是实现记录。",
+      "checks": ["unit-buttons", "package-theme", "package-auth-alignment"],
+      "remaining": "覆盖公开业务按钮层级、代表性主题响应及登录按钮宽度；各认证状态、业务族和弹层的按钮呈现尚未逐路径穷举。",
       "requirementSha256": "1a4a8d8c87923ffe279b410c5b96bb82538c92e92f26e9e92d380038ac6b9238"
     },
     {
       "id": "UI-THEME-05",
       "checks": ["package-layout"],
-      "remaining": "仅表格12px及手机编辑输入16px；正文/菜单/导航/反馈和18/16/14px标题尚未逐类验证。",
-      "requirementSha256": "35ce3292db8df98e60a9864d9bf403c9eedb09a5d3ce1724c8655cdb9cd9fd67"
+      "remaining": "覆盖表格12px及手机编辑输入16px；正文、菜单、导航、反馈及认证品牌字号与其他标题尚未逐类验证。",
+      "requirementSha256": "5e4c3c985bf4af91573df0db8f2faab4a7601272962027f2e45cff8d399ae5e7"
     },
     {
       "id": "UI-THEME-06",
@@ -293,7 +293,7 @@
         "package-mobile-detail-close",
         "package-related-navigation"
       ],
-      "remaining": "代表性桌面动作、48px 顶栏、手机详情关闭和关联链接已覆盖；全部控件尺寸未穷举。",
+      "remaining": "覆盖代表性桌面动作、48px 顶栏、手机登录按钮及认证卡片留白、详情关闭和关联链接；全部控件尺寸未穷举。",
       "requirementSha256": "cdde125112369892849fa47f8b8510488357a3c7d0bfd51e25c2eb98adf285da"
     },
     {
@@ -404,9 +404,10 @@
         "unit-review",
         "package-readonly-reference-feedback",
         "package-save-qualification",
+        "package-auth-alignment",
         "unit-available-operations"
       ],
-      "remaining": "覆盖代表性撤权与禁用、编辑及运行中互斥。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。",
+      "remaining": "覆盖代表性撤权与禁用、编辑及运行中互斥、登录操作和手动会话恢复入口移除。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。",
       "requirementSha256": "053ca34326780d00ea65410aa7325089a347d15cc67ebeef770b0925182fd11f"
     },
     {

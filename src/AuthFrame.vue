@@ -24,11 +24,10 @@ defineProps<{ brand: Brand; theme: ThemeChoice }>();
             }}</span>
             <img v-else :src="brand.mark.src" :alt="brand.mark.alt" />
             <h1>{{ brand.productName }}</h1>
-            <div class="zerp-auth-brand-state">
-              <slot name="brand-state"
-                ><p>{{ brand.enterpriseName }}</p></slot
-              >
+            <div v-if="$slots['brand-state']" class="zerp-auth-brand-state">
+              <slot name="brand-state" />
             </div>
+            <p v-else-if="brand.enterpriseName">{{ brand.enterpriseName }}</p>
           </header>
           <slot />
         </VCard>

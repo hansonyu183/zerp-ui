@@ -392,7 +392,8 @@ function display(row: Partial<R>, column: Column<R>) {
               :is="xs ? VCard : 'tr'"
               :tag="xs ? 'article' : undefined"
               :data-record-key="rowKey ? String(rowKey(row)) : undefined"
-              :variant="xs ? 'outlined' : undefined"
+              :variant="xs ? 'flat' : undefined"
+              :border="xs || undefined"
               :class="{
                 'zerp-record-card': xs,
                 'zerp-record-card--selected':

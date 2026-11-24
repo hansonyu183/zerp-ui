@@ -171,7 +171,8 @@ onBeforeUnmount(() => {
             <component
               :is="xs ? VCard : 'tr'"
               :tag="xs ? 'article' : undefined"
-              :variant="xs ? 'outlined' : undefined"
+              :variant="xs ? 'flat' : undefined"
+              :border="xs || undefined"
               :class="{ 'zerp-record-card': xs }"
               v-for="row in item.rows"
               :key="row.key"

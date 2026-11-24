@@ -246,9 +246,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       return (
         same(node, model().authentication.form) &&
         node.readable !== false &&
-        ((model().session.state === "anonymous" &&
-          ["signIn", "recover"].includes(action)) ||
-          (model().session.state === "recovering" && action === "recover"))
+        model().session.state === "anonymous" &&
+        action === "signIn"
       );
     return readable(node);
   }
@@ -528,7 +527,6 @@ export const labels: Record<string, string> = {
   create: "新增",
   export: "导出",
   signIn: "登录",
-  recover: "恢复会话",
   signOut: "退出",
   changePassword: "修改密码",
   submit: "提交",

@@ -135,6 +135,7 @@ watch(
   <section class="zerp-workbench" aria-label="工作台">
     <VBtn
       v-if="node.load && !node.load.disabled && sections.length"
+      class="mb-3"
       :disabled="runtime.busy.value.has(toRaw(node))"
       @click="runtime.runWorkbench()"
       >刷新</VBtn
@@ -144,6 +145,8 @@ watch(
         v-for="section in sections"
         :key="section.role"
         tag="section"
+        variant="flat"
+        border
         :aria-label="section.node.label ?? undefined"
         :class="{
           'zerp-workbench-information': section.role === 'information',

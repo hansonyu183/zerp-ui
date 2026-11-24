@@ -36,7 +36,24 @@ export async function authAlignmentSmoke(page) {
     const login = await page
       .getByRole("button", { name: "登录", exact: true })
       .boundingBox();
+    const brand = page.locator(".zerp-auth-brand");
+    const mark = await brand.locator(".zerp-auth-mark").boundingBox();
+    const title = await brand.getByRole("heading", { level: 1 }).boundingBox();
+    const card = await page.getByRole("main").boundingBox();
     expect(Math.abs(login.x - boxes[0].left)).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(login.x + login.width - boxes[0].right),
+    ).toBeLessThanOrEqual(1);
+    expect(Math.abs(mark.x - boxes[0].left)).toBeLessThanOrEqual(1);
+    expect(Math.abs(title.x - boxes[0].left)).toBeLessThanOrEqual(1);
+    expect(boxes[0].left - card.x).toBeGreaterThan(8);
+    expect(card.x + card.width - boxes[0].right).toBeGreaterThan(8);
+    await expect(page.getByRole("button", { name: "恢复会话" })).toHaveCount(0);
+    if (width < 600) {
+      expect(card.x).toBeGreaterThan(8);
+      expect(width - card.x - card.width).toBeGreaterThan(8);
+      expect(login.height).toBeGreaterThanOrEqual(48);
+    }
   }
   return {
     check: "authentication-reference-text-password-alignment",

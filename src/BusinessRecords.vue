@@ -75,6 +75,8 @@ function select(row: ObjectNode, value: boolean | null) {
         :key="row.identity ?? row.key"
         class="zerp-owned-card"
         tag="article"
+        variant="flat"
+        border
         :aria-label="row.label ?? `第 ${index + 1} 项`"
       >
         <div v-if="selectable" class="zerp-owned-card-header">
