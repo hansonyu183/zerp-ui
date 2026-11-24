@@ -2,7 +2,7 @@
 
 由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
-共 53 条：36 条有自动断言映射（均为部分覆盖），17 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
+共 53 条：38 条有自动断言映射（均为部分覆盖），15 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
 
 验证策略：流程条款由任务审查；消费者专属条款由真实消费者验收；文案及常规 UI 语义审查由 Agent 按现有要求判断，不逐项询问用户；仅业务含义不明或需改变已确认要求时，在完成其余开发后按 UI-GOV-06 留一份交付清单。本库检查使用合成模型，不是实际 OIT/ZERP API/E2E。定向检查不是数学证明或全状态穷举。
 
@@ -25,8 +25,8 @@
 | UI-THEME-05 | [package-layout](#package-layout) | 覆盖表格12px及手机编辑输入16px；正文、菜单、导航、反馈及认证品牌字号与其他标题尚未逐类验证。 |
 | UI-THEME-06 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-mobile-detail-close](#package-mobile-detail-close)、[package-related-navigation](#package-related-navigation) | 覆盖代表性桌面动作、48px 顶栏、手机登录触控、认证与业务内容区留白、390px 客户工具栏同排、详情关闭和关联链接。登录卡片阴影、不同字段数量及窄屏换行情形另核对。 |
 | UI-SHELL-01 | [package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。 |
-| UI-SHELL-02 | 无自动断言 | 未断言所有顶栏子项顺序、品牌内容和首页跳转。 |
-| UI-SHELL-03 | 无自动断言 | 未定向检查慢业务读取时账户可达、窄屏文字收起与账户全部入口。 |
+| UI-SHELL-02 | [unit-home-link](#unit-home-link) | 品牌区首页链接和导航回调有断言。顶栏完整子项顺序与品牌内容尚未逐项检查。 |
+| UI-SHELL-03 | [unit-shell](#unit-shell)、[package-application-alignment](#package-application-alignment) | 慢页面读取期间账户菜单可达有断言，独立安装场景覆盖账户菜单及账户设置页面边界。窄屏文字收起尚未定向检查。 |
 | UI-SHELL-04 | [package-related-navigation](#package-related-navigation) | 核对代表性关联目的集合的可见标题；所有导航目标和业务名称重复仍需按路径审查。 |
 | UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback)、[package-field-alignment](#package-field-alignment)、[package-query-states](#package-query-states)、[package-save-qualification](#package-save-qualification) | 覆盖代表性保存、查询失败和长引用错误的布局、去重、正文可操作及重试；所有字段和反馈组合未穷举。 |
 | UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-query-states](#package-query-states)、[package-save-qualification](#package-save-qualification) | 覆盖代表性只读引用、保存阻塞原因及查询重试；所有核实操作和业务族状态组合未穷举。 |
@@ -48,23 +48,23 @@
 | UI-FORM-06 | [unit-model](#unit-model)、[unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[package-tab-input](#package-tab-input)、[package-full](#package-full)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-07 | [unit-reactivity](#unit-reactivity)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-08 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[unit-overlay](#unit-overlay) | 直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。 |
-| UI-NAV-01 | [unit-shell](#unit-shell) | 仅默认收起及修饰键；直属入口、无标题/无切换提示尚未完整断言。 |
-| UI-NAV-02 | [unit-shell](#unit-shell) | 修饰键有证据；图标语义、未知文本、手机选择关闭抽屉、桌面收起及新标签待补。 |
+| UI-NAV-01 | [unit-domain](#unit-domain)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖分组默认收起及独立入口的实际链接。不显示导航标题及切换提示仍需定向检查。 |
+| UI-NAV-02 | [unit-navigation-icons](#unit-navigation-icons)、[unit-home-link](#unit-home-link)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖代表性语义图标、未知文本、首页修饰键和手机选择后关闭抽屉。桌面收起和全部导航链接的新标签行为仍需逐项检查。 |
 | UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。 |
 | UI-NAV-04 | [package-related-navigation](#package-related-navigation) | 合成手机详情检查有序关联入口及真实导航目标；其它消费者的页面和目录路径需逐项审查。 |
 | UI-NAV-05 | [package-full](#package-full) | 新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。 |
-| UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full) | 构造无业务查询和工作台按需读取有包映射；慢页面账户可达有源码定向映射。 |
-| UI-WORK-01 | [unit-shell](#unit-shell)、[package-workbench](#package-workbench) | 覆盖固定四角色的桌面与手机布局、代表性主题切换及卡片细边框样式。各主题的具体表面色与空角色等业务状态另验收。 |
+| UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full)、[unit-shell](#unit-shell)、[unit-workbench-load](#unit-workbench-load) | 合成场景覆盖业务读取时账户可达、工作台返回不重复加载及重试；真实消费者的模型构造与启动请求另核对。 |
+| UI-WORK-01 | [package-workbench](#package-workbench) | 独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。各主题具体表面色和空角色等业务状态另验收。 |
 | UI-WORK-02 | 无自动断言 | 由 Agent 结合业务语境审查简短业务中文与同名一致性，不引入任意字数上限；常规文案不要求用户确认，见Q5。 |
 | UI-WORK-03 | 无自动断言 | 由 Agent 审查内部实现文案、业务影响与下一步、单位/不可逆提示；只有业务含义不明或需改变已确认要求时按 UI-GOV-06 留交付清单。 |
 | UI-WORK-04 | [unit-review](#unit-review)、[package-full](#package-full) | 新根集合局部详情下钻使用包场景验证条件/页码/滚动保持；结果有效性归消费者。 |
 | UI-PRINT-01 | [package-print-template](#package-print-template) | 仅覆盖合成 A4 单据与浏览器 PDF；跨平台字体度量、真实消费者权限与业务汇总、实体打印设备另验收。 XLSX 设计输入与自动转换为标准 JSON 尚待实现及验收。 |
-| UI-SCOPE-01 | 无自动断言 | 真实消费者验收：OIT分类、类型码/首字母排序、停用类型/历史直达/独立配置。本库不得硬编码。 |
+| UI-SCOPE-01 | 无自动断言 | OIT 分类、类型码与首字母排序、停用类型、历史直达及独立配置由真实消费者验收。合成导航场景即使在报告中标注 UI-SCOPE-01，也只证明库的导航行为。 |
 | UI-SCOPE-02 | [unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
-| UI-SCOPE-03 | [unit-actions](#unit-actions) | 合成流程动作直接可达有代表证据；真实ZERP放行意见契约由消费者验收，不泛化免确认。 |
+| UI-SCOPE-03 | [unit-workflow-actions](#unit-workflow-actions) | 合成流程动作直接可达有代表证据；真实ZERP放行意见契约由消费者验收，不泛化免确认。 |
 | UI-BOUND-01 | 无自动断言 | 人工规范审查：不恢复失效要求；不擅自固定品牌色/字体族。 |
-| UI-BOUND-02 | [unit-model](#unit-model) | 统一公开契约、静态模型、同根登录/退出和迟到隔离有新源码/包映射；真实产品尚未迁移。 |
-| UI-BOUND-03 | 无自动断言 | 新增约束，尚无行为断言；待消费者修复后验证无网络建立完整结构、响应不能改结构、API不交付装配字段结构及实际业务路径。库合成测试不代替OIT实际消费者验收。 |
+| UI-BOUND-02 | [unit-model](#unit-model) | 库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。 |
+| UI-BOUND-03 | 无自动断言 | 按消费者版本分别核对构造完整结构不依赖网络、响应不能改变结构及启动和实际业务路径。库的合成模型与包测试只覆盖库入口。 |
 
 ## 断言入口
 
@@ -120,7 +120,7 @@
 
 [tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
 
-定位：`uses ordered Material groups`。有序多组、首组默认激活、切换保留输入及隐藏空标签分组。
+定位：`uses ordered Material groups`。有序多组、首组默认激活、切换保留输入及隐藏不可读分组。
 
 ### unit-ordered-navigation
 
@@ -157,6 +157,36 @@
 [tests/business-shell-preferences.spec.ts](../tests/business-shell-preferences.spec.ts) · source/public-entry
 
 定位：`keeps the account menu reachable`。页面读取等待时账户仍可达。
+
+### unit-home-link
+
+[tests/static-application.spec.ts](../tests/static-application.spec.ts) · source/public-entry
+
+定位：`uses the consumer homepage URL and notifies its null navigation callback`。品牌区及工作台入口使用消费者的首页链接，普通点击调用首页导航，修饰键点击保留链接行为。
+
+### unit-navigation-icons
+
+[tests/static-application.spec.ts](../tests/static-application.spec.ts) · source/public-entry
+
+定位：`projects known finite domain icons and renders other domains as text links`。已知领域采用对应语义图标，未知领域保留文字链接。
+
+### package-navigation-drawer
+
+[scripts/ui-preferences-smoke.mjs](../scripts/ui-preferences-smoke.mjs) · tgz/browser
+
+定位：`two-level-navigation-canonical-link-title-and-mobile-close`。二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起。
+
+### unit-workbench-load
+
+[tests/static-application.spec.ts](../tests/static-application.spec.ts) · source/public-entry
+
+定位：`does not load a configured workbench again on return`。当前会话返回工作台时不重复加载，失败后支持主动重试。
+
+### unit-workflow-actions
+
+[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+
+定位：`keeps all qualified workflow actions directly reachable`。代表性流程行展示全部获准直接动作且不显示更多操作入口。
 
 ### unit-review
 
@@ -220,7 +250,7 @@
 
 ### unit-auth-session-actions
 
-[tests/business-application-direct.spec.ts](../tests/business-application-direct.spec.ts) · source/host
+[tests/business-application-direct.spec.ts](../tests/business-application-direct.spec.ts) · source/public-entry
 
 定位：`offers only sign-in when anonymous and leaves recovery to the consumer`。匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮，宿主不调用恢复回调。
 

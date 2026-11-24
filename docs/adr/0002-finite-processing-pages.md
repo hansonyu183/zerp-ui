@@ -2,7 +2,9 @@
 
 正式规格见 [#47](https://github.com/hansonyu183/zerp-ui/issues/47)，承接 [#40](https://github.com/hansonyu183/zerp-ui/issues/40)。
 
-后续目标修订见 [ADR-0004](0004-reactive-business-model.md) 与 [#122](https://github.com/hansonyu183/zerp-ui/issues/122)：有限操作及原请求协议继续保留，消费者不再单独提供 TaskPage/BatchPage 等页面定义；节点结构及 operations 驱动内部运行时。本源码通过 #125 移除旧公开装配；历史发行契约不追溯改变。
+> 历史决定。现行静态模型保留有限操作语义，消费者通过节点及 `operations` 表达能力。[ADR-0004](0004-reactive-business-model.md)、[#152](https://github.com/hansonyu183/zerp-ui/issues/152) 和 [#154](https://github.com/hansonyu183/zerp-ui/issues/154) 取代本文的页面装配与前端耐久原请求协议。请求有效性、冲突及未知结果恢复由消费者和后端负责。
+
+在此前的 [#122](https://github.com/hansonyu183/zerp-ui/issues/122) 修订阶段，有限操作与原请求协议继续保留，节点结构及 operations 驱动内部运行时，消费者不再单独提供 TaskPage/BatchPage 等页面定义。[#125](https://github.com/hansonyu183/zerp-ui/issues/125) 在该阶段移除了旧公开装配，历史发行契约不追溯改变。
 
 完整页面入口收窄后，消费者无法通过模板补齐成本处理、发布试运行、批量和打印输出。把这些操作伪装成保存或审核会混淆原请求语义；开放任意命令或组件又会失去布局与恢复的统一所有权。
 

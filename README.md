@@ -11,11 +11,11 @@ shasum -a 256 -c SHA256SUMS
 pnpm add ./zerp-ui-0.49.1.tgz
 ```
 
-0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles`、`@zerp/ui/style.css`，通过 `createShellThemes()` 初始化 `createVuetify`。
+0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，以 `createVuetify({ theme: createShellThemes() })` 初始化主题。`createShellThemes({ primary, secondary })` 接受可选品牌色。两项主题导出均来自 `@zerp/ui`，其中 `defaultThemeChoice` 为 MD3 浅色。需要持久化主题选择时，通过 `BusinessModel.theme.value/change` 交给消费者处理。
 
 ## 公开入口与迁移
 
-升级到 0.48.0 时，将根成员和领域集合改为数组，并移除 `RecordsNode.columns`。所属明细的字段顺序和标题由各行的 `ObjectNode.members` 定义。独立集合和打印模板继续声明各自的列数组。详见[静态模型接口](docs/interfaces/README.md)。
+升级到 0.48.0 时，将根成员和领域集合改为数组，并移除 `RecordsNode.columns`。所属明细的字段顺序和标题由各行的 `ObjectNode.members` 定义。独立集合和打印模板继续声明各自的列数组。详见[静态模型接口](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/README.md)。
 
 升级到 0.49.0 时，移除会话权限清单，通过节点的 `readable`、`readOnly` 和操作的 `disabled` 更新界面。将节点的空标签改为字符串。固定安装 0.48.0 的消费者应查阅[该版本的接口](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.48.0/docs/interfaces/README.md)。
 
@@ -41,15 +41,15 @@ import { model } from "./consumer";
 
 ## 独立消费者与验证
 
-[运行消费者](examples/model/README.md) 直接定义合成业务模型，仅绑定 BusinessApplication；[类型示例](examples/model-contract/README.md) 仅参加编译，不执行声明的回调。接入及升级时查阅[静态模型接口](docs/interfaces/README.md)和[迁移清单](docs/interfaces/static-migration.md)。
+[运行消费者](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model/README.md)直接定义合成业务模型，仅绑定 BusinessApplication。[类型示例](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model-contract/README.md)仅参加编译。接入及升级时查阅[静态模型接口](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/README.md)和[迁移清单](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/static-migration.md)。
 
 命令以 package.json scripts 为准。`check:release` 在干净源码提交上运行相关类型、模型、UI、lint 和格式检查，只 pack 一次，将同一 tgz 物理安装到全新消费者，核对声明、原生 Node、样式/字体、唯一宿主及公开行为；逐命令退出码和摘要记录于 `.scratch/release/<SHA>/evidence.json`。正式发行的原包复验需要检出发行对应的干净提交，并将该版本的 `evidence.json` 放到上述证据路径，再运行 `node scripts/check-release.mjs --tgz <下载包>`。命令核对源码 SHA 和包摘要，直接使用下载的原包。
 
-UI 规范与逐条部分覆盖边界分别见 [规范](docs/ui-preferences.md) 和 [验证覆盖](docs/ui-preferences-coverage.md)。清单只证明映射完整，实际执行结果单独报告。所有例子使用合成数据；本库验收不代表真实 ZERP/OIT API/E2E、部署或产品接入。
+UI 规范与逐条部分覆盖边界分别见[规范](https://github.com/hansonyu183/zerp-ui/blob/main/docs/ui-preferences.md)和[验证覆盖](https://github.com/hansonyu183/zerp-ui/blob/main/docs/ui-preferences-coverage.md)。桌面、手机布局和工作台布局验收使用 `pnpm check:ui-preferences`。发行门禁的默认模型场景跳过这两项布局检查，其报告的对应 `passed` 项不能作为执行证据。所有例子使用合成数据，真实 ZERP/OIT API/E2E、部署及产品接入各自验收。
 
 ## 脚本交互、导航与打印
 
-菜单/树项可使用 `InteractionAction` 明确执行业务回调，其 `operation` 使用同一必需 `disabled` 语义。动作要求所属节点具备写入资格与固定 `interact` 操作授权（管理员仍受业务只读/禁用约束）；执行中防重复。关联使用 `CollectionTarget`。下载可通过 `CollectionTarget` 调用集合导出，或通过 `InteractionDownload` 调用独立文件下载回调。独立下载使用固定 `download` 授权，获权的只读记录也可下载。异步回写有效性继续由消费者负责。
+菜单和树项通过 `InteractionAction` 执行业务回调，要求所属节点可写，且条目与操作均可用。关联使用 `CollectionTarget`。下载可通过 `CollectionTarget` 执行集合导出，或通过 `InteractionDownload` 调用独立文件下载回调。独立下载要求所属节点可读，且条目与操作均可用，所以只读详情也可提供下载。UI 防止执行中重复调用，消费者负责后端鉴权和异步回写有效性。
 
 引用字段可通过 `scopeKey` 表达候选目录业务依赖；变化会清除旧目录并按需重新读取，历史选值继续回显。消费者负责在 load 回写前核对依赖有效性，owner 隔离由宿主完成。
 
@@ -61,9 +61,9 @@ UI 规范与逐条部分覆盖边界分别见 [规范](docs/ui-preferences.md) �
 
 在 Collection 上提供有限 JSON `itemPrintTemple` / `printTemple`，即可通过公开 BusinessApplication 使用单条或当前页打印。明细 `rowHeight`、`headerHeight` 为最小高度；文字按真实浏览器字体自动换行撑高并分页。`kind: "pageNumber"` 输出“第 X / Y 页”，明细后的 `record` 区域可放置只出现一次的合计及签字栏。
 
-合成 A4 送货单见示例导航“打印示例”；模板和数据定义见 `examples/model/print-demo.ts`。使用 `pnpm check:print` 定向验收独立安装及真实 PDF。完整边界见 [打印契约](docs/printing/contract.md)；此能力通过系统打印窗口打印或另存 PDF，不自动登记实体打印结果。
+合成 A4 送货单见示例导航“打印示例”，模板和数据定义见 `examples/model/print-demo.ts`。使用 `pnpm check:print` 定向验收独立安装及真实 PDF。完整边界见[打印契约](https://github.com/hansonyu183/zerp-ui/blob/main/docs/printing/contract.md)。
 
-合成示例站的[部署与回退手册](docs/demo-site.md)记录发行原包的复验和部署来源。
+合成示例站的[部署与回退手册](https://github.com/hansonyu183/zerp-ui/blob/main/docs/demo-site.md)记录发行原包的复验和部署来源。
 
 ## 本机运行数据
 

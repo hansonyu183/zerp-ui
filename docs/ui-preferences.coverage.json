@@ -53,7 +53,7 @@
       "file": "tests/business-editor-direct.spec.ts",
       "anchor": "uses ordered Material groups",
       "surface": "source/public-entry",
-      "assertion": "有序多组、首组默认激活、切换保留输入及隐藏空标签分组"
+      "assertion": "有序多组、首组默认激活、切换保留输入及隐藏不可读分组"
     },
     "unit-ordered-navigation": {
       "file": "tests/static-navigation.spec.ts",
@@ -90,6 +90,36 @@
       "anchor": "keeps the account menu reachable",
       "surface": "source/public-entry",
       "assertion": "页面读取等待时账户仍可达"
+    },
+    "unit-home-link": {
+      "file": "tests/static-application.spec.ts",
+      "anchor": "uses the consumer homepage URL and notifies its null navigation callback",
+      "surface": "source/public-entry",
+      "assertion": "品牌区及工作台入口使用消费者的首页链接，普通点击调用首页导航，修饰键点击保留链接行为"
+    },
+    "unit-navigation-icons": {
+      "file": "tests/static-application.spec.ts",
+      "anchor": "projects known finite domain icons and renders other domains as text links",
+      "surface": "source/public-entry",
+      "assertion": "已知领域采用对应语义图标，未知领域保留文字链接"
+    },
+    "package-navigation-drawer": {
+      "file": "scripts/ui-preferences-smoke.mjs",
+      "anchor": "two-level-navigation-canonical-link-title-and-mobile-close",
+      "surface": "tgz/browser",
+      "assertion": "二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起"
+    },
+    "unit-workbench-load": {
+      "file": "tests/static-application.spec.ts",
+      "anchor": "does not load a configured workbench again on return",
+      "surface": "source/public-entry",
+      "assertion": "当前会话返回工作台时不重复加载，失败后支持主动重试"
+    },
+    "unit-workflow-actions": {
+      "file": "tests/business-list-preferences.spec.ts",
+      "anchor": "keeps all qualified workflow actions directly reachable",
+      "surface": "source/public-entry",
+      "assertion": "代表性流程行展示全部获准直接动作且不显示更多操作入口"
     },
     "unit-review": {
       "file": "tests/business-review-preferences.spec.ts",
@@ -154,7 +184,7 @@
     "unit-auth-session-actions": {
       "file": "tests/business-application-direct.spec.ts",
       "anchor": "offers only sign-in when anonymous and leaves recovery to the consumer",
-      "surface": "source/host",
+      "surface": "source/public-entry",
       "assertion": "匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮，宿主不调用恢复回调"
     },
     "package-field-alignment": {
@@ -310,14 +340,14 @@
     },
     {
       "id": "UI-SHELL-02",
-      "checks": [],
-      "remaining": "未断言所有顶栏子项顺序、品牌内容和首页跳转。",
+      "checks": ["unit-home-link"],
+      "remaining": "品牌区首页链接和导航回调有断言。顶栏完整子项顺序与品牌内容尚未逐项检查。",
       "requirementSha256": "ad04b1a88628324bb0776f429a566cf70a7208ea7a4de22d5496a9f1fbf464a6"
     },
     {
       "id": "UI-SHELL-03",
-      "checks": [],
-      "remaining": "未定向检查慢业务读取时账户可达、窄屏文字收起与账户全部入口。",
+      "checks": ["unit-shell", "package-application-alignment"],
+      "remaining": "慢页面读取期间账户菜单可达有断言，独立安装场景覆盖账户菜单及账户设置页面边界。窄屏文字收起尚未定向检查。",
       "requirementSha256": "b89062addf1bebd02184204a28bef7339122519d394c08ee2e1aab28597f4b96"
     },
     {
@@ -512,14 +542,18 @@
     },
     {
       "id": "UI-NAV-01",
-      "checks": ["unit-shell"],
-      "remaining": "仅默认收起及修饰键；直属入口、无标题/无切换提示尚未完整断言。",
+      "checks": ["unit-domain", "package-navigation-drawer"],
+      "remaining": "覆盖分组默认收起及独立入口的实际链接。不显示导航标题及切换提示仍需定向检查。",
       "requirementSha256": "190bfd50fe19162184edf6ea50548babbd3f2fc158d488af439dcf19ddb89153"
     },
     {
       "id": "UI-NAV-02",
-      "checks": ["unit-shell"],
-      "remaining": "修饰键有证据；图标语义、未知文本、手机选择关闭抽屉、桌面收起及新标签待补。",
+      "checks": [
+        "unit-navigation-icons",
+        "unit-home-link",
+        "package-navigation-drawer"
+      ],
+      "remaining": "覆盖代表性语义图标、未知文本、首页修饰键和手机选择后关闭抽屉。桌面收起和全部导航链接的新标签行为仍需逐项检查。",
       "requirementSha256": "b9c60322c91e4220d36aa1b7d493bd7152c5a51b730f5b7a97113d70768dead4"
     },
     {
@@ -548,14 +582,19 @@
     },
     {
       "id": "UI-NAV-06",
-      "checks": ["unit-model", "package-full"],
-      "remaining": "构造无业务查询和工作台按需读取有包映射；慢页面账户可达有源码定向映射。",
+      "checks": [
+        "unit-model",
+        "package-full",
+        "unit-shell",
+        "unit-workbench-load"
+      ],
+      "remaining": "合成场景覆盖业务读取时账户可达、工作台返回不重复加载及重试；真实消费者的模型构造与启动请求另核对。",
       "requirementSha256": "b684a2f81509e917423d469c58bec1c8f936afb810c277aabd5163983038d2df"
     },
     {
       "id": "UI-WORK-01",
-      "checks": ["unit-shell", "package-workbench"],
-      "remaining": "覆盖固定四角色的桌面与手机布局、代表性主题切换及卡片细边框样式。各主题的具体表面色与空角色等业务状态另验收。",
+      "checks": ["package-workbench"],
+      "remaining": "独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。各主题具体表面色和空角色等业务状态另验收。",
       "requirementSha256": "32b7e21c5a24058f3e80ef2bb9d2232be3d8caa0441c7e4bf6e72504fa1a0236"
     },
     {
@@ -585,7 +624,7 @@
     {
       "id": "UI-SCOPE-01",
       "checks": [],
-      "remaining": "真实消费者验收：OIT分类、类型码/首字母排序、停用类型/历史直达/独立配置。本库不得硬编码。",
+      "remaining": "OIT 分类、类型码与首字母排序、停用类型、历史直达及独立配置由真实消费者验收。合成导航场景即使在报告中标注 UI-SCOPE-01，也只证明库的导航行为。",
       "requirementSha256": "9f3d8f421ed1032f6ff2bc99604692a880e58e9b1f9d14f5f0fd32da9de3184a"
     },
     {
@@ -596,7 +635,7 @@
     },
     {
       "id": "UI-SCOPE-03",
-      "checks": ["unit-actions"],
+      "checks": ["unit-workflow-actions"],
       "remaining": "合成流程动作直接可达有代表证据；真实ZERP放行意见契约由消费者验收，不泛化免确认。",
       "requirementSha256": "2e69f3009d692bb30477495525ff0a55dea2deda265c27b66835ed06d0e4c4f0"
     },
@@ -609,13 +648,13 @@
     {
       "id": "UI-BOUND-02",
       "checks": ["unit-model"],
-      "remaining": "统一公开契约、静态模型、同根登录/退出和迟到隔离有新源码/包映射；真实产品尚未迁移。",
+      "remaining": "库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。",
       "requirementSha256": "c5fbb063f38bd2dab4119202259af5a79ba7c58f1ca0515196d26ed6dc67fc5a"
     },
     {
       "id": "UI-BOUND-03",
       "checks": [],
-      "remaining": "新增约束，尚无行为断言；待消费者修复后验证无网络建立完整结构、响应不能改结构、API不交付装配字段结构及实际业务路径。库合成测试不代替OIT实际消费者验收。",
+      "remaining": "按消费者版本分别核对构造完整结构不依赖网络、响应不能改变结构及启动和实际业务路径。库的合成模型与包测试只覆盖库入口。",
       "requirementSha256": "a320f450831339e77b4b5e04db342e309889eca1cf55289c606ff4504e399c8c"
     }
   ]

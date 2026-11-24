@@ -1,6 +1,6 @@
 # Structured print output (#58 / #59)
 
-`PrintDocument` describes physical sheets. To display a prepared document in `BusinessApplication`, supply it as `OutputNode.value`. It is not HTML or CSS. Business pagination, expressions, subtotals, bitmap/barcode generation and print authorization remain consumer responsibilities. Every supplied page produces one output page.
+`PrintDocument` describes physical sheets. Supply a prepared document as `OutputNode.value` in `BusinessApplication`. Consumers can use `NonNullable<OutputNode["value"]>` as its type, importing `OutputNode` from `@zerp/ui/model`. Use a nonempty document ID, 1–10,000 pages, unique nonempty page keys, and unique nonempty item keys within each page. Every supplied page produces one output page. Business pagination, expressions, subtotals, bitmap and barcode generation, and print authorization remain consumer responsibilities.
 
 Coordinates, sizes and `lineWidth` are millimetres. Document `rotation` is clockwise 0, 90, 180 or 270 degrees around the sheet centre, translated to the output page so all original sheet corners remain inside the rotated dimensions. Item coordinates always refer to the original width/height. Output width/height swap for 90/270. Negative/outside geometry is rejected before rendering; content and rotated watermarks are clipped at the sheet boundary. Watermarks are a library-owned overlay above all items, rotate around their own centre and accept opacity 0..1. They cannot supply markup/styles.
 

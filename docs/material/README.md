@@ -1,4 +1,4 @@
-> 本文保留旧版合成消费者的验收记录。当前组件入口、安装包与验证命令见[项目说明](../../README.md)，现行能力对应见[静态模型迁移](../interfaces/static-migration.md)。
+> 本文保留 [ui-v0.10.0](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.10.0) 时期的合成消费者验收记录，文中命令以该版本的源码为准。当前组件入口、安装包与验证命令见[项目说明](../../README.md)，现行能力对应见[静态模型迁移](../interfaces/static-migration.md)。
 
 # Material 对照矩阵
 

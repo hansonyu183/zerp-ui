@@ -31,7 +31,7 @@
 
 ## 验收与发行证据
 
-实际命令从 package.json 的 scripts 读取。切片使用定向 AppPage 行为测试和 capabilities tgz 消费者；最终发行使用 `check:release` 的整包门禁，对同一个 tgz 完成公开类型/出口、九类独立安装/构建/浏览器消费者验证。打印仅做本次所需的位图/PDF/解码检查，不建立全站截图回归工程。
+本节命令对应 [ui-v0.11.2](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.11.2) 的 package.json。该版切片使用定向 AppPage 行为测试和 capabilities tgz 消费者。其发行门禁 `check:release` 用同一个 tgz 验证公开类型、出口和九类独立安装消费者，打印覆盖所需的位图、PDF 和解码检查。
 
 正式 Release 随附 `evidence.json`、`SHA256SUMS`、`distribution-evidence.json`，分别记录确切源码 SHA、原始验证命令/退出码、同一 tgz 哈希及下载工件复验。打印工件另附分开的 installed-tgz/built-example 输出及哈希。以 Release 与对应工单评论的实际证据判断阶段，不以本文件声称尚未完成的远端验收。
 

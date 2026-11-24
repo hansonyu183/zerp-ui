@@ -3,7 +3,7 @@
 正式决定及实施状态维护于 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。本目录说明静态模型接口及其修订。唯一类型声明源为 src/business-model.ts，经 @zerp/ui/model 导出。有序成员和所属明细修订自 0.48.0 起适用。
 
 - [完整类型](../../src/business-model.ts)：固定普通属性、字段、统一对象、所属明细、独立集合、领域分组、打印、权限、工作台及应用生命周期。
-- [完整合成对象](../../examples/model-contract/static-application.type-example.ts)：直接定义客户、AA、AB、子明细、引用、格式、模板、工作台及完整匿名应用，附有普通用户权限映射。
+- [完整合成对象](../../examples/model-contract/static-application.type-example.ts)：直接定义客户、AA、AB、子明细、引用、格式、模板、工作台及完整匿名应用。
 - [类型验收](../../examples/model-contract/static-application.type-test.ts)：拒绝旧属性、错误值和错误操作层级，只参加编译。
 
 model 入口仅导出类型，没有 Vue/Vuetify/CSS 运行时依赖。完整静态示例只参加编译，不作为可运行应用导入；可运行的合成消费者位于 examples/model。下述行为的验收以 #159 及关联工单的确切提交、公开入口与独立安装证据为准，类型编译本身不证明行为。
@@ -56,7 +56,9 @@ BusinessModel.members
 
 UI 只显示可读节点上已配置且 `disabled` 为 false 的业务操作按钮。入口隐藏时不得调用 `run`。UI 调用前读取当前模型状态并防止执行中的重复点击。需要解释业务阻塞或核实结果时，由模型 `messages` 提供信息。实现及验证状态见 [UI 规范验证覆盖](../ui-preferences-coverage.md)。
 
-登录前一次定义完整集合及认证结构并传入同一个响应式根对象。业务记录保持空且按需读取。`Session` 只声明会话状态和 `owner`。登录或恢复时由消费者更新模型的业务数据、节点和操作状态，匿名或恢复期间隐藏受保护内容。匿名时认证表单只提供登录操作。消费者自行调用 `authentication.operations.recover`，认证表单不提供手动恢复入口，恢复期间也不提供登录操作。
+登录前一次定义完整集合及认证结构并传入同一个响应式根对象。业务记录保持空且按需读取。`Session` 只声明会话状态和 `owner`。匿名与恢复状态的 `owner` 为 `null`，就绪和强制改密状态的 `Owner` 由账套 `ledger`、操作员 `operator` 和会话代际 `generation` 组成。同一账号重新登录也应更新代际，使上一会话的迟到结果失效。
+
+登录或恢复时由消费者更新业务数据、节点和操作状态，匿名或恢复期间隐藏受保护内容。从 0.49.1 起，匿名表单只提供登录操作，恢复期间隐藏登录操作。消费者自行调用 `authentication.operations.recover`。
 
 登出由消费者注销后端会话、清空身份/权限、输入、记录、条件、分页、选择、消息和作用域缓存，并使迟到回写失效；UI 清理自己的 busy/反馈并返回认证。直接裁剪对象时，本次宿主保留完整静态结构，仅裁剪呈现；消费者清除旧会话业务数据。再次登录或增权须恢复新获权内容，根对象引用不变；清理不删除后端业务记录或历史审计/恢复证据。
 
@@ -70,7 +72,7 @@ UI 只显示可读节点上已配置且 `disabled` 为 false 的业务操作按�
 
 ## 打印 JSON
 
-itemPrintTemple 自动产生记录行及选中详情的单条打印入口，只使用当前读取到且 printable 为 true 的正式记录，不打印 draft。printTemple 自动产生当前页集合打印入口，只使用 items，不查询其余页。缺省模板不显示入口；没有可打印记录时禁用。模板是可序列化的有限 JSON，没有执行表达式、函数、HTML 或 CSS 的扩展点。
+`itemPrintTemple` 为满足资格的记录行及只读详情提供单条打印入口，只使用当前读取到且 `printable` 为 true 的正式记录，排除 `draft`。`printTemple` 为满足资格的当前页提供集合打印入口，只使用 `items`。缺少模板、没有可打印记录或资格不满足时，入口隐藏。符合资格且相关操作正在处理时，入口禁用。模板采用可序列化的有限 JSON。
 
 ObjectNode.printable 是消费者提供的权威业务事实，覆盖当前对象及所属明细；输入、新增、待保存、提交中和未知结果为 false，只有有效读取、保存或核实权威结果后才能为 true。identity 保留记录身份，不证明直接修改的值已保存。当前页中任一获权记录不可打印时整页入口不可用。UI 只提示当前不可打印，具体业务原因由消费者通过 messages 提供。预览及系统打印调用前再次重检。库不保存编辑基线或额外查询，消费者可从自己的权威业务数据派生此事实。
 
@@ -92,17 +94,17 @@ pageNumber 元素沿用文本样式及区域坐标，分页完成后输出“第
 
 通过唯一公开 BusinessApplication/model 入口、同一候选 tgz 的物理独立安装、合成模型及模拟回调验证。仅对新精确格式与模板算法补必要的纯函数检查；不导出私有 VM。UI 条款逐项核对，实际命令与退出码、确切源码 SHA、tgz 摘要及缺口回写 GitHub #159 及实施票。
 
-合成数据不证明真实 ZERP API/E2E；不连接生产写入、不复制公司数据、不实体打印。正式发行与真实产品接入为后续独立任务。
+合成消费者仅用于库的公开行为验收，使用合成数据和浏览器打印。正式发行原包见[固定版本安装](../../README.md#固定版本安装)。真实产品接入、API/E2E 及部署结果以消费者对应工单的验收记录为准。
 
 ## 脚本菜单与树动作
 
-menu/tree 项既可关联真实独立集合，也可明确提供 InteractionAction（kind=action，operation 为必需 disabled 与 run 的有限操作）。动作需要所属 InteractionNode 的写入资格和 interact 操作授权，执行中禁止重复；条目或操作被替换、所属节点移除、会话/模型切换后隔离迟到失败反馈。业务回调负责在实际回写前验证有效性。related 使用 CollectionTarget，download 支持集合导出与下文的独立文件下载。两者均不接受 InteractionAction。规格见 #164。
+`menu` 和 `tree` 项可以关联真实独立集合，或提供 `InteractionAction`。自 0.49.0 的节点资格修订起，动作要求所属 `InteractionNode` 在当前会话可读可写，并且条目与操作均未禁用。UI 防止重复执行，条目或操作替换、节点移除及会话或模型切换后隔离迟到失败反馈。业务回调在实际回写前验证有效性。`related` 使用 `CollectionTarget`，`download` 使用集合导出或独立文件下载。能力来源见 [#164](https://github.com/hansonyu183/zerp-ui/issues/164)。
 
 引用字段的可选 scopeKey 只表示候选目录业务依赖/代际。变化时旧缓存和迟到目录失效，下一次需要时重新读取，保留历史选值；消费者仍须核对 load 结果的 owner/依赖有效性。owner 作用域由宿主提供，无须重复编码。见 #165。
 
 ## 独立脚本文件下载
 
-download 的 target 可为真实 CollectionTarget（执行集合 export），或有限 InteractionDownload={kind:download, operation:Operation}（下载当前业务产生的独立文件）。后者使用固定 download 授权，缺省拒绝、无授权隐藏；节点可读即可，不要求业务可写，故只读详情仍可下载。Operation.disabled、条目 disabled、执行中去重及调用前资格重检均有效；文件内容和下载端口属于消费者，不在库内注册额外集合或导航命令。related 不接受下载端口，menu/tree 的写入动作仍使用 InteractionAction，二者不得混用。见 #167。
+`download` 的目标可为执行集合导出的 `CollectionTarget`，或调用独立文件回调的 `InteractionDownload`。独立文件下载要求所属节点可读、条目与操作可用，因此也可出现在只读详情中。UI 在调用前重检资格并防止执行中重复调用。文件内容和下载端口由消费者负责。下载目标用于 `download`，`menu` 和 `tree` 的写入动作使用 `InteractionAction`。能力来源见 [#167](https://github.com/hansonyu183/zerp-ui/issues/167)。
 
 ## 工作台与记录目标链接
 
