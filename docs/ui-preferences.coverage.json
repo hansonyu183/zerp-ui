@@ -151,6 +151,12 @@
       "surface": "tgz/browser",
       "assertion": "390/1440px 的公开认证页面覆盖卡片留白、品牌与字段左对齐、引用与文本和密码框的左右边界、全宽登录按钮及手动恢复入口移除。手机同时验证登录按钮的触控高度"
     },
+    "unit-auth-session-actions": {
+      "file": "tests/business-application-direct.spec.ts",
+      "anchor": "offers only sign-in when anonymous and leaves recovery to the consumer",
+      "surface": "source/host",
+      "assertion": "匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮，宿主不调用恢复回调"
+    },
     "package-field-alignment": {
       "file": "scripts/field-alignment-smoke.mjs",
       "anchor": "export async function fieldAlignmentSmoke",
@@ -264,26 +270,26 @@
     {
       "id": "UI-THEME-02",
       "checks": ["package-theme", "package-workbench"],
-      "remaining": "认证外壳、工作台、领域Tabs和查询按钮覆盖主题响应；尚未逐控件穷举完整Material语言。",
-      "requirementSha256": "239fa7f9c185975ecc99a68807ba599b53dd94872002eb8f555b4a2c27fb978f"
+      "remaining": "认证与业务外壳、工作台、领域 Tab 和查询按钮有主题响应证据。尚未逐个验证弹层、反馈和输入控件的主题色。",
+      "requirementSha256": "2ba6be4893307054b3c2a85c3872a450e3692b24c58e3bee79f0e47ab24b5933"
     },
     {
       "id": "UI-THEME-03",
       "checks": ["unit-theme", "package-theme"],
-      "remaining": "主题菜单位于明暗左侧的几何顺序尚无断言；真实消费者持久化另验收。",
-      "requirementSha256": "b96bafd39cfc256704b23e9644c6cb1b423ae305e1b759249f4fb60d963fc402"
+      "remaining": "默认 MD3 浅色与主题和明暗独立切换有断言。ZERP 截图作为人工视觉参考，菜单顺序与真实消费者持久化另验收。",
+      "requirementSha256": "8ae1b1c1929a3e41e2f9c4e1fc725eba631b77cca69f4c88c4454029f5cb5f81"
     },
     {
       "id": "UI-THEME-04",
       "checks": ["unit-buttons", "package-theme", "package-auth-alignment"],
       "remaining": "覆盖公开业务按钮层级、代表性主题响应及登录按钮宽度；各认证状态、业务族和弹层的按钮呈现尚未逐路径穷举。",
-      "requirementSha256": "1a4a8d8c87923ffe279b410c5b96bb82538c92e92f26e9e92d380038ac6b9238"
+      "requirementSha256": "0aa062b82a5c000d40f53e810538491c2d966bb3a3d1f3ac7e7d37927663881b"
     },
     {
       "id": "UI-THEME-05",
       "checks": ["package-layout"],
       "remaining": "覆盖表格12px及手机编辑输入16px；正文、菜单、导航、反馈及认证品牌字号与其他标题尚未逐类验证。",
-      "requirementSha256": "5e4c3c985bf4af91573df0db8f2faab4a7601272962027f2e45cff8d399ae5e7"
+      "requirementSha256": "dd0ebeac8b8556f8858745511bd184f123ac8374c4f76a19862291563c5432ae"
     },
     {
       "id": "UI-THEME-06",
@@ -293,8 +299,8 @@
         "package-mobile-detail-close",
         "package-related-navigation"
       ],
-      "remaining": "覆盖代表性桌面动作、48px 顶栏、手机登录按钮及认证卡片留白、详情关闭和关联链接；全部控件尺寸未穷举。",
-      "requirementSha256": "cdde125112369892849fa47f8b8510488357a3c7d0bfd51e25c2eb98adf285da"
+      "remaining": "覆盖代表性桌面动作、48px 顶栏、手机登录触控、认证与业务内容区留白、390px 客户工具栏同排、详情关闭和关联链接。登录卡片阴影、不同字段数量及窄屏换行情形另核对。",
+      "requirementSha256": "31575c7cbc50916bc217d40ba49f7867becb85971f12ee8d2a97aae99b2a4049"
     },
     {
       "id": "UI-SHELL-01",
@@ -370,8 +376,8 @@
         "unit-actions",
         "package-application-alignment"
       ],
-      "remaining": "仅代表卡片字段和无横溢；合计、完整身份、选择、适用明细尚未全部验证。",
-      "requirementSha256": "7917befe3ba5718a9587d2fadf3aa5a477edc812f7129b9bb5a49da3f3b0a5b5"
+      "remaining": "覆盖代表性卡片字段、细边框样式及无横向溢出。各主题表面色、合计、完整身份、选择及适用明细尚未全部验证。",
+      "requirementSha256": "94f9fecbf2cc816c1015c3dedb17675ed08775678b466d22cb8ec1e757eb268b"
     },
     {
       "id": "UI-MOBILE-02",
@@ -405,10 +411,11 @@
         "package-readonly-reference-feedback",
         "package-save-qualification",
         "package-auth-alignment",
+        "unit-auth-session-actions",
         "unit-available-operations"
       ],
-      "remaining": "覆盖代表性撤权与禁用、编辑及运行中互斥、登录操作和手动会话恢复入口移除。合成消费者验证保存资格即时更新；业务族及状态组合未穷举。",
-      "requirementSha256": "053ca34326780d00ea65410aa7325089a347d15cc67ebeef770b0925182fd11f"
+      "remaining": "覆盖代表性撤权、禁用及运行中互斥、登录操作和手动会话恢复入口移除。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。",
+      "requirementSha256": "dadc41c2f295c64d9c3c4f2997d04e54ddb43faf5b39ca730dec9baf6054692f"
     },
     {
       "id": "UI-ACTION-04",
@@ -430,8 +437,8 @@
         "package-application-alignment",
         "package-mobile-detail-close"
       ],
-      "remaining": "手机长详情的焦点、筛选、页码和非零滚动均有代表用例；所有新增及复杂弹层路径未穷举。",
-      "requirementSha256": "b272d73879603b95708f3986205aad898dab2ef0d4f573804193c676a455c8c7"
+      "remaining": "手机长详情的焦点、筛选、页码及非零滚动有代表用例。弹层标题分隔线及其主题响应尚无独立断言，所有新增及复杂弹层路径未穷举。",
+      "requirementSha256": "0443a3bddea821c9bc3e7e4352fe1d252af32848f436ce994a653333dea68237"
     },
     {
       "id": "UI-FORM-03",
@@ -442,8 +449,8 @@
         "package-application-alignment",
         "package-mobile-readonly-values"
       ],
-      "remaining": "全部合成业务导航入口及账户/工作台的代表性桌面手机布局、认证和引用控件边界有映射；共用布局归属经代码审查，真实消费者和全部字段值/尺寸/隐藏状态组合未穷举。",
-      "requirementSha256": "8d5cdc916dcd52b02361c710d743be7e3da220f9dcd2183184939f4de9aef827"
+      "remaining": "覆盖认证品牌、同列输入、代表性编辑弹层标题与正文的对齐，以及合成业务导航、账户和工作台的代表性桌面手机布局。真实消费者和全部字段、尺寸及隐藏状态组合未穷举。",
+      "requirementSha256": "65a342751cc1531fa9033f63632b530160478b18fdd78baf4f019a9d3d4be851"
     },
     {
       "id": "UI-FORM-04",
@@ -548,8 +555,8 @@
     {
       "id": "UI-WORK-01",
       "checks": ["unit-shell", "package-workbench"],
-      "remaining": "固定4角色桌面/手机几何和主题有代表证据；空角色/全部业务状态仍需定向验收。",
-      "requirementSha256": "34cfca6bfbb64506900a02260c709efaffbda8bcdb9b433c23090d4be4af9ae3"
+      "remaining": "覆盖固定四角色的桌面与手机布局、代表性主题切换及卡片细边框样式。各主题的具体表面色与空角色等业务状态另验收。",
+      "requirementSha256": "32b7e21c5a24058f3e80ef2bb9d2232be3d8caa0441c7e4bf6e72504fa1a0236"
     },
     {
       "id": "UI-WORK-02",
