@@ -46,7 +46,7 @@ export interface DirectRuntime {
   model: () => BusinessModel;
   scope: ComputedRef<string>;
   ready: ComputedRef<boolean>;
-  busy: Ref<Set<object>>;
+  busy: Ref<Map<object, (() => boolean) | undefined>>;
   feedback: ReturnType<typeof directFeedback>;
   queryView(collection: Collection): QueryView | undefined;
   reportViews: Map<object, { left: number; top: number }>;
@@ -115,7 +115,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
       s.owner !== null
     );
   });
-  const busy = ref(new Set<object>());
+  const busy = ref(new Map<object, (() => boolean) | undefined>());
   const executions = new Map<object, symbol>();
   const feedbackExecutions = new Set<symbol>();
   const feedback = directFeedback(model, scope, readable, ancestors, () =>
@@ -282,7 +282,12 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     key: object,
     op: Operation,
     valid: () => boolean,
-    options: { propagate?: boolean; query?: Collection; target?: Node } = {},
+    options: {
+      readsRecord?: boolean;
+      propagate?: boolean;
+      query?: Collection;
+      target?: Node;
+    } = {},
   ) {
     key = toRaw(key);
     if (op.disabled || busy.value.has(key) || !valid()) return;
@@ -305,7 +310,7 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     if (collection && reading) queryViews.set(collection, reading);
     executions.set(key, execution);
     feedbackExecutions.add(execution);
-    busy.value.add(key);
+    busy.value.set(key, options.readsRecord ? current : undefined);
     try {
       await op.run();
       if (collection && current())
@@ -382,6 +387,8 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
         },
         valid,
         {
+          readsRecord:
+            action === "get" && !isCollection(node) && node.kind === "object",
           propagate: action === "load",
           target: publicAuth ? undefined : node,
           query: isCollection(node) && action === "query" ? node : undefined,

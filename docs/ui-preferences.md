@@ -79,8 +79,11 @@
 - **UI-FORM-06** 对象的多个分组默认首个可见 Tab，切 Tab 保留模型输入及应保留的查询、分页上下文；不同独立业务对象保持各自写入边界。集合路由可定位根直属或领域内的独立 Collection，侧栏按 UI-NAV-03 组织领域入口；多个获权集合在领域内容区使用真正的 Material Tabs，按模型顺序呈现，默认首个可见集合，单集合直接展示、零集合不留空容器。切 Tab 保留各集合输入、条件和分页，不重复查询已访问集合；选中详情及编辑留在所属集合内，RecordsNode 子明细随父对象保存。
 - **UI-FORM-07** 所属内容使用可辨认的业务名称及正确层级，不能把多个不同目录统一标成“字典值”。2026-11-17 用户修订：客户领域可以包含客户、账款设置、联系人、分类、分组、属性定义及相关字典等并列独立集合；采用领域分组节点组织入口并恢复并列集合的 Material Tab 呈现，不拥有整体保存，各集合独立查询、授权和保存。字段分组及所属明细仍在 ObjectNode 内呈现，不将独立集合塞入 ObjectNode.members；见 #152。
 - **UI-FORM-08** 输入直接更新模型值；当前写入、冲突和未知结果恢复边界见 [ADR-0004](adr/0004-reactive-business-model.md)。恢复上述交互不恢复已取消的普通草稿离开确认或前端冻结请求机制。
+- **UI-FORM-09** 记录弹窗正在读取当前记录时，在弹窗内显示「正在读取…」。读取结束即移除提示，弹窗的关闭入口持续可达。保存等业务操作沿用各自的处理状态。
 
 来源：2026-11-05 模态、11-06 至 08 分组、11-10“详情可以使用只读表单”及共用表单、11-14 聚合模型、11-15 Tab 和字典反馈；[#78](https://github.com/hansonyu183/zerp-ui/issues/78)、[#87](https://github.com/hansonyu183/zerp-ui/issues/87)、[#89](https://github.com/hansonyu183/zerp-ui/issues/89)、[#96](https://github.com/hansonyu183/zerp-ui/issues/96)、[#98](https://github.com/hansonyu183/zerp-ui/issues/98)、[#152](https://github.com/hansonyu183/zerp-ui/issues/152)、[#154](https://github.com/hansonyu183/zerp-ui/issues/154)。
+
+2026-11-25 来源：用户确认「补弹窗的加载状态」，新增 UI-FORM-09。
 
 ## 导航与引用
 

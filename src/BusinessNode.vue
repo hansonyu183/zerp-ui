@@ -326,6 +326,7 @@ onBeforeUnmount(() => {
       <RecordDialog
         v-if="dialogReady && detail && runtime.readable(detail)"
         :title="collection.draft === detail ? '新增' : (detail.label ?? '')"
+        :reading="runtime.busy.value.get(toRaw(detail))?.() ?? false"
         header-close
         :return-focus="
           collection.draft === detail ? undefined : restoreDetailFocus

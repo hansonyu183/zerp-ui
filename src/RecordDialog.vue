@@ -10,12 +10,16 @@ import {
   VCardText,
   VDefaultsProvider,
 } from "vuetify/components";
-const props = defineProps<{
-  title: string;
-  blocked?: boolean;
-  headerClose?: boolean;
-  returnFocus?: HTMLElement | null | (() => HTMLElement | null);
-}>();
+const props = withDefaults(
+  defineProps<{
+    title: string;
+    blocked?: boolean;
+    headerClose?: boolean;
+    reading?: boolean;
+    returnFocus?: HTMLElement | null | (() => HTMLElement | null);
+  }>(),
+  { reading: undefined },
+);
 const emit = defineEmits<{
   close: [];
   feedback: [element: HTMLElement | null];
@@ -58,6 +62,12 @@ onBeforeUnmount(() => {
         <FeedbackHost @target="emit('feedback', $event)">
           <header class="zerp-record-dialog__header">
             <VCardTitle>{{ title }}</VCardTitle>
+            <span
+              v-if="reading !== undefined"
+              class="zerp-record-dialog__status"
+              role="status"
+              >{{ reading ? "正在读取…" : "" }}</span
+            >
             <VBtn
               v-if="headerClose"
               type="button"
@@ -68,7 +78,9 @@ onBeforeUnmount(() => {
               关闭
             </VBtn>
           </header>
-          <VCardText class="zerp-record-dialog__body"><slot /></VCardText>
+          <VCardText class="zerp-record-dialog__body" :aria-busy="reading">
+            <slot />
+          </VCardText>
           <slot name="feedback" />
         </FeedbackHost>
       </VCard>
@@ -95,6 +107,11 @@ onBeforeUnmount(() => {
 }
 .zerp-record-dialog__header .v-btn {
   flex-shrink: 0;
+}
+.zerp-record-dialog__status {
+  flex: 0 0 6em;
+  margin-inline-start: auto;
+  white-space: nowrap;
 }
 .zerp-record-dialog__body {
   min-block-size: 0;

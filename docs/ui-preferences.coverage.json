@@ -252,6 +252,12 @@
       "anchor": "excludes unreadable fields from explicit columns and detail",
       "surface": "source/public-entry",
       "assertion": "字段读取资格恢复后，同步恢复列表列及已打开的详情字段"
+    },
+    "unit-record-loading": {
+      "file": "tests/business-editor-direct.spec.ts",
+      "surface": "source/public-entry",
+      "anchor": "shows record loading only while the dialog reads the record",
+      "assertion": "编辑弹窗在记录读取期间显示提示，读取成功或失败后移除，保存期间不显示读取提示"
     }
   },
   "clauses": [
@@ -539,6 +545,12 @@
       "checks": ["unit-model", "unit-reactivity", "unit-overlay"],
       "remaining": "直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。",
       "requirementSha256": "d3d38416648e4a7f95f3dba3bd1536c6e5ba7bcaf5b338dcfc37a7c0558aba40"
+    },
+    {
+      "id": "UI-FORM-09",
+      "checks": ["unit-record-loading"],
+      "remaining": "永久断言覆盖合成编辑弹窗的读取和保存；真实消费者接入另验收。",
+      "requirementSha256": "6d3a59e87884dd694865a095f9355f6316fab08abe290f9a1837addf0d7302cf"
     },
     {
       "id": "UI-NAV-01",

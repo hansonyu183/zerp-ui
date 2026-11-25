@@ -2,7 +2,7 @@
 
 由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
-共 53 条：38 条有自动断言映射（均为部分覆盖），15 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
+共 54 条：39 条有自动断言映射（均为部分覆盖），15 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
 
 验证策略：流程条款由任务审查；消费者专属条款由真实消费者验收；文案及常规 UI 语义审查由 Agent 按现有要求判断，不逐项询问用户；仅业务含义不明或需改变已确认要求时，在完成其余开发后按 UI-GOV-06 留一份交付清单。本库检查使用合成模型，不是实际 OIT/ZERP API/E2E。定向检查不是数学证明或全状态穷举。
 
@@ -48,6 +48,7 @@
 | UI-FORM-06 | [unit-model](#unit-model)、[unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[package-tab-input](#package-tab-input)、[package-full](#package-full)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-07 | [unit-reactivity](#unit-reactivity)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-08 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[unit-overlay](#unit-overlay) | 直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。 |
+| UI-FORM-09 | [unit-record-loading](#unit-record-loading) | 永久断言覆盖合成编辑弹窗的读取和保存；真实消费者接入另验收。 |
 | UI-NAV-01 | [unit-domain](#unit-domain)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖分组默认收起及独立入口的实际链接。不显示导航标题及切换提示仍需定向检查。 |
 | UI-NAV-02 | [unit-navigation-icons](#unit-navigation-icons)、[unit-home-link](#unit-home-link)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖代表性语义图标、未知文本、首页修饰键和手机选择后关闭抽屉。桌面收起和全部导航链接的新标签行为仍需逐项检查。 |
 | UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。 |
@@ -319,6 +320,12 @@
 [tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
 
 定位：`excludes unreadable fields from explicit columns and detail`。字段读取资格恢复后，同步恢复列表列及已打开的详情字段。
+
+### unit-record-loading
+
+[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+
+定位：`shows record loading only while the dialog reads the record`。编辑弹窗在记录读取期间显示提示，读取成功或失败后移除，保存期间不显示读取提示。
 
 ## 执行与维护
 

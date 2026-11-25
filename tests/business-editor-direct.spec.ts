@@ -8,6 +8,60 @@ afterEach(() => {
   wrapper?.unmount();
   document.body.innerHTML = "";
 });
+it("shows record loading only while the dialog reads the record", async () => {
+  const { model, record, name } = fixture();
+  let finishRead!: () => void;
+  let finishSave!: () => void;
+  let failRead!: (error: Error) => void;
+  record.operations.get = operation(
+    vi
+      .fn<() => Promise<void>>()
+      .mockImplementationOnce(async () => {
+        await new Promise<void>((resolve) => {
+          finishRead = resolve;
+        });
+        name.value = "已读取的名称";
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_, reject) => {
+            failRead = reject;
+          }),
+      ),
+  );
+  record.operations.update = operation(
+    vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSave = resolve;
+        }),
+    ),
+  );
+  wrapper = await render(model);
+  const dialog = () => document.querySelector('[role="dialog"]');
+  const status = () => dialog()?.querySelector('[role="status"]')?.textContent;
+
+  await click("编辑");
+  expect(status()).toBe("正在读取…");
+  finishRead();
+  await flushPromises();
+  expect(status()).toBe("");
+  expect(input("名称").element.value).toBe("已读取的名称");
+
+  await click("保存");
+  expect(record.operations.update.run).toHaveBeenCalledOnce();
+  expect(status()).toBe("");
+  finishSave();
+  await flushPromises();
+  await click("关闭");
+
+  await click("编辑");
+  expect(status()).toBe("正在读取…");
+  failRead(Error("合成读取失败"));
+  await flushPromises();
+  expect(status()).toBe("");
+  expect(dialog()?.querySelector('[role="alert"]')).not.toBeNull();
+});
 it("uses ordered Material groups and keeps input when switching tabs", async () => {
   const { model, record } = fixture();
   const first = field("first", "第一字段", "one"),
