@@ -4,11 +4,11 @@
 
 ## 固定版本安装
 
-当前版本为 [ui-v0.49.1](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.49.1)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.49.1.tgz` 与 `SHA256SUMS`，核对摘要后安装：
+当前版本为 [ui-v0.49.2](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.49.2)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.49.2.tgz` 与 `SHA256SUMS`，核对摘要后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.49.1.tgz
+pnpm add ./zerp-ui-0.49.2.tgz
 ```
 
 0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，以 `createVuetify({ theme: createShellThemes() })` 初始化主题。`createShellThemes({ primary, secondary })` 接受可选品牌色。两项主题导出均来自 `@zerp/ui`，其中 `defaultThemeChoice` 为 MD3 浅色。需要持久化主题选择时，通过 `BusinessModel.theme.value/change` 交给消费者处理。
