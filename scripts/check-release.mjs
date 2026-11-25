@@ -49,15 +49,14 @@ for (const script of [
   run("pnpm", [script]);
 run("pnpm", ["test:model"]);
 const slices = [
-  { issue: 159, name: "model", build: "build:model", flag: ["--model"] },
+  { issue: 159, name: "model", flag: [] },
   {
     issue: 179,
     name: "print",
-    build: "build:model",
     flag: ["--print-template"],
   },
 ];
-for (const slice of slices) run("pnpm", [slice.build]);
+run("pnpm", ["build:model"]);
 if (artifactIndex < 0) run("pnpm", ["pack", "--pack-destination", dir]);
 const tgz =
   artifactIndex < 0

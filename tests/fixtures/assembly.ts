@@ -90,7 +90,7 @@ export type {
   WorkflowDefinition,
 } from "../../src/workflow";
 
-export { default as AppPage } from "../../src/AppPage.vue";
+export { default as AppPage } from "./AppPage.vue";
 export { default as AuthPage } from "../../src/AuthPage.vue";
 export type {
   AuthMode,

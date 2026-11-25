@@ -142,7 +142,7 @@ function select(action: RowAction, row: Values) {
     !source ||
     !props.node.items.includes(source) ||
     !actions(row).includes(action) ||
-    reasons(row)[action]
+    runtime.busy.value.has(toRaw(source))
   )
     return;
   if (action === "print" && props.node.itemPrintTemple) {

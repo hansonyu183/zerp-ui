@@ -1,12 +1,12 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false });
-defineSlots<{}>();
+defineSlots<{
+  default(): unknown;
+  "brand-status"?(): unknown;
+  "navigation-status"?(): unknown;
+}>();
 import FeedbackHost from "./FeedbackHost.vue";
-import ModelNotices from "./ModelNotices.vue";
 import { navigationSections } from "./navigation-sections";
-import PageContentHost from "./PageContentHost.vue";
-import type { PageDefinition, AppPageHandle } from "./pages";
-import type { EditProtection } from "./edit-guard";
 import { computed, nextTick, ref, useId, useTemplateRef, watch } from "vue";
 import { RouterLink } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -23,17 +23,13 @@ import {
   VList,
   VListItem,
 } from "vuetify/components";
-import Feedback from "./Feedback.vue";
-import FeedbackRegion from "./FeedbackRegion.vue";
 import {
   defaultThemeChoice,
   shellDefaults,
   shellThemeName,
   navigationGlyph,
   type Brand,
-  type LoadState,
   type NavigationGroup,
-  type PageNavigationGroup,
   type ShellAccount,
   type AccountIntent,
   type ThemeChoice,
@@ -41,16 +37,11 @@ import {
 const props = withDefaults(
   defineProps<{
     brand: Brand;
-    brandState: LoadState;
     navigation: readonly NavigationGroup[];
-    navigationState: LoadState;
     selectedNavigationKey?: string | null;
     visit?: (key: string) => void;
-    pageNavigation?: readonly PageNavigationGroup[];
-    page: PageDefinition;
     scope: string;
     active?: boolean;
-    footer: string;
     account?: ShellAccount;
     accountActions?: readonly AccountIntent[];
     theme?: ThemeChoice;
@@ -58,17 +49,9 @@ const props = withDefaults(
   { theme: () => defaultThemeChoice, active: true },
 );
 const emit = defineEmits<{
-  protection: [value: EditProtection];
-  "retry-brand": [];
-  "retry-navigation": [];
   "account-action": [AccountIntent];
   "update:theme": [ThemeChoice];
 }>();
-const pageContent = useTemplateRef<AppPageHandle>("pageContent");
-defineExpose<AppPageHandle>({
-  requestLeave: () =>
-    pageContent.value?.requestLeave() ?? Promise.resolve(false),
-});
 const { mobile } = useDisplay();
 const navigationId = useId();
 const overlayId = `zerp-shell-overlays-${useId().replace(/:/g, "-")}`;
@@ -178,7 +161,6 @@ function navigated(event: MouseEvent) {
         @keydown="escapeNavigation"
       >
         <FeedbackHost>
-          <ModelNotices />
           <VAppBar name="app-bar" :order="0" :height="48">
             <div class="zerp-shell-toolbar">
               <VBtn
@@ -207,29 +189,13 @@ function navigated(event: MouseEvent) {
                     brand.productName
                   }}</strong>
                   <span
-                    v-if="brandState.kind === 'ready'"
+                    v-if="brand.enterpriseName"
                     class="zerp-shell-enterprise"
                     >{{ brand.enterpriseName }}</span
                   >
                 </span>
               </RouterLink>
-              <FeedbackRegion
-                ><Feedback
-                  :kind="brandState.kind === 'error' ? 'error' : 'status'"
-                  :message="
-                    brandState.kind === 'loading'
-                      ? '品牌加载中'
-                      : brandState.kind === 'error'
-                        ? brandState.caption
-                        : undefined
-                  "
-                  ><VBtn
-                    v-if="brandState.kind === 'error'"
-                    @click="emit('retry-brand')"
-                    >重试品牌</VBtn
-                  ></Feedback
-                ></FeedbackRegion
-              >
+              <slot name="brand-status" />
               <div class="zerp-shell-actions">
                 <VMenu
                   v-model="themeMenu"
@@ -333,151 +299,81 @@ function navigated(event: MouseEvent) {
             :capture-focus="mobile"
           >
             <nav :id="navigationId" ref="navigationElement" aria-label="主导航">
-              <FeedbackRegion
-                ><Feedback
-                  :kind="navigationState.kind === 'error' ? 'error' : 'status'"
-                  :message="
-                    navigationState.kind === 'loading'
-                      ? '导航加载中'
-                      : navigationState.kind === 'error'
-                        ? navigationState.caption
-                        : undefined
-                  "
-                  ><VBtn
-                    v-if="navigationState.kind === 'error'"
-                    @click="emit('retry-navigation')"
-                    >重试导航</VBtn
-                  ></Feedback
-                ></FeedbackRegion
+              <slot name="navigation-status" />
+              <component
+                :is="group.ungrouped ? 'div' : 'details'"
+                v-for="{ group, sections } in navigationGroups"
+                :key="group.key"
               >
-              <template v-if="navigationState.kind === 'ready'">
+                <summary v-if="!group.ungrouped">{{ group.caption }}</summary>
                 <component
-                  :is="group.ungrouped ? 'div' : 'details'"
-                  v-for="{ group, sections } in navigationGroups"
-                  :key="group.key"
+                  :is="section.caption ? 'details' : 'div'"
+                  v-for="(section, index) in sections"
+                  :key="section.key ?? index"
+                  :class="{ 'zerp-navigation-section': section.caption }"
                 >
-                  <summary v-if="!group.ungrouped">{{ group.caption }}</summary>
-                  <component
-                    :is="section.caption ? 'details' : 'div'"
-                    v-for="(section, index) in sections"
-                    :key="section.key ?? index"
-                    :class="{ 'zerp-navigation-section': section.caption }"
+                  <summary v-if="section.caption">
+                    {{ section.caption }}
+                  </summary>
+                  <RouterLink
+                    v-for="item in section.items"
+                    :key="item.key"
+                    :to="item.to"
+                    custom
+                    v-slot="{ href, navigate, isActive, isExactActive }"
                   >
-                    <summary v-if="section.caption">
-                      {{ section.caption }}
-                    </summary>
-                    <RouterLink
-                      v-for="item in section.items"
-                      :key="item.key"
-                      :to="item.to"
-                      custom
-                      v-slot="{ href, navigate, isActive, isExactActive }"
+                    <a
+                      :href="href"
+                      :class="{
+                        'router-link-active':
+                          selectedNavigationKey === undefined
+                            ? isActive
+                            : selectedItem === item,
+                        'router-link-exact-active':
+                          selectedNavigationKey === undefined
+                            ? isExactActive
+                            : selectedItem === item,
+                      }"
+                      :aria-current="
+                        (
+                          selectedNavigationKey === undefined
+                            ? isExactActive
+                            : selectedItem === item
+                        )
+                          ? 'page'
+                          : undefined
+                      "
+                      @click="
+                        navigated($event);
+                        if (
+                          visit &&
+                          !$event.ctrlKey &&
+                          !$event.metaKey &&
+                          !$event.shiftKey &&
+                          !$event.altKey &&
+                          $event.button === 0
+                        ) {
+                          $event.preventDefault();
+                          visit(item.key);
+                        } else navigate($event);
+                      "
+                      ><span
+                        v-if="item.icon"
+                        aria-hidden="true"
+                        class="zerp-ui-icon"
+                        >{{ navigationGlyph(item.icon) }}</span
+                      >{{ item.caption }}</a
                     >
-                      <a
-                        :href="href"
-                        :class="{
-                          'router-link-active':
-                            selectedNavigationKey === undefined
-                              ? isActive
-                              : selectedItem === item,
-                          'router-link-exact-active':
-                            selectedNavigationKey === undefined
-                              ? isExactActive
-                              : selectedItem === item,
-                        }"
-                        :aria-current="
-                          (
-                            selectedNavigationKey === undefined
-                              ? isExactActive
-                              : selectedItem === item
-                          )
-                            ? 'page'
-                            : undefined
-                        "
-                        @click="
-                          navigated($event);
-                          if (
-                            visit &&
-                            !$event.ctrlKey &&
-                            !$event.metaKey &&
-                            !$event.shiftKey &&
-                            !$event.altKey &&
-                            $event.button === 0
-                          ) {
-                            $event.preventDefault();
-                            visit(item.key);
-                          } else navigate($event);
-                        "
-                        ><span
-                          v-if="item.icon"
-                          aria-hidden="true"
-                          class="zerp-ui-icon"
-                          >{{ navigationGlyph(item.icon) }}</span
-                        >{{ item.caption }}</a
-                      >
-                    </RouterLink>
-                  </component>
+                  </RouterLink>
                 </component>
-              </template>
+              </component>
             </nav>
           </VNavigationDrawer>
           <VMain
             ><div :id="overlayId" class="zerp-shell-overlays" />
             <div class="zerp-shell-content">
-              <nav
-                v-if="
-                  active && pageNavigation?.some((group) => group.items.length)
-                "
-                aria-label="页面导航"
-                class="zerp-page-navigation"
-              >
-                <template v-for="group in pageNavigation" :key="group.key">
-                  <div
-                    v-if="group.kind === 'tabs' && group.items.length"
-                    :aria-label="group.caption"
-                    class="zerp-page-navigation__tabs"
-                  >
-                    <VBtn
-                      v-for="item in group.items"
-                      :key="item.key"
-                      :to="item.to"
-                      :active="group.selectedKey === item.key"
-                      :aria-current="
-                        group.selectedKey === item.key ? 'page' : undefined
-                      "
-                      variant="text"
-                      >{{ item.caption }}</VBtn
-                    >
-                  </div>
-                  <VMenu v-else-if="group.items.length">
-                    <template #activator="{ props: menuProps }"
-                      ><VBtn
-                        v-bind="menuProps"
-                        variant="text"
-                        append-icon="mdi-chevron-down"
-                        >{{ group.caption }}</VBtn
-                      ></template
-                    >
-                    <VList
-                      ><VListItem
-                        v-for="item in group.items"
-                        :key="item.key"
-                        :to="item.to"
-                        :title="item.caption"
-                    /></VList>
-                  </VMenu>
-                </template>
-              </nav>
-              <PageContentHost
-                ref="pageContent"
-                :page="page"
-                :scope="scope"
-                :active="active"
-                @protection="emit('protection', $event)"
-              />
-              <footer v-if="footer">{{ footer }}</footer>
-            </div></VMain
-          >
+              <slot /></div
+          ></VMain>
         </FeedbackHost>
       </VLayout>
     </VDefaultsProvider>

@@ -4,7 +4,6 @@ testConfig.global.plugins = [
   createVuetify({ defaults: { VDialog: { attach: true } } }),
 ];
 import { hostAndDialogButtons } from "./host-and-dialog-buttons";
-import { DOMWrapper } from "@vue/test-utils";
 import { defineComponent, h, ref, shallowRef, type Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { expect, it, vi } from "vitest";

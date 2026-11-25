@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { categoryDomains, modelCollections } from "./model-collections";
-import { computed, provide, watch, h, ref, toRaw, onBeforeUnmount } from "vue";
+import { computed, provide, watch, ref, toRaw, onBeforeUnmount } from "vue";
 import { clearReferenceScope } from "./reference-directory";
 import type {
   BusinessModel,
@@ -12,10 +12,9 @@ import { createDirectRuntime, directRuntimeKey } from "./direct-model-runtime";
 import BusinessNode from "./BusinessNode.vue";
 import BusinessDomain from "./BusinessDomain.vue";
 import BusinessWorkbench from "./BusinessWorkbench.vue";
-import AppPage from "./AppPage.vue";
+import ApplicationShell from "./ApplicationShell.vue";
 import AuthFrame from "./AuthFrame.vue";
 import BusinessFeedback from "./BusinessFeedback.vue";
-import { snapshotPage, type PageDefinition } from "./pages";
 import {
   defaultThemeChoice,
   type NavigationGroup,
@@ -189,9 +188,14 @@ const target = computed(() => {
   }
   return activeAccountView.value ?? current.value;
 });
-const domain = computed(() => {
+const pageDomain = computed(() => {
   const collection = current.value;
-  if (!collection) return;
+  if (
+    !collection ||
+    activeAccountView.value ||
+    props.model.session.state === "password-required"
+  )
+    return;
   return props.model.members
     .flatMap((member) =>
       !("kind" in member)
@@ -200,37 +204,26 @@ const domain = computed(() => {
           ? [member]
           : categoryDomains(member),
     )
-    .find((group) => group.members.includes(collection));
+    .find(
+      (group) => group.members.length > 1 && group.members.includes(collection),
+    );
 });
-const pageTarget = computed(() =>
-  activeAccountView.value || props.model.session.state === "password-required"
-    ? target.value
-    : domain.value && domain.value.members.length > 1
-      ? domain.value
-      : target.value,
+const pageTarget = computed(() => pageDomain.value ?? target.value);
+const pageWorkbench = computed(() =>
+  pageTarget.value ? undefined : props.model.workbench,
 );
-const page = computed<PageDefinition>(() => {
-  const node = pageTarget.value,
-    workbench = props.model.workbench;
-  const title = node?.label ?? (workbench ? "工作台" : "");
-  return {
-    kind: "details",
-    title,
-    [snapshotPage]: () => ({
-      title,
-      render: () => [
-        node
-          ? "kind" in node && node.kind === "domain"
-            ? h(BusinessDomain, { node })
-            : h(BusinessNode, { node })
-          : workbench
-            ? h(BusinessWorkbench, { node: workbench })
-            : h("p", "暂无可用内容。"),
-        h(BusinessFeedback),
-      ],
-    }),
-  };
-});
+const pageGeneration = ref(0);
+watch(
+  [
+    pageTarget,
+    pageWorkbench,
+    () => props.model,
+    runtime.scope,
+    () => props.model.session.state,
+  ],
+  () => pageGeneration.value++,
+  { flush: "sync" },
+);
 async function accountAction(action: AccountIntent) {
   if (action === "sign-out") {
     await runtime.runAccount();
@@ -292,21 +285,32 @@ watch(target, () => runtime.invalidate(), { flush: "sync" });
     <BusinessFeedback />
   </AuthFrame>
   <div v-else @click.capture="goHome">
-    <AppPage
+    <ApplicationShell
       :brand="brand"
-      :brand-state="{ kind: 'ready' }"
       :navigation="navigation"
-      :navigation-state="{ kind: 'ready' }"
       :selected-navigation-key="selectedKey"
       :visit="visitKey"
-      :page="page"
       :scope="runtime.scope.value"
-      footer=""
       :account="accountPresentation"
       :account-actions="accountActions"
       :theme="theme"
       @update:theme="changeTheme"
       @account-action="accountAction"
-    />
+    >
+      <h1>{{ pageTarget?.label ?? (pageWorkbench ? "工作台" : "") }}</h1>
+      <BusinessDomain
+        v-if="pageDomain"
+        :key="pageGeneration"
+        :node="pageDomain"
+      />
+      <BusinessNode v-else-if="target" :key="pageGeneration" :node="target" />
+      <BusinessWorkbench
+        v-else-if="pageWorkbench"
+        :key="pageGeneration"
+        :node="pageWorkbench"
+      />
+      <p v-else>暂无可用内容。</p>
+      <BusinessFeedback :key="`feedback-${pageGeneration}`" />
+    </ApplicationShell>
   </div>
 </template>

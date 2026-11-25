@@ -35,7 +35,7 @@ watch(
   { immediate: true, flush: "sync" },
 );
 function visit(event: MouseEvent | KeyboardEvent, collection: Collection) {
-  if (!entries.value.includes(collection) || !runtime.readable(collection)) {
+  if (!entries.value.includes(collection)) {
     event.preventDefault();
     return;
   }

@@ -30,9 +30,7 @@ export function directFeedback(
     }
   >();
   const overrides = shallowReactive(new WeakMap<Message, Placement>());
-  const localTargets = shallowReactive(
-    new Map<Node, { token: symbol; exact: boolean }>(),
-  );
+  const localTargets = shallowReactive(new Map<Node, { exact: boolean }>());
   const fallback = shallowRef<Failure>();
   watch(
     () =>
@@ -84,7 +82,7 @@ export function directFeedback(
   }
   function presentWith(node: Node, exact: boolean) {
     const key = toRaw(node);
-    const placement = { token: Symbol(), exact };
+    const placement = { exact };
     localTargets.set(key, placement);
     return () => {
       if (localTargets.get(key) === placement) localTargets.delete(key);

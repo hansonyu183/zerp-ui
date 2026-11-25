@@ -50,7 +50,6 @@ export interface DirectRuntime {
   feedback: ReturnType<typeof directFeedback>;
   queryView(collection: Collection): QueryView | undefined;
   reportViews: Map<object, { left: number; top: number }>;
-  contains(node: Node): boolean;
   ancestors(node: Node): Node[];
   readable(node: Node): boolean;
   writable(node: Node): boolean;
@@ -471,7 +470,6 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
     feedback,
     queryView: (collection) => queries.value.get(toRaw(collection)),
     reportViews,
-    contains: (node) => paths().has(toRaw(node)),
     ancestors,
     readable,
     writable,
