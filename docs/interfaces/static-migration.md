@@ -26,6 +26,6 @@
 
 验证以 `@zerp/ui` 的 BusinessApplication、`@zerp/ui/model` 与同一 tgz 物理独立安装为面；模型/模板算法定向检查按 #159 的已确认边界执行。具体源码 SHA、命令、退出码、包摘要、UI 条款证据和未完成项回写相应 GitHub 工单。合成消费者及模拟回调不证明真实 ZERP API/E2E。
 
-#164 补齐 `menu` 和 `tree` 的显式 `InteractionAction`。0.49.0 起，资格由节点可写性、条目和操作状态表达。业务回调仍仅在用户选择时执行。
+[#164](https://github.com/hansonyu183/zerp-ui/issues/164) 补齐 `menu` 和 `tree` 的显式 `InteractionAction`。0.49.0 起的动作资格见[脚本菜单与树动作](README.md#脚本菜单与树动作)。
 
-#167 补齐脚本独立文件下载，使用 `download` 和 `InteractionDownload` 映射消费者回调。独立集合继续使用自己的导出操作。0.49.0 起，独立下载按节点可读性和条目及操作状态决定资格，也适用于只读详情。见[现行接口](README.md#独立脚本文件下载)。
+[#167](https://github.com/hansonyu183/zerp-ui/issues/167) 补齐脚本独立文件下载，使用 `download` 和 `InteractionDownload` 映射消费者回调。0.49.0 起的下载资格见[独立脚本文件下载](README.md#独立脚本文件下载)。

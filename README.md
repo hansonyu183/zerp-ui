@@ -41,7 +41,7 @@ import { model } from "./consumer";
 
 ## 独立消费者与验证
 
-[运行消费者](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model/README.md)直接定义合成业务模型，仅绑定 BusinessApplication。[类型示例](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model-contract/README.md)仅参加编译。接入及升级时查阅[静态模型接口](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/README.md)和[迁移清单](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/static-migration.md)。
+[运行消费者](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model/README.md)直接定义合成业务模型，仅绑定 BusinessApplication。[类型示例](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model-contract/README.md)仅参加编译。接入及升级见[迁移清单](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/static-migration.md)。
 
 命令以 package.json scripts 为准。`check:release` 在干净源码提交上运行相关类型、模型、UI、lint 和格式检查，只 pack 一次，将同一 tgz 物理安装到全新消费者，核对声明、原生 Node、样式/字体、唯一宿主及公开行为；逐命令退出码和摘要记录于 `.scratch/release/<SHA>/evidence.json`。正式发行的原包复验需要检出发行对应的干净提交，并将该版本的 `evidence.json` 放到上述证据路径，再运行 `node scripts/check-release.mjs --tgz <下载包>`。命令核对源码 SHA 和包摘要，直接使用下载的原包。
 
@@ -49,7 +49,7 @@ UI 规范与逐条部分覆盖边界分别见[规范](https://github.com/hansony
 
 ## 脚本交互、导航与打印
 
-菜单和树项通过 `InteractionAction` 执行业务回调，要求所属节点可写，且条目与操作均可用。关联使用 `CollectionTarget`。下载可通过 `CollectionTarget` 执行集合导出，或通过 `InteractionDownload` 调用独立文件下载回调。独立下载要求所属节点可读，且条目与操作均可用，所以只读详情也可提供下载。UI 防止执行中重复调用，消费者负责后端鉴权和异步回写有效性。
+脚本菜单和树项支持业务回调及集合关联，下载支持集合导出和独立文件。入口与资格见[脚本交互接口](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/README.md#脚本菜单与树动作)。
 
 引用字段可通过 `scopeKey` 表达候选目录业务依赖；变化会清除旧目录并按需重新读取，历史选值继续回显。消费者负责在 load 回写前核对依赖有效性，owner 隔离由宿主完成。
 
