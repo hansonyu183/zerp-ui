@@ -9,6 +9,7 @@ const props = withDefaults(
   }>(),
   { kind: "status" },
 );
+const emit = defineEmits<{ dismiss: [] }>();
 const dismissed = ref(false);
 watch(
   () => props.message,
@@ -48,7 +49,10 @@ const label = computed(() =>
         type="button"
         class="zerp-feedback__close"
         :aria-label="`关闭${label}`"
-        @click="dismissed = true"
+        @click="
+          dismissed = true;
+          emit('dismiss');
+        "
       >
         关闭
       </VBtn>

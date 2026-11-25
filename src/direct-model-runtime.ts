@@ -118,11 +118,6 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
   const busy = ref(new Map<object, (() => boolean) | undefined>());
   const executions = new Map<object, symbol>();
   const feedbackExecutions = new Set<symbol>();
-  const feedback = directFeedback(model, scope, readable, ancestors, () =>
-    feedbackExecutions.size === 1
-      ? feedbackExecutions.values().next().value
-      : undefined,
-  );
   const queries = shallowRef(
     shallowReactive(new WeakMap<Collection, QueryView>()),
   );
@@ -278,6 +273,21 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
           available(node, "confirmNotPrinted")))
     );
   }
+  const feedback = directFeedback(
+    model,
+    scope,
+    readable,
+    ancestors,
+    (node) =>
+      available(node, "reconcile") ||
+      Object.entries(operations(node)).some(
+        ([action, operation]) => operation.disabled && allowed(node, action),
+      ),
+    () =>
+      feedbackExecutions.size === 1
+        ? feedbackExecutions.values().next().value
+        : undefined,
+  );
   async function execute(
     key: object,
     op: Operation,
@@ -324,13 +334,18 @@ export function createDirectRuntime(model: () => BusinessModel): DirectRuntime {
           !!collection,
         );
         if (collection && reading && canRetry && retryPage !== undefined) {
-          if (notice) feedback.place(notice, collection, true);
+          const queryNotice = notice?.blocking ? undefined : notice;
+          if (queryNotice) feedback.place(queryNotice, collection, true);
           queryViews.set(collection, {
             state: "failure",
             page: reading.page,
             retryPage,
             canRetry,
-            error: notice ? `查询失败：${notice.text}` : "查询失败，请重试。",
+            error: queryNotice
+              ? `查询失败：${queryNotice.text}`
+              : notice?.blocking
+                ? "查询失败。"
+                : "查询失败，请重试。",
           });
         } else if (notice) {
           feedback.place(notice, notice.target ?? options.target ?? null);

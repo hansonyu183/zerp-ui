@@ -258,6 +258,12 @@
       "surface": "source/public-entry",
       "anchor": "shows record loading only while the dialog reads the record",
       "assertion": "编辑弹窗在记录读取期间显示提示，读取成功或失败后移除，保存期间不显示读取提示"
+    },
+    "package-notice-lifecycle": {
+      "file": "scripts/business-interaction-smoke.mjs",
+      "anchor": "top-notice-expiry-and-blocking-acknowledgment",
+      "surface": "tgz/browser",
+      "assertion": "顶部提示到时消失，桌面和手机模态阻塞背景并在确认后恢复焦点"
     }
   },
   "clauses": [
@@ -386,6 +392,12 @@
       ],
       "remaining": "覆盖代表性只读引用、保存阻塞原因及查询重试；所有核实操作和业务族状态组合未穷举。",
       "requirementSha256": "3f3a546a7620c6fb279fa60547f192e4282a0f6bb70c4a961298683b04a1963b"
+    },
+    {
+      "id": "UI-SHELL-07",
+      "checks": ["package-notice-lifecycle"],
+      "remaining": "覆盖独立安装的代表性手机与桌面合成记录编辑路径；实际 OIT 接入另验。",
+      "requirementSha256": "cbe4a90c5b1c19fa5f88485b9e63aad3f137587a68b2d4bcd8b057eed5fd5337"
     },
     {
       "id": "UI-DESKTOP-01",

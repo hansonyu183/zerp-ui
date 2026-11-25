@@ -61,7 +61,9 @@ it("shows record loading only while the dialog reads the record", async () => {
   failRead(Error("合成读取失败"));
   await flushPromises();
   expect(status()).toBe("");
-  expect(dialog()?.querySelector('[role="alert"]')).not.toBeNull();
+  expect(
+    wrapper.get('[aria-label="页面消息"] [role="alert"]').text(),
+  ).toContain("操作失败");
 });
 it("uses ordered Material groups and keeps input when switching tabs", async () => {
   const { model, record } = fixture();

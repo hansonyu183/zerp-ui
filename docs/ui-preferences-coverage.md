@@ -2,7 +2,7 @@
 
 由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
-共 54 条：39 条有自动断言映射（均为部分覆盖），15 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
+共 55 条：40 条有自动断言映射（均为部分覆盖），15 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
 
 验证策略：流程条款由任务审查；消费者专属条款由真实消费者验收；文案及常规 UI 语义审查由 Agent 按现有要求判断，不逐项询问用户；仅业务含义不明或需改变已确认要求时，在完成其余开发后按 UI-GOV-06 留一份交付清单。本库检查使用合成模型，不是实际 OIT/ZERP API/E2E。定向检查不是数学证明或全状态穷举。
 
@@ -30,6 +30,7 @@
 | UI-SHELL-04 | [package-related-navigation](#package-related-navigation) | 核对代表性关联目的集合的可见标题；所有导航目标和业务名称重复仍需按路径审查。 |
 | UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback)、[package-field-alignment](#package-field-alignment)、[package-query-states](#package-query-states)、[package-save-qualification](#package-save-qualification) | 覆盖代表性保存、查询失败和长引用错误的布局、去重、正文可操作及重试；所有字段和反馈组合未穷举。 |
 | UI-SHELL-06 | [unit-feedback](#unit-feedback)、[unit-overlay](#unit-overlay)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-query-states](#package-query-states)、[package-save-qualification](#package-save-qualification) | 覆盖代表性只读引用、保存阻塞原因及查询重试；所有核实操作和业务族状态组合未穷举。 |
+| UI-SHELL-07 | [package-notice-lifecycle](#package-notice-lifecycle) | 覆盖独立安装的代表性手机与桌面合成记录编辑路径；实际 OIT 接入另验。 |
 | UI-DESKTOP-01 | [package-layout](#package-layout) | 仅代表表格存在/字号；字段完整性与超宽策略未穷举，尽量避免横滚处理方式由 Agent 按现有要求判断，见Q3。 |
 | UI-DESKTOP-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 第二操作列有断言；排序必须在相关表头且不占筛选栏尚无定向证据。 |
 | UI-DESKTOP-03 | [package-reference-feedback](#package-reference-feedback) | 表格内编辑简洁模式及字段校验前后行高尚无公开浏览器断言。 |
@@ -326,6 +327,12 @@
 [tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
 
 定位：`shows record loading only while the dialog reads the record`。编辑弹窗在记录读取期间显示提示，读取成功或失败后移除，保存期间不显示读取提示。
+
+### package-notice-lifecycle
+
+[scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
+
+定位：`top-notice-expiry-and-blocking-acknowledgment`。顶部提示到时消失，桌面和手机模态阻塞背景并在确认后恢复焦点。
 
 ## 执行与维护
 

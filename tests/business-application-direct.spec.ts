@@ -5,7 +5,65 @@ import { render, click, input } from "./fixtures/static-host";
 let wrapper: Awaited<ReturnType<typeof render>> | undefined;
 afterEach(() => {
   wrapper?.unmount();
+  vi.useRealTimers();
   document.body.innerHTML = "";
+});
+it("replaces and expires nonblocking messages in the page notice region", async () => {
+  const { model } = fixture();
+  wrapper = await render(model);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  model.messages.push(
+    { id: "first", level: "success", text: "第一次保存成功", target: null },
+    { id: "latest", level: "success", text: "最近保存成功", target: null },
+  );
+  await flushPromises();
+  const notices = wrapper.get('[aria-label="页面消息"]');
+  expect(notices.text()).toContain("最近保存成功");
+  expect(notices.text()).not.toContain("第一次保存成功");
+  await vi.advanceTimersByTimeAsync(2999);
+  expect(notices.text()).toContain("最近保存成功");
+  await vi.advanceTimersByTimeAsync(1);
+  expect(notices.text()).toBe("");
+  expect(model.messages).toHaveLength(2);
+
+  model.messages[1]!.text = "后续保存成功";
+  await flushPromises();
+  expect(notices.text()).toContain("后续保存成功");
+  await click("关闭状态提示");
+  expect(notices.text()).toBe("");
+});
+
+it("blocks interaction until explicit acknowledgment and consumes duplicate prompts", async () => {
+  const { model, rows } = fixture();
+  const message = {
+    id: "blocking",
+    level: "warning",
+    text: "请阅读此提示",
+    target: null,
+    blocking: true,
+  } as const;
+  let reject!: (error: Error) => void;
+  rows.operations.create = operation(
+    vi.fn(() => {
+      model.messages.push(message, { ...message, id: "duplicate" });
+      return new Promise<void>((_, fail) => {
+        reject = fail;
+      });
+    }),
+  );
+  wrapper = await render(model);
+  await click("新增");
+  const dialog = document.querySelector('[role="alertdialog"]');
+  expect(dialog?.textContent).toContain(message.text);
+  expect(wrapper.element.hasAttribute("inert")).toBe(true);
+  await click("确定");
+  expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+  expect(wrapper.element.hasAttribute("inert")).toBe(false);
+  expect(model.messages).toHaveLength(2);
+  reject(Error("合成业务拒绝"));
+  await flushPromises();
+  expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+  expect(wrapper.get('[aria-label="页面消息"]').text()).toBe("");
 });
 it("edits the same model in an overlay and retains failed-save input", async () => {
   const { model, name, record } = fixture();
@@ -230,7 +288,7 @@ it("offers only sign-in when anonymous and leaves recovery to the consumer", asy
 });
 
 it.each(["info", "success", "warning", "error"] as const)(
-  "keeps %s message dismissal separate from consumer restrictions and reconciliation",
+  "preserves consumer restrictions and reconciliation with %s feedback",
   async (level) => {
     const { model, record } = fixture();
     record.operations.update!.disabled = true;
@@ -242,13 +300,13 @@ it.each(["info", "success", "warning", "error"] as const)(
       target: record,
     });
     wrapper = await render(model);
-    const label =
-      level === "error"
-        ? "关闭错误提示"
-        : level === "warning"
-          ? "关闭警告提示"
-          : "关闭状态提示";
-    await click(label);
+    if (level === "error" || level === "warning") {
+      const reason = wrapper.get('[role="region"][aria-label="页面消息"]');
+      expect(reason.text()).toContain("业务结果待核实");
+      expect(reason.find("button.zerp-feedback__close").exists()).toBe(false);
+    } else {
+      await click("关闭状态提示");
+    }
     expect(model.messages).toHaveLength(1);
     expect(record.operations.update!.disabled).toBe(true);
     await click("查看");
@@ -258,7 +316,7 @@ it.each(["info", "success", "warning", "error"] as const)(
   },
 );
 
-it("presents one specific save failure in the active record dialog", async () => {
+it("presents one specific save failure at the top while the record stays open", async () => {
   const { model, record } = fixture();
   record.operations.update = operation(
     vi.fn(async () => {
@@ -275,9 +333,10 @@ it("presents one specific save failure in the active record dialog", async () =>
   await click("编辑");
   await click("保存");
   const dialog = document.querySelector('[role="dialog"]');
-  expect(dialog?.querySelector('[role="alert"]')?.textContent).toContain(
-    "名称已存在，请替换",
-  );
+  expect(dialog).not.toBeNull();
+  expect(
+    wrapper.get('[aria-label="页面消息"] [role="alert"]').text(),
+  ).toContain("名称已存在，请替换");
   expect(document.querySelectorAll('[role="alert"]')).toHaveLength(1);
   expect(document.body.textContent).not.toContain("操作失败");
 });

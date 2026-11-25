@@ -494,6 +494,8 @@ export interface BusinessModel {
     id: string;
     level: "info" | "success" | "warning" | "error";
     text: string;
+    /** Require acknowledgment before continuing to interact with the UI. */
+    blocking?: true;
     /** 反馈定位不产生新的全局导航目标。 */
     target: Collection | BusinessNode | null;
   }[];

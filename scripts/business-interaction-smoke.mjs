@@ -79,10 +79,17 @@ export async function businessInteractionSmoke(page) {
   }));
   expect(viewport.scroll).toBeGreaterThan(0);
   await save.click();
-  const specificFailure = editor.getByText("请先核对客户名称。", {
-    exact: true,
-  });
+  const specificFailure = page
+    .getByRole("region", { name: "页面消息" })
+    .getByText("请先核对客户名称。", {
+      exact: true,
+    });
   await expect(specificFailure).toBeVisible();
+  const noticeRegion = page.getByRole("region", { name: "页面消息" });
+  const appBar = page.locator(".v-app-bar");
+  expect((await noticeRegion.boundingBox()).y).toBeGreaterThanOrEqual(
+    (await appBar.boundingBox()).height,
+  );
   await expect(
     page.getByText("请先核对客户名称。", { exact: true }),
   ).toHaveCount(1);
@@ -102,11 +109,36 @@ export async function businessInteractionSmoke(page) {
   await expect(name).toBeEditable();
   // A trial click verifies that feedback does not cover the actual field.
   await name.click({ trial: true });
+  await expect(specificFailure).toBeHidden();
+
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: width === 390 ? 480 : 1000 });
+    await name.fill("需要确认提示");
+    await save.click();
+    const blocking = page.getByRole("alertdialog", { name: "操作提示" });
+    await expect(blocking).toBeVisible();
+    await expect(blocking).toContainText("请确认已阅读客户资料提示。");
+    await expect(page.locator("[inert] .zerp-record-dialog")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(blocking).toBeVisible();
+    const acknowledge = blocking.getByRole("button", { name: "确定" });
+    await acknowledge.focus();
+    await page.keyboard.press("Tab");
+    await expect(acknowledge).toBeFocused();
+    await acknowledge.click();
+    await expect(blocking).toBeHidden();
+    await expect(save).toBeFocused();
+  }
 
   return [
     {
       clauses: ["UI-SHELL-05", "UI-SHELL-06"],
       check: "query-loading-single-feedback-retry-pagination-and-success-empty",
+      result: "passed",
+    },
+    {
+      clauses: ["UI-SHELL-07"],
+      check: "top-notice-expiry-and-blocking-acknowledgment",
       result: "passed",
     },
     {

@@ -255,6 +255,16 @@ customer.operations.update = {
       });
       throw Error("合成校验失败");
     }
+    if (name.value === "需要确认提示") {
+      model.messages.push({
+        id: "customer-confirm-notice",
+        level: "warning",
+        text: "请确认已阅读客户资料提示。",
+        target: customer,
+        blocking: true,
+      });
+      return;
+    }
     if (name.value === "失败") throw Error("合成保存失败，请修改名称后重试。");
     savedCustomerFacts.value = currentCustomerFacts();
     model.messages.push({

@@ -741,12 +741,13 @@
 
 /* The public page roots own typography and density, including bounded overlays. */
 .zerp-shell,
-.zerp-auth-page {
+.zerp-auth-page,
+.zerp-blocking-dialog {
   --zerp-control-size: 32px;
   font-size: 12px;
   line-height: 1.4;
 }
-:where(.zerp-shell, .zerp-auth-page)
+:where(.zerp-shell, .zerp-auth-page, .zerp-blocking-dialog)
   :is(
     .v-btn,
     .v-input,
@@ -766,16 +767,16 @@
 :where(.zerp-shell, .zerp-auth-page) .v-icon {
   font-size: 18px;
 }
-:where(.zerp-shell, .zerp-auth-page) .v-card-title {
+:where(.zerp-shell, .zerp-auth-page, .zerp-blocking-dialog) .v-card-title {
   font-size: 16px;
   line-height: 1.4;
   padding: 8px 12px;
 }
-:where(.zerp-shell, .zerp-auth-page) .v-card-text {
+:where(.zerp-shell, .zerp-auth-page, .zerp-blocking-dialog) .v-card-text {
   padding: 12px;
   line-height: 1.4;
 }
-:where(.zerp-shell, .zerp-auth-page) .v-card-actions {
+:where(.zerp-shell, .zerp-auth-page, .zerp-blocking-dialog) .v-card-actions {
   min-height: 0;
   gap: 4px;
   padding: 8px;
@@ -788,7 +789,8 @@
 }
 @media (max-width: 599px) {
   .zerp-shell,
-  .zerp-auth-page {
+  .zerp-auth-page,
+  .zerp-blocking-dialog {
     --zerp-control-size: 48px;
   }
   :where(.zerp-shell, .zerp-auth-page) .v-input .v-field {

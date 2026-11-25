@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { categoryDomains, modelCollections } from "./model-collections";
-import { computed, provide, watch, ref, toRaw, onBeforeUnmount } from "vue";
+import {
+  computed,
+  nextTick,
+  provide,
+  watch,
+  ref,
+  toRaw,
+  onBeforeUnmount,
+} from "vue";
 import { clearReferenceScope } from "./reference-directory";
 import type {
   BusinessModel,
@@ -26,6 +34,22 @@ defineSlots<{}>();
 const props = defineProps<{ model: BusinessModel }>();
 const runtime = createDirectRuntime(() => props.model);
 provide(directRuntimeKey, runtime);
+const { blocking } = runtime.feedback;
+let returnFocus: HTMLElement | undefined;
+watch(blocking, (message, previous) => {
+  if (message && !previous) {
+    const active = document.activeElement;
+    returnFocus = active instanceof HTMLElement ? active : undefined;
+  }
+  if (!message && previous) {
+    const trigger = returnFocus;
+    returnFocus = undefined;
+    void nextTick(() => {
+      if (!blocking.value && trigger?.isConnected)
+        trigger.focus({ preventScroll: true });
+    });
+  }
+});
 const localTheme = ref(defaultThemeChoice);
 const theme = computed(() => props.model.theme?.value ?? localTheme.value);
 function changeTheme(value: ThemeChoice) {
@@ -275,17 +299,18 @@ onBeforeUnmount(() => clearReferenceScope(runtime.scope.value));
 watch(target, () => runtime.invalidate(), { flush: "sync" });
 </script>
 <template>
-  <AuthFrame v-if="!runtime.ready.value" :brand="brand" :theme="theme">
-    <BusinessNode
-      v-if="model.authentication.form.readable !== false"
-      :node="model.authentication.form"
-      public-auth
-      :auto-read="false"
-    />
-    <BusinessFeedback />
-  </AuthFrame>
-  <div v-else @click.capture="goHome">
+  <div :inert.attr="blocking ? true : undefined" @click.capture="goHome">
+    <AuthFrame v-if="!runtime.ready.value" :brand="brand" :theme="theme">
+      <BusinessNode
+        v-if="model.authentication.form.readable !== false"
+        :node="model.authentication.form"
+        public-auth
+        :auto-read="false"
+      />
+      <BusinessFeedback />
+    </AuthFrame>
     <ApplicationShell
+      v-else
       :brand="brand"
       :navigation="navigation"
       :selected-navigation-key="selectedKey"
@@ -310,7 +335,7 @@ watch(target, () => runtime.invalidate(), { flush: "sync" });
         :node="pageWorkbench"
       />
       <p v-else>暂无可用内容。</p>
-      <BusinessFeedback :key="`feedback-${pageGeneration}`" />
+      <BusinessFeedback />
     </ApplicationShell>
   </div>
 </template>

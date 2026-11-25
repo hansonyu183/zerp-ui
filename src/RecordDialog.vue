@@ -45,7 +45,6 @@ onBeforeUnmount(() => {
 <template>
   <VDialog
     :model-value="true"
-    :class="{ 'zerp-record-dialog-overlay--detail': headerClose }"
     :persistent="blocked"
     max-width="1100"
     scrollable

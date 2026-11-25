@@ -356,3 +356,43 @@ it("keeps a supplied collection blocker next to the query operation", async () =
     2,
   );
 });
+
+it.each([false, true])(
+  "preserves query recovery after acknowledging a blocking notice (disabled: %s)",
+  async (disabled) => {
+    const { model, rows } = fixture();
+    const query = vi.fn(async () => {});
+    rows.operations.query = operation(query);
+    wrapper = await render(model);
+    query.mockImplementationOnce(async () => {
+      rows.operations.query!.disabled = disabled;
+      model.messages.push(
+        { id: "duplicate", level: "error", text: "查询受限", target: rows },
+        {
+          id: "blocked",
+          level: "error",
+          text: "请阅读查询限制",
+          target: rows,
+          blocking: true,
+        },
+      );
+      throw Error("合成读取受限");
+    });
+    await click("查询");
+    expect(
+      document.querySelector('[role="alertdialog"]')?.textContent,
+    ).toContain("请阅读查询限制");
+    expect(document.body.textContent?.split("请阅读查询限制")).toHaveLength(2);
+    await click("确定");
+    expect(wrapper.get('[role="alert"]').text()).toContain("查询失败。");
+    if (disabled) {
+      expect(document.body.textContent).toContain("查询受限");
+      expect(wrapper.text()).not.toContain("重试");
+      return;
+    }
+    expect(document.body.textContent).not.toContain("查询受限");
+    await click("重试");
+    expect(query).toHaveBeenCalledTimes(3);
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+  },
+);

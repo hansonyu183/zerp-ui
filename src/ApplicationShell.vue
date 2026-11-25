@@ -24,6 +24,7 @@ import {
   VListItem,
 } from "vuetify/components";
 import {
+  appBarHeight,
   defaultThemeChoice,
   shellDefaults,
   shellThemeName,
@@ -161,7 +162,7 @@ function navigated(event: MouseEvent) {
         @keydown="escapeNavigation"
       >
         <FeedbackHost>
-          <VAppBar name="app-bar" :order="0" :height="48">
+          <VAppBar name="app-bar" :order="0" :height="appBarHeight">
             <div class="zerp-shell-toolbar">
               <VBtn
                 ref="navigationToggle"

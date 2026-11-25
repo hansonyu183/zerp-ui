@@ -37,6 +37,7 @@ export type NavigationGroup = Readonly<{
     section?: Readonly<{ key: string; caption: string }>;
   }>[];
 }>;
+export const appBarHeight = 48;
 export const defaultThemeChoice: ThemeChoice = Object.freeze({
   preset: "md3",
   mode: "light",
