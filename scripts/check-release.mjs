@@ -20,17 +20,7 @@ const dir = join(root, ".scratch", "release", sourceSHA);
 await mkdir(dir, { recursive: true });
 const commands = [];
 const run = (command, args) => {
-  try {
-    execFileSync(command, args, {
-      cwd: root,
-      encoding: "utf8",
-      maxBuffer: 32 << 20,
-    });
-  } catch (error) {
-    if (error.stdout) process.stderr.write(error.stdout);
-    if (error.stderr) process.stderr.write(error.stderr);
-    throw error;
-  }
+  execFileSync(command, args, { cwd: root, stdio: "inherit" });
   commands.push({ command: [command, ...args], exitCode: 0 });
   console.log(`✓ ${command} ${args.join(" ")}`);
 };
