@@ -21,37 +21,6 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-it("closes a record from its title area and returns focus without clearing the query", async () => {
-  const { model, rows, record, term } = fixture();
-  viewport(390);
-  record.readOnly = true;
-  record.operations.update!.disabled = true;
-  rows.page = 2;
-  rows.total = 21;
-  term.value = "保留的条件";
-  wrapper = await render(model);
-  const view = wrapper.get<HTMLButtonElement>('button[aria-label="查看"]');
-  view.element.focus();
-  await view.trigger("click");
-  await flushPromises();
-
-  const dialog = document.querySelector('[role="dialog"]')!;
-  const title = dialog.querySelector("header")!;
-  expect(title.textContent).toContain("记录");
-  const close = Array.from(title.querySelectorAll("button")).find(
-    (button) => button.textContent?.trim() === "关闭",
-  );
-  expect(close).toBeDefined();
-  close!.click();
-  await flushPromises();
-
-  expect(document.querySelector('[role="dialog"]')).toBeNull();
-  expect(document.activeElement).toBe(view.element);
-  expect(input("条件").element.value).toBe("保留的条件");
-  expect(rows.page).toBe(2);
-  expect(rows.selected).toBeNull();
-});
-
 it("presents a mobile read-only text value in a wrapping labeled field", async () => {
   viewport(390);
   const { model, record, name } = fixture();

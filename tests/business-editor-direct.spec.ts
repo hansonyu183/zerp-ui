@@ -9,7 +9,7 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 it("shows record loading only while the dialog reads the record", async () => {
-  const { model, record, name } = fixture();
+  const { model, rows, record, name } = fixture();
   let finishRead!: () => void;
   let finishSave!: () => void;
   let failRead!: (error: Error) => void;
@@ -54,6 +54,7 @@ it("shows record loading only while the dialog reads the record", async () => {
   finishSave();
   await flushPromises();
   await click("关闭");
+  expect(rows.selected).toBeNull();
 
   await click("编辑");
   expect(status()).toBe("正在读取…");

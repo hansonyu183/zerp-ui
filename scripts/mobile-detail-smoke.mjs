@@ -38,7 +38,9 @@ export async function mobileDetailSmoke(page) {
     name: "合成手机详情",
     exact: true,
   });
-  const close = dialog.getByRole("button", { name: "关闭", exact: true });
+  const close = dialog
+    .locator("header")
+    .getByRole("button", { name: "关闭", exact: true });
   const body = dialog.locator(".zerp-record-dialog__body");
   const note = dialog.getByRole("textbox", { name: "单据备注", exact: true });
   const record = dialog.getByRole("textbox", {
