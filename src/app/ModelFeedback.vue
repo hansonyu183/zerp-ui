@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { feedbackForApplication } from "../../app/operations";
-import { applicationReady } from "../../app/session";
-import type { CollectionTarget } from "../../model/business-model";
+import { feedbackForApplication } from "./feedback";
+import { applicationReady } from "./session";
+import type { NodeOrCollection } from "../model/operations";
+import type { CollectionTarget } from "../model/business-model";
 import { computed, useId, watch } from "vue";
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import {
@@ -15,12 +16,11 @@ import {
 } from "vuetify/components";
 import {
   isCollection,
-  type NodeOrCollection,
   ancestors as nodeAncestors,
   readable as nodeReadable,
-} from "../../app/nodes";
-import Feedback from "./Feedback.vue";
-import { appBarHeight } from "../../styles/theme";
+} from "./nodes";
+import Feedback from "../components/feedback/Feedback.vue";
+import { appBarHeight } from "../styles/theme";
 
 const props = defineProps<{
   target?: NodeOrCollection;

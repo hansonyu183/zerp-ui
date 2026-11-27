@@ -235,6 +235,18 @@
       "surface": "source/public-entry",
       "assertion": "业务操作资格及撤权即时反馈，调用前重检及执行互斥"
     },
+    "unit-operation-pending": {
+      "file": "tests/static-application.spec.ts",
+      "anchor": "reserves synchronous operations without showing pending and guards later async runs",
+      "surface": "source/public-entry",
+      "assertion": "同步回调防重入且不显示忙碌，普通函数返回 Promise 时防重复调用，旧会话的完成结果不清除新执行的忙碌状态"
+    },
+    "unit-reference-sync-load": {
+      "file": "tests/static-fields.spec.ts",
+      "anchor": "presents synchronous reference candidates without showing a loader",
+      "surface": "source/public-entry",
+      "assertion": "引用候选同步回调立即呈现结果且不显示加载提示"
+    },
     "unit-mobile-action-overflow": {
       "file": "tests/editor-direct.spec.ts",
       "anchor": "keeps the primary record action in reach on phones",
@@ -472,10 +484,12 @@
         "package-save-qualification",
         "package-auth-alignment",
         "unit-auth-session-actions",
-        "unit-available-operations"
+        "unit-available-operations",
+        "unit-operation-pending",
+        "unit-reference-sync-load"
       ],
-      "remaining": "覆盖代表性撤权、禁用及运行中互斥、登录操作和手动会话恢复入口移除。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。",
-      "requirementSha256": "dadc41c2f295c64d9c3c4f2997d04e54ddb43faf5b39ca730dec9baf6054692f"
+      "remaining": "覆盖代表性撤权、禁用、查询及保存的运行中互斥、按回调返回值呈现忙碌、登录操作和手动会话恢复入口移除。互斥覆盖未穷举全部后端回调。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。",
+      "requirementSha256": "8d690477ca430e270b982f1db6579633f8ab6deca5eaf4a3af649c44a9ec0c03"
     },
     {
       "id": "UI-ACTION-04",

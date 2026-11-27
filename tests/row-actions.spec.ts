@@ -14,12 +14,10 @@ const props = {
 
 describe("public list row actions", () => {
   it("shows three named icon actions and puts the fourth in the more menu", async () => {
+    const actionsForRow = vi.fn(() => ["edit", "disable", "clone", "delete"]);
     const wrapper = mount(DataList as Component, {
       attachTo: document.body,
-      props: {
-        ...props,
-        actions: () => ["edit", "disable", "clone", "delete"],
-      },
+      props: { ...props, actions: actionsForRow },
     });
     try {
       const actions = wrapper.get('td[data-label="操作"]');
@@ -34,6 +32,7 @@ describe("public list row actions", () => {
       expect(actions.find('[aria-label="删除"]').exists()).toBe(false);
       await actions.get('[aria-label="编辑"]').trigger("click");
       expect(wrapper.emitted("action")?.[0]).toEqual(["edit", row]);
+      expect(actionsForRow).toHaveBeenCalledTimes(1);
       await actions.get('[aria-label="更多操作"]').trigger("click");
       await flushPromises();
       const item = document.querySelector('[role="menuitem"]') as HTMLElement;

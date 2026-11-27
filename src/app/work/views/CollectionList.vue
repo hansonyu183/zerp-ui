@@ -1,6 +1,12 @@
 <script setup lang="ts">
 // 将集合模型投影为列表行、操作和报表呈现事实，并将交互交回集合视图。
-import { isPending, runOperation, type QueryView } from "../../operations";
+import { isPending } from "../../usePending";
+import { runOperation } from "../../node-actions";
+import {
+  nodeOperations,
+  type NodeOrCollection,
+} from "../../../model/operations";
+import type { QueryView } from "../reads";
 
 import { computed, toRaw } from "vue";
 import { useDisplay } from "vuetify";
@@ -16,16 +22,10 @@ import type {
   ListCollection,
   ObjectNode,
 } from "../../../model/business-model";
-import {
-  type NodeOrCollection,
-  allowed as nodeAllows,
-  available as nodeAvailable,
-  operations as nodeOperations,
-  readable as nodeReadable,
-} from "../../nodes";
+import { readable as nodeReadable } from "../../nodes";
 import type { FieldNode } from "../../../model/business-model";
 import { formatField } from "../../../components/forms/model-format";
-import { canOpenRecord, targetStamp } from "../../target";
+import { targetStamp } from "../../target";
 import { resolveTarget } from "../work-router";
 type Values = Record<string, string | number | boolean | null>;
 const props = defineProps<{
@@ -112,38 +112,49 @@ function key(row: Values) {
   const node = original(row)!;
   return node.identity ?? String(props.node.items.indexOf(node));
 }
+function rowViewAction(source: ObjectNode) {
+  if (!source.businessType) return;
+  const update = source.operations.update;
+  return update && !update.disabled ? "edit" : "view";
+}
+function canPrintRow(source: ObjectNode) {
+  return (
+    !!props.node.itemPrintTemple &&
+    source.identity !== null &&
+    source.printable &&
+    nodeReadable(props.node)
+  );
+}
+function rowOperation(action: string): action is RowAction {
+  return (
+    action !== "view" &&
+    action !== "edit" &&
+    Object.hasOwn(rowActionIcons, action) &&
+    !(action === "print" && props.node.itemPrintTemple)
+  );
+}
 function actions(row: Values): RowAction[] {
   const source = original(row);
   if (!source || !nodeReadable(source)) return [];
-  const result: RowAction[] = canOpenRecord(source)
-    ? [nodeAvailable(source, "update") ? "edit" : "view"]
-    : [];
-  const itemTemplate = props.node.itemPrintTemple;
-  if (
-    itemTemplate &&
-    source.identity !== null &&
-    source.printable &&
-    nodeAllows(props.node, "itemPrint")
-  )
-    result.push("print");
-  for (const action of Object.keys(nodeOperations(source)))
-    if (
-      action !== "view" &&
-      action !== "edit" &&
-      Object.hasOwn(rowActionIcons, action) &&
-      !(action === "print" && itemTemplate) &&
-      nodeAvailable(source, action)
-    )
-      result.push(action as RowAction);
+  const result: RowAction[] = [];
+  const view = rowViewAction(source);
+  if (view) result.push(view);
+  if (canPrintRow(source)) result.push("print");
+  for (const [action, operation] of Object.entries(nodeOperations(source)))
+    if (operation && !operation.disabled && rowOperation(action))
+      result.push(action);
   return result;
 }
 function showAllActions(row: Values) {
   return !xs.value && !!original(row)?.workflow;
 }
-function reasons(row: Values): Partial<Record<RowAction, string>> {
+function reasons(
+  row: Values,
+  rowActions: readonly RowAction[],
+): Partial<Record<RowAction, string>> {
   const source = original(row);
   return source && isPending(source)
-    ? Object.fromEntries(actions(row).map((action) => [action, "正在处理"]))
+    ? Object.fromEntries(rowActions.map((action) => [action, "正在处理"]))
     : {};
 }
 function select(action: RowAction, row: Values) {
@@ -151,15 +162,16 @@ function select(action: RowAction, row: Values) {
   if (
     !source ||
     !props.node.items.includes(source) ||
-    !actions(row).includes(action) ||
+    !nodeReadable(source) ||
     isPending(source)
   )
     return;
   if (action === "print" && props.node.itemPrintTemple) {
-    emit("print", source);
+    if (canPrintRow(source)) emit("print", source);
     return;
   }
   if (action === "view" || action === "edit") {
+    if (rowViewAction(source) !== action) return;
     const trigger = document.activeElement;
     const list = trigger?.closest(".zerp-list");
     const recordKey = trigger

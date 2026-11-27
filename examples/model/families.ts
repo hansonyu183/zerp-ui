@@ -8,7 +8,7 @@ import type {
   OutputNode,
 } from "@zerp/ui/model";
 const trace = (name: string) => console.log(`synthetic-call:${name}`);
-const operation = (run: () => Promise<void>) => ({
+const operation = (run: () => void | Promise<void>) => ({
   disabled: false,
   run,
 });
@@ -157,7 +157,7 @@ function download() {
 }
 reportRecord.report = {
   operations: {
-    calculate: operation(async () => {
+    calculate: operation(() => {
       trace("report.calculate");
       result.value = (
         Number(quantity.value) * Number(questions.value.factor || 10)
@@ -186,9 +186,9 @@ questions.items = [
         label: "菜单计算",
         target: {
           kind: "action",
-          operation: operation(async () => {
+          operation: operation(() => {
             trace("script.menu");
-            await reportRecord.report!.operations.calculate!.run();
+            return reportRecord.report!.operations.calculate!.run();
           }),
         },
       },
@@ -209,9 +209,9 @@ questions.items = [
             label: "树计算",
             target: {
               kind: "action",
-              operation: operation(async () => {
+              operation: operation(() => {
                 trace("script.tree");
-                await reportRecord.report!.operations.calculate!.run();
+                return reportRecord.report!.operations.calculate!.run();
               }),
             },
           },

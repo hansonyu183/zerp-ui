@@ -1,18 +1,11 @@
 // 把静态集合结构映射为浏览器页面路由，管理路由的挂载和释放。
-import { computed, onBeforeUnmount, provide, reactive, shallowRef } from "vue";
-import {
-  createRouter,
-  createWebHistory,
-  routeLocationKey,
-  routerKey,
-  type RouteLocationNormalizedLoaded,
-  type Router,
-} from "vue-router";
+import { computed, onBeforeUnmount, shallowRef } from "vue";
+import { createRouter, createWebHistory, type Router } from "vue-router";
 import type {
   CollectionTarget,
   ListCollection,
 } from "../../model/business-model";
-import { collectionEntries } from "../nodes";
+import { collectionEntries } from "./structure";
 import { readableTarget } from "../target";
 
 const activeRouter = shallowRef<Router>();
@@ -45,8 +38,12 @@ export const routedCollection = computed(() =>
   routesForWork.value.byPath.get(routePath.value),
 );
 
-export function collectionHref(collection?: ListCollection | null) {
-  return collection ? routesForWork.value.byCollection.get(collection) : "/";
+// 页面内部路由使用未包含 base 的路径，原生链接由 Router 生成。
+export const homeHref = computed(() => activeRouter.value!.resolve("/").href);
+
+export function collectionHref(collection: ListCollection) {
+  const path = routesForWork.value.byCollection.get(collection);
+  return path && activeRouter.value?.resolve(path).href;
 }
 
 // 已授权的记录在窗口中打开，只有集合目标拥有页面链接。
@@ -63,8 +60,10 @@ export function targetHref(target: CollectionTarget) {
     return collectionHref(target.collection);
 }
 
-export function goToCollection(collection?: ListCollection | null) {
-  const path = collectionHref(collection);
+export function goToCollection(collection?: ListCollection) {
+  const path = collection
+    ? routesForWork.value.byCollection.get(collection)
+    : "/";
   if (path) void activeRouter.value?.push(path);
 }
 
@@ -76,16 +75,6 @@ export function useWorkRouter() {
   });
   activeRouter.value = router;
   ready.value = false;
-  provide(routerKey, router);
-  const location = {} as RouteLocationNormalizedLoaded;
-  for (const key of Object.keys(router.currentRoute.value)) {
-    const property = key as keyof RouteLocationNormalizedLoaded;
-    Object.defineProperty(location, property, {
-      enumerable: true,
-      get: () => router.currentRoute.value[property],
-    });
-  }
-  provide(routeLocationKey, reactive(location));
   void router.replace(history.location).then(() => {
     if (activeRouter.value === router) ready.value = true;
   });

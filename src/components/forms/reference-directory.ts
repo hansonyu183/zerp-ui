@@ -1,103 +1,84 @@
 import { toRaw } from "vue";
 
-export type ReferenceValue = {
-  id: string;
-  label: string;
-  selectable?: boolean;
-  snapshot?: unknown;
-};
 export type ReferenceAdapter = {
   directory: object;
-  dependencies?: readonly unknown[];
-  load(input: {
-    scope: string;
-    signal: AbortSignal;
-  }): Promise<readonly ReferenceValue[]>;
+  scopeKey?: string;
+  load(): void | Promise<void>;
 };
 
 type Directory = {
-  scope: string;
-  controller: AbortController;
-  value: Promise<readonly ReferenceValue[]>;
+  result?: true | Promise<void>;
   readers: number;
-  settled: boolean;
 };
 type Cache = Map<string, Directory>;
-const directories = new WeakMap<object, Cache>();
-const caches = new Set<WeakRef<Cache>>();
-function key(adapter: ReferenceAdapter, scope: string) {
-  return JSON.stringify([scope, adapter.dependencies ?? []]);
-}
+// 先按会话隔离，再按字段引用和业务依赖复用候选目录。
+const scopes = new Map<string, WeakMap<object, Cache>>();
+
 /** A complete directory, shared by fields in the same owner/dependency scope. */
 export function readReferenceDirectory(
   adapter: ReferenceAdapter,
   scope: string,
 ) {
+  let directories = scopes.get(scope);
+  if (!directories) scopes.set(scope, (directories = new WeakMap()));
   const identity = toRaw(adapter.directory);
   let cache = directories.get(identity);
-  if (!cache) {
-    directories.set(identity, (cache = new Map()));
-    caches.add(new WeakRef(cache));
-  }
-  const cacheKey = key(adapter, scope);
+  if (!cache) directories.set(identity, (cache = new Map()));
+  const cacheKey = adapter.scopeKey ?? "";
   let entry = cache.get(cacheKey);
   if (!entry) {
-    const controller = new AbortController();
-    entry = {
-      scope,
-      controller,
-      readers: 0,
-      settled: false,
-      value: Promise.resolve([]),
-    };
+    entry = { readers: 0 };
     const current = entry;
-    current.value = Promise.resolve()
-      .then(() => adapter.load({ scope, signal: controller.signal }))
-      .catch((error) => {
-        if (cache!.get(cacheKey) === current) cache!.delete(cacheKey);
-        throw error;
-      })
-      .finally(() => {
-        current.settled = true;
-      });
     cache.set(cacheKey, current);
+    const remove = () => {
+      if (cache.get(cacheKey) === current) cache.delete(cacheKey);
+    };
+    try {
+      const result = adapter.load();
+      current.result =
+        typeof result?.then === "function"
+          ? Promise.resolve(result).then(
+              () => {
+                current.result = true;
+              },
+              (error: unknown) => {
+                remove();
+                throw error;
+              },
+            )
+          : true;
+    } catch (error) {
+      remove();
+      throw error;
+    }
   }
+  if (!entry.result) return;
   entry.readers++;
   const current = entry;
   let released = false;
   return {
-    value: current.value,
+    pending: entry.result === true ? undefined : entry.result,
     release() {
       if (released) return;
       released = true;
       current.readers--;
-      if (!current.readers && !current.settled) {
-        current.controller.abort();
-        if (cache!.get(cacheKey) === current) cache!.delete(cacheKey);
-      }
+      if (
+        !current.readers &&
+        current.result !== true &&
+        cache.get(cacheKey) === current
+      )
+        cache.delete(cacheKey);
     },
   };
 }
 export function clearReferenceDirectory(
-  adapter: ReferenceAdapter,
+  directory: object,
   scope: string,
+  scopeKey: string,
 ) {
-  const cache = directories.get(toRaw(adapter.directory));
-  const cacheKey = key(adapter, scope);
-  cache?.get(cacheKey)?.controller.abort();
-  cache?.delete(cacheKey);
+  scopes.get(scope)?.get(toRaw(directory))?.delete(scopeKey);
 }
+
 export function clearReferenceScope(scope: string) {
-  for (const reference of caches) {
-    const cache = reference.deref();
-    if (!cache) {
-      caches.delete(reference);
-      continue;
-    }
-    for (const [key, entry] of cache)
-      if (entry.scope === scope) {
-        entry.controller.abort();
-        cache.delete(key);
-      }
-  }
+  scopes.delete(scope);
 }

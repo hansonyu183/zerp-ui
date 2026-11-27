@@ -8,18 +8,18 @@ import {
   VCardText,
   VDialog,
 } from "vuetify/components";
-import { available, editable, handleable } from "../../nodes";
-import {
-  feedbackForApplication,
-  isReading,
-  recordLoadFailed,
-} from "../../operations";
+import { allowed, available, editable } from "../../nodes";
+import { feedbackForApplication } from "../../feedback";
+import { isReading, recordLoadFailed } from "../reads";
 import type { RecordWindowsState, RecordWindow } from "./record-windows";
 import { targetHref } from "../work-router";
-import type { CollectionTarget } from "../../../model/business-model";
+import type {
+  CollectionTarget,
+  ObjectNode,
+} from "../../../model/business-model";
 import RecordDialog from "./RecordDialog.vue";
 import Node from "../../../components/nodes/Node.vue";
-import ModelFeedback from "../../../components/feedback/ModelFeedback.vue";
+import ModelFeedback from "../../ModelFeedback.vue";
 import TemplatePrint from "../TemplatePrint.vue";
 
 const props = defineProps<{ windows: RecordWindowsState }>();
@@ -41,6 +41,26 @@ const foreground = computed(
     visible.value.find((entry) => entry.type === active.value) ??
     visible.value.at(-1),
 );
+function handleable(node: ObjectNode) {
+  if (
+    node.processing &&
+    Object.keys(node.processing.operations).some((action) =>
+      allowed(node, action),
+    )
+  )
+    return true;
+  return (
+    [node.document, node.workflow, node.batch, node.report].some((capability) =>
+      Object.keys(capability?.operations ?? {}).some((action) =>
+        available(node, action),
+      ),
+    ) ||
+    (!!node.output &&
+      (available(node, "confirmPrinted") ||
+        available(node, "confirmNotPrinted")))
+  );
+}
+
 function readOnly(entry: RecordWindow) {
   return (
     entry.print ||

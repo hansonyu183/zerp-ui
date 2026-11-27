@@ -7,19 +7,16 @@ import type {
   ListCollection,
   ObjectNode,
 } from "../../../model/business-model";
-import {
-  isPending,
-  loadPage,
-  queryView as getQueryView,
-  runOperation,
-} from "../../operations";
-import { available, operations, readable as nodeReadable } from "../../nodes";
-import { currentModel, sessionScope, sessionState } from "../../session";
+import { isPending } from "../../usePending";
+import { runOperation } from "../../node-actions";
+import { readCollection, queryView as getQueryView } from "../reads";
+import { readable as nodeReadable } from "../../nodes";
+import { sessionVersion } from "../../session";
 import { routedCollection } from "../work-router";
 import type { RecordRequest } from "../dialogs/record-windows";
-import { reportPosition, saveReportPosition } from "./report-position";
+import { reportPosition, saveReportPosition } from "../report-position";
 import Node from "../../../components/nodes/Node.vue";
-import ModelFeedback from "../../../components/feedback/ModelFeedback.vue";
+import ModelFeedback from "../../ModelFeedback.vue";
 import ActionGroup from "../../../components/nodes/ActionGroup.vue";
 import CollectionList from "./CollectionList.vue";
 import TemplatePrint from "../TemplatePrint.vue";
@@ -32,11 +29,16 @@ const emit = defineEmits<{
   open: [request: RecordRequest];
   visit: [target: CollectionTarget];
 }>();
-const actions = computed(() =>
-  Object.keys(operations(props.collection)).filter(
-    (name) => name !== "query" && available(props.collection, name),
-  ),
-);
+const actions = computed(() => {
+  const collection = props.collection;
+  if (!nodeReadable(collection)) return [];
+  return Object.entries(collection.operations)
+    .filter(
+      ([name, operation]) =>
+        name !== "query" && operation && !operation.disabled,
+    )
+    .map(([name]) => name);
+});
 const pending = computed(() => isPending(props.collection));
 function openDetail(
   record: ObjectNode,
@@ -95,21 +97,15 @@ async function query() {
 }
 async function readPage(page: number, explicit = false) {
   const collection = props.collection;
-  const model = currentModel.value;
-  const scope = sessionScope.value;
-  const state = sessionState.value;
-  const work = model?.work;
+  const session = sessionVersion.value;
   if (
-    (await loadPage(collection, page, explicit)) &&
+    (await readCollection(collection, page, explicit)) &&
     collection.report &&
-    currentModel.value === model &&
-    model?.work === work &&
-    sessionScope.value === scope &&
-    sessionState.value === state
+    sessionVersion.value === session
   )
     saveReportPosition(collection, { left: 0, top: 0 });
 }
-const initialScope = sessionScope.value;
+const initialSession = sessionVersion.value;
 const initialNode = props.collection;
 let scrollFrame: number | undefined;
 onMounted(() => {
@@ -123,7 +119,7 @@ onBeforeUnmount(() => {
   if (scrollFrame !== undefined) cancelAnimationFrame(scrollFrame);
   if (
     initialNode.report &&
-    initialScope === sessionScope.value &&
+    initialSession === sessionVersion.value &&
     nodeReadable(initialNode) &&
     routedCollection.value === initialNode
   )

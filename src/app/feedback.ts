@@ -1,14 +1,18 @@
 // 按模型、会话和业务节点分派反馈，使局部消息能回到对应页面或记录窗口。
 import {
   computed,
+  nextTick,
+  onScopeDispose,
   shallowReactive,
   shallowRef,
   toRaw,
   watch,
-  type Ref,
 } from "vue";
 import type { BusinessModel } from "../model/business-model";
-import type { NodeOrCollection } from "./nodes";
+import { ancestors, readable } from "./nodes";
+import { nodeOperations, type NodeOrCollection } from "../model/operations";
+import { sessionScope, sessionVersion } from "./session";
+import { run } from "./usePending";
 
 type Message = BusinessModel["messages"][number];
 type Failure = {
@@ -23,14 +27,9 @@ type Placement = {
   consumed?: boolean;
 };
 
-export function directFeedback(
-  model: () => BusinessModel,
-  scope: Ref<string>,
-  readable: (node: NodeOrCollection) => boolean,
-  ancestors: (node: NodeOrCollection) => NodeOrCollection[],
-  needsResolution: (node: NodeOrCollection) => boolean,
-  soleExecution: () => symbol | undefined,
-) {
+function directFeedback(model: () => BusinessModel) {
+  const active = new Map<symbol, { key: object; session: number }>();
+  let page = 0;
   // 记录消息出现时的模型和会话归属，防止旧消息在切换后重新出现。
   const owners = new WeakMap<
     Message,
@@ -60,10 +59,11 @@ export function directFeedback(
         if (owner?.revision !== revision)
           owners.set(key, {
             model: owner?.model ?? toRaw(model()),
-            scope: owner?.scope ?? scope.value,
+            scope: owner?.scope ?? sessionScope.value,
             revision,
             order: ++order,
-            execution: soleExecution(),
+            execution:
+              active.size === 1 ? active.keys().next().value : undefined,
           });
       }
     },
@@ -83,7 +83,7 @@ export function directFeedback(
       const target = targetOf(message);
       return (
         owner?.model === toRaw(model()) &&
-        owner.scope === scope.value &&
+        owner.scope === sessionScope.value &&
         !!message.text.trim() &&
         (!target || readable(target))
       );
@@ -124,6 +124,22 @@ export function directFeedback(
     const target = location(node ?? null);
     const token = target && localTargets.get(target);
     return () => !target || localTargets.get(target) === token;
+  }
+  function needsResolution(node: NodeOrCollection) {
+    // eligible 已排除当前不可读的目标。
+    if (
+      "kind" in node &&
+      (node.kind === "reference" || node.kind === "treeReference")
+    )
+      return node.load?.disabled === true;
+    const account = model().work.account;
+    const isPassword = toRaw(node) === toRaw(account.password);
+    const operations = nodeOperations(node, isPassword);
+    return (
+      (isPassword && account.operations.changePassword.disabled) ||
+      operations.reconcile?.disabled === false ||
+      Object.values(operations).some((operation) => operation?.disabled)
+    );
   }
   function resolution(message: Message) {
     const target = targetOf(message);
@@ -275,23 +291,129 @@ export function directFeedback(
     };
   }
 
+  // 旧回调完成前仍参与消息归属判断。页面切换只隔离页面反馈。
+  function begin(key: object, target?: NodeOrCollection) {
+    key = toRaw(key);
+    const session = sessionVersion.value;
+    const initialPage = page;
+    const execution = Symbol();
+    const before = start();
+    const present = capture(target);
+    active.set(execution, { key, session });
+    return {
+      visible: (inWindow = false) =>
+        (inWindow || initialPage === page) && present(),
+      queryFailure() {
+        const notice = specific(before, target, execution, true);
+        if (notice && !notice.blocking) place(notice, target ?? null, true);
+        return notice;
+      },
+      reportFailure() {
+        const notice = specific(before, target, execution, false);
+        if (notice) place(notice, notice.target ?? target ?? null);
+        else fail(target ?? null);
+      },
+      finish(current: boolean) {
+        active.delete(execution);
+        if (current) return;
+        const replaced = [...active.values()].some(
+          (entry) =>
+            entry.key === key && entry.session === sessionVersion.value,
+        );
+        if (!replaced) discard(before, target, execution);
+      },
+    };
+  }
+
   return {
     presentWith,
-    capture,
+    begin,
     reason,
     blocking,
     acknowledge,
     transient,
     dismissTransient,
-    start,
-    specific,
-    discard,
-    place,
-    fail,
-    clear: () => (fallback.value = undefined),
+    clear() {
+      page++;
+      fallback.value = undefined;
+    },
   };
 }
 
 function revisionOf(message: Message) {
   return JSON.stringify([message.level, message.text, message.blocking]);
+}
+
+let feedback: ReturnType<typeof directFeedback> | undefined;
+
+export function startFeedback(model: () => BusinessModel) {
+  const channel = directFeedback(model);
+  feedback = channel;
+  onScopeDispose(() => (feedback = undefined));
+
+  // 阻断提示结束后，把焦点交回进入提示前的控件。
+  let returnFocus: HTMLElement | undefined;
+  watch(channel.blocking, (message, previous) => {
+    if (message && !previous) {
+      const active = document.activeElement;
+      returnFocus = active instanceof HTMLElement ? active : undefined;
+    }
+    if (!message && previous) {
+      const trigger = returnFocus;
+      returnFocus = undefined;
+      void nextTick(() => {
+        if (!channel.blocking.value && trigger?.isConnected)
+          trigger.focus({ preventScroll: true });
+      });
+    }
+  });
+
+  return channel;
+}
+
+export function feedbackForApplication() {
+  return feedback!;
+}
+
+// 回调可以同步结束，失败和成功都按同一时点读取当前界面。
+export function settle<T>(
+  callback: () => void | Promise<void>,
+  complete: (success: boolean) => T,
+) {
+  let result;
+  try {
+    result = callback();
+  } catch {
+    return complete(false);
+  }
+  return typeof result?.then === "function"
+    ? Promise.resolve(result).then(
+        () => complete(true),
+        () => complete(false),
+      )
+    : complete(true);
+}
+
+export function runWithFeedback(
+  key: object,
+  callback: () => void | Promise<void>,
+  valid: () => boolean,
+  target?: NodeOrCollection,
+  inWindow = false,
+) {
+  if (!valid()) return;
+  return run(key, () => {
+    const session = sessionVersion.value;
+    const channel = feedbackForApplication();
+    const receipt = channel.begin(key, target);
+    return settle(callback, (success) => {
+      const current =
+        sessionVersion.value === session &&
+        receipt.visible(inWindow) &&
+        valid();
+      if (!success && current) receipt.reportFailure();
+      receipt.finish(current);
+      return success && current;
+    });
+  });
 }

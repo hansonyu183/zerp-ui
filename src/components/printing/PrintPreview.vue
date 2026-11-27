@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, onBeforeUnmount } from "vue";
-import { printMarkup, type PrintDocument } from "./printing";
+import { printMarkup } from "./printing";
+import type { PrintDocument } from "../../model/print";
 import { VBtn } from "vuetify/components";
 import Feedback from "../feedback/Feedback.vue";
 import FeedbackRegion from "../feedback/FeedbackRegion.vue";

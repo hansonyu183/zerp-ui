@@ -1,8 +1,10 @@
 <script setup lang="ts">
 // 呈现工作台的固定区块和快捷目标，记录目标交给 WorkPage 打开。
-import { reloadWorkbench, isPending } from "../../operations";
+import { isPending } from "../../usePending";
+import { readWorkbench } from "../reads";
 
-import { readable as nodeReadable, workbenchSections } from "../../nodes";
+import { readable as nodeReadable } from "../../nodes";
+import { workbenchSections } from "../structure";
 import { computed } from "vue";
 import {
   VCard,
@@ -19,13 +21,13 @@ import type {
   ObjectNode,
 } from "../../../model/business-model";
 import { formatField } from "../../../components/forms/model-format";
-import ModelFeedback from "../../../components/feedback/ModelFeedback.vue";
+import ModelFeedback from "../../ModelFeedback.vue";
 import {
   plainClick,
   renderedHref,
-  targetStamp,
   renderedTarget,
-} from "../../target";
+} from "../../../components/links";
+import { targetStamp } from "../../target";
 import { resolveTarget, targetHref } from "../work-router";
 const props = defineProps<{
   node: Workbench;
@@ -121,7 +123,7 @@ function manage(event: MouseEvent) {
   emit("visit", target);
 }
 function refresh() {
-  void reloadWorkbench(props.node);
+  void readWorkbench(props.node, false);
 }
 </script>
 <template>

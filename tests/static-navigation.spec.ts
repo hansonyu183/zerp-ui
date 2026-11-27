@@ -34,6 +34,33 @@ it("uses array order for root links and domain tabs even with numeric keys", asy
     "第二集合",
   ]);
 });
+it("resolves sidebar, collection tab and brand links against the router base", async () => {
+  const { model, rows } = fixture();
+  const contacts = { ...fixture().rows, key: "contacts", label: "联系人" };
+  model.work.members = [{ ...domainOf(rows), members: [rows, contacts] }];
+  const base = document.createElement("base");
+  base.href = "/suite/";
+  const previous = window.location.pathname;
+  document.head.prepend(base);
+  window.history.replaceState(window.history.state, "", "/suite/business/rows");
+  try {
+    wrapper = await render(model);
+    expect(wrapper.get("nav a").attributes("href")).toBe(
+      "/suite/business/rows",
+    );
+    expect(wrapper.get(".zerp-shell-brand").attributes("href")).toBe("/suite/");
+    const contactTab = wrapper.findAll('[role="tab"]')[1]!;
+    expect(contactTab.attributes("href")).toBe("/suite/business/contacts");
+    await contactTab.trigger("click");
+    await flushPromises();
+    expect(window.location.pathname).toBe("/suite/business/contacts");
+  } finally {
+    wrapper?.unmount();
+    wrapper = undefined;
+    base.remove();
+    window.history.replaceState(window.history.state, "", previous);
+  }
+});
 it("derives ordered domain links and folded sections, preserving page titles and real links", async () => {
   const f = fixture();
   const second = { ...f.rows, key: "second", label: "AC 业务入口" };

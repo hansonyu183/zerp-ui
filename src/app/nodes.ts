@@ -1,76 +1,20 @@
 // 从静态模型索引节点归属，并根据节点可读性、只读状态和操作资格决定可呈现内容。
 import { computed, toRaw } from "vue";
 import type {
-  DomainGroup,
-  DomainSection,
   Node,
   ListCollection,
   CollectionTarget,
   ObjectNode,
-  Operation,
   Workbench,
 } from "../model/business-model";
-import { draftOrigin } from "./work/dialogs/record-draft";
+import { nodeOperation, type NodeOrCollection } from "../model/operations";
+import { collectionEntries, workbenchSections } from "./work/structure";
+import { draftOrigin } from "./record-draft";
 import { applicationReady, currentModel, sessionState } from "./session";
 
-export type NodeOrCollection = Node | ListCollection;
 export function isCollection(node: NodeOrCollection): node is ListCollection {
   return "conditions" in node;
 }
-type DomainEntry = {
-  domain: DomainGroup;
-  path: string[];
-  section?: DomainSection;
-};
-
-// 导航、路由和节点索引共用业务模型的静态顺序与路径。
-export const workGroups = computed(() =>
-  (currentModel.value?.work.members ?? []).map((member) => {
-    const domains: DomainEntry[] = [];
-    if ("kind" in member) {
-      if (member.kind === "domain")
-        domains.push({ domain: member, path: [member.key] });
-      else {
-        for (const child of member.members) {
-          if (child.kind === "domain")
-            domains.push({ domain: child, path: [member.key, child.key] });
-          else
-            for (const domain of child.members)
-              domains.push({
-                domain,
-                path: [member.key, child.key, domain.key],
-                section: child,
-              });
-        }
-      }
-    }
-    return { member, domains };
-  }),
-);
-export const collectionEntries = computed(() =>
-  workGroups.value.flatMap<{
-    collection: ListCollection;
-    path: string[];
-    domain?: DomainGroup;
-  }>(({ member, domains }) => {
-    if (!("kind" in member))
-      return [{ collection: member, path: [member.key], domain: undefined }];
-    return domains.flatMap(({ domain, path }) =>
-      domain.members.map((collection) => ({
-        collection,
-        path: [...path, collection.key],
-        domain,
-      })),
-    );
-  }),
-);
-
-export function workbenchSections(workbench: Workbench) {
-  return (["information", "vouchers", "reports", "masters"] as const).map(
-    (role) => ({ role, node: workbench[role] }),
-  );
-}
-
 function indexNodes() {
   const paths = new Map<object, NodeOrCollection[]>();
   const targets: CollectionTarget[] = [];
@@ -195,100 +139,30 @@ export function writable(node: NodeOrCollection): boolean {
     )
   );
 }
-export function operations(
-  node: NodeOrCollection,
-): Record<string, Operation<never>> {
-  const model = currentModel.value;
-  if (!model) return {};
-  if (same(node, model.authentication.form))
-    return model.authentication.operations;
-  if (same(node, model.work.account.password))
-    return {
-      ...model.work.account.password.operations,
-      changePassword: model.work.account.operations.changePassword,
-    };
-  if (!isCollection(node) && node.kind === "object")
-    return {
-      ...node.document?.operations,
-      ...node.workflow?.operations,
-      ...node.processing?.operations,
-      ...node.batch?.operations,
-      ...node.report?.operations,
-      ...node.output?.operations,
-      ...node.operations,
-    };
-  return "operations" in node
-    ? (node.operations as Record<string, Operation>)
-    : "load" in node && node.load
-      ? { load: node.load }
-      : {};
-}
-function actionAllowed(
-  node: NodeOrCollection,
-  action: string,
-  publicAuth: boolean,
-  operation?: Operation<never>,
-) {
-  const automatic =
+function automaticPrint(node: NodeOrCollection, action: string) {
+  return (
     isCollection(node) &&
-    ((action === "print" && node.printTemple) ||
-      (action === "itemPrint" && node.itemPrintTemple));
-  if (!operation && !automatic) return false;
-  if (publicAuth)
-    return (
-      !!currentModel.value &&
-      same(node, currentModel.value.authentication.form) &&
-      node.readable !== false &&
-      sessionState.value === "anonymous" &&
-      action === "signIn"
-    );
-  return readable(node);
-}
-export function allowed(
-  node: NodeOrCollection,
-  action: string,
-  publicAuth = false,
-  expected?: Operation<never>,
-) {
-  const operation = operations(node)[action];
-  return (
-    (!expected || operation === expected) &&
-    actionAllowed(node, action, publicAuth, operation)
-  );
-}
-export function available(
-  node: NodeOrCollection,
-  action: string,
-  publicAuth = false,
-) {
-  const operation = operations(node)[action];
-  return (
-    actionAllowed(node, action, publicAuth, operation) && !operation?.disabled
-  );
-}
-export function editable(node: NodeOrCollection) {
-  return allowed(node, "update");
-}
-export function handleable(node: ObjectNode) {
-  if (
-    node.processing &&
-    Object.keys(node.processing.operations).some((action) =>
-      allowed(node, action),
-    )
-  )
-    return true;
-  return (
-    [node.document, node.workflow, node.batch, node.report].some((capability) =>
-      Object.keys(capability?.operations ?? {}).some((action) =>
-        available(node, action),
-      ),
-    ) ||
-    (!!node.output &&
-      (available(node, "confirmPrinted") ||
-        available(node, "confirmNotPrinted")))
+    ((action === "print" && !!node.printTemple) ||
+      (action === "itemPrint" && !!node.itemPrintTemple))
   );
 }
 
+export function allowed(node: NodeOrCollection, action: string) {
+  return (
+    (automaticPrint(node, action) || !!nodeOperation(node, action)) &&
+    readable(node)
+  );
+}
+
+export function available(node: NodeOrCollection, action: string) {
+  const operation = nodeOperation(node, action);
+  if (operation) return !operation.disabled && readable(node);
+  return automaticPrint(node, action) && readable(node);
+}
+
+export function editable(node: NodeOrCollection) {
+  return allowed(node, "update");
+}
 export function independent(node: NodeOrCollection) {
   return (
     ancestors(node).length === 0 ||

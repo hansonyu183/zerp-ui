@@ -2,7 +2,7 @@
 import { ancestors as nodeAncestors, readable as nodeReadable } from "./nodes";
 import { toRaw } from "vue";
 import { sessionScope } from "./session";
-import type { CollectionTarget, ObjectNode } from "../model/business-model";
+import type { CollectionTarget } from "../model/business-model";
 export function readableTarget(target: CollectionTarget) {
   const parents = target.record ? nodeAncestors(target.record) : [];
   return (
@@ -13,9 +13,6 @@ export function readableTarget(target: CollectionTarget) {
         toRaw(parents[0]!) === toRaw(target.collection) &&
         nodeReadable(target.record)))
   );
-}
-export function canOpenRecord(record: ObjectNode) {
-  return !!record.businessType && nodeReadable(record);
 }
 export function availableTarget(target: CollectionTarget) {
   return (
@@ -43,25 +40,4 @@ export function targetStamp(target?: CollectionTarget) {
     record && targetId(record),
     record?.identity,
   ]);
-}
-export function renderedTarget(event: Event) {
-  return event.currentTarget instanceof HTMLElement
-    ? event.currentTarget.dataset.target
-    : undefined;
-}
-export function plainClick(event: MouseEvent | KeyboardEvent) {
-  return (
-    !event.defaultPrevented &&
-    (!(event instanceof MouseEvent) || event.button === 0) &&
-    !event.ctrlKey &&
-    !event.metaKey &&
-    !event.shiftKey &&
-    !event.altKey
-  );
-}
-
-export function renderedHref(event: MouseEvent | KeyboardEvent) {
-  return event.currentTarget instanceof Element
-    ? event.currentTarget.getAttribute("href")
-    : null;
 }

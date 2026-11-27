@@ -16,10 +16,10 @@ import {
 } from "../../styles/theme";
 import Field from "../../components/forms/Field.vue";
 import FeedbackHost from "../../components/feedback/FeedbackHost.vue";
-import ModelFeedback from "../../components/feedback/ModelFeedback.vue";
-import { available } from "../nodes";
-import { isPending, runOperation } from "../operations";
-import { sessionScope } from "../session";
+import ModelFeedback from "../ModelFeedback.vue";
+import { runWithFeedback } from "../feedback";
+import { isPending } from "../usePending";
+import { currentModel, sessionScope, sessionState } from "../session";
 
 const props = defineProps<{
   model: BusinessModel["authentication"];
@@ -38,11 +38,29 @@ const fields = computed(() => {
     members.find((node): node is FieldNode => node.kind === "password"),
   ].filter((node): node is FieldNode => !!node && node.readable !== false);
 });
-const canSignIn = computed(() => available(props.model.form, "signIn", true));
+const canSignIn = computed(
+  () =>
+    sessionState.value === "anonymous" &&
+    props.model.form.readable !== false &&
+    !props.model.operations.signIn.disabled,
+);
 const pending = computed(() => isPending(props.model.form));
 
 function signIn() {
-  void runOperation(props.model.form, "signIn", true);
+  if (!canSignIn.value) return;
+  const { form, operations } = props.model;
+  const operation = operations.signIn;
+  const identity = form.identity;
+  void runWithFeedback(
+    form,
+    () => operation.run(),
+    () =>
+      sessionState.value === "anonymous" &&
+      currentModel.value?.authentication.form === form &&
+      currentModel.value.authentication.operations.signIn === operation &&
+      form.readable !== false &&
+      form.identity === identity,
+  );
 }
 </script>
 

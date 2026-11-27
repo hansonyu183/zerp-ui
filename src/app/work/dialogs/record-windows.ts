@@ -9,20 +9,16 @@ import {
 } from "vue";
 import type { ListCollection, ObjectNode } from "../../../model/business-model";
 import { readable } from "../../nodes";
-import { loadFirst, retryRecord, runOperation } from "../../operations";
-import {
-  applicationModel,
-  currentModel,
-  sessionScope,
-  sessionState,
-} from "../../session";
+import { runWithFeedback } from "../../feedback";
+import { readRecord } from "../reads";
+import { sessionVersion } from "../../session";
 import {
   draftOrigin,
   edited,
   recordDraft,
   recordValues,
   updateBaseline,
-} from "./record-draft";
+} from "../../record-draft";
 
 export type RecordRequest = {
   collection: ListCollection;
@@ -54,7 +50,7 @@ export function useRecordWindows() {
   );
 
   watch(
-    [currentModel, sessionScope, sessionState],
+    sessionVersion,
     () => {
       windows.clear();
       active.value = undefined;
@@ -91,15 +87,12 @@ export function useRecordWindows() {
       confirm.value = request;
       return;
     }
-    const owner = sessionScope.value;
-    const application = applicationModel.value;
+    const session = sessionVersion.value;
     if (existing) clearSelection(existing, true);
-    if (owner !== sessionScope.value || application !== applicationModel.value)
-      return;
+    if (session !== sessionVersion.value) return;
     collection.selected = record;
     if (
-      owner !== sessionScope.value ||
-      application !== applicationModel.value ||
+      session !== sessionVersion.value ||
       !readable(record) ||
       collection.selected !== record
     )
@@ -117,7 +110,7 @@ export function useRecordWindows() {
     });
     windows.set(type, entry);
     active.value = type;
-    void loadFirst(record, () => windows.get(type)?.record === record)?.then(
+    void readRecord(record, () => windows.get(type)?.record === record)?.then(
       (loaded) => {
         if (entry.edits && loaded && windows.get(type) === entry)
           applyLoaded(entry);
@@ -161,13 +154,21 @@ export function useRecordWindows() {
   }
   // 等待保存时可继续编辑，成功后只确认本次提交覆盖的值。
   async function save(entry: RecordWindow, node: ObjectNode) {
-    const submitted = recordValues(node);
     const original = draftOrigin(node);
-    const result = await runOperation(
+    const operation = original.operations.update;
+    if (!operation || operation.disabled) return;
+    const identity = original.identity;
+    const submitted = recordValues(node);
+    const result = await runWithFeedback(
       original,
-      "update",
-      false,
-      recordDraft(node),
+      () => operation.run(recordDraft(node)),
+      () =>
+        windows.get(entry.type) === entry &&
+        original.identity === identity &&
+        original.operations.update === operation &&
+        readable(original),
+      original,
+      true,
     );
     if (!result || windows.get(entry.type) !== entry) return;
     const saved = recordDraft(original);
@@ -183,7 +184,7 @@ export function useRecordWindows() {
   }
   async function retry(entry: RecordWindow) {
     const current = () => windows.get(entry.type) === entry;
-    if (await retryRecord(entry.record, current)) {
+    if (await readRecord(entry.record, current, false)) {
       if (entry.edits && current()) applyLoaded(entry);
     }
   }

@@ -68,6 +68,33 @@ it("retains finite document, workflow, processing and batch callbacks on unified
     expect(status.value).toBe(expected);
   }
 });
+it("uses the same operation precedence when showing a button and invoking it", async () => {
+  const { model, record } = fixture();
+  const workflow = operation();
+  const batch = operation();
+  record.workflow = { operations: { cancel: workflow } };
+  record.batch = { operations: { cancel: batch } };
+  wrapper = await render(model);
+  await click("编辑");
+  const button = () =>
+    wrapper!
+      .get('[role="dialog"]')
+      .findAll("button")
+      .filter((item) => item.text() === "取消");
+  expect(button()).toHaveLength(1);
+  await button()[0]!.trigger("click");
+  await flushPromises();
+  expect(batch.run).toHaveBeenCalledTimes(1);
+  expect(workflow.run).not.toHaveBeenCalled();
+
+  record.batch.operations.cancel!.disabled = true;
+  await flushPromises();
+  expect(button()).toHaveLength(0);
+  delete record.batch.operations.cancel;
+  await flushPromises();
+  await button()[0]!.trigger("click");
+  expect(workflow.run).toHaveBeenCalledTimes(1);
+});
 it("previews finite documents without treating a preview as confirmed physical printing", async () => {
   const { model, record } = fixture();
   const confirmed = vi.fn(async () => {});

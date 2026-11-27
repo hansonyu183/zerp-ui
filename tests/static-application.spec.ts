@@ -1,6 +1,6 @@
 import { route } from "./fixtures/static-host";
 import { mount, flushPromises, enableAutoUnmount } from "@vue/test-utils";
-import { reactive } from "vue";
+import { nextTick, reactive } from "vue";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../src/index";
 import { domainOf, field } from "./fixtures/static-model";
@@ -219,6 +219,53 @@ it("loads the workbench once per session and retries only on request", async () 
   expect(wrapper.text()).toContain("操作失败");
   wrapper.unmount();
 });
+it("reserves synchronous operations without showing pending and guards later async runs", async () => {
+  const { model, collection } = fixture();
+  let button: HTMLButtonElement;
+  let localPending = true;
+  const local = vi.fn(() => {
+    if (local.mock.calls.length === 1) button.click();
+    void nextTick(() => {
+      localPending = button.disabled;
+    });
+  });
+  collection.operations.export = { disabled: false, run: local };
+
+  const wrapper = mount(App, { props: { model }, attachTo: document.body });
+  await flushPromises();
+  const exportButton = () =>
+    wrapper.findAll("button").find((item) => item.text() === "导出")!;
+  button = exportButton().element as HTMLButtonElement;
+  await exportButton().trigger("click");
+  await flushPromises();
+  expect(local).toHaveBeenCalledTimes(1);
+  expect(localPending).toBe(false);
+
+  const release: Array<() => void> = [];
+  const remote = vi.fn(
+    () => new Promise<void>((resolve) => release.push(resolve)),
+  );
+  collection.operations.export.run = remote;
+  await exportButton().trigger("click");
+  expect((exportButton().element as HTMLButtonElement).disabled).toBe(true);
+  await exportButton().trigger("click");
+  expect(remote).toHaveBeenCalledTimes(1);
+
+  model.session = {
+    state: "ready",
+    owner: { ledger: "synthetic", operator: "tester", generation: "2" },
+  };
+  await flushPromises();
+  await exportButton().trigger("click");
+  expect(remote).toHaveBeenCalledTimes(2);
+  release[0]!();
+  await flushPromises();
+  expect((exportButton().element as HTMLButtonElement).disabled).toBe(true);
+  release[1]!();
+  await flushPromises();
+  expect((exportButton().element as HTMLButtonElement).disabled).toBe(false);
+});
+
 it("edits the selected record directly, preserves failed input, and prevents disabled or duplicate saves", async () => {
   const { model, collection } = fixture();
   const row = object("customer", "客户详情");

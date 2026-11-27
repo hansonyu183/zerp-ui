@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 从集合的打印模板生成当前页或单条记录的预览，并管理排版的生命周期。
-import { isPending } from "../operations";
+import { isPending } from "../usePending";
 import { sessionScope } from "../session";
 import { allowed as nodeAllows, readable as nodeReadable } from "../nodes";
 import { computed, ref, watch } from "vue";

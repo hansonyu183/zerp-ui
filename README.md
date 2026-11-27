@@ -4,14 +4,14 @@
 
 ## 固定版本安装
 
-当前已发布版本为 [ui-v0.49.4](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.49.4)，采用静态 BusinessModel 协议，公开组件名为 `BusinessApplication`。从该 Release 下载 `zerp-ui-0.49.4.tgz` 与 `SHA256SUMS`，核对摘要后安装：
+当前发行版本为 [ui-v0.50.0](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.50.0)，采用静态 BusinessModel 协议，公开组件名为 `App`。下载 `zerp-ui-0.50.0.tgz` 与 `SHA256SUMS`，核对摘要后安装。
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.49.4.tgz
+pnpm add ./zerp-ui-0.50.0.tgz
 ```
 
-0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化唯一一套 Vue、Vuetify 和 Router。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，以 `createVuetify({ theme: createShellThemes() })` 初始化主题。`createShellThemes({ primary, secondary })` 接受可选品牌色。两项主题导出均来自 `@zerp/ui`，其中 `defaultThemeChoice` 为 MD3 浅色。需要持久化主题选择时，通过 `BusinessModel.theme.value/change` 交给消费者处理。
+0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化 Vue 和 Vuetify，集合路由由 UI 库管理。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，以 `createVuetify({ theme: createShellThemes() })` 初始化主题。`createShellThemes({ primary, secondary })` 接受可选品牌色。两项主题导出均来自 `@zerp/ui`，其中 `defaultThemeChoice` 为 MD3 浅色。需要持久化主题选择时，通过 `BusinessModel.theme.value/change` 交给消费者处理。
 
 ## 公开入口与迁移
 
@@ -35,7 +35,7 @@ import { model } from "./consumer";
 
 认证表单归 `authentication`，账户、导航、工作台和业务成员归 `work`。工作区的 `work.members` 包含业务栏目 `Category`、领域 `DomainGroup` 或直属 `Collection`；领域分组仅组织一层并列集合，多个获权集合用 Material Tabs 切换，单集合直接展示；切换保留各自输入、条件与分页，不拥有整体保存，各集合独立查询、授权和保存。集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label` 是显示名称。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
 
-输入直接更新字段值；`Operation` 必须提供 `disabled` 与无参数异步 `run()`。业务回调处理 API、冲突、请求有效性和未知结果恢复。库不保存编辑基线、冻结请求或前端原请求日志，不拦截普通草稿离开。旧公开结构没有兼容入口。仍有效的流程、处理、批次、报表与输出分别使用固定能力属性；不是任意命令、页面模板或组件映射。
+输入直接更新字段值；`Operation` 提供 `disabled` 和 `run(input)`。同步操作返回 `void`，异步操作返回代表完成的 `Promise<void>`，UI 自动管理忙碌状态。业务回调处理 API、冲突、请求有效性和未知结果恢复。记录窗口持有本次编辑值及最近确认值，用于保存和同类记录切换确认。旧公开结构没有兼容入口。仍有效的流程、处理、批次、报表与输出分别使用固定能力属性；不是任意命令、页面模板或组件映射。
 
 消费者在模型上更新节点的 `readable`、表单的 `readOnly` 和操作的 `disabled`。UI 响应这些值更新呈现，后端负责实际鉴权。`session` 只携带状态和 `owner`。退出时消费者清空会话业务数据和缓存并使旧回写失效，库清理旧忙碌状态及反馈。
 

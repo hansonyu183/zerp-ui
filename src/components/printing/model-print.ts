@@ -7,7 +7,8 @@ import type {
   PrintTemplate,
 } from "../../model/business-model";
 import { formatField } from "../forms/model-format";
-import { printMarkup, type PrintDocument, type PrintItem } from "./printing";
+import { printMarkup } from "./printing";
+import type { PrintDocument, PrintItem } from "../../model/print";
 
 export type MeasuredPrintText = Extract<PrintItem, { kind: "text" }>;
 export type MeasurePrintText = (item: MeasuredPrintText) => {

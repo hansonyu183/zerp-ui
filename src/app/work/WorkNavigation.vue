@@ -1,8 +1,7 @@
 <script setup lang="ts">
 // 呈现 WorkPage 提供的分组与链接，把普通点击交还给 WorkPage。
 import { computed } from "vue";
-import { RouterLink } from "vue-router";
-import { plainClick } from "../target";
+import { plainClick } from "../../components/links";
 import { navigationSections } from "./navigation";
 import { navigationGlyph, type NavigationGroup } from "./navigation";
 const props = defineProps<{
@@ -40,25 +39,19 @@ function select(event: MouseEvent, key: string) {
         <summary v-if="section.caption">
           {{ section.caption }}
         </summary>
-        <RouterLink
+        <a
           v-for="item in section.items"
           :key="item.key"
-          :to="item.to"
-          custom
-          v-slot="{ href }"
+          :href="item.href"
+          :aria-current="
+            selectedNavigationKey === item.key ? 'page' : undefined
+          "
+          @click="select($event, item.key)"
+          ><span v-if="item.icon" aria-hidden="true" class="zerp-ui-icon">{{
+            navigationGlyph(item.icon)
+          }}</span
+          >{{ item.caption }}</a
         >
-          <a
-            :href="href"
-            :aria-current="
-              selectedNavigationKey === item.key ? 'page' : undefined
-            "
-            @click="select($event, item.key)"
-            ><span v-if="item.icon" aria-hidden="true" class="zerp-ui-icon">{{
-              navigationGlyph(item.icon)
-            }}</span
-            >{{ item.caption }}</a
-          >
-        </RouterLink>
       </component>
     </component>
   </nav>

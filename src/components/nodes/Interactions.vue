@@ -18,7 +18,7 @@ import type {
   Interaction,
   InteractionAnswers,
 } from "../../model/collaboration";
-import { plainClick, renderedHref } from "../../app/target";
+import { plainClick, renderedHref } from "../links";
 const { xs } = useDisplay();
 const props = defineProps<{
   items: readonly Interaction<T>[];

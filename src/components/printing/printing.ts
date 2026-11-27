@@ -1,57 +1,5 @@
-/** Physical clockwise rotation, around the centre of the content sheet. */
-type Rotation = 0 | 90 | 180 | 270;
-type PrintFont = "sans-serif" | "serif" | "monospace" | "cjk-sans";
-type TextStyle = {
-  font?: PrintFont;
-  size?: number;
-  bold?: boolean;
-  align?: "left" | "center" | "right";
-  /** Unitless line height; default 1.2. */
-  lineHeight?: number;
-  /** Explicit newlines are preserved. word breaks long words; none clips a single line. */
-  wrap?: "word" | "none";
-};
-export type PrintItem = {
-  key: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  foreground?: string;
-  background?: string;
-  border?: boolean;
-  /** Physical stroke width in mm, including text/image borders; default 0.2. */
-  lineWidth?: number;
-} & (
-  | ({
-      kind: "text";
-      text: string;
-      /** Extra top inset in mm for measured font ascenders. */
-      insetTop?: number;
-    } & TextStyle)
-  | { kind: "image"; src: string; alt: string }
-  | { kind: "line" | "rect" }
-);
-/** Fixed output facts in millimetres. Coordinates remain in the unrotated sheet; 90/270 swap output dimensions. */
-export type PrintDocument = {
-  id: string;
-  title: string;
-  width: number;
-  height: number;
-  rotation?: Rotation;
-  /** Library-owned overlay, clipped to the sheet, above all page content. */
-  watermark?: {
-    text: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    rotation?: Rotation;
-    opacity: number;
-    foreground?: string;
-  } & TextStyle;
-  pages: readonly { key: string; items: readonly PrintItem[] }[];
-};
+import type { PrintDocument, PrintTextStyle } from "../../model/print";
+
 const escape = (value: string) =>
   value.replace(
     /[&<>"']/g,
@@ -68,7 +16,7 @@ function color(value: string | undefined, fallback: string) {
     throw Error("打印颜色无效。");
   return value ?? fallback;
 }
-export function printTextStyle(item: TextStyle) {
+export function printTextStyle(item: PrintTextStyle) {
   if (item.size !== undefined && !finite(item.size, 1, 200))
     throw Error("打印字号无效。");
   if (item.lineHeight !== undefined && !finite(item.lineHeight, 1, 3))

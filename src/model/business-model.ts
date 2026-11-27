@@ -1,5 +1,5 @@
 /** 唯一公开静态响应式模型；接口决定见 #152，迁移及有限能力补齐见 #159。 */
-import type { PrintDocument } from "../components/printing/printing";
+import type { PrintBox, PrintDocument, PrintTextStyle } from "./print";
 import type { Interaction } from "./collaboration";
 import type { ReportPresentation, ReportSummary } from "./report";
 
@@ -9,8 +9,8 @@ export type NavigationIcon =
 /** 操作缺省、所属节点不可读或 disabled 为 true 时省略入口和调用。 */
 export interface Operation<T = void> {
   disabled: boolean;
-  /** 读取当前模型值，结果直接更新模型；业务有效性及迟到回写由消费者控制。 */
-  run(input: T): Promise<void>;
+  /** 同步操作返回 void，异步操作返回代表完成的 Promise。消费者负责业务有效性及迟到回写。 */
+  run(input: T): void | Promise<void>;
 }
 
 /** 身份、账套及本次登录批次；不能仅以账号相同判断请求仍有效。 */
@@ -302,33 +302,10 @@ export interface InteractionNode extends NodeBase {
 export type Node =
   FieldNode | ObjectNode | RecordsNode | OutputNode | InteractionNode;
 
-/** 有限打印样式；无 CSS、脚本、表达式或远程资源加载。 */
-interface PrintTextStyle {
-  font?: "sans-serif" | "serif" | "monospace" | "cjk-sans";
-  size?: number;
-  bold?: boolean;
-  align?: "left" | "center" | "right";
-  lineHeight?: number;
-  wrap?: "word" | "none";
-}
-
-interface PrintBox {
-  /** 同一打印区域内唯一。 */
-  key: string;
-  /** 坐标及尺寸单位为毫米，相对所属打印区域。 */
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  foreground?: string;
-  background?: string;
-  border?: boolean;
-  lineWidth?: number;
-}
-
 /** 从当前记录依次按 members.key 查找；数组仅表达成员路径，不执行字符串表达式。 */
 export type FieldPath = readonly [string, ...string[]];
 
+/** 有限元素样式，不接受 CSS、脚本、表达式或远程资源。 */
 export type PrintElement = PrintBox &
   (
     | ({ kind: "text"; text: string } & PrintTextStyle)

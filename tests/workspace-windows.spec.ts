@@ -146,6 +146,27 @@ it("loads only the deep-linked collection and reuses it across page changes", as
   expect(loadSecond).toHaveBeenCalledTimes(1);
 });
 
+it("does not treat a reentrant record retry as another read failure", async () => {
+  const { model, record } = fixture();
+  let retry: HTMLButtonElement;
+  const load = vi.fn(() => {
+    if (load.mock.calls.length === 1) return Promise.reject(Error("synthetic"));
+    retry.click();
+    return Promise.resolve();
+  });
+  record.load = load;
+  wrapper = await render(model);
+  await click("编辑");
+  const dialog = wrapper.get('[role="dialog"]');
+  const retryButton = () =>
+    dialog.findAll("button").find((item) => item.text() === "重试读取");
+  retry = retryButton()!.element as HTMLButtonElement;
+  await retryButton()!.trigger("click");
+  await flushPromises();
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(retryButton()).toBeUndefined();
+});
+
 it("requests a page without committing its page number when the load fails", async () => {
   const { model, rows } = fixture();
   rows.page = 2;

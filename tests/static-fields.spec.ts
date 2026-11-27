@@ -5,7 +5,7 @@ import {
   DOMWrapper,
   type VueWrapper,
 } from "@vue/test-utils";
-import { reactive } from "vue";
+import { nextTick, reactive } from "vue";
 import { afterEach, expect, it, vi } from "vitest";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { layoutPrintTemplate } from "../src/components/printing/print-layout";
@@ -206,6 +206,49 @@ function reference(
         value: { id: "history", label: "历史客户" },
       };
 }
+it("presents synchronous reference candidates without showing a loader", async () => {
+  const { model, collection } = fixture([reference("reference", false)]);
+  const field = collection.conditions.members[0]!;
+  if (field.kind !== "reference") throw Error("fixture");
+  let loading = true;
+  const run = vi.fn(() => {
+    field.options = [{ id: "local", label: "本地候选", selectable: true }];
+    void nextTick(() => {
+      loading = !!document.querySelector(".zerp-reference .v-field--loading");
+    });
+  });
+  field.load = { disabled: false, run };
+  await show(model);
+  await openReference("选择客户");
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(document.body.textContent).toContain("本地候选");
+  expect(loading).toBe(false);
+});
+
+it("reuses an in-flight directory after the same dropdown is reopened", async () => {
+  const { model, collection } = fixture([reference("reference", false)]);
+  const field = collection.conditions.members[0]!;
+  if (field.kind !== "reference") throw Error("fixture");
+  let finish!: () => void;
+  const load = vi.fn(async () => {
+    await new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    field.options = [{ id: "ready", label: "目录客户", selectable: true }];
+  });
+  field.load = op(load);
+  const wrapper = await show(model);
+  await openReference("选择客户");
+  const input = wrapper.get('input[aria-label="选择客户"]');
+  await input.trigger("keydown", { key: "Escape" });
+  expect(input.attributes("aria-expanded")).toBe("false");
+  await openReference("选择客户");
+  expect(input.attributes("aria-expanded")).toBe("true");
+  expect(load).toHaveBeenCalledTimes(1);
+  finish();
+  await flushPromises();
+  expect(document.body.textContent).toContain("目录客户");
+});
 it("updates an open reference from new model options without a directory reload", async () => {
   const ref = reference("reference", false);
   if (ref.kind !== "reference") throw Error("fixture");
@@ -271,7 +314,14 @@ it("loads reference directories once, retries a failed load, and searches locall
   await flushPromises();
   await clickText("重试引用");
   expect(load).toHaveBeenCalledTimes(2);
+  const disabledOption = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((item) => item.textContent?.trim() === "客户0")!;
+  disabledOption.click();
+  await flushPromises();
+  expect(field.value).toEqual({ id: "history", label: "历史客户" });
   await clickText("下一页引用");
+  expect(document.body.textContent).toContain("客户20");
   const input = wrapper.get('input[aria-label="选择客户"]');
   await input.setValue("客户24");
   await new Promise((resolve) => setTimeout(resolve, 180));
@@ -306,6 +356,9 @@ it("expands tree candidates and selects multiple values in one dropdown while pr
   ]);
   expect(wrapper.text()).toContain("历史客户");
   expect(document.querySelector('[role="listbox"]')).toBeTruthy();
+  child.click();
+  await flushPromises();
+  expect(field.value).toEqual([{ id: "history", label: "历史客户" }]);
 });
 it("formats readonly precise values while retaining raw model input", async () => {
   const value = "9007199254740993123.995";
@@ -485,11 +538,11 @@ it("isolates an old candidate read across an owner change and reloads the new sc
   };
   field.options = [];
   await flushPromises();
-  finishOld();
-  await flushPromises();
   expect(field.options).toEqual([]);
   await openReference("选择客户");
   expect(field.load.run).toHaveBeenCalledTimes(2);
+  finishOld();
+  await flushPromises();
   expect(document.body.textContent).toContain("新客户");
   expect(field.value).toEqual({ id: "history", label: "历史客户" });
 });

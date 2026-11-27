@@ -1,24 +1,17 @@
 <script setup lang="ts">
 // 协调当前页面、侧栏导航、账户入口和记录窗口。集合内部交互由各视图处理。
-import {
-  clearReportPositions,
-  saveReportPosition,
-} from "./views/report-position";
-import {
-  executeOperation,
-  invalidateOperations,
-  loadFirst,
-} from "../operations";
+import { clearReportPositions, saveReportPosition } from "./report-position";
+import { feedbackForApplication, runWithFeedback } from "../feedback";
+import { readCollection, readRecord, readWorkbench } from "./reads";
 import {
   applicationModel,
   applicationReady,
   currentModel,
   sessionScope,
   sessionState,
+  sessionVersion,
 } from "../session";
 import {
-  collectionEntries,
-  workGroups,
   isCollection,
   readable as nodeReadable,
   workbenchReadable,
@@ -27,12 +20,11 @@ import { computed, ref, toRaw, watch } from "vue";
 import type {
   BusinessModel,
   ListCollection,
-  DomainGroup,
   CollectionTarget,
   ObjectNode,
 } from "../../model/business-model";
 import {
-  collectionHref,
+  homeHref,
   goToCollection,
   routePath,
   routeReady,
@@ -49,9 +41,10 @@ import WorkbenchView from "./views/WorkbenchView.vue";
 import WorkLayout from "./WorkLayout.vue";
 import WorkNavigation from "./WorkNavigation.vue";
 import WorkToolbar from "./WorkToolbar.vue";
-import ModelFeedback from "../../components/feedback/ModelFeedback.vue";
+import ModelFeedback from "../ModelFeedback.vue";
 import { modelBrand, type ThemeChoice } from "../../styles/theme";
-import type { AccountIntent, NavigationGroup } from "./navigation";
+import { useWorkNavigation, type AccountIntent } from "./navigation";
+import { collectionEntries } from "./structure";
 
 const props = defineProps<{
   model: BusinessModel["work"];
@@ -62,49 +55,11 @@ const emit = defineEmits<{ "update:theme": [ThemeChoice] }>();
 const brand = computed(() => modelBrand(props.brand));
 // 记录窗口属于工作页，切换集合路由时仍由同一工作页管理。
 const windows = useRecordWindows();
-const pageScope = [
-  currentModel,
-  () => props.model,
-  sessionScope,
-  sessionState,
-] as const;
-const navigationIds = new WeakMap<object, number>();
-let nextNavigationId = 0;
-function domainEntry(domain: DomainGroup, path: string[], section?: string) {
-  if (domain.hiddenFromNavigation) return [];
-  const collections = domain.members.filter(nodeReadable);
-  const target = collections[0];
-  if (!target) return [];
-  const raw = toRaw(target);
-  if (!navigationIds.has(raw)) navigationIds.set(raw, ++nextNavigationId);
-  return [
-    {
-      domain,
-      target,
-      collections,
-      key: JSON.stringify([sessionScope.value, path, navigationIds.get(raw)]),
-      section:
-        section === undefined
-          ? undefined
-          : { key: JSON.stringify(path.slice(0, -1)), caption: section },
-    },
-  ];
-}
-const groups = computed(() =>
-  workGroups.value.flatMap(({ member, domains }) => {
-    if (!("kind" in member)) return [];
-    const entries = domains.flatMap(({ domain, path, section }) =>
-      domainEntry(domain, path, section?.label),
-    );
-    return entries.length ? [{ member, entries }] : [];
-  }),
-);
-const navigationEntries = computed(() =>
-  groups.value.flatMap((group) => group.entries),
-);
-const homeKey = computed(() =>
-  JSON.stringify([sessionScope.value, "workbench"]),
-);
+const {
+  entries: navigationEntries,
+  homeKey,
+  navigation,
+} = useWorkNavigation(() => props.model.workbench);
 const accountView = ref<ObjectNode | null>(null);
 const current = computed<ListCollection | null>(() =>
   routedCollection.value && nodeReadable(routedCollection.value)
@@ -119,7 +74,14 @@ const notFound = computed(
   () => routePath.value !== "/" && !routedCollection.value,
 );
 watch(
-  [routePath, groups, workbench, applicationReady, sessionState, routeReady],
+  [
+    routePath,
+    navigationEntries,
+    workbench,
+    applicationReady,
+    sessionState,
+    routeReady,
+  ],
   () => {
     if (
       !routeReady.value ||
@@ -134,36 +96,6 @@ watch(
   },
   { immediate: true },
 );
-const navigation = computed<NavigationGroup[]>(() => {
-  if (sessionState.value !== "ready" || !applicationReady.value) return [];
-  const items: NavigationGroup[] = groups.value.map(({ member, entries }) => ({
-    key: member.key,
-    caption: member.label,
-    ungrouped: member.kind === "domain",
-    items: entries.map(({ domain, target, key, section }) => ({
-      key,
-      section,
-      caption: domain.label,
-      icon: domain.icon,
-      to: collectionHref(target)!,
-    })),
-  }));
-  if (props.model.workbench && workbenchReadable(props.model.workbench))
-    items.unshift({
-      key: homeKey.value,
-      caption: "工作台",
-      ungrouped: true,
-      items: [
-        {
-          key: homeKey.value,
-          caption: "工作台",
-          icon: "home",
-          to: "/",
-        },
-      ],
-    });
-  return items;
-});
 const selectedKey = computed(() => {
   if (activeAccountView.value) return null;
   if (!current.value) return workbench.value ? homeKey.value : null;
@@ -228,17 +160,47 @@ const pageWorkbench = computed(() =>
 );
 // 页面目标或会话范围改变时重建视图，避免复用上一页面的局部状态。
 const pageGeneration = ref(0);
-watch([pageTarget, pageWorkbench, ...pageScope], () => pageGeneration.value++, {
-  flush: "sync",
+watch(
+  [pageTarget, pageWorkbench, sessionVersion],
+  () => pageGeneration.value++,
+  {
+    flush: "sync",
+  },
+);
+const passwordAction = computed(() => {
+  const { password, operations } = props.model.account;
+  if (target.value !== password) return;
+  return {
+    name: "changePassword",
+    disabled: operations.changePassword.disabled,
+    run: changePassword,
+  };
 });
+function changePassword() {
+  const { password, operations } = props.model.account;
+  const operation = operations.changePassword;
+  if (operation.disabled) return;
+  const identity = password.identity;
+  return runWithFeedback(
+    password,
+    () => operation.run(),
+    () =>
+      currentModel.value?.work.account.password === password &&
+      currentModel.value.work.account.operations.changePassword === operation &&
+      password.identity === identity &&
+      nodeReadable(password),
+    password,
+  );
+}
 async function accountAction(action: AccountIntent) {
   if (action === "sign-out") {
     const application = applicationModel.value;
     const account = props.model.account;
     const operation = account.operations.signOut;
-    await executeOperation(
+    if (operation.disabled) return;
+    await runWithFeedback(
       account,
-      operation,
+      () => operation.run(),
       () =>
         applicationReady.value &&
         currentModel.value?.work.account === account &&
@@ -291,14 +253,7 @@ function visitHome() {
   goToCollection();
 }
 watch(
-  pageScope,
-  () => {
-    accountView.value = null;
-  },
-  { flush: "sync" },
-);
-watch(
-  routePath,
+  [sessionVersion, routePath],
   () => {
     accountView.value = null;
   },
@@ -307,17 +262,20 @@ watch(
 watch(
   target,
   () => {
-    invalidateOperations();
+    feedbackForApplication().clear();
     clearReportPositions(false);
   },
   { flush: "sync" },
 );
 watch(
-  [target, pageWorkbench, routeReady, ...pageScope],
+  [target, pageWorkbench, routeReady, sessionVersion],
   () => {
     if (!routeReady.value || sessionState.value !== "ready") return;
-    const node = target.value ?? pageWorkbench.value;
-    if (node) void loadFirst(node);
+    const node = target.value;
+    if (node) {
+      if (isCollection(node)) void readCollection(node);
+      else void readRecord(node);
+    } else if (pageWorkbench.value) void readWorkbench(pageWorkbench.value);
   },
   { immediate: true },
 );
@@ -329,6 +287,7 @@ watch(
       <WorkToolbar
         v-bind="controls"
         :brand="brand"
+        :home-href="homeHref"
         :scope="sessionScope"
         :account-label="model.account.label"
         :account-actions="accountActions"
@@ -373,6 +332,7 @@ watch(
       :target-href="targetHref"
       @visit="visitTarget"
       :profile="target === model.account.profile"
+      :form-action="passwordAction"
     />
     <WorkbenchView
       v-else-if="pageWorkbench"

@@ -56,6 +56,14 @@ it("keeps forced password change separate from workspace and unknown-result acti
   expect(document.querySelector("table")).toBeNull();
   expect(document.body.textContent).toContain("修改密码");
   expect(record.operations.update!.disabled).toBe(true);
+  const password = model.work.account.operations.changePassword;
+  await click("修改密码");
+  expect(password.run).toHaveBeenCalledExactlyOnceWith();
+  password.disabled = true;
+  await flushPromises();
+  expect(
+    wrapper.findAll("button").some((button) => button.text() === "修改密码"),
+  ).toBe(false);
 });
 it("hides denied records and fields without deleting the consumer model", async () => {
   const { model, rows, name } = fixture();

@@ -2,14 +2,19 @@
 import { VAutocomplete, VBtn, VListItem } from "vuetify/components";
 import { computed, ref, shallowRef, watch, onBeforeUnmount, useId } from "vue";
 import FieldFeedback from "./FieldFeedback.vue";
-import type { ReferenceAdapter, ReferenceValue } from "./reference-directory";
+import type {
+  ReferenceValue,
+  SelectOption,
+  TreeOption,
+} from "../../model/business-model";
+import type { ReferenceAdapter } from "./reference-directory";
 import {
   readReferenceDirectory,
   clearReferenceDirectory,
 } from "./reference-directory";
 const props = defineProps<{
   adapter: ReferenceAdapter;
-  options?: readonly TreeValue[];
+  options: readonly (SelectOption | TreeOption)[];
   modelValue: ReferenceValue | readonly ReferenceValue[] | null;
   scope: string;
   label: string;
@@ -38,17 +43,13 @@ const open = ref(false),
   busy = ref(false),
   error = ref("");
 type TreeValue = ReferenceValue & {
+  selectable?: boolean;
   children?: readonly TreeValue[];
   depth?: number;
 };
-const loadedCandidates = shallowRef<readonly TreeValue[]>([]);
-const previousScopeOptions = shallowRef<readonly TreeValue[]>();
-const candidates = computed(() =>
-  props.options === undefined
-    ? loadedCandidates.value
-    : props.options === previousScopeOptions.value
-      ? []
-      : props.options,
+const previousScopeOptions = shallowRef<readonly SelectOption[]>();
+const candidates = computed<readonly TreeValue[]>(() =>
+  props.options === previousScopeOptions.value ? [] : props.options,
 );
 const expanded = ref(new Set<string>());
 const selected = computed<readonly ReferenceValue[]>(() =>
@@ -133,38 +134,34 @@ async function load() {
   )
     return;
   const request = ++version;
-  release?.();
-  const lease = readReferenceDirectory(props.adapter, props.scope);
-  release = lease.release;
-  busy.value = true;
+  const current = () => active && request === version;
   error.value = "";
+  let lease: ReturnType<typeof readReferenceDirectory>;
   try {
-    const values = await lease.value;
-    if (active && request === version) {
-      if (props.options === undefined) loadedCandidates.value = values;
-      previousScopeOptions.value = undefined;
+    lease = readReferenceDirectory(props.adapter, props.scope);
+    if (!lease) return;
+    // 先取得新租约，避免重开同一选单时释放仍进行中的读取。
+    release?.();
+    if (current()) {
+      release = lease.release;
+      if (lease.pending) busy.value = true;
+    } else {
+      lease.release();
     }
+    if (lease.pending) await lease.pending;
+    if (current()) previousScopeOptions.value = undefined;
   } catch (cause) {
-    if (active && request === version)
+    if (current())
       error.value =
         cause instanceof Error ? cause.message : "操作失败，请重试。";
   } finally {
-    lease.release();
-    if (active && request === version) busy.value = false;
+    lease?.release();
+    if (current()) busy.value = false;
   }
 }
 watch(open, (value) => {
   if (value) void load();
 });
-watch(
-  () =>
-    props.options === undefined &&
-    selected.value.some((value) => !value.label || value.label === value.id),
-  (needed) => {
-    if (needed) void load();
-  },
-  { immediate: true },
-);
 watch(disabled, (value) => {
   if (value) open.value = false;
 });
@@ -173,7 +170,7 @@ watch(
     [
       props.scope,
       props.adapter.directory,
-      JSON.stringify(props.adapter.dependencies ?? []),
+      props.adapter.scopeKey ?? "",
       props.options,
     ] as const,
   (value, previous) => {
@@ -183,18 +180,10 @@ watch(
     }
     version++;
     release?.();
-    clearReferenceDirectory(
-      {
-        ...props.adapter,
-        directory: previous[1],
-        dependencies: JSON.parse(previous[2]),
-      },
-      previous[0],
-    );
+    clearReferenceDirectory(previous[1], previous[0], previous[2]);
     open.value = false;
     previousScopeOptions.value =
       value[3] === previous[3] ? previous[3] : undefined;
-    loadedCandidates.value = [];
     expanded.value = new Set();
     busy.value = false;
     error.value = "";

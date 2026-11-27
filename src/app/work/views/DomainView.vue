@@ -14,7 +14,7 @@ import type {
   CollectionTarget,
   DomainGroup,
 } from "../../../model/business-model";
-import { plainClick, renderedHref } from "../../target";
+import { plainClick, renderedHref } from "../../../components/links";
 import CollectionView from "./CollectionView.vue";
 import type { RecordRequest } from "../dialogs/record-windows";
 

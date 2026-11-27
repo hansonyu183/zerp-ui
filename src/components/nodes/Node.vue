@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { isPending, runOperation } from "../../app/operations";
+import { isPending } from "../../app/usePending";
+import { runOperation } from "../../app/node-actions";
+import { nodeOperations } from "../../model/operations";
 import { sessionScope } from "../../app/session";
 import {
-  available as nodeAvailable,
-  operations as nodeOperations,
   readable as nodeReadable,
   writable as nodeWritable,
 } from "../../app/nodes";
@@ -15,6 +15,7 @@ import type {
   RecordsNode,
   FieldNode,
 } from "../../model/business-model";
+import { draftOrigin } from "../../app/record-draft";
 import Field from "../forms/Field.vue";
 import ActionGroup from "./ActionGroup.vue";
 import Records from "./Records.vue";
@@ -27,6 +28,7 @@ const props = defineProps<{
   filter?: boolean;
   editing?: boolean;
   profile?: boolean;
+  formAction?: { name: string; disabled: boolean; run: () => unknown };
   save?: (node: ObjectNode) => Promise<void>;
 }>();
 const emit = defineEmits<{ visit: [target: CollectionTarget] }>();
@@ -54,30 +56,34 @@ const runs = computed(() => {
   }
   return result;
 });
-const actions = computed(() =>
-  Object.keys(nodeOperations(props.node)).filter(
-    (key) =>
-      key !== "query" &&
-      !(key === "print" && props.node.kind === "output") &&
-      !(
-        key === "load" &&
-        ["reference", "treeReference"].includes(props.node.kind)
-      ) &&
-      (!props.readOnly ||
-        props.node.kind === "output" ||
-        [
-          "get",
-          "reconcile",
-          "load",
-          "preview",
-          "print",
-          "export",
-          "audit",
-          "openVoucher",
-        ].includes(key)) &&
-      nodeAvailable(props.node, key),
-  ),
-);
+const actions = computed(() => {
+  const { node, formAction } = props;
+  if (!nodeReadable(node)) return [];
+  const actions = Object.entries(nodeOperations(node, !!formAction))
+    .filter(
+      ([name, operation]) =>
+        !!operation &&
+        !operation.disabled &&
+        name !== "query" &&
+        name !== formAction?.name &&
+        !(name === "print" && node.kind === "output") &&
+        (!props.readOnly ||
+          node.kind === "output" ||
+          [
+            "get",
+            "reconcile",
+            "preview",
+            "print",
+            "export",
+            "audit",
+            "openVoucher",
+          ].includes(name)),
+    )
+    .map(([name]) => name);
+  if (formAction && !formAction.disabled && !props.readOnly)
+    actions.push(formAction.name);
+  return actions;
+});
 const saveUnavailable = computed(() => {
   const node = props.node;
   return (
@@ -86,14 +92,18 @@ const saveUnavailable = computed(() => {
     !actions.value.includes("update")
   );
 });
-const pending = computed(() => isPending(props.node));
+const pending = computed(() => isPending(draftOrigin(props.node)));
 async function action(name: string) {
   const node = props.node;
   if (name === "update" && props.save && node.kind === "object") {
     await props.save(node);
     return;
   }
-  await runOperation(node, name);
+  if (name === props.formAction?.name) {
+    await props.formAction.run();
+    return;
+  }
+  await runOperation(node, name, !!props.formAction);
 }
 </script>
 <template>

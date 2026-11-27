@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import {
-  executeOperation,
-  isPending,
-  runOperation,
-} from "../../app/operations";
+import { runWithFeedback } from "../../app/feedback";
+import { runOperation } from "../../app/node-actions";
+import { isPending } from "../../app/usePending";
 import {
   available as nodeAvailable,
   readable as nodeReadable,
@@ -196,14 +194,14 @@ function visit(intent: Intent) {
   if ("operation" in intent) {
     const node = questions.value;
     if (node)
-      void executeOperation(
+      void runWithFeedback(
         node,
-        intent.operation,
+        () => intent.operation.run(),
         () =>
           props.node === node &&
           (intent.kind === "action" || nodeReadable(node)) &&
           !intent.blocked(),
-        { target: node },
+        node,
       );
     return;
   }

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 // 呈现品牌首页链接、主题选择和账户操作，将操作意图交给 WorkPage。
 import { ref, watch } from "vue";
-import { RouterLink } from "vue-router";
 import {
   VAppBar,
   VAvatar,
@@ -10,12 +9,13 @@ import {
   VListItem,
   VMenu,
 } from "vuetify/components";
-import { plainClick } from "../target";
+import { plainClick } from "../../components/links";
 import { appBarHeight, type Brand, type ThemeChoice } from "../../styles/theme";
 import type { AccountIntent } from "./navigation";
 
 const props = defineProps<{
   brand: Brand;
+  homeHref: string;
   scope: string;
   accountLabel: string;
   accountActions: readonly AccountIntent[];
@@ -69,24 +69,22 @@ function preset(value: ThemeChoice["preset"]) {
         @click="emit('toggle')"
         >☰</VBtn
       >
-      <RouterLink to="/" custom v-slot="{ href }">
-        <a
-          :href="href"
-          class="zerp-shell-brand"
-          :aria-label="`${brand.productName}：首页`"
-          @click="home"
-        >
-          <VAvatar color="primary" :size="28">
-            <span>{{ brand.mark }}</span>
-          </VAvatar>
-          <span class="zerp-shell-brand-copy">
-            <strong :title="brand.productName">{{ brand.productName }}</strong>
-            <span v-if="brand.enterpriseName" class="zerp-shell-enterprise">{{
-              brand.enterpriseName
-            }}</span>
-          </span>
-        </a>
-      </RouterLink>
+      <a
+        :href="homeHref"
+        class="zerp-shell-brand"
+        :aria-label="`${brand.productName}：首页`"
+        @click="home"
+      >
+        <VAvatar color="primary" :size="28">
+          <span>{{ brand.mark }}</span>
+        </VAvatar>
+        <span class="zerp-shell-brand-copy">
+          <strong :title="brand.productName">{{ brand.productName }}</strong>
+          <span v-if="brand.enterpriseName" class="zerp-shell-enterprise">{{
+            brand.enterpriseName
+          }}</span>
+        </span>
+      </a>
       <div class="zerp-shell-actions">
         <VMenu
           v-model="themeMenu"

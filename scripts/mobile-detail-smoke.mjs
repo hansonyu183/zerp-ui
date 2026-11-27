@@ -64,9 +64,13 @@ export async function mobileDetailSmoke(page) {
   }
 
   await settleLayout(page);
+  await expect
+    .poll(async () => {
+      const box = await close.boundingBox();
+      return box ? Math.min(box.width, box.height) : 0;
+    })
+    .toBeGreaterThanOrEqual(48);
   const titleClose = await close.boundingBox();
-  expect(titleClose.width).toBeGreaterThanOrEqual(48);
-  expect(titleClose.height).toBeGreaterThanOrEqual(48);
   await body.evaluate((element) => (element.scrollTop = element.scrollHeight));
   expect(await body.evaluate((element) => element.scrollTop)).toBeGreaterThan(
     0,

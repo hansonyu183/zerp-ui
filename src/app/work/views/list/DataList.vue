@@ -8,7 +8,11 @@
   "
 >
 // 渲染投影后的列表，在桌面使用表格、手机使用卡片，并处理行操作和报表呈现。
-import { plainClick, renderedHref, renderedTarget } from "../../../target";
+import {
+  plainClick,
+  renderedHref,
+  renderedTarget,
+} from "../../../../components/links";
 import Feedback from "../../../../components/feedback/Feedback.vue";
 import FeedbackRegion from "../../../../components/feedback/FeedbackRegion.vue";
 import { VBtn, VCard, VTable } from "vuetify/components";
@@ -37,7 +41,10 @@ const props = withDefaults(
     pageSize: number;
     actions?: (row: R) => readonly RowAction[];
     showAllActions?: (row: R) => boolean;
-    disabledActions?: (row: R) => Readonly<Partial<Record<RowAction, string>>>;
+    disabledActions?: (
+      row: R,
+      actions: readonly RowAction[],
+    ) => Readonly<Partial<Record<RowAction, string>>>;
     pagingDisabled?: boolean;
     resultState?: "loading" | "success" | "failure";
     rowKey: (row: R) => K;
@@ -136,12 +143,11 @@ const displayColumns = computed(() => {
   return data;
 });
 function dispatch(action: RowAction, row: R) {
+  if (loading.value || report.value.error) return;
+  const actions = rowActions.value[props.result.items.indexOf(row)];
   if (
-    !loading.value &&
-    !report.value.error &&
-    props.result.items.includes(row) &&
-    props.actions?.(row).includes(action) &&
-    !props.disabledActions?.(row)[action]
+    actions?.includes(action) &&
+    !props.disabledActions?.(row, actions)[action]
   )
     emit("action", action, row);
 }
@@ -239,7 +245,7 @@ function display(row: Partial<R>, key: Extract<keyof R, string>) {
                 <RowActions
                   :actions="rowActions[index]!"
                   :show-all="showAllActions?.(row)"
-                  :reasons="disabledActions?.(row)"
+                  :reasons="disabledActions?.(row, rowActions[index]!)"
                   :busy="loading"
                   @action="dispatch($event, row)"
                 />
@@ -262,7 +268,7 @@ function display(row: Partial<R>, key: Extract<keyof R, string>) {
                   v-if="entry.kind === 'actions'"
                   :actions="rowActions[index]!"
                   :show-all="showAllActions?.(row)"
-                  :reasons="disabledActions?.(row)"
+                  :reasons="disabledActions?.(row, rowActions[index]!)"
                   :busy="loading"
                   @action="dispatch($event, row)"
                 />

@@ -39,7 +39,7 @@
 | UI-MOBILE-03 | 无自动断言 | 首行左右对齐/缺省稳定、全选文字/数量/半选/禁用尚无直接宿主定向证据。 |
 | UI-ACTION-01 | [unit-actions](#unit-actions)、[unit-mobile-action-overflow](#unit-mobile-action-overflow) | 操作可用性、手机详情主操作与更多入口有代表性证据；图标语义及各类宽度和流程组合未穷举。 |
 | UI-ACTION-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 手机短文字已验，桌面图标及hover/focus hint尚未完整验证。 |
-| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-save-qualification](#package-save-qualification)、[package-auth-alignment](#package-auth-alignment)、[unit-auth-session-actions](#unit-auth-session-actions)、[unit-available-operations](#unit-available-operations) | 覆盖代表性撤权、禁用及运行中互斥、登录操作和手动会话恢复入口移除。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。 |
+| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-save-qualification](#package-save-qualification)、[package-auth-alignment](#package-auth-alignment)、[unit-auth-session-actions](#unit-auth-session-actions)、[unit-available-operations](#unit-available-operations)、[unit-operation-pending](#unit-operation-pending)、[unit-reference-sync-load](#unit-reference-sync-load) | 覆盖代表性撤权、禁用、查询及保存的运行中互斥、按回调返回值呈现忙碌、登录操作和手动会话恢复入口移除。互斥覆盖未穷举全部后端回调。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。 |
 | UI-ACTION-04 | 无自动断言 | 新增各入口、标题与成功提示的一致性，以及其他动作文案尚无统一断言。 |
 | UI-FORM-01 | [unit-model](#unit-model)、[unit-review](#unit-review)、[package-mobile-readonly-values](#package-mobile-readonly-values) | 直接编辑、复杂结构和手机只读长值有代表用例；查看、新增与编辑的完整字段顺序组合未穷举。 |
 | UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout)、[package-application-alignment](#package-application-alignment)、[package-mobile-detail-close](#package-mobile-detail-close) | 手机长详情的焦点、筛选、页码及非零滚动有代表用例。弹层标题分隔线及其主题响应尚无独立断言，所有新增及复杂弹层路径未穷举。 |
@@ -304,6 +304,18 @@
 [tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`updates row operations when eligibility or permission changes`。业务操作资格及撤权即时反馈，调用前重检及执行互斥。
+
+### unit-operation-pending
+
+[tests/static-application.spec.ts](../tests/static-application.spec.ts) · source/public-entry
+
+定位：`reserves synchronous operations without showing pending and guards later async runs`。同步回调防重入且不显示忙碌，普通函数返回 Promise 时防重复调用，旧会话的完成结果不清除新执行的忙碌状态。
+
+### unit-reference-sync-load
+
+[tests/static-fields.spec.ts](../tests/static-fields.spec.ts) · source/public-entry
+
+定位：`presents synchronous reference candidates without showing a loader`。引用候选同步回调立即呈现结果且不显示加载提示。
 
 ### unit-mobile-action-overflow
 
