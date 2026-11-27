@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { layoutPrintTemplate } from "../src/print-layout";
-import type { Collection, PrintTemplate } from "../src/model";
+import { layoutPrintTemplate } from "../src/components/printing/print-layout";
+import type { ListCollection, PrintTemplate } from "../src/model";
 const template: PrintTemplate = {
   label: "测试",
   page: { width: 80, height: 80, margin: 5 },
@@ -16,7 +16,7 @@ const template: PrintTemplate = {
     },
   ],
 };
-const source: Collection = {
+const source: ListCollection = {
   key: "rows",
   label: "测试",
   columns: [],

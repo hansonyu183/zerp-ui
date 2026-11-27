@@ -1,4 +1,4 @@
-import "./style.css";
-import "./shell-layout.css";
-export { default as BusinessApplication } from "./BusinessApplication.vue";
-export { createShellThemes, defaultThemeChoice } from "./shell";
+import "./styles/style.css";
+import "./styles/shell-layout.css";
+export { default as App } from "./app/App.vue";
+export { createShellThemes, defaultThemeChoice } from "./styles/theme";

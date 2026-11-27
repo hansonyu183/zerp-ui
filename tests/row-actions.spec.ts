@@ -1,7 +1,7 @@
 import type { Component } from "vue";
 import { mount, flushPromises } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import DataList from "../src/DataList.vue";
+import DataList from "../src/app/work/views/list/DataList.vue";
 
 const row = { id: "one", name: "合成客户" };
 const props = {
@@ -14,14 +14,15 @@ const props = {
 
 describe("public list row actions", () => {
   it("shows three named icon actions and puts the fourth in the more menu", async () => {
+    const actionsForRow = vi.fn(() => ["edit", "disable", "clone", "delete"]);
     const wrapper = mount(DataList as Component, {
       attachTo: document.body,
-      props: { ...props, actions: () => ["view", "edit", "disable", "delete"] },
+      props: { ...props, actions: actionsForRow },
     });
     try {
       const actions = wrapper.get('td[data-label="操作"]');
       expect(actions.findAll("button[aria-label]")).toHaveLength(4);
-      for (const name of ["查看", "编辑", "停用"])
+      for (const name of ["编辑", "停用", "克隆"])
         expect(
           actions
             .get(`[aria-label="${name}"]`)
@@ -31,6 +32,7 @@ describe("public list row actions", () => {
       expect(actions.find('[aria-label="删除"]').exists()).toBe(false);
       await actions.get('[aria-label="编辑"]').trigger("click");
       expect(wrapper.emitted("action")?.[0]).toEqual(["edit", row]);
+      expect(actionsForRow).toHaveBeenCalledTimes(1);
       await actions.get('[aria-label="更多操作"]').trigger("click");
       await flushPromises();
       const item = document.querySelector('[role="menuitem"]') as HTMLElement;
@@ -47,16 +49,14 @@ describe("public list row actions", () => {
 for (const actions of [
   [],
   ["view"],
-  ["view", "edit"],
-  ["view", "edit", "disable"],
+  ["edit", "disable"],
+  ["edit", "disable", "delete"],
 ]) {
   it(`renders ${actions.length} permitted actions without an empty menu`, () => {
     const wrapper = mount(DataList as Component, {
       props: { ...props, actions: () => actions },
     });
-    expect(wrapper.find("th:last-child").text()).toBe(
-      actions.length ? "操作" : "名称",
-    );
+    expect(wrapper.find("th:last-child").text()).toBe("操作");
     expect(wrapper.find('[aria-label="更多操作"]').exists()).toBe(false);
     expect(wrapper.findAll('td[data-label="操作"] button')).toHaveLength(
       actions.length,
@@ -64,27 +64,18 @@ for (const actions of [
     wrapper.unmount();
   });
 }
-it("retains native view links and blocks all actions while loading", async () => {
+it("blocks row actions while loading", async () => {
   const wrapper = mount(DataList as Component, {
-    props: {
-      ...props,
-      actions: () => ["view", "edit"],
-      viewHref: () => "/records/one",
-    },
+    props: { ...props, actions: () => ["view"] },
   });
   try {
-    const link = wrapper.get('a[aria-label="查看"]');
-    expect(link.attributes("href")).toBe("/records/one");
-    await link.trigger("click", { ctrlKey: true });
-    expect(wrapper.emitted("action")).toBeUndefined();
-    await link.trigger("click");
+    await wrapper.get('[aria-label="查看"]').trigger("click");
     expect(wrapper.emitted("action")?.[0]).toEqual(["view", row]);
-    await wrapper.setProps({ loading: true });
-    expect(wrapper.find('a[aria-label="查看"]').exists()).toBe(false);
-    await wrapper.get('[aria-label="编辑"]').trigger("click");
+    await wrapper.setProps({ resultState: "loading" });
+    const view = wrapper.get('[aria-label="查看"]');
+    expect(view.attributes("disabled")).toBeDefined();
+    await view.trigger("click");
     expect(wrapper.emitted("action")).toHaveLength(1);
-    await wrapper.setProps({ result: { items: [], total: 0 } });
-    expect(wrapper.find("th:last-child").text()).toBe("名称");
   } finally {
     wrapper.unmount();
   }
@@ -92,7 +83,7 @@ it("retains native view links and blocks all actions while loading", async () =>
 it("supports keyboard menu access and discards a menu when the original row is replaced", async () => {
   const wrapper = mount(DataList as Component, {
     attachTo: document.body,
-    props: { ...props, actions: () => ["view", "edit", "disable", "delete"] },
+    props: { ...props, actions: () => ["edit", "disable", "clone", "delete"] },
   });
   try {
     const more = wrapper.get('[aria-label="更多操作"]');
@@ -130,17 +121,24 @@ it("provides semantic names for workflow operations", async () => {
     attachTo: document.body,
     props: {
       ...props,
-      actions: () => ["send", "withdraw", "check", "uncheck", "void", "unvoid"],
+      actions: () => [
+        "send",
+        "withdraw",
+        "approve",
+        "unapprove",
+        "void",
+        "unvoid",
+      ],
     },
   });
   try {
-    for (const label of ["送审", "反送审", "审核"])
+    for (const label of ["发送", "撤回", "审批"])
       expect(
         w.get(`[aria-label="${label}"]`).find('[aria-hidden="true"]').exists(),
       ).toBe(true);
     await w.get('[aria-label="更多操作"]').trigger("click");
     await flushPromises();
-    for (const label of ["反审核", "作废", "反作废"])
+    for (const label of ["取消审批", "作废", "取消作废"])
       expect(
         [...document.querySelectorAll('[role="menuitem"]')].some((n) =>
           n.textContent?.includes(label),
@@ -163,12 +161,12 @@ it("uses complete and uncomplete actions with stable row identity after reorderi
   try {
     await w.get('[aria-label="完成"]').trigger("click");
     await w.setProps({ result: { items: [second, row], total: 2 } });
-    await w.get('[aria-label="反完成"]').trigger("click");
+    await w.get('[aria-label="取消完成"]').trigger("click");
     expect(w.emitted("action")).toEqual([
       ["complete", row],
       ["uncomplete", second],
     ]);
-    await w.setProps({ disabled: true });
+    await w.setProps({ resultState: "loading" });
     await w.get('[aria-label="完成"]').trigger("click");
     expect(w.emitted("action")).toHaveLength(2);
   } finally {
@@ -178,12 +176,11 @@ it("uses complete and uncomplete actions with stable row identity after reorderi
 
 it("keeps an open action menu attached to its original row when an ordinary list is reordered", async () => {
   const second = { id: "two", name: "第二条" };
-  const actions = ["view", "edit", "complete", "uncomplete"] as const;
+  const actions = ["edit", "disable", "complete", "uncomplete"] as const;
   const w = mount(DataList as Component, {
     attachTo: document.body,
     props: {
       ...props,
-      rowKey: undefined,
       actions: () => actions,
       result: { items: [row, second], total: 2 },
     },
@@ -201,7 +198,7 @@ it("keeps an open action menu attached to its original row when an ordinary list
   }
 });
 
-it("switches phone records to cards without losing selection, exact cells, groups or authoritative totals", async () => {
+it("switches phone records to cards with exact cells, groups or authoritative totals", async () => {
   const width = window.innerWidth;
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
@@ -218,11 +215,10 @@ it("switches phone records to cards without losing selection, exact cells, group
       ...props,
       columns: [
         { key: "name", label: "名称" },
-        { key: "amount", label: "金额", type: "decimal" },
+        { key: "amount", label: "金额" },
       ],
       result: { items: [record], total: 41 },
       page: 2,
-      selectedKeys: [],
       actions: () => ["view"],
       summary: { caption: "权威合计", values: { amount: "123456789.9900" } },
       presentation: {
@@ -247,8 +243,6 @@ it("switches phone records to cards without losing selection, exact cells, group
     const card = wrapper.get('article[aria-label="记录 1"]');
     const toolbar = card.get(".zerp-record-card__toolbar");
     expect(toolbar.get('[aria-label="查看"]').text()).toContain("查看");
-    expect(toolbar.find('input[type="checkbox"]').exists()).toBe(true);
-    expect(wrapper.get(".zerp-card-selection").text()).toContain("全选当前页");
     expect(wrapper.find("table").exists()).toBe(false);
     expect(card.text()).toContain("金额9007199254740993.0100");
     expect(wrapper.text()).toContain("客户组（续）");
@@ -257,19 +251,11 @@ it("switches phone records to cards without losing selection, exact cells, group
     expect(wrapper.get('[aria-label="权威合计"]').text()).toContain(
       "123456789.9900",
     );
-    await card.get('input[type="checkbox"]').setValue(true);
-    expect(wrapper.emitted("update:selectedKeys")?.[0]).toEqual([["one"]]);
-    await wrapper.setProps({ selectedKeys: ["one"] });
-    expect(wrapper.get(".zerp-card-selection").text()).toContain("已选 1 项");
-    expect(card.classes()).toContain("zerp-record-card--selected");
     await card.get('[aria-label="查看"]').trigger("click");
     expect(wrapper.emitted("action")?.[0]).toEqual(["view", record]);
     expect(wrapper.get('[aria-label="分页"]').text()).toContain(
       "第 2 页 / 3 页",
     );
-    await wrapper.setProps({ result: { items: [record], hasMore: true } });
-    expect(wrapper.get('[aria-label="分页"]').text()).not.toContain("共");
-    expect(wrapper.get('[aria-label="分页"]').text()).not.toContain("/");
     Object.defineProperty(window, "innerWidth", {
       configurable: true,
       value: 320,

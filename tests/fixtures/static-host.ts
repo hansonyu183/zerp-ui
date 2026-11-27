@@ -1,21 +1,14 @@
 import { mount, flushPromises, DOMWrapper } from "@vue/test-utils";
-import { createRouter, createMemoryHistory } from "vue-router";
-import { BusinessApplication } from "../../src/index";
-import type { BusinessModel } from "../../src/model";
-export async function render(model: BusinessModel) {
-  const wrapper = mount(BusinessApplication, {
+import { App } from "../../src/index";
+import type { BusinessModel, ListCollection } from "../../src/model";
+export async function render(
+  model: BusinessModel,
+  attrs?: Record<string, unknown>,
+) {
+  const wrapper = mount(App, {
     props: { model },
+    attrs,
     attachTo: document.body,
-    global: {
-      plugins: [
-        createRouter({
-          history: createMemoryHistory(),
-          routes: [
-            { path: "/:pathMatch(.*)*", component: { template: "<div />" } },
-          ],
-        }),
-      ],
-    },
   });
   await flushPromises();
   return wrapper;
@@ -40,3 +33,20 @@ export const input = (label: string) => {
   if (!node) throw Error(`Missing input: ${label}`);
   return new DOMWrapper(node);
 };
+
+export function route(collection: ListCollection | null) {
+  const path = collection
+    ? `/business/${encodeURIComponent(collection.key)}`
+    : "/";
+  window.history.pushState(
+    {
+      ...window.history.state,
+      position: (window.history.state?.position ?? 0) + 1,
+    },
+    "",
+    path,
+  );
+  window.dispatchEvent(
+    new PopStateEvent("popstate", { state: window.history.state }),
+  );
+}

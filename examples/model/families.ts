@@ -1,15 +1,14 @@
 import { reactive } from "vue";
 import type {
-  BusinessNode,
-  Collection,
+  Node,
+  ListCollection,
   InteractionNode,
   ObjectNode,
-  Operation,
   Owner,
   OutputNode,
 } from "@zerp/ui/model";
 const trace = (name: string) => console.log(`synthetic-call:${name}`);
-const operation = (run: () => Promise<void>): Operation => ({
+const operation = (run: () => void | Promise<void>) => ({
   disabled: false,
   run,
 });
@@ -22,13 +21,10 @@ const text = (key: string, label: string, value: string, readOnly = false) =>
     readOnly,
     required: false,
   });
-const object = (
-  key: string,
-  label: string,
-  members: BusinessNode[],
-): ObjectNode =>
+const object = (key: string, label: string, members: Node[]): ObjectNode =>
   reactive({
     kind: "object",
+    businessType: key,
     printable: false,
     family: "standard",
     key,
@@ -38,7 +34,11 @@ const object = (
     members,
     operations: {},
   });
-const collection = (key: string, label: string, row: ObjectNode): Collection =>
+const collection = (
+  key: string,
+  label: string,
+  row: ObjectNode,
+): ListCollection =>
   reactive({
     key,
     label,
@@ -157,7 +157,7 @@ function download() {
 }
 reportRecord.report = {
   operations: {
-    calculate: operation(async () => {
+    calculate: operation(() => {
       trace("report.calculate");
       result.value = (
         Number(quantity.value) * Number(questions.value.factor || 10)
@@ -186,9 +186,9 @@ questions.items = [
         label: "菜单计算",
         target: {
           kind: "action",
-          operation: operation(async () => {
+          operation: operation(() => {
             trace("script.menu");
-            await reportRecord.report!.operations.calculate!.run();
+            return reportRecord.report!.operations.calculate!.run();
           }),
         },
       },
@@ -209,9 +209,9 @@ questions.items = [
             label: "树计算",
             target: {
               kind: "action",
-              operation: operation(async () => {
+              operation: operation(() => {
                 trace("script.tree");
-                await reportRecord.report!.operations.calculate!.run();
+                return reportRecord.report!.operations.calculate!.run();
               }),
             },
           },
@@ -268,7 +268,7 @@ const sales = [
     ]),
   ),
 ];
-export const structuredReport: Collection = reactive({
+export const structuredReport: ListCollection = reactive({
   ...collection("structured", "结构化报表", sales[0]!),
   items: sales,
   columns: [
@@ -401,18 +401,20 @@ export function bindFamilyQueries(owner: () => Owner | null) {
     const query = rows.operations.query;
     rows.items = [];
     rows.total = 0;
-    rows.operations.query = operation(async () => {
+    rows.operations.query = undefined;
+    rows.load = async ({ page, pageSize }) => {
       if (!owner()) return;
       const requestOwner = JSON.stringify(owner());
-      await query?.run();
+      await query?.run({ page, pageSize });
       if (JSON.stringify(owner()) !== requestOwner) return;
       if (rows === structuredReport) {
         details.items = [detailRecord];
         details.total = 1;
       }
       rows.items = seed;
+      rows.page = page;
       rows.total = rows === structuredReport ? 60 : seed.length;
-    });
+    };
   }
 }
 

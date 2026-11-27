@@ -5,22 +5,22 @@ import {
   DOMWrapper,
   type VueWrapper,
 } from "@vue/test-utils";
-import { reactive } from "vue";
+import { nextTick, reactive } from "vue";
 import { afterEach, expect, it, vi } from "vitest";
 import { createRouter, createMemoryHistory } from "vue-router";
-import { layoutPrintTemplate } from "../src/print-layout";
-import { BusinessApplication } from "../src/index";
+import { layoutPrintTemplate } from "../src/components/printing/print-layout";
+import { App } from "../src/index";
 import type {
   BusinessModel,
   ObjectNode,
-  Collection,
+  ListCollection,
   FieldNode,
-  Operation,
   PrintTemplate,
 } from "../src/model";
 // jsdom has no font/layout engine; browser PDF smoke covers real measurement.
-vi.mock("../src/print-layout", async () => {
-  const { bindPrintTemplate } = await import("../src/model-print");
+vi.mock("../src/components/printing/print-layout", async () => {
+  const { bindPrintTemplate } =
+    await import("../src/components/printing/model-print");
   return {
     layoutPrintTemplate: vi.fn(
       async (...args: Parameters<typeof bindPrintTemplate>) =>
@@ -37,7 +37,7 @@ config.global.plugins.push(
     routes: [{ path: "/:pathMatch(.*)*", component: { template: "<div />" } }],
   }),
 );
-const op = (run = vi.fn(async () => {})): Operation => ({
+const op = (run = vi.fn(async () => {})) => ({
   disabled: false,
   run,
 });
@@ -46,6 +46,7 @@ const object = (
   members: ObjectNode["members"] = [],
 ): ObjectNode => ({
   kind: "object",
+  businessType: key,
   family: "standard",
   key,
   label: key,
@@ -55,7 +56,10 @@ const object = (
   members,
   operations: {},
 });
-const text = (key: string, value: string): FieldNode => ({
+const text = (
+  key: string,
+  value: string,
+): Extract<FieldNode, { kind: "text" | "longText" | "password" }> => ({
   kind: "text",
   key,
   label: key,
@@ -64,7 +68,7 @@ const text = (key: string, value: string): FieldNode => ({
   required: false,
 });
 function fixture(fields: FieldNode[] = []) {
-  const collection: Collection = {
+  const collection: ListCollection = {
     key: "records",
     label: "记录",
     columns: [{ key: "code", label: "编号" }],
@@ -82,33 +86,28 @@ function fixture(fields: FieldNode[] = []) {
     kind: "application",
     label: "合成",
     brand: { productName: "合成", companyName: "测试" },
-    members: [
-      {
-        kind: "domain",
-        key: "records",
-        label: collection.label,
-        members: [collection],
-      },
-    ],
     authentication: {
       form: object("登录"),
       operations: { signIn: op(), recover: op() },
-    },
-    account: {
-      label: "测试用户",
-      profile: object("个人资料"),
-      password: object("密码"),
-      operations: { changePassword: op(), signOut: op() },
     },
     session: {
       state: "ready",
       owner,
     },
-    navigation: {
-      current: null,
-      href: () => "/records",
-      visit(target) {
-        model.navigation.current = target;
+    work: {
+      members: [
+        {
+          kind: "domain",
+          key: "records",
+          label: collection.label,
+          members: [collection],
+        },
+      ],
+      account: {
+        label: "测试用户",
+        profile: object("个人资料"),
+        password: object("密码"),
+        operations: { changePassword: op(), signOut: op() },
       },
     },
     messages: [],
@@ -123,7 +122,7 @@ afterEach(async () => {
   document.body.innerHTML = "";
 });
 async function show(model: BusinessModel) {
-  mounted = mount(BusinessApplication, {
+  mounted = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -207,15 +206,60 @@ function reference(
         value: { id: "history", label: "历史客户" },
       };
 }
+it("presents synchronous reference candidates without showing a loader", async () => {
+  const { model, collection } = fixture([reference("reference", false)]);
+  const field = collection.conditions.members[0]!;
+  if (field.kind !== "reference") throw Error("fixture");
+  let loading = true;
+  const run = vi.fn(() => {
+    field.options = [{ id: "local", label: "本地候选", selectable: true }];
+    void nextTick(() => {
+      loading = !!document.querySelector(".zerp-reference .v-field--loading");
+    });
+  });
+  field.load = { disabled: false, run };
+  await show(model);
+  await openReference("选择客户");
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(document.body.textContent).toContain("本地候选");
+  expect(loading).toBe(false);
+});
+
+it("reuses an in-flight directory after the same dropdown is reopened", async () => {
+  const { model, collection } = fixture([reference("reference", false)]);
+  const field = collection.conditions.members[0]!;
+  if (field.kind !== "reference") throw Error("fixture");
+  let finish!: () => void;
+  const load = vi.fn(async () => {
+    await new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    field.options = [{ id: "ready", label: "目录客户", selectable: true }];
+  });
+  field.load = op(load);
+  const wrapper = await show(model);
+  await openReference("选择客户");
+  const input = wrapper.get('input[aria-label="选择客户"]');
+  await input.trigger("keydown", { key: "Escape" });
+  expect(input.attributes("aria-expanded")).toBe("false");
+  await openReference("选择客户");
+  expect(input.attributes("aria-expanded")).toBe("true");
+  expect(load).toHaveBeenCalledTimes(1);
+  finish();
+  await flushPromises();
+  expect(document.body.textContent).toContain("目录客户");
+});
 it("updates an open reference from new model options without a directory reload", async () => {
   const ref = reference("reference", false);
   if (ref.kind !== "reference") throw Error("fixture");
+  ref.value = { id: "history", label: "" };
   ref.options = [{ id: "before", label: "旧候选", selectable: true }];
   const { model, collection } = fixture([ref]);
   const field = collection.conditions.members[0]!;
   if (field.kind !== "reference") throw Error("fixture");
   field.load = op();
   await show(model);
+  expect(field.load.run).not.toHaveBeenCalled();
   await openReference("选择客户");
   expect(document.body.textContent).toContain("旧候选");
   field.options = [{ id: "after", label: "新候选", selectable: true }];
@@ -270,7 +314,14 @@ it("loads reference directories once, retries a failed load, and searches locall
   await flushPromises();
   await clickText("重试引用");
   expect(load).toHaveBeenCalledTimes(2);
+  const disabledOption = [
+    ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((item) => item.textContent?.trim() === "客户0")!;
+  disabledOption.click();
+  await flushPromises();
+  expect(field.value).toEqual({ id: "history", label: "历史客户" });
   await clickText("下一页引用");
+  expect(document.body.textContent).toContain("客户20");
   const input = wrapper.get('input[aria-label="选择客户"]');
   await input.setValue("客户24");
   await new Promise((resolve) => setTimeout(resolve, 180));
@@ -305,6 +356,9 @@ it("expands tree candidates and selects multiple values in one dropdown while pr
   ]);
   expect(wrapper.text()).toContain("历史客户");
   expect(document.querySelector('[role="listbox"]')).toBeTruthy();
+  child.click();
+  await flushPromises();
+  expect(field.value).toEqual([{ id: "history", label: "历史客户" }]);
 });
 it("formats readonly precise values while retaining raw model input", async () => {
   const value = "9007199254740993123.995";
@@ -357,7 +411,7 @@ it("generates template-controlled current-page printing without querying more re
   collection.printTemple = template;
   await flushPromises();
   await clickText("当前页打印");
-  expect(query).toHaveBeenCalledTimes(1);
+  expect(query).not.toHaveBeenCalled();
   const iframe = wrapper.get('iframe[title="打印预览"]');
   expect(iframe.attributes("srcdoc")).toContain("current-only");
   expect(wrapper.text()).not.toContain("已打印");
@@ -375,7 +429,7 @@ it("generates template-controlled current-page printing without querying more re
   await flushPromises();
   await clickText("打开打印窗口");
   expect(print).toHaveBeenCalledTimes(1);
-  expect(query).toHaveBeenCalledTimes(1);
+  expect(query).not.toHaveBeenCalled();
   expect(model.messages).toHaveLength(0);
   const printButton = wrapper
     .findAll("button")
@@ -415,6 +469,8 @@ it("never offers single-record printing for an unsaved draft", async () => {
   };
   collection.draft = object("draft", [text("code", "unsaved")]);
   const wrapper = await show(model);
+  await clickText("继续编辑");
+  await flushPromises();
   expect(wrapper.get('[role="dialog"]').text()).toContain("新增");
   expect(
     wrapper.findAll("button").some((button) => button.text() === "单条打印"),
@@ -482,11 +538,11 @@ it("isolates an old candidate read across an owner change and reloads the new sc
   };
   field.options = [];
   await flushPromises();
-  finishOld();
-  await flushPromises();
   expect(field.options).toEqual([]);
   await openReference("选择客户");
   expect(field.load.run).toHaveBeenCalledTimes(2);
+  finishOld();
+  await flushPromises();
   expect(document.body.textContent).toContain("新客户");
   expect(field.value).toEqual({ id: "history", label: "历史客户" });
 });
@@ -531,6 +587,8 @@ it("keeps generated output printing separate from explicit physical-result confi
   collection.items = [row];
   collection.total = 1;
   const wrapper = await show(model);
+  await wrapper.get('button[aria-label="查看"]').trigger("click");
+  await flushPromises();
   expect(
     wrapper.findAll("button").filter((button) => button.text() === "打印"),
   ).toHaveLength(0);
@@ -570,48 +628,46 @@ it("blocks edited and uncertain values from printing until consumer confirms the
     enumerable: true,
   });
   let attempt = 0;
-  row.operations.update = op(
-    vi.fn(async () => {
+  row.operations.update = {
+    disabled: false,
+    run: vi.fn(async (edited: ObjectNode) => {
       attempt++;
       if (attempt === 1) throw Error("保存失败");
       if (attempt === 2) {
         facts.state = "unknown";
-        return;
+        throw Error("未知结果");
       }
-      facts.accepted = (
-        collection.selected!.members[0] as { value: string }
-      ).value;
+      facts.accepted = (edited.members[0] as { value: string }).value;
+      (row.members[0] as { value: string }).value = facts.accepted;
       facts.state = "confirmed";
     }),
-  );
+  };
   collection.items = [row];
   collection.selected = row;
   collection.total = 1;
   collection.printTemple = template;
   const wrapper = await show(model);
+  await wrapper.get('button[aria-label="编辑"]').trigger("click");
+  await flushPromises();
   const pagePrint = () =>
     wrapper.findAll("button").find((button) => button.text() === "当前页打印");
   expect(pagePrint()?.element.disabled).toBe(false);
   await wrapper
     .get('[role="dialog"] input[aria-label="code"]')
     .setValue("unsaved");
-  expect(collection.selected!.printable).toBe(false);
-  await clickText("关闭");
-  expect(pagePrint()).toBeUndefined();
-  expect(wrapper.text()).toContain("当前页有不可打印的记录。");
+  expect(collection.selected!.printable).toBe(true);
+  expect(pagePrint()?.element.disabled).toBe(false);
   expect(wrapper.text()).not.toContain("未确认保存");
-  expect(collection.operations.query!.run).toHaveBeenCalledTimes(1);
-  await wrapper.get('button[aria-label="编辑"]').trigger("click");
-  await flushPromises();
+  expect(collection.operations.query!.run).not.toHaveBeenCalled();
   await clickText("保存");
-  expect(pagePrint()).toBeUndefined();
+  expect(pagePrint()?.element.disabled).toBe(false);
   await clickText("保存");
   expect(facts.state).toBe("unknown");
   expect(pagePrint()).toBeUndefined();
   await clickText("保存");
   expect(collection.selected!.printable).toBe(true);
   expect(pagePrint()?.element.disabled).toBe(false);
-  expect(collection.operations.query!.run).toHaveBeenCalledTimes(1);
+  expect(collection.operations.query!.run).not.toHaveBeenCalled();
 });
 
 it("disables a previously confirmed current-page print while a row operation is pending", async () => {
@@ -632,6 +688,8 @@ it("disables a previously confirmed current-page print while a row operation is 
   collection.total = 1;
   collection.printTemple = template;
   const wrapper = await show(model);
+  await wrapper.get('button[aria-label="编辑"]').trigger("click");
+  await flushPromises();
   const pagePrint = () =>
     wrapper.findAll("button").find((button) => button.text() === "当前页打印")!;
   expect(pagePrint().attributes("disabled")).toBeUndefined();
@@ -648,13 +706,13 @@ it("opens a requested row print after its pending read and does not reopen a clo
   row.identity = "formal";
   row.printable = true;
   let finishRead: () => void = () => {};
-  row.operations.get = op(
+  row.load = op(
     vi.fn(async () => {
       await new Promise<void>((resolve) => {
         finishRead = resolve;
       });
     }),
-  );
+  ).run;
   collection.items = [row];
   collection.total = 1;
   collection.itemPrintTemple = {
@@ -681,7 +739,7 @@ it("opens a requested row print after its pending read and does not reopen a clo
   const wrapper = await show(model);
   await wrapper.get('button[aria-label="打印"]').trigger("click");
   await flushPromises();
-  expect(row.operations.get.run).toHaveBeenCalledTimes(1);
+  expect(row.load).toHaveBeenCalledTimes(1);
   expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
   finishRead();
   await flushPromises();
@@ -804,7 +862,8 @@ it("discards late template layout after model values change and after preview cl
   expect(previousSignal?.aborted).toBe(true);
   const frame = wrapper.get('iframe[title="打印预览"]');
   expect(frame.attributes("srcdoc")).toContain("new-value");
-  const { bindPrintTemplate } = await import("../src/model-print");
+  const { bindPrintTemplate } =
+    await import("../src/components/printing/model-print");
   finish(
     bindPrintTemplate(
       template,
@@ -821,4 +880,27 @@ it("discards late template layout after model values change and after preview cl
     .trigger("click");
   await flushPromises();
   expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
+});
+
+it("leaves nested record values untracked while template preview is closed", async () => {
+  const { model, collection } = fixture();
+  const value = vi.fn(() => "private");
+  const hidden = {
+    ...text("hidden", ""),
+    readable: false,
+    get value() {
+      return value();
+    },
+  };
+  const row = object("formal", [text("code", "initial"), hidden]);
+  row.identity = "formal";
+  row.printable = true;
+  collection.items = [row];
+  collection.total = 1;
+  collection.printTemple = template;
+  await show(model);
+  value.mockClear();
+  (collection.items[0]!.members[0] as { value: string }).value = "updated";
+  await flushPromises();
+  expect(value).not.toHaveBeenCalled();
 });

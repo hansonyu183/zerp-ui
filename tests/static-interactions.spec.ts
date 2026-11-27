@@ -2,9 +2,9 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { afterEach, expect, it, vi } from "vitest";
 import { reactive } from "vue";
 import { createRouter, createMemoryHistory } from "vue-router";
-import { BusinessApplication } from "../src/index";
+import { App } from "../src/index";
 import type { InteractionNode } from "../src/model";
-import { fixture, operation } from "./fixtures/static-model";
+import { fixture, object, operation } from "./fixtures/static-model";
 
 let wrapper: ReturnType<typeof mount> | undefined;
 afterEach(() => {
@@ -47,9 +47,7 @@ function setup(run = vi.fn(async () => {})) {
     ],
   });
   f.rows.conditions.members.push(node);
-  const visit = vi.fn(f.model.navigation.visit);
-  f.model.navigation.visit = visit;
-  wrapper = mount(BusinessApplication, {
+  wrapper = mount(App, {
     props: { model: f.model },
     attachTo: document.body,
     global: {
@@ -63,7 +61,7 @@ function setup(run = vi.fn(async () => {})) {
       ],
     },
   });
-  return { ...f, node, action, run, visit };
+  return { ...f, node, action, run };
 }
 function action(label: string) {
   return wrapper!.findAll("button,a").find((b) => b.text() === label);
@@ -102,6 +100,26 @@ it("lets an enabled download run from a read-only node", async () => {
   await flushPromises();
   await click("下载文件");
   expect(run).toHaveBeenCalledTimes(1);
+});
+it("opens a record from a related action inside a nested node", async () => {
+  const { rows, record, node } = setup();
+  node.items = [
+    {
+      kind: "related",
+      id: "nested-link",
+      label: "打开关联记录",
+      target: { collection: rows, record },
+    },
+  ];
+  rows.conditions.members = [object("group", "关联信息", [node])];
+  await flushPromises();
+  const path = window.location.href;
+
+  await click("打开关联记录");
+
+  expect(rows.selected).toBe(record);
+  expect(window.location.href).toBe(path);
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
 });
 it("prevents duplicate script downloads and reports current failures", async () => {
   let finish!: () => void;
@@ -192,7 +210,7 @@ it("downloads distinct script files in read-only views without replacing collect
   expect(first).toHaveBeenCalledTimes(1);
   expect(second).toHaveBeenCalledTimes(1);
   expect(exported).not.toHaveBeenCalled();
-  expect(f.visit).not.toHaveBeenCalled();
+  expect(f.rows.selected).toBeNull();
   expect(wrapper!.find('[role="region"][aria-label="下载甲"]').exists()).toBe(
     false,
   );
@@ -205,7 +223,7 @@ it("executes menu and tree callbacks without navigating", async () => {
   await click("重新计算");
   await click("计算子项");
   expect(f.run).toHaveBeenCalledTimes(2);
-  expect(f.visit).not.toHaveBeenCalled();
+  expect(f.rows.selected).toBeNull();
   expect(f.rows.selected).toBeNull();
 });
 it("rechecks interaction read-only and disabled state", async () => {
@@ -310,7 +328,6 @@ it("reports a current action failure and preserves navigation and downloads", as
   await click("重新计算");
   expect(document.body.textContent).toContain("操作失败");
   await click("关联记录");
-  expect(f.visit).toHaveBeenCalledTimes(1);
   expect(f.rows.selected).toBe(f.record);
   f.rows.selected = null;
   await flushPromises();

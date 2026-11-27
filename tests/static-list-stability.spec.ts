@@ -26,6 +26,10 @@ it("keeps first-read status separate from an empty result and its pagination", a
     }),
   );
   wrapper = await render(f.model);
+  await wrapper
+    .findAll("button")
+    .find((b) => b.text() === "查询")!
+    .trigger("click");
   expect(wrapper.text()).toContain("正在读取");
   expect(wrapper.find('nav[aria-label="分页"]').exists()).toBe(false);
   expect(wrapper.text()).not.toContain("暂无记录");
@@ -37,7 +41,7 @@ it("keeps first-read status separate from an empty result and its pagination", a
 it("restores focus to the same record after async detail changes edit into view", async () => {
   const f = fixture();
   let complete!: () => void;
-  f.record.operations.get = operation(
+  f.record.load = operation(
     vi.fn(async () => {
       await new Promise<void>((r) => {
         complete = r;
@@ -45,7 +49,7 @@ it("restores focus to the same record after async detail changes edit into view"
       f.record.readOnly = true;
       f.record.operations.update!.disabled = true;
     }),
-  );
+  ).run;
   wrapper = await render(f.model);
   const edit = wrapper.get('button[aria-label="编辑"]');
   (edit.element as HTMLElement).focus();
@@ -70,7 +74,7 @@ it("restores focus to the same record after async detail changes edit into view"
 it("restores the disabled hint while detail is still reading, then its available button", async () => {
   const f = fixture();
   let complete!: () => void;
-  f.record.operations.get = operation(
+  f.record.load = operation(
     vi.fn(async () => {
       f.record.readOnly = true;
       f.record.operations.update!.disabled = true;
@@ -80,7 +84,7 @@ it("restores the disabled hint while detail is still reading, then its available
       f.record.readOnly = false;
       f.record.operations.update!.disabled = false;
     }),
-  );
+  ).run;
   wrapper = await render(f.model);
   const edit = wrapper.get('button[aria-label="编辑"]');
   (edit.element as HTMLElement).focus();
@@ -107,7 +111,7 @@ it("restores the disabled hint while detail is still reading, then its available
 it("does not reclaim focus after the user moves away from the pending detail hint", async () => {
   const f = fixture();
   let complete!: () => void;
-  f.record.operations.get = operation(
+  f.record.load = operation(
     vi.fn(async () => {
       f.record.readOnly = true;
       f.record.operations.update!.disabled = true;
@@ -117,7 +121,7 @@ it("does not reclaim focus after the user moves away from the pending detail hin
       f.record.readOnly = false;
       f.record.operations.update!.disabled = false;
     }),
-  );
+  ).run;
   wrapper = await render(f.model);
   const edit = wrapper.get('button[aria-label="编辑"]');
   (edit.element as HTMLElement).focus();

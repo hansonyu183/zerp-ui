@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatField } from "../src/model-format";
+import { formatField } from "../src/components/forms/model-format";
 import type { FieldNode } from "../src/model";
 const decimal = (
   value: string,

@@ -1,0 +1,307 @@
+<script setup lang="ts">
+import { VAutocomplete, VBtn, VListItem } from "vuetify/components";
+import { computed, ref, shallowRef, watch, onBeforeUnmount, useId } from "vue";
+import FieldFeedback from "./FieldFeedback.vue";
+import type {
+  ReferenceValue,
+  SelectOption,
+  TreeOption,
+} from "../../model/business-model";
+import type { ReferenceAdapter } from "./reference-directory";
+import {
+  readReferenceDirectory,
+  clearReferenceDirectory,
+} from "./reference-directory";
+const props = defineProps<{
+  adapter: ReferenceAdapter;
+  options: readonly (SelectOption | TreeOption)[];
+  modelValue: ReferenceValue | readonly ReferenceValue[] | null;
+  scope: string;
+  label: string;
+  multiple?: boolean;
+  tree?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+}>();
+const emit = defineEmits<{
+  "update:modelValue": [
+    value: ReferenceValue | readonly ReferenceValue[] | null,
+  ];
+}>();
+const disabled = computed(() => props.disabled || !!props.disabledReason);
+const feedbackId = `${useId()}-reference-feedback`;
+const focused = ref(false);
+const feedback = computed(() =>
+  [error.value || props.disabledReason].filter(
+    (text): text is string => !!text,
+  ),
+);
+const open = ref(false),
+  search = ref(""),
+  keyword = ref(""),
+  page = ref(1),
+  busy = ref(false),
+  error = ref("");
+type TreeValue = ReferenceValue & {
+  selectable?: boolean;
+  children?: readonly TreeValue[];
+  depth?: number;
+};
+const previousScopeOptions = shallowRef<readonly SelectOption[]>();
+const candidates = computed<readonly TreeValue[]>(() =>
+  props.options === previousScopeOptions.value ? [] : props.options,
+);
+const expanded = ref(new Set<string>());
+const selected = computed<readonly ReferenceValue[]>(() =>
+  Array.isArray(props.modelValue)
+    ? props.modelValue
+    : props.modelValue
+      ? [props.modelValue as ReferenceValue]
+      : [],
+);
+const shown = computed(() =>
+  selected.value.map((value) => ({
+    ...value,
+    label:
+      (value.label && value.label !== value.id ? value.label : "") ||
+      candidates.value.find((item) => item.id === value.id)?.label ||
+      value.id,
+  })),
+);
+const filtered = computed(() => {
+  const text = keyword.value.trim().toLocaleLowerCase();
+  if (!props.tree)
+    return candidates.value.filter((value) =>
+      value.label.toLocaleLowerCase().includes(text),
+    );
+  const matches = (node: TreeValue): boolean =>
+    node.label.toLocaleLowerCase().includes(text) ||
+    !!node.children?.some(matches);
+  const result: TreeValue[] = [];
+  function visit(
+    nodes: readonly TreeValue[],
+    depth: number,
+    inherited = false,
+  ) {
+    for (const node of nodes) {
+      const ownMatch = !!text && node.label.toLocaleLowerCase().includes(text);
+      if (text && !inherited && !matches(node)) continue;
+      result.push({ ...node, depth });
+      if (node.children && (text || expanded.value.has(node.id)))
+        visit(node.children, depth + 1, inherited || ownMatch);
+    }
+  }
+  visit(candidates.value, 0);
+  return result;
+});
+function toggle(id: string) {
+  const next = new Set(expanded.value);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  expanded.value = next;
+}
+const items = computed(() => {
+  const result = filtered.value.slice((page.value - 1) * 20, page.value * 20);
+  for (const value of shown.value)
+    if (!result.some((item) => item.id === value.id))
+      result.push({ ...value, selectable: false });
+  return result;
+});
+let version = 0,
+  active = true;
+let release: (() => void) | undefined;
+let timer: ReturnType<typeof setTimeout> | undefined;
+watch(search, (value) => {
+  clearTimeout(timer);
+  if (
+    !props.multiple &&
+    shown.value.some((item) => item.label === value || item.id === value)
+  ) {
+    keyword.value = "";
+    page.value = 1;
+    return;
+  }
+  timer = setTimeout(() => {
+    keyword.value = value;
+    page.value = 1;
+  }, 150);
+});
+async function load() {
+  if (
+    props.disabledReason ||
+    (disabled.value &&
+      !selected.value.some((value) => !value.label || value.label === value.id))
+  )
+    return;
+  const request = ++version;
+  const current = () => active && request === version;
+  error.value = "";
+  let lease: ReturnType<typeof readReferenceDirectory>;
+  try {
+    lease = readReferenceDirectory(props.adapter, props.scope);
+    if (!lease) return;
+    // 先取得新租约，避免重开同一选单时释放仍进行中的读取。
+    release?.();
+    if (current()) {
+      release = lease.release;
+      if (lease.pending) busy.value = true;
+    } else {
+      lease.release();
+    }
+    if (lease.pending) await lease.pending;
+    if (current()) previousScopeOptions.value = undefined;
+  } catch (cause) {
+    if (current())
+      error.value =
+        cause instanceof Error ? cause.message : "操作失败，请重试。";
+  } finally {
+    lease?.release();
+    if (current()) busy.value = false;
+  }
+}
+watch(open, (value) => {
+  if (value) void load();
+});
+watch(disabled, (value) => {
+  if (value) open.value = false;
+});
+watch(
+  () =>
+    [
+      props.scope,
+      props.adapter.directory,
+      props.adapter.scopeKey ?? "",
+      props.options,
+    ] as const,
+  (value, previous) => {
+    if (value.slice(0, 3).every((item, index) => item === previous[index])) {
+      if (value[3] !== previous[3]) previousScopeOptions.value = undefined;
+      return;
+    }
+    version++;
+    release?.();
+    clearReferenceDirectory(previous[1], previous[0], previous[2]);
+    open.value = false;
+    previousScopeOptions.value =
+      value[3] === previous[3] ? previous[3] : undefined;
+    expanded.value = new Set();
+    busy.value = false;
+    error.value = "";
+    search.value = keyword.value = "";
+    page.value = 1;
+  },
+);
+function choose(value: ReferenceValue | readonly ReferenceValue[] | null) {
+  if (disabled.value) return;
+  const values = Array.isArray(value) ? value : value ? [value] : [];
+  if (
+    values.some(
+      (item) =>
+        !selected.value.some((previous) => previous.id === item.id) &&
+        !items.value.some(
+          (candidate) =>
+            candidate.id === item.id && candidate.selectable !== false,
+        ),
+    )
+  )
+    return;
+  emit("update:modelValue", value);
+  if (!props.multiple) open.value = false;
+}
+onBeforeUnmount(() => {
+  active = false;
+  version++;
+  release?.();
+  clearTimeout(timer);
+});
+</script>
+<template>
+  <div class="zerp-reference-field">
+    <VAutocomplete
+      v-model:menu="open"
+      v-model:search="search"
+      class="zerp-reference"
+      :label="label"
+      :aria-label="label"
+      :model-value="multiple ? shown : (shown[0] ?? null)"
+      :items="items"
+      item-title="label"
+      item-value="id"
+      :item-props="
+        (item) => ({
+          disabled:
+            item.selectable === false && !(tree && item.children?.length),
+        })
+      "
+      return-object
+      no-filter
+      :multiple="multiple"
+      :chips="multiple"
+      :closable-chips="multiple"
+      clearable
+      :disabled="disabled"
+      :loading="busy"
+      :error="!!error"
+      hide-details
+      :aria-describedby="feedback.length ? feedbackId : undefined"
+      @update:focused="focused = $event"
+      :aria-invalid="error ? 'true' : undefined"
+      :menu-props="{ maxHeight: 360 }"
+      @click:control="open = !disabled"
+      @update:model-value="choose"
+    >
+      <template v-if="tree" #item="{ item, props: itemProps }">
+        <VListItem
+          v-bind="itemProps"
+          :title="undefined"
+          class="zerp-reference-tree-item"
+        >
+          <template #title>
+            <span
+              :style="{ paddingInlineStart: `${(item.depth ?? 0) * 16}px` }"
+            >
+              <VBtn
+                v-if="item.children?.length"
+                size="small"
+                variant="text"
+                :aria-label="`${expanded.has(item.id) ? '收起' : '展开'}${item.label}`"
+                :aria-expanded="!!keyword || expanded.has(item.id)"
+                :icon="expanded.has(item.id) || keyword ? '$expand' : '$next'"
+                @click.stop="toggle(item.id)"
+              />
+              {{ item.label }}
+            </span>
+          </template>
+        </VListItem>
+      </template>
+      <template #append-item>
+        <VListItem
+          v-if="filtered.length > 20"
+          class="zerp-reference-pagination"
+        >
+          <VBtn :disabled="page === 1" @click.stop="page--">上一页引用</VBtn>
+          <span aria-label="引用当前页">{{ page }}</span>
+          <VBtn :disabled="page * 20 >= filtered.length" @click.stop="page++"
+            >下一页引用</VBtn
+          >
+        </VListItem>
+      </template>
+      <template #append-inner>
+        <span class="zerp-reference-feedback" @click.stop @mousedown.stop>
+          <FieldFeedback
+            :id="feedbackId"
+            :label="label"
+            :messages="feedback"
+            :focused="focused"
+          >
+            <template #actions
+              ><VBtn v-if="error" :disabled="busy" @click.stop="load"
+                >重试引用</VBtn
+              ></template
+            >
+          </FieldFeedback>
+        </span>
+      </template>
+    </VAutocomplete>
+  </div>
+</template>

@@ -32,7 +32,7 @@
 
 本节记录 0.44.0 的实施边界。领域分组采用下文 2026-11-17 修订，当前发行及接入入口见[项目说明](../../README.md)。
 
-[#159](https://github.com/hansonyu183/zerp-ui/issues/159) 将上述目标落实到唯一公开声明及宿主：固定普通属性取代 Symbol，根 members 只包含 Collection，对象与单据共用 ObjectNode，所属明细使用 RecordsNode。类型源统一为 src/business-model.ts，由 @zerp/ui/model 仅以类型导出；临时目标声明副本删除。私有旧页面/运行时只供既有回归，不参与新模型检测、转换或 fallback。
+[#159](https://github.com/hansonyu183/zerp-ui/issues/159) 将上述目标落实到唯一公开声明及宿主：固定普通属性取代 Symbol，根 members 只包含 Collection，对象与单据共用 ObjectNode，所属明细使用 RecordsNode。类型源统一为 src/model/business-model.ts，由 @zerp/ui/model 仅以类型导出；临时目标声明副本删除。私有旧页面/运行时只供既有回归，不参与新模型检测、转换或 fallback。
 
 本次采用保留完整静态结构、按权限裁剪组件的策略；这使撤权后的再次增权和同根对象再次登录可以恢复新获权结构。消费者清理会话业务数据并检查异步回写有效性；库隔离旧 busy、选择、候选呈现与反馈，不持有冻结请求、编辑基线或原请求日志。
 
@@ -55,3 +55,15 @@
 ## 2026-11-23 修订：节点直接表达读取资格
 
 本修订取代根级权限清单及空标签隐藏规则。会话保留状态与 owner。消费者通过节点的 `readable`、`readOnly` 和操作的 `disabled` 更新同一个响应式模型。UI 按当前值呈现，后端负责请求鉴权。接口细节见[静态模型接口](../interfaces/README.md#操作与会话)。
+
+## 2026-11-26 修订：认证与工作区分层
+
+用户确认登录和工作采用独立页面，对应同一根模型的 `authentication` 和 `work`。工作区成员、账户、导航及工作台归 `work`。品牌、主题、会话和消息在应用根共享。唯一公开入口仍为 `BusinessApplication`，消费者持有 Router 和业务回调。见[顶层接口](../interfaces/README.md#应用认证与工作区)。
+
+## 2026-11-27 修订：集合路由与记录窗口
+
+库从源码定义的业务结构管理页面 Router，工作台归首页集合。链接只定位集合页面，查看、编辑和新增在工作区按业务类型复用窗口。窗口的编辑值与最近确认值只用于本次编辑及同类对象切换。消费者继续掌握业务提交、冲突、未知结果及请求有效性。UI 根据当前目标触发可选读取回调，实际数据及回写由消费者管理。见[静态模型接口](../interfaces/README.md)和 [UI 规范](../ui-preferences.md)。
+
+## 2026-11-27 修订：应用组件命名
+
+用户确认将唯一公开组件更名为 `App`。消费者从 `@zerp/ui` 导入 `App`，继续传入同一个 `BusinessModel`。

@@ -12,8 +12,9 @@ it("offers only the model application and no retired assembly APIs", () => {
     )
     .map(([name]) => name)
     .sort();
-  expect(components).toEqual(["BusinessApplication"]);
+  expect(components).toEqual(["App"]);
   for (const name of [
+    "BusinessApplication",
     "AppPage",
     "AuthPage",
     "defineCrud",

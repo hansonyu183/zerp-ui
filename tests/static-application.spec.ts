@@ -1,28 +1,19 @@
-import { mount, flushPromises, config } from "@vue/test-utils";
-import { reactive } from "vue";
-import { expect, it, vi } from "vitest";
-import { createRouter, createMemoryHistory } from "vue-router";
-import { BusinessApplication } from "../src/index";
-import { domainOf } from "./fixtures/static-model";
-import type {
-  BusinessModel,
-  ObjectNode,
-  Collection,
-  Operation,
-} from "../src/model";
-config.global.plugins.push(
-  createRouter({
-    history: createMemoryHistory(),
-    routes: [{ path: "/:pathMatch(.*)*", component: { template: "<div />" } }],
-  }),
-);
-const operation = (run = vi.fn(async () => {})): Operation => ({
+import { route } from "./fixtures/static-host";
+import { mount, flushPromises, enableAutoUnmount } from "@vue/test-utils";
+import { nextTick, reactive } from "vue";
+import { afterEach, expect, it, vi } from "vitest";
+import { App } from "../src/index";
+import { domainOf, field } from "./fixtures/static-model";
+import type { BusinessModel, ObjectNode, ListCollection } from "../src/model";
+enableAutoUnmount(afterEach);
+const operation = (run = vi.fn(async () => {})) => ({
   disabled: false,
   run,
 });
 function object(key: string, label = key): ObjectNode {
   return {
     kind: "object",
+    businessType: key,
     family: "standard",
     key,
     label,
@@ -35,7 +26,7 @@ function object(key: string, label = key): ObjectNode {
 }
 function fixture() {
   const query = operation();
-  const collection: Collection = {
+  const collection: ListCollection = {
     key: "customers",
     label: "客户",
     columns: [{ key: "code", label: "编号" }],
@@ -53,44 +44,80 @@ function fixture() {
     kind: "application",
     label: "合成应用",
     brand: { productName: "合成", companyName: "测试" },
-    members: [domainOf(collection)],
     authentication: {
       form: object("login", "登录"),
       operations: { signIn: operation(), recover: operation() },
-    },
-    account: {
-      label: "测试用户",
-      profile: object("profile", "个人资料"),
-      password: object("password", "修改密码"),
-      operations: { changePassword: operation(), signOut: operation() },
     },
     session: {
       state: "ready",
       owner,
     },
-    navigation: {
-      current: null,
-      href: () => "/customers",
-      visit(node) {
-        model.navigation.current = node;
+    work: {
+      members: [domainOf(collection)],
+      account: {
+        label: "测试用户",
+        profile: object("profile", "个人资料"),
+        password: object("password", "修改密码"),
+        operations: { changePassword: operation(), signOut: operation() },
       },
     },
     messages: [],
   });
   return { model, collection: reactive(collection), query: query.run };
 }
-it("shows declared columns for an empty collection and queries the first authorized collection once", async () => {
+it("shows declared columns for an empty collection without querying the first authorized collection", async () => {
   const { model, collection, query } = fixture();
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
-  expect(query).toHaveBeenCalledTimes(1);
-  expect(model.navigation.current).toBe(collection);
+  expect(query).not.toHaveBeenCalled();
+  expect(window.location.pathname).toBe("/business/" + collection.key);
   wrapper.unmount();
 });
+it("reads the selected record only after the user opens its window", async () => {
+  const { model, collection, query } = fixture();
+  const record = object("customer", "合成详情");
+  record.identity = "c1";
+  record.load = vi.fn(async () => {});
+  collection.items = [record];
+  collection.total = 1;
+  collection.selected = record;
+  const wrapper = mount(App, { props: { model } });
+  await flushPromises();
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
+  expect(query).not.toHaveBeenCalled();
+  expect(record.load).not.toHaveBeenCalled();
+  await wrapper.get('button[aria-label="查看"]').trigger("click");
+  expect(wrapper.get('[role="dialog"]').text()).toContain("合成详情");
+  expect(record.load).toHaveBeenCalledExactlyOnceWith("c1");
+  wrapper.unmount();
+});
+
 it("keeps the same root through anonymous authentication and hides business collections during session recovery", async () => {
-  const { model } = fixture();
+  const { model, query } = fixture();
   model.session = { state: "anonymous", owner: null };
+  model.authentication.form.members = [
+    {
+      kind: "password",
+      key: "password",
+      label: "密码",
+      value: "",
+      readOnly: false,
+      required: true,
+    },
+    field("user", "账号", ""),
+    {
+      kind: "reference",
+      key: "ledger",
+      label: "账套",
+      value: null,
+      readOnly: false,
+      required: false,
+      multiple: false,
+      options: [],
+    },
+    object("child", "业务区块"),
+  ];
   const signIn = vi.fn(async () => {
     const owner = { ledger: "synthetic", operator: "next", generation: "2" };
     model.session = {
@@ -99,36 +126,53 @@ it("keeps the same root through anonymous authentication and hides business coll
     };
   });
   model.authentication.operations.signIn.run = signIn;
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model }, attachTo: document.body });
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
+  expect(query).not.toHaveBeenCalled();
+  const form = wrapper.get("form");
+  expect(
+    form
+      .findAll("input[aria-label]")
+      .map((input) => input.attributes("aria-label")),
+  ).toEqual(["账套", "账号", "密码"]);
+  expect(form.text()).not.toContain("业务区块");
+  model.authentication.operations.signIn.disabled = true;
+  await flushPromises();
+  expect(form.find('button[type="submit"]').exists()).toBe(false);
+  await form.trigger("submit");
+  expect(signIn).not.toHaveBeenCalled();
+  model.authentication.operations.signIn.disabled = false;
+  await flushPromises();
   await wrapper
     .findAll("button")
     .find((b) => b.text() === "登录")!
     .trigger("click");
   await flushPromises();
   expect(signIn).toHaveBeenCalledTimes(1);
+  expect(window.location.pathname).toBe("/business/customers");
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
   model.session = { state: "recovering", owner: null };
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
+  expect(wrapper.find('form button[type="submit"]').exists()).toBe(false);
   wrapper.unmount();
 });
 it("updates collection readability without deleting structure", async () => {
   const { model, collection } = fixture();
   collection.readable = false;
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
   collection.readable = true;
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
-  expect(model.members[0]).toMatchObject({
+  expect(model.work.members[0]).toMatchObject({
     members: [collection],
   });
   wrapper.unmount();
 });
-it("does not load a configured workbench again on return and retries a failed load explicitly", async () => {
+it("loads the workbench once per session and retries only on request", async () => {
   const { model, collection } = fixture();
   const records = (key: string) => ({
     kind: "records" as const,
@@ -139,35 +183,89 @@ it("does not load a configured workbench again on return and retries a failed lo
     selected: null,
     operations: {},
   });
-  const load = operation(
-    vi.fn(async () => {
-      throw Error("offline");
-    }),
-  );
-  model.workbench = {
+  const load = vi.fn(async () => {
+    throw Error("offline");
+  });
+  model.work.workbench = {
+    key: "home",
+    label: "工作台",
     load,
     information: records("重要信息"),
     vouchers: records("单据"),
     reports: records("报表"),
     masters: records("资料"),
   };
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
-  expect(load.run).toHaveBeenCalledTimes(1);
+  expect(load).toHaveBeenCalledTimes(1);
   expect(wrapper.text()).toContain("操作失败");
-  model.navigation.current = collection;
+  route(collection);
   await flushPromises();
-  model.navigation.current = null;
+  route(null);
   await flushPromises();
-  expect(load.run).toHaveBeenCalledTimes(1);
+  expect(load).toHaveBeenCalledTimes(1);
+  const session = model.session;
+  model.session = { state: "recovering", owner: null };
+  await flushPromises();
+  model.session = session;
+  await flushPromises();
+  expect(load).toHaveBeenCalledTimes(2);
   await wrapper
     .findAll("button")
     .find((b) => b.text() === "刷新")!
     .trigger("click");
   await flushPromises();
-  expect(load.run).toHaveBeenCalledTimes(2);
+  expect(load).toHaveBeenCalledTimes(3);
+  expect(wrapper.text()).toContain("操作失败");
   wrapper.unmount();
 });
+it("reserves synchronous operations without showing pending and guards later async runs", async () => {
+  const { model, collection } = fixture();
+  let button: HTMLButtonElement;
+  let localPending = true;
+  const local = vi.fn(() => {
+    if (local.mock.calls.length === 1) button.click();
+    void nextTick(() => {
+      localPending = button.disabled;
+    });
+  });
+  collection.operations.export = { disabled: false, run: local };
+
+  const wrapper = mount(App, { props: { model }, attachTo: document.body });
+  await flushPromises();
+  const exportButton = () =>
+    wrapper.findAll("button").find((item) => item.text() === "导出")!;
+  button = exportButton().element as HTMLButtonElement;
+  await exportButton().trigger("click");
+  await flushPromises();
+  expect(local).toHaveBeenCalledTimes(1);
+  expect(localPending).toBe(false);
+
+  const release: Array<() => void> = [];
+  const remote = vi.fn(
+    () => new Promise<void>((resolve) => release.push(resolve)),
+  );
+  collection.operations.export.run = remote;
+  await exportButton().trigger("click");
+  expect((exportButton().element as HTMLButtonElement).disabled).toBe(true);
+  await exportButton().trigger("click");
+  expect(remote).toHaveBeenCalledTimes(1);
+
+  model.session = {
+    state: "ready",
+    owner: { ledger: "synthetic", operator: "tester", generation: "2" },
+  };
+  await flushPromises();
+  await exportButton().trigger("click");
+  expect(remote).toHaveBeenCalledTimes(2);
+  release[0]!();
+  await flushPromises();
+  expect((exportButton().element as HTMLButtonElement).disabled).toBe(true);
+  release[1]!();
+  await flushPromises();
+  expect((exportButton().element as HTMLButtonElement).disabled).toBe(false);
+});
+
 it("edits the selected record directly, preserves failed input, and prevents disabled or duplicate saves", async () => {
   const { model, collection } = fixture();
   const row = object("customer", "客户详情");
@@ -190,20 +288,24 @@ it("edits the selected record directly, preserves failed input, and prevents dis
         release = () => reject(Error("rejected"));
       }),
   );
-  row.operations.update = { disabled: true, run: update };
+  row.operations.update = { disabled: false, run: update };
   collection.items = [row];
   collection.selected = row;
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
   await flushPromises();
+  await wrapper.get('button[aria-label="编辑"]').trigger("click");
+  await flushPromises();
   const dialog = wrapper.get('[role="dialog"]');
+  collection.selected!.operations.update!.disabled = true;
+  await flushPromises();
   const input = dialog.get('input[aria-label="编号"]');
   await input.setValue("changed");
   expect((collection.selected!.members[0] as { value: string }).value).toBe(
-    "changed",
+    "before",
   );
   const save = () =>
     dialog.findAll("button").find((button) => button.text() === "保存");
@@ -262,10 +364,12 @@ it("hides null-label detail nodes while preserving explicit list columns and ord
   collection.items = [row];
   collection.selected = row;
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
+  await flushPromises();
+  await wrapper.get('button[aria-label="查看"]').trigger("click");
   await flushPromises();
   expect(wrapper.get("table").text()).not.toContain("hidden-column");
   const dialog = wrapper.get('[role="dialog"]');
@@ -299,8 +403,13 @@ it("suppresses stale query feedback after a session change and lets the consumer
     if (model.session.owner !== owner) return;
     collection.total = 99;
   });
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
+  await wrapper
+    .findAll("button")
+    .find((b) => b.text() === "查询")!
+    .trigger("click");
+  expect(collection.operations.query!.run).toHaveBeenCalledTimes(1);
   const nextOwner = { ledger: "synthetic", operator: "other", generation: "2" };
   model.session = {
     state: "ready",
@@ -331,8 +440,16 @@ it("edits owned detail rows in a compact desktop table and saves through the par
       value: "原值",
     },
   ];
-  const save = vi.fn(async () => {});
-  parent.operations.update = operation(save);
+  const save = vi.fn(async (edited: ObjectNode) => {
+    const draft = edited.members[0];
+    if (draft?.kind === "records") {
+      const current = child.members[0];
+      const next = draft.items[0]?.members[0];
+      if (current?.kind === "text" && next?.kind === "text")
+        current.value = next.value;
+    }
+  });
+  parent.operations.update = { disabled: false, run: save };
   parent.members = [
     {
       kind: "records",
@@ -346,10 +463,12 @@ it("edits owned detail rows in a compact desktop table and saves through the par
   ];
   collection.items = [parent];
   collection.selected = parent;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
+  await flushPromises();
+  await wrapper.get('button[aria-label="编辑"]').trigger("click");
   await flushPromises();
   const dialog = wrapper.get('[role="dialog"]');
   expect(dialog.findAll("th").map((header) => header.text())).toContain("名称");
@@ -385,10 +504,12 @@ it("discards failure feedback when a pending operation is replaced on the same b
   );
   collection.items = [row];
   collection.selected = row;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
+  await flushPromises();
+  await wrapper.get('button[aria-label="编辑"]').trigger("click");
   await flushPromises();
   await wrapper
     .get('[role="dialog"]')
@@ -423,7 +544,7 @@ it("opens processing-only records for direct input and executes supplied actions
   };
   collection.items = [row];
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -457,7 +578,7 @@ it("reports a missing explicit column member with a stable collection, record, a
   row.printable = true;
   collection.items = [row];
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   expect(wrapper.text()).toContain(
     "客户 / missing-1 / code：列引用的成员不存在",
@@ -478,7 +599,7 @@ it("lets a readonly collection user enter query criteria while preserving narrow
     },
   ];
 
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   const input = wrapper.get('input[aria-label="查询名称"]');
   expect(input.attributes("readonly")).toBeUndefined();
@@ -491,7 +612,7 @@ it("lets a readonly collection user enter query criteria while preserving narrow
   expect(input.attributes("readonly")).toBeDefined();
   wrapper.unmount();
 });
-it("uses the consumer homepage URL and notifies its null navigation callback while preserving modified links", async () => {
+it("uses the framework homepage URL and preserves modified links", async () => {
   const { model, collection } = fixture();
   const records = (key: string) => ({
     kind: "records" as const,
@@ -502,41 +623,36 @@ it("uses the consumer homepage URL and notifies its null navigation callback whi
     selected: null,
     operations: {},
   });
-  model.workbench = {
+  model.work.workbench = {
+    key: "home",
+    label: "工作台",
     information: records("重要信息"),
     vouchers: records("单据"),
     reports: records("报表"),
     masters: records("资料"),
   };
-  model.navigation.current = collection;
-  model.navigation.href = (node) =>
-    node ? "/custom/customers" : "/custom/home";
-  const visit = vi.fn((node: Collection | null) => {
-    model.navigation.current = node;
-  });
-  model.navigation.visit = visit;
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  route(collection);
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   const home = wrapper.get('a[aria-label="合成：首页"]');
-  expect(home.attributes("href")).toBe("/custom/home");
-  const workbench = wrapper.get('nav a[href="/custom/home"]');
+  expect(home.attributes("href")).toBe("/");
+  const workbench = wrapper.get('nav a[href="/"]');
   expect(workbench.text()).toContain("工作台");
   expect(wrapper.findAll("nav a")[0]!.element).toBe(workbench.element);
   await workbench.trigger("click", { ctrlKey: true });
-  expect(visit).not.toHaveBeenCalled();
+  expect(window.location.pathname).toBe("/business/customers");
   await workbench.trigger("click");
-  expect(visit).toHaveBeenCalledWith(null);
+  await flushPromises();
+  expect(window.location.pathname).toBe("/");
   expect(workbench.attributes("aria-current")).toBe("page");
-  model.navigation.current = collection;
-  visit.mockClear();
+  route(collection);
   await flushPromises();
   await home.trigger("click", { ctrlKey: true });
-  expect(visit).not.toHaveBeenCalled();
-  expect(model.navigation.current).toBe(collection);
+  expect(window.location.pathname).toBe("/business/customers");
+  expect(window.location.pathname).toBe("/business/" + collection.key);
   await home.trigger("click");
   await flushPromises();
-  expect(visit).toHaveBeenCalledWith(null);
-  expect(model.navigation.current).toBeNull();
+  expect(window.location.pathname).toBe("/");
   expect(wrapper.text()).toContain("重要信息");
   wrapper.unmount();
 });
@@ -562,7 +678,7 @@ it("keeps qualified workflow row actions directly visible while ordinary actions
   row.workflow = { operations: { start, advance, approveChild, rejectChild } };
   collection.items = [row];
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -617,6 +733,12 @@ it("keeps an unprintable record detail quiet until printing is available", async
     },
   ];
   collection.selected = row;
+  model.messages.push({
+    id: "open",
+    level: "warning",
+    text: "查看外部记录",
+    target: row,
+  });
   collection.itemPrintTemple = {
     label: "记录打印",
     page: { width: 100, height: 100, margin: 5 },
@@ -640,10 +762,12 @@ it("keeps an unprintable record detail quiet until printing is available", async
       },
     ],
   };
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
+  await flushPromises();
+  await wrapper.get('[aria-label="页面消息"] button').trigger("click");
   await flushPromises();
   const dialog = wrapper.get('[role="dialog"]');
   expect(dialog.text()).not.toContain("尚未确认保存");
@@ -658,18 +782,18 @@ it("keeps an unprintable record detail quiet until printing is available", async
   expect(collection.items).toHaveLength(0);
   wrapper.unmount();
 });
-it("captures report scroll before navigation clears the old page and restores it without another query", async () => {
+it("captures report scroll before navigation clears the old page and restores it without querying", async () => {
   const { model, collection, query } = fixture();
   collection.report = {};
-  model.navigation.current = collection;
-  const other: Collection = {
+  route(collection);
+  const other: ListCollection = {
     ...collection,
     key: "other",
     label: "其他",
     conditions: object("other-conditions", "条件"),
     report: undefined,
   };
-  model.members.push(domainOf(other));
+  model.work.members.push(domainOf(other));
   const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   const descriptor = Object.getOwnPropertyDescriptor(window, "scrollY");
   const frame = globalThis.requestAnimationFrame;
@@ -677,20 +801,20 @@ it("captures report scroll before navigation clears the old page and restores it
     callback(0);
     return 1;
   };
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   try {
     await flushPromises();
     Object.defineProperty(window, "scrollY", {
       configurable: true,
       value: 640,
     });
-    model.navigation.visit(other);
+    route(other);
     await flushPromises();
     Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
-    model.navigation.visit(collection);
+    route(collection);
     await flushPromises();
     expect(scroll).toHaveBeenLastCalledWith(0, 640);
-    expect(query).toHaveBeenCalledTimes(2);
+    expect(query).not.toHaveBeenCalled();
   } finally {
     wrapper.unmount();
     scroll.mockRestore();
@@ -735,7 +859,7 @@ it("keeps authorized preview and print reachable from a read-only output view wh
   };
   collection.items = [row];
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -807,7 +931,7 @@ it("updates nested output confirmation from its operation availability", async (
   collection.items = [row];
   collection.total = 1;
 
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -866,17 +990,22 @@ it("keeps a nested object own update boundary editable from a view-only parent w
     value: "child",
   };
   child.members = [nested];
-  const update = vi.fn(async () => {});
-  child.operations.update = operation(update);
+  const update = vi.fn(async (edited: ObjectNode) => {
+    const changed = edited.members[0];
+    if (changed?.kind === "text") nested.value = changed.value;
+  });
+  child.operations.update = { disabled: false, run: update };
   parent.members = [direct, child];
   collection.items = [parent];
   collection.selected = parent;
   collection.total = 1;
 
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
+  await flushPromises();
+  await wrapper.get('button[aria-label="查看"]').trigger("click");
   await flushPromises();
   const dialog = wrapper.get('[role="dialog"]');
   expect(
@@ -917,16 +1046,16 @@ it("keeps a nested object own update boundary editable from a view-only parent w
 });
 it("projects known finite domain icons and renders other domains as text links", async () => {
   const { model, collection } = fixture();
-  model.members[0] = { ...domainOf(collection), icon: "catalog" };
-  const unknown: Collection = {
+  model.work.members[0] = { ...domainOf(collection), icon: "catalog" };
+  const unknown: ListCollection = {
     ...collection,
     key: "custom",
     label: "未知业务",
     conditions: object("custom-conditions"),
     items: [],
   };
-  model.members.push(domainOf(unknown));
-  const wrapper = mount(BusinessApplication, {
+  model.work.members.push(domainOf(unknown));
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -941,4 +1070,91 @@ it("projects known finite domain icons and renders other domains as text links",
   expect(unknownLink.exists()).toBe(true);
   expect(unknownLink.find(".zerp-ui-icon").exists()).toBe(false);
   wrapper.unmount();
+});
+
+it("displays scalar summary values and opens a target from the exact readable report cell", async () => {
+  const { model, collection } = fixture();
+  const record = object("customer", "报表详情");
+  record.identity = "c1";
+  record.members = [
+    field("code", "编号", "C1"),
+    { ...field("hidden", "隐藏列", "secret"), readable: false },
+    {
+      kind: "decimal",
+      key: "amount",
+      label: "金额",
+      value: "0",
+      readOnly: false,
+      required: false,
+    },
+    {
+      kind: "boolean",
+      key: "approved",
+      label: "已审批",
+      value: false,
+      readOnly: false,
+    },
+  ];
+  collection.items = [record];
+  collection.total = 1;
+  collection.columns = [
+    { key: "code", label: "编号" },
+    { key: "amount", label: "金额" },
+    { key: "approved", label: "已审批" },
+  ];
+  const target = { collection, record };
+  collection.report = {
+    summary: {
+      caption: "合计",
+      values: { code: undefined, amount: 0, approved: false },
+    },
+    presentation: {
+      rows: [{ rowId: "previous-page", appearance: { bold: true } }],
+      groups: [
+        {
+          id: "previous-group",
+          label: "缺失边界的小计",
+          level: 0,
+          firstKey: "previous-page",
+          lastKey: "c1",
+          continuedBefore: false,
+          continuedAfter: false,
+          summary: { caption: "忽略该小计", values: { amount: 99 } },
+        },
+      ],
+    },
+    cells: [
+      {
+        row: record,
+        field: "hidden",
+        kind: "detail",
+        target,
+        label: "隐藏详情",
+        disabled: false,
+      },
+      {
+        row: record,
+        field: "code",
+        kind: "detail",
+        target,
+        label: "查看报表详情",
+        disabled: false,
+      },
+    ],
+  };
+  const wrapper = mount(App, { props: { model }, attachTo: document.body });
+  await flushPromises();
+  expect(wrapper.get("tfoot").attributes("aria-label")).toBe("合计");
+  expect(wrapper.findAll("tfoot td").map((cell) => cell.text())).toEqual([
+    "—",
+    "",
+    "0",
+    "false",
+  ]);
+  expect(wrapper.find('[aria-label="隐藏详情"]').exists()).toBe(false);
+  expect(wrapper.find(".zerp-report-group-summary").exists()).toBe(false);
+  const path = window.location.pathname;
+  await wrapper.get('[aria-label="查看报表详情"]').trigger("click");
+  expect(wrapper.get('[role="dialog"]').text()).toContain("报表详情");
+  expect(window.location.pathname).toBe(path);
 });

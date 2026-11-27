@@ -12,7 +12,7 @@ export async function checkArtifact(tgz, expected) {
     .split("\n");
   for (const file of files) {
     assert.ok(
-      /^package\/(?:package\.json|README\.md|CHANGELOG\.md|LICENSE|dist\/(?:[\w.-]+\.(?:js|d\.ts|css|woff2)|MDI-LICENSE\.txt))$/.test(
+      /^package\/(?:package\.json|README\.md|CHANGELOG\.md|LICENSE|dist\/(?:[\w.-]+\.(?:js|css|woff2)|(?:[\w-]+\/)*[\w.-]+\.d\.ts|MDI-LICENSE\.txt))$/.test(
         file,
       ),
       `Unexpected package member: ${file}`,
@@ -64,7 +64,7 @@ export async function checkArtifact(tgz, expected) {
     );
     assert.deepEqual(
       publicNames.sort(),
-      ["BusinessApplication", "createShellThemes", "defaultThemeChoice"].sort(),
+      ["App", "createShellThemes", "defaultThemeChoice"].sort(),
       "Only the model application and necessary host APIs may be exported",
     );
     const pureModules = new Set();
@@ -110,7 +110,7 @@ export async function checkArtifact(tgz, expected) {
       const path = join(dir, file);
       const source = await readFile(path, "utf8");
       assert.ok(
-        !/\/Users\/|workspace:|\/code\/zerp\//.test(source),
+        !/\/Users\/|["'`]workspace:|\/code\/zerp\//.test(source),
         `Workspace leak: ${file}`,
       );
       for (const { fileName: name } of ts.preProcessFile(source, true, true)

@@ -2,7 +2,7 @@
 
 由 `docs/ui-preferences.coverage.json` 与原规范生成；修改清单后运行 `pnpm check:ui-preferences:inventory --write`。本文件不维护第二套规范或正式实施状态，工单见 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
-共 55 条：40 条有自动断言映射（均为部分覆盖），15 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
+共 56 条：41 条有自动断言映射（均为部分覆盖），15 条尚无自动断言。映射存在不代表本次执行通过，也不代表整条符合；执行结果以本次命令退出码、Vitest 报告及 tgz evidence.json 为准。
 
 验证策略：流程条款由任务审查；消费者专属条款由真实消费者验收；文案及常规 UI 语义审查由 Agent 按现有要求判断，不逐项询问用户；仅业务含义不明或需改变已确认要求时，在完成其余开发后按 UI-GOV-06 留一份交付清单。本库检查使用合成模型，不是实际 OIT/ZERP API/E2E。定向检查不是数学证明或全状态穷举。
 
@@ -39,24 +39,25 @@
 | UI-MOBILE-03 | 无自动断言 | 首行左右对齐/缺省稳定、全选文字/数量/半选/禁用尚无直接宿主定向证据。 |
 | UI-ACTION-01 | [unit-actions](#unit-actions)、[unit-mobile-action-overflow](#unit-mobile-action-overflow) | 操作可用性、手机详情主操作与更多入口有代表性证据；图标语义及各类宽度和流程组合未穷举。 |
 | UI-ACTION-02 | [unit-actions](#unit-actions)、[package-layout](#package-layout) | 手机短文字已验，桌面图标及hover/focus hint尚未完整验证。 |
-| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-save-qualification](#package-save-qualification)、[package-auth-alignment](#package-auth-alignment)、[unit-auth-session-actions](#unit-auth-session-actions)、[unit-available-operations](#unit-available-operations) | 覆盖代表性撤权、禁用及运行中互斥、登录操作和手动会话恢复入口移除。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。 |
+| UI-ACTION-03 | [unit-actions](#unit-actions)、[unit-review](#unit-review)、[package-readonly-reference-feedback](#package-readonly-reference-feedback)、[package-save-qualification](#package-save-qualification)、[package-auth-alignment](#package-auth-alignment)、[unit-auth-session-actions](#unit-auth-session-actions)、[unit-available-operations](#unit-available-operations)、[unit-operation-pending](#unit-operation-pending)、[unit-reference-sync-load](#unit-reference-sync-load) | 覆盖代表性撤权、禁用、查询及保存的运行中互斥、按回调返回值呈现忙碌、登录操作和手动会话恢复入口移除。互斥覆盖未穷举全部后端回调。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。 |
 | UI-ACTION-04 | 无自动断言 | 新增各入口、标题与成功提示的一致性，以及其他动作文案尚无统一断言。 |
 | UI-FORM-01 | [unit-model](#unit-model)、[unit-review](#unit-review)、[package-mobile-readonly-values](#package-mobile-readonly-values) | 直接编辑、复杂结构和手机只读长值有代表用例；查看、新增与编辑的完整字段顺序组合未穷举。 |
 | UI-FORM-02 | [unit-overlay](#unit-overlay)、[package-layout](#package-layout)、[package-application-alignment](#package-application-alignment)、[package-mobile-detail-close](#package-mobile-detail-close) | 手机长详情的焦点、筛选、页码及非零滚动有代表用例。弹层标题分隔线及其主题响应尚无独立断言，所有新增及复杂弹层路径未穷举。 |
 | UI-FORM-03 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-field-alignment](#package-field-alignment)、[package-application-alignment](#package-application-alignment)、[package-mobile-readonly-values](#package-mobile-readonly-values) | 覆盖认证品牌、同列输入、代表性编辑弹层标题与正文的对齐，以及合成业务导航、账户和工作台的代表性桌面手机布局。真实消费者和全部字段、尺寸及隐藏状态组合未穷举。 |
-| UI-FORM-04 | [unit-tabs](#unit-tabs)、[package-layout](#package-layout)、[unit-review](#unit-review)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
+| UI-FORM-04 | [unit-tabs](#unit-tabs)、[package-layout](#package-layout)、[unit-review](#unit-review)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、显式查询、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-05 | [unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[unit-reactivity](#unit-reactivity)、[unit-ordered-navigation](#unit-ordered-navigation)、[unit-owned-detail-members](#unit-owned-detail-members)、[package-owned-detail-members](#package-owned-detail-members)、[unit-readable-columns](#unit-readable-columns) | 逐行权限差异、空值和零值、空态及结构错误反馈有公开源码入口断言。独立安装的桌面及手机检查覆盖标题和顺序，真实消费者及其它字段组合另验收。 |
 | UI-FORM-06 | [unit-model](#unit-model)、[unit-tabs](#unit-tabs)、[unit-review](#unit-review)、[package-tab-input](#package-tab-input)、[package-full](#package-full)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-FORM-07 | [unit-reactivity](#unit-reactivity)、[unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
-| UI-FORM-08 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[unit-overlay](#unit-overlay) | 直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。 |
+| UI-FORM-08 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[unit-overlay](#unit-overlay) | 普通输入和未知结果限制有代表性断言。记录窗口暂存和确认切换由 UI-FORM-10 的公开入口用例覆盖。 |
 | UI-FORM-09 | [unit-record-loading](#unit-record-loading) | 永久断言覆盖合成编辑弹窗的读取和保存；真实消费者接入另验收。 |
+| UI-FORM-10 | [unit-workspace-windows](#unit-workspace-windows) | 工作台保留页面和 URL、同类复用、异类共存及未保存编辑确认有合成场景。真实消费者的保存、权限和会话联动另验收。 |
 | UI-NAV-01 | [unit-domain](#unit-domain)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖分组默认收起及独立入口的实际链接。不显示导航标题及切换提示仍需定向检查。 |
 | UI-NAV-02 | [unit-navigation-icons](#unit-navigation-icons)、[unit-home-link](#unit-home-link)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖代表性语义图标、未知文本、首页修饰键和手机选择后关闭抽屉。桌面收起和全部导航链接的新标签行为仍需逐项检查。 |
 | UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。 |
 | UI-NAV-04 | [package-related-navigation](#package-related-navigation) | 合成手机详情检查有序关联入口及真实导航目标；其它消费者的页面和目录路径需逐项审查。 |
 | UI-NAV-05 | [package-full](#package-full) | 新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。 |
-| UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full)、[unit-shell](#unit-shell)、[unit-workbench-load](#unit-workbench-load) | 合成场景覆盖业务读取时账户可达、工作台返回不重复加载及重试；真实消费者的模型构造与启动请求另核对。 |
-| UI-WORK-01 | [package-workbench](#package-workbench) | 独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。各主题具体表面色和空角色等业务状态另验收。 |
+| UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full)、[unit-shell](#unit-shell)、[unit-workbench-load](#unit-workbench-load)、[unit-passive-record](#unit-passive-record) | 源码公开入口覆盖首次读取、返回已访问集合、手动刷新及记录窗口读取。真实消费者的模型构造和启动请求另核对。 |
+| UI-WORK-01 | [package-workbench](#package-workbench) | 独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。首页集合统一定位及首次读取见相关源码断言。各主题具体表面色和空角色等业务状态另验收。 |
 | UI-WORK-02 | 无自动断言 | 由 Agent 结合业务语境审查简短业务中文与同名一致性，不引入任意字数上限；常规文案不要求用户确认，见Q5。 |
 | UI-WORK-03 | 无自动断言 | 由 Agent 审查内部实现文案、业务影响与下一步、单位/不可逆提示；只有业务含义不明或需改变已确认要求时按 UI-GOV-06 留交付清单。 |
 | UI-WORK-04 | [unit-review](#unit-review)、[package-full](#package-full) | 新根集合局部详情下钻使用包场景验证条件/页码/滚动保持；结果有效性归消费者。 |
@@ -65,7 +66,7 @@
 | UI-SCOPE-02 | [unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-SCOPE-03 | [unit-workflow-actions](#unit-workflow-actions) | 合成流程动作直接可达有代表证据；真实ZERP放行意见契约由消费者验收，不泛化免确认。 |
 | UI-BOUND-01 | 无自动断言 | 人工规范审查：不恢复失效要求；不擅自固定品牌色/字体族。 |
-| UI-BOUND-02 | [unit-model](#unit-model) | 库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。 |
+| UI-BOUND-02 | [unit-model](#unit-model)、[unit-passive-record](#unit-passive-record) | 库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。业务对象的可选 load 尚待公开接口及行为验收。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。 |
 | UI-BOUND-03 | 无自动断言 | 按消费者版本分别核对构造完整结构不依赖网络、响应不能改变结构及启动和实际业务路径。库的合成模型与包测试只覆盖库入口。 |
 
 ## 断言入口
@@ -108,19 +109,19 @@
 
 ### unit-theme
 
-[tests/business-shell-preferences.spec.ts](../tests/business-shell-preferences.spec.ts) · source/public-entry
+[tests/shell-preferences.spec.ts](../tests/shell-preferences.spec.ts) · source/public-entry
 
 定位：`defaults to MD3 light`。默认MD3浅色，切明暗后切MD2仍保持暗色。
 
 ### unit-feedback
 
-[tests/business-application-direct.spec.ts](../tests/business-application-direct.spec.ts) · source/public-entry
+[tests/app-direct.spec.ts](../tests/app-direct.spec.ts) · source/public-entry
 
 定位：`retains failed-save input`。保存失败保持输入与覆盖式编辑。
 
 ### unit-tabs
 
-[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+[tests/editor-direct.spec.ts](../tests/editor-direct.spec.ts) · source/public-entry
 
 定位：`uses ordered Material groups`。有序多组、首组默认激活、切换保留输入及隐藏不可读分组。
 
@@ -132,7 +133,7 @@
 
 ### unit-owned-detail-members
 
-[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+[tests/editor-direct.spec.ts](../tests/editor-direct.spec.ts) · source/public-entry
 
 定位：`shares ordered readable detail members`。桌面和手机的空态、行成员标题及顺序、空值和零值、跨行字段权限以及行结构错误反馈。
 
@@ -144,19 +145,19 @@
 
 ### unit-overlay
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`opens detail over retained conditions`。第二操作列、覆盖式编辑、保留条件和页码。
 
 ### unit-actions
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`puts row actions in the second column`。第二操作列及打开编辑不自动写入。
 
 ### unit-shell
 
-[tests/business-shell-preferences.spec.ts](../tests/business-shell-preferences.spec.ts) · source/public-entry
+[tests/shell-preferences.spec.ts](../tests/shell-preferences.spec.ts) · source/public-entry
 
 定位：`keeps the account menu reachable`。页面读取等待时账户仍可达。
 
@@ -164,7 +165,7 @@
 
 [tests/static-application.spec.ts](../tests/static-application.spec.ts) · source/public-entry
 
-定位：`uses the consumer homepage URL and notifies its null navigation callback`。品牌区及工作台入口使用消费者的首页链接，普通点击调用首页导航，修饰键点击保留链接行为。
+定位：`uses the framework homepage URL`。品牌区及工作台入口使用库生成的首页链接，普通点击打开首页，修饰键点击保留链接行为。
 
 ### unit-navigation-icons
 
@@ -176,29 +177,41 @@
 
 [scripts/ui-preferences-smoke.mjs](../scripts/ui-preferences-smoke.mjs) · tgz/browser
 
-定位：`two-level-navigation-canonical-link-title-and-mobile-close`。二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起。
+定位：`two-level-navigation-canonical-link-title-and-mobile-close`。二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起，按 Escape 收起并将焦点还给导航按钮。
+
+### unit-passive-record
+
+[tests/static-application.spec.ts](../tests/static-application.spec.ts) · source/public-entry
+
+定位：`reads the selected record only after the user opens its window`。模型已有选中记录时保持集合页，点击记录窗口入口才读取这条记录。
+
+### unit-workspace-windows
+
+[tests/workspace-windows.spec.ts](../tests/workspace-windows.spec.ts) · source/public-entry
+
+定位：`opens an AA window directly from the workbench`。从工作台打开记录窗口保持 URL、直接读取记录、同类切换确认并保留取消时的编辑、异类窗口共存。
 
 ### unit-workbench-load
 
 [tests/static-application.spec.ts](../tests/static-application.spec.ts) · source/public-entry
 
-定位：`does not load a configured workbench again on return`。当前会话返回工作台时不重复加载，失败后支持主动重试。
+定位：`loads the workbench once per session and retries only on request`。工作台每个会话首次进入调用读取，返回复用，刷新可明确重试。
 
 ### unit-workflow-actions
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`keeps all qualified workflow actions directly reachable`。代表性流程行展示全部获准直接动作且不显示更多操作入口。
 
 ### unit-review
 
-[tests/business-review-preferences.spec.ts](../tests/business-review-preferences.spec.ts) · source/public-entry
+[tests/review-preferences.spec.ts](../tests/review-preferences.spec.ts) · source/public-entry
 
 定位：`narrows field reads and writes`。普通用户只读、增权恢复、管理员尊重业务只读及owner失配。
 
 ### unit-model
 
-[tests/business-application-direct.spec.ts](../tests/business-application-direct.spec.ts) · source/public-entry
+[tests/app-direct.spec.ts](../tests/app-direct.spec.ts) · source/public-entry
 
 定位：`edits the same model`。直接输入、失败保持、disabled与并发保护、退出同根引用及迟到错误隔离。
 
@@ -240,7 +253,7 @@
 
 ### unit-buttons
 
-[tests/business-shell-preferences.spec.ts](../tests/business-shell-preferences.spec.ts) · source/public-entry
+[tests/shell-preferences.spec.ts](../tests/shell-preferences.spec.ts) · source/public-entry
 
 定位：`restores Material primary, ordinary and destructive action hierarchy`。查询柔和主题色、保存实心主题色、删除危险色、关闭文字按钮，保留操作语义。
 
@@ -252,7 +265,7 @@
 
 ### unit-auth-session-actions
 
-[tests/business-application-direct.spec.ts](../tests/business-application-direct.spec.ts) · source/public-entry
+[tests/app-direct.spec.ts](../tests/app-direct.spec.ts) · source/public-entry
 
 定位：`offers only sign-in when anonymous and leaves recovery to the consumer`。匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮，宿主不调用恢复回调。
 
@@ -276,25 +289,37 @@
 
 ### package-query-states
 
-[scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
+[scripts/interaction-smoke.mjs](../scripts/interaction-smoke.mjs) · tgz/browser
 
 定位：`query-loading-single-feedback-retry-pagination-and-success-empty`。已有结果的查询显示读取中、一次失败反馈与未更新标识，原条件重试恢复分页，成功空结果隐藏分页。
 
 ### package-save-qualification
 
-[scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
+[scripts/interaction-smoke.mjs](../scripts/interaction-smoke.mjs) · tgz/browser
 
 定位：`mobile-save-qualification-and-unobstructed-specific-feedback`。手机编辑的保存随资格隐藏及恢复；模型失败文案只出现一次，字段不位移且可正常触达。
 
 ### unit-available-operations
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`updates row operations when eligibility or permission changes`。业务操作资格及撤权即时反馈，调用前重检及执行互斥。
 
+### unit-operation-pending
+
+[tests/static-application.spec.ts](../tests/static-application.spec.ts) · source/public-entry
+
+定位：`reserves synchronous operations without showing pending and guards later async runs`。同步回调防重入且不显示忙碌，普通函数返回 Promise 时防重复调用，旧会话的完成结果不清除新执行的忙碌状态。
+
+### unit-reference-sync-load
+
+[tests/static-fields.spec.ts](../tests/static-fields.spec.ts) · source/public-entry
+
+定位：`presents synchronous reference candidates without showing a loader`。引用候选同步回调立即呈现结果且不显示加载提示。
+
 ### unit-mobile-action-overflow
 
-[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+[tests/editor-direct.spec.ts](../tests/editor-direct.spec.ts) · source/public-entry
 
 定位：`keeps the primary record action in reach on phones`。手机详情最常用操作直达，次要操作收纳并可执行。
 
@@ -318,19 +343,19 @@
 
 ### unit-readable-columns
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`excludes unreadable fields from explicit columns and detail`。字段读取资格恢复后，同步恢复列表列及已打开的详情字段。
 
 ### unit-record-loading
 
-[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+[tests/editor-direct.spec.ts](../tests/editor-direct.spec.ts) · source/public-entry
 
 定位：`shows record loading only while the dialog reads the record`。编辑弹窗在记录读取期间显示提示，读取成功或失败后移除，保存期间不显示读取提示。
 
 ### package-notice-lifecycle
 
-[scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
+[scripts/interaction-smoke.mjs](../scripts/interaction-smoke.mjs) · tgz/browser
 
 定位：`top-notice-expiry-and-blocking-acknowledgment`。顶部提示到时消失，桌面和手机模态阻塞背景并在确认后恢复焦点。
 

@@ -38,19 +38,19 @@
       "assertion": "新静态模型消费者：引用一次加载及分页/过滤、单据明细跨Tab、权限、固定业务能力、报表下钻返回位置"
     },
     "unit-theme": {
-      "file": "tests/business-shell-preferences.spec.ts",
+      "file": "tests/shell-preferences.spec.ts",
       "anchor": "defaults to MD3 light",
       "surface": "source/public-entry",
       "assertion": "默认MD3浅色，切明暗后切MD2仍保持暗色"
     },
     "unit-feedback": {
-      "file": "tests/business-application-direct.spec.ts",
+      "file": "tests/app-direct.spec.ts",
       "anchor": "retains failed-save input",
       "surface": "source/public-entry",
       "assertion": "保存失败保持输入与覆盖式编辑"
     },
     "unit-tabs": {
-      "file": "tests/business-editor-direct.spec.ts",
+      "file": "tests/editor-direct.spec.ts",
       "anchor": "uses ordered Material groups",
       "surface": "source/public-entry",
       "assertion": "有序多组、首组默认激活、切换保留输入及隐藏不可读分组"
@@ -62,7 +62,7 @@
       "assertion": "数字形态的根和集合键仍按声明顺序生成侧栏和领域 Tab，并选择首个可读入口"
     },
     "unit-owned-detail-members": {
-      "file": "tests/business-editor-direct.spec.ts",
+      "file": "tests/editor-direct.spec.ts",
       "anchor": "shares ordered readable detail members",
       "surface": "source/public-entry",
       "assertion": "桌面和手机的空态、行成员标题及顺序、空值和零值、跨行字段权限以及行结构错误反馈"
@@ -74,28 +74,28 @@
       "assertion": "独立安装消费者在 1440/390px 的明细标题及顺序一致"
     },
     "unit-overlay": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "opens detail over retained conditions",
       "surface": "source/public-entry",
       "assertion": "第二操作列、覆盖式编辑、保留条件和页码"
     },
     "unit-actions": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "puts row actions in the second column",
       "surface": "source/public-entry",
       "assertion": "第二操作列及打开编辑不自动写入"
     },
     "unit-shell": {
-      "file": "tests/business-shell-preferences.spec.ts",
+      "file": "tests/shell-preferences.spec.ts",
       "anchor": "keeps the account menu reachable",
       "surface": "source/public-entry",
       "assertion": "页面读取等待时账户仍可达"
     },
     "unit-home-link": {
       "file": "tests/static-application.spec.ts",
-      "anchor": "uses the consumer homepage URL and notifies its null navigation callback",
+      "anchor": "uses the framework homepage URL",
       "surface": "source/public-entry",
-      "assertion": "品牌区及工作台入口使用消费者的首页链接，普通点击调用首页导航，修饰键点击保留链接行为"
+      "assertion": "品牌区及工作台入口使用库生成的首页链接，普通点击打开首页，修饰键点击保留链接行为"
     },
     "unit-navigation-icons": {
       "file": "tests/static-application.spec.ts",
@@ -107,28 +107,40 @@
       "file": "scripts/ui-preferences-smoke.mjs",
       "anchor": "two-level-navigation-canonical-link-title-and-mobile-close",
       "surface": "tgz/browser",
-      "assertion": "二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起"
+      "assertion": "二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起，按 Escape 收起并将焦点还给导航按钮"
+    },
+    "unit-passive-record": {
+      "file": "tests/static-application.spec.ts",
+      "anchor": "reads the selected record only after the user opens its window",
+      "surface": "source/public-entry",
+      "assertion": "模型已有选中记录时保持集合页，点击记录窗口入口才读取这条记录"
+    },
+    "unit-workspace-windows": {
+      "file": "tests/workspace-windows.spec.ts",
+      "anchor": "opens an AA window directly from the workbench",
+      "surface": "source/public-entry",
+      "assertion": "从工作台打开记录窗口保持 URL、直接读取记录、同类切换确认并保留取消时的编辑、异类窗口共存"
     },
     "unit-workbench-load": {
       "file": "tests/static-application.spec.ts",
-      "anchor": "does not load a configured workbench again on return",
+      "anchor": "loads the workbench once per session and retries only on request",
       "surface": "source/public-entry",
-      "assertion": "当前会话返回工作台时不重复加载，失败后支持主动重试"
+      "assertion": "工作台每个会话首次进入调用读取，返回复用，刷新可明确重试"
     },
     "unit-workflow-actions": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "keeps all qualified workflow actions directly reachable",
       "surface": "source/public-entry",
       "assertion": "代表性流程行展示全部获准直接动作且不显示更多操作入口"
     },
     "unit-review": {
-      "file": "tests/business-review-preferences.spec.ts",
+      "file": "tests/review-preferences.spec.ts",
       "anchor": "narrows field reads and writes",
       "surface": "source/public-entry",
       "assertion": "普通用户只读、增权恢复、管理员尊重业务只读及owner失配"
     },
     "unit-model": {
-      "file": "tests/business-application-direct.spec.ts",
+      "file": "tests/app-direct.spec.ts",
       "anchor": "edits the same model",
       "surface": "source/public-entry",
       "assertion": "直接输入、失败保持、disabled与并发保护、退出同根引用及迟到错误隔离"
@@ -170,7 +182,7 @@
       "assertion": "公开独立安装消费者的领域Tab、真实href、方向键/Enter激活、查询输入保持"
     },
     "unit-buttons": {
-      "file": "tests/business-shell-preferences.spec.ts",
+      "file": "tests/shell-preferences.spec.ts",
       "anchor": "restores Material primary, ordinary and destructive action hierarchy",
       "surface": "source/public-entry",
       "assertion": "查询柔和主题色、保存实心主题色、删除危险色、关闭文字按钮，保留操作语义"
@@ -182,7 +194,7 @@
       "assertion": "390/1440px 的公开认证页面覆盖卡片留白、品牌与字段左对齐、引用与文本和密码框的左右边界、全宽登录按钮及手动恢复入口移除。手机同时验证登录按钮的触控高度"
     },
     "unit-auth-session-actions": {
-      "file": "tests/business-application-direct.spec.ts",
+      "file": "tests/app-direct.spec.ts",
       "anchor": "offers only sign-in when anonymous and leaves recovery to the consumer",
       "surface": "source/public-entry",
       "assertion": "匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮，宿主不调用恢复回调"
@@ -206,25 +218,37 @@
       "assertion": "逐个访问全部合成业务入口及其详情/Tab、账户/改密、工作台、密钥修改和打印预览；390/1440px验证字段、操作区、Tab、表格、菜单及iframe边界，无文档横向溢出，弹窗位于顶栏下方"
     },
     "package-query-states": {
-      "file": "scripts/business-interaction-smoke.mjs",
+      "file": "scripts/interaction-smoke.mjs",
       "anchor": "query-loading-single-feedback-retry-pagination-and-success-empty",
       "surface": "tgz/browser",
       "assertion": "已有结果的查询显示读取中、一次失败反馈与未更新标识，原条件重试恢复分页，成功空结果隐藏分页"
     },
     "package-save-qualification": {
-      "file": "scripts/business-interaction-smoke.mjs",
+      "file": "scripts/interaction-smoke.mjs",
       "anchor": "mobile-save-qualification-and-unobstructed-specific-feedback",
       "surface": "tgz/browser",
       "assertion": "手机编辑的保存随资格隐藏及恢复；模型失败文案只出现一次，字段不位移且可正常触达"
     },
     "unit-available-operations": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "updates row operations when eligibility or permission changes",
       "surface": "source/public-entry",
       "assertion": "业务操作资格及撤权即时反馈，调用前重检及执行互斥"
     },
+    "unit-operation-pending": {
+      "file": "tests/static-application.spec.ts",
+      "anchor": "reserves synchronous operations without showing pending and guards later async runs",
+      "surface": "source/public-entry",
+      "assertion": "同步回调防重入且不显示忙碌，普通函数返回 Promise 时防重复调用，旧会话的完成结果不清除新执行的忙碌状态"
+    },
+    "unit-reference-sync-load": {
+      "file": "tests/static-fields.spec.ts",
+      "anchor": "presents synchronous reference candidates without showing a loader",
+      "surface": "source/public-entry",
+      "assertion": "引用候选同步回调立即呈现结果且不显示加载提示"
+    },
     "unit-mobile-action-overflow": {
-      "file": "tests/business-editor-direct.spec.ts",
+      "file": "tests/editor-direct.spec.ts",
       "anchor": "keeps the primary record action in reach on phones",
       "surface": "source/public-entry",
       "assertion": "手机详情最常用操作直达，次要操作收纳并可执行"
@@ -248,19 +272,19 @@
       "assertion": "手机关联入口的同行及换行、可点击尺寸、真实链接和目标集合标题"
     },
     "unit-readable-columns": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "excludes unreadable fields from explicit columns and detail",
       "surface": "source/public-entry",
       "assertion": "字段读取资格恢复后，同步恢复列表列及已打开的详情字段"
     },
     "unit-record-loading": {
-      "file": "tests/business-editor-direct.spec.ts",
+      "file": "tests/editor-direct.spec.ts",
       "surface": "source/public-entry",
       "anchor": "shows record loading only while the dialog reads the record",
       "assertion": "编辑弹窗在记录读取期间显示提示，读取成功或失败后移除，保存期间不显示读取提示"
     },
     "package-notice-lifecycle": {
-      "file": "scripts/business-interaction-smoke.mjs",
+      "file": "scripts/interaction-smoke.mjs",
       "anchor": "top-notice-expiry-and-blocking-acknowledgment",
       "surface": "tgz/browser",
       "assertion": "顶部提示到时消失，桌面和手机模态阻塞背景并在确认后恢复焦点"
@@ -460,10 +484,12 @@
         "package-save-qualification",
         "package-auth-alignment",
         "unit-auth-session-actions",
-        "unit-available-operations"
+        "unit-available-operations",
+        "unit-operation-pending",
+        "unit-reference-sync-load"
       ],
-      "remaining": "覆盖代表性撤权、禁用及运行中互斥、登录操作和手动会话恢复入口移除。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。",
-      "requirementSha256": "dadc41c2f295c64d9c3c4f2997d04e54ddb43faf5b39ca730dec9baf6054692f"
+      "remaining": "覆盖代表性撤权、禁用、查询及保存的运行中互斥、按回调返回值呈现忙碌、登录操作和手动会话恢复入口移除。互斥覆盖未穷举全部后端回调。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。",
+      "requirementSha256": "8d690477ca430e270b982f1db6579633f8ab6deca5eaf4a3af649c44a9ec0c03"
     },
     {
       "id": "UI-ACTION-04",
@@ -509,7 +535,7 @@
         "unit-domain-tabs",
         "package-domain-tabs"
       ],
-      "remaining": "领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
+      "remaining": "领域Tab顺序、显式查询、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
       "requirementSha256": "c089ab7546178d49bc07c721f974e6e0a16335662b17079db7d0302d4989f628"
     },
     {
@@ -539,7 +565,7 @@
         "package-domain-tabs"
       ],
       "remaining": "领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
-      "requirementSha256": "8fde220399009d960e85876817cb711770866e3a5b283d001f4ca4646d564a90"
+      "requirementSha256": "a2a972b4d128676887369b0ac5fa96b6e46ced334f89508a05f504b9c63f0fe6"
     },
     {
       "id": "UI-FORM-07",
@@ -555,14 +581,20 @@
     {
       "id": "UI-FORM-08",
       "checks": ["unit-model", "unit-reactivity", "unit-overlay"],
-      "remaining": "直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。",
-      "requirementSha256": "d3d38416648e4a7f95f3dba3bd1536c6e5ba7bcaf5b338dcfc37a7c0558aba40"
+      "remaining": "普通输入和未知结果限制有代表性断言。记录窗口暂存和确认切换由 UI-FORM-10 的公开入口用例覆盖。",
+      "requirementSha256": "9988f2a1e6566105d3d409792bf603192feb64fe371ab20a7f46d092a6d02670"
     },
     {
       "id": "UI-FORM-09",
       "checks": ["unit-record-loading"],
       "remaining": "永久断言覆盖合成编辑弹窗的读取和保存；真实消费者接入另验收。",
       "requirementSha256": "6d3a59e87884dd694865a095f9355f6316fab08abe290f9a1837addf0d7302cf"
+    },
+    {
+      "id": "UI-FORM-10",
+      "checks": ["unit-workspace-windows"],
+      "remaining": "工作台保留页面和 URL、同类复用、异类共存及未保存编辑确认有合成场景。真实消费者的保存、权限和会话联动另验收。",
+      "requirementSha256": "d950ca7e2d15baed7904d80aa1294f61c8ec5f5ede8c99bdc149259a0228316e"
     },
     {
       "id": "UI-NAV-01",
@@ -590,7 +622,7 @@
         "package-domain-tabs"
       ],
       "remaining": "公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。",
-      "requirementSha256": "fe2341644e9571029ab3b884ec11daffebe3bf808846e1bee6a4b66a5cea2928"
+      "requirementSha256": "bb416813310ffaf6a0a5cba776065480f2d2f1bb2c7d67960727b13535edbfc6"
     },
     {
       "id": "UI-NAV-04",
@@ -602,7 +634,7 @@
       "id": "UI-NAV-05",
       "checks": ["package-full"],
       "remaining": "新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。",
-      "requirementSha256": "018a43b3fd9d150bb03ba344077eb108863eaf9b25859f545886e178f7689ac3"
+      "requirementSha256": "bc00870046743b40a0ce4d51b6ee7bbabdce55bcfa71f537ad0909fdb5f43596"
     },
     {
       "id": "UI-NAV-06",
@@ -610,16 +642,17 @@
         "unit-model",
         "package-full",
         "unit-shell",
-        "unit-workbench-load"
+        "unit-workbench-load",
+        "unit-passive-record"
       ],
-      "remaining": "合成场景覆盖业务读取时账户可达、工作台返回不重复加载及重试；真实消费者的模型构造与启动请求另核对。",
-      "requirementSha256": "b684a2f81509e917423d469c58bec1c8f936afb810c277aabd5163983038d2df"
+      "remaining": "源码公开入口覆盖首次读取、返回已访问集合、手动刷新及记录窗口读取。真实消费者的模型构造和启动请求另核对。",
+      "requirementSha256": "b4f0e2d8cd9b41282f0278bad5a2d1ab5c1d784c5bba0856456397d3f15d6f4b"
     },
     {
       "id": "UI-WORK-01",
       "checks": ["package-workbench"],
-      "remaining": "独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。各主题具体表面色和空角色等业务状态另验收。",
-      "requirementSha256": "32b7e21c5a24058f3e80ef2bb9d2232be3d8caa0441c7e4bf6e72504fa1a0236"
+      "remaining": "独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。首页集合统一定位及首次读取见相关源码断言。各主题具体表面色和空角色等业务状态另验收。",
+      "requirementSha256": "f6df2847bf01094410f499cb01bb3750c1914ea79426c625099e90a3bd5ca252"
     },
     {
       "id": "UI-WORK-02",
@@ -671,9 +704,9 @@
     },
     {
       "id": "UI-BOUND-02",
-      "checks": ["unit-model"],
-      "remaining": "库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。",
-      "requirementSha256": "c5fbb063f38bd2dab4119202259af5a79ba7c58f1ca0515196d26ed6dc67fc5a"
+      "checks": ["unit-model", "unit-passive-record"],
+      "remaining": "库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。业务对象的可选 load 尚待公开接口及行为验收。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。",
+      "requirementSha256": "225b25c58ee555d92e37533f776b65041a29f9e8a603b486eff6a4a93e74d975"
     },
     {
       "id": "UI-BOUND-03",
