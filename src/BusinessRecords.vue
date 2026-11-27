@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import {
+  available as nodeAvailable,
+  readable as nodeReadable,
+  writable as nodeWritable,
+} from "./business-nodes";
+import { computed } from "vue";
 import { useDisplay } from "vuetify";
 import { VTable, VCard, VCheckboxBtn } from "vuetify/components";
 import type { RecordsNode, ObjectNode } from "./business-model";
-import { directRuntimeKey } from "./direct-model-runtime";
 import BusinessNode from "./BusinessNode.vue";
 import Feedback from "./Feedback.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
 const props = defineProps<{ node: RecordsNode; readOnly?: boolean }>();
-const runtime = inject(directRuntimeKey)!;
 const { xs } = useDisplay();
 const rows = computed(() =>
-  props.node.items.filter(runtime.readable).map((row) => ({
+  props.node.items.filter(nodeReadable).map((row) => ({
     row,
     fields: new Map(row.members.map((member) => [member.key, member])),
   })),
@@ -23,7 +26,7 @@ const columns = computed(() =>
       return (
         child?.label === column.label &&
         child.kind === column.kind &&
-        runtime.readable(child)
+        nodeReadable(child)
       );
     }),
   ),
@@ -51,13 +54,13 @@ const modelError = computed(() => {
     })
     .join("\n");
 });
-const selectable = computed(() => runtime.available(props.node, "remove"));
+const selectable = computed(() => nodeAvailable(props.node, "remove"));
 function select(row: ObjectNode, value: boolean | null) {
   if (
     props.readOnly ||
-    !runtime.writable(props.node) ||
+    !nodeWritable(props.node) ||
     !selectable.value ||
-    !runtime.readable(row)
+    !nodeReadable(row)
   )
     return;
   props.node.selected = value ? row : null;
@@ -83,7 +86,7 @@ function select(row: ObjectNode, value: boolean | null) {
           <VCheckboxBtn
             :aria-label="`选择第 ${index + 1} 项`"
             :model-value="node.selected === row"
-            :disabled="readOnly || !runtime.writable(node)"
+            :disabled="readOnly || !nodeWritable(node)"
             @update:model-value="select(row, $event)"
           /><span>已选 {{ node.selected === row ? 1 : 0 }} 项</span>
         </div>
@@ -96,7 +99,6 @@ function select(row: ObjectNode, value: boolean | null) {
             <span>{{ column.label }}</span
             ><BusinessNode
               :node="fields.get(column.key)!"
-              :auto-read="false"
               :read-only="readOnly"
             />
           </div>
@@ -121,14 +123,13 @@ function select(row: ObjectNode, value: boolean | null) {
             <VCheckboxBtn
               :aria-label="`选择第 ${index + 1} 项`"
               :model-value="node.selected === row"
-              :disabled="readOnly || !runtime.writable(node)"
+              :disabled="readOnly || !nodeWritable(node)"
               @update:model-value="select(row, $event)"
             />
           </td>
           <td v-for="column in columns" :key="column.key">
             <BusinessNode
               :node="fields.get(column.key)!"
-              :auto-read="false"
               :read-only="readOnly"
             />
           </td>

@@ -77,7 +77,13 @@ export type ReportCell<T> =
       label: string;
       disabled?: boolean;
     }
-  | { kind: "select" | "detail"; target: T; label: string; disabled?: boolean };
+  | {
+      kind: "select" | "detail";
+      target: T;
+      label: string;
+      disabled?: boolean;
+      stamp?: string;
+    };
 export type ReportSummary<R> = { caption: string; values: Partial<R> };
 /** Finite presentation facts; all amounts and subtotals are supplied by the consumer. */
 export type ReportAppearance = {

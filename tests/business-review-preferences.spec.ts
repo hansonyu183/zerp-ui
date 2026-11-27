@@ -42,7 +42,7 @@ it("lets a readonly user edit query criteria without granting record writes", as
   await input("条件").setValue("requested");
   expect(term.value).toBe("requested");
   await click("查询");
-  expect(rows.operations.query!.run).toHaveBeenCalledTimes(2);
+  expect(rows.operations.query!.run).toHaveBeenCalledTimes(1);
   expect(record.operations.update!.run).not.toHaveBeenCalled();
 });
 it("keeps forced password change separate from workspace and unknown-result actions", async () => {
@@ -70,7 +70,7 @@ it("responds to node readability and operation availability independently", asyn
   const { model, record } = fixture();
   record.readable = false;
   record.operations.update!.disabled = true;
-  model.account.profile.readable = false;
+  model.work.account.profile.readable = false;
   wrapper = await render(model);
   expect(wrapper.text()).not.toContain("initial");
   record.readable = true;
@@ -81,7 +81,7 @@ it("responds to node readability and operation availability independently", asyn
   await click("账户：Tester");
   const menu = () => document.querySelector('[aria-label="账户菜单"]');
   expect(menu()?.textContent).not.toContain("名称与头像");
-  model.account.profile.readable = true;
+  model.work.account.profile.readable = true;
   await flushPromises();
   expect(menu()?.textContent).toContain("名称与头像");
 });

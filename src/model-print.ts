@@ -1,6 +1,6 @@
 import type {
   BusinessNode,
-  Collection,
+  ListCollection,
   FieldNode,
   ObjectNode,
   PrintElement,
@@ -15,12 +15,12 @@ export type MeasurePrintText = (item: MeasuredPrintText) => {
   insetTop: number;
 };
 
-type Printable = Collection | ObjectNode;
+type Printable = ListCollection | ObjectNode;
 /** Bind the finite JSON template to held records only; no transport or system printing. */
 export function bindPrintTemplate(
   template: PrintTemplate,
   source: Printable,
-  readable: (node: Collection | BusinessNode) => boolean,
+  readable: (node: ListCollection | BusinessNode) => boolean,
   measure: MeasurePrintText,
 ): PrintDocument {
   const { width, height, margin, rotation } = template.page;
@@ -47,7 +47,7 @@ export function bindPrintTemplate(
   if (record && record.identity === null) throw Error("只能打印正式记录。");
   const roots = record
     ? [record]
-    : (source as Collection).items.filter(readable);
+    : (source as ListCollection).items.filter(readable);
   if (roots.some((row) => row.identity === null || !row.printable))
     throw Error(record ? "此记录当前不可打印。" : "当前页有不可打印的记录。");
   function resolve(current: ObjectNode, path: readonly string[]): BusinessNode {
@@ -185,7 +185,7 @@ export function bindPrintTemplate(
       let rows: ObjectNode[];
       if (!band.path.length) {
         if (record) throw Error("单条模板的明细路径不能为空。");
-        rows = (source as Collection).items;
+        rows = (source as ListCollection).items;
       } else {
         if (!record) throw Error("集合模板只能打印当前页记录。");
         const node = resolve(record, band.path);

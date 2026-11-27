@@ -19,6 +19,7 @@ it("keeps the account menu reachable during a pending page read", async () => {
     ),
   );
   wrapper = await render(model);
+  await click("查询");
   await click("账户：Tester");
   expect(document.body.textContent).toContain("退出登录");
   resolve();
@@ -27,7 +28,7 @@ it("keeps the account menu reachable during a pending page read", async () => {
 it("keeps an open account menu usable across unrelated business updates", async () => {
   const { model } = fixture();
   const signOut = vi.fn(async () => {});
-  model.account.operations.signOut = operation(signOut);
+  model.work.account.operations.signOut = operation(signOut);
   wrapper = await render(model);
   await click("账户：Tester");
   const activeMenu = () =>
@@ -89,7 +90,7 @@ it("reuses unchanged static structure when current business values change", asyn
   const other = fixture().rows;
   other.key = "offscreen";
   other.conditions = unseen;
-  model.members.push(other);
+  model.work.members.push(other);
   wrapper = await render(model);
   structuralReads = 0;
   name.value = "当前业务新值";

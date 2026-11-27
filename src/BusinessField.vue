@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import { allowed as nodeAllows } from "./business-nodes";
+import { computed } from "vue";
 import {
   VCheckbox,
   VFileInput,
@@ -11,7 +12,6 @@ import { useDisplay } from "vuetify";
 import type { FieldNode, ReferenceValue } from "./business-model";
 import type { ReferenceAdapter } from "./contracts";
 import ReferencePicker from "./ReferencePicker.vue";
-import { directRuntimeKey } from "./direct-model-runtime";
 import { formatField } from "./model-format";
 import Feedback from "./Feedback.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
@@ -21,7 +21,6 @@ const props = defineProps<{
   scope: string;
   publicAuth?: boolean;
 }>();
-const runtime = inject(directRuntimeKey)!;
 const disabled = computed(() => props.readOnly || props.node.readOnly);
 const { xs } = useDisplay();
 const wrapReadOnlyText = computed(
@@ -62,7 +61,7 @@ const loadDisabled = computed(
   () =>
     !!reference.value?.load &&
     (reference.value.load.disabled ||
-      (!props.publicAuth && !runtime.allowed(reference.value, "load"))),
+      (!props.publicAuth && !nodeAllows(reference.value, "load"))),
 );
 const adapter = computed<ReferenceAdapter>(() => {
   const node = reference.value!;

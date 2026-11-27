@@ -6,10 +6,10 @@ import type { Interaction } from "./collaboration";
 import type { ReportPresentation, ReportSummary } from "./report";
 
 /** 操作缺省、所属节点不可读或 disabled 为 true 时省略入口和调用。 */
-export interface Operation {
+export interface Operation<T = void> {
   disabled: boolean;
   /** 读取当前模型值，结果直接更新模型；业务有效性及迟到回写由消费者控制。 */
-  run(): Promise<void>;
+  run(input: T): Promise<void>;
 }
 
 /** 身份、账套及本次登录批次；不能仅以账号相同判断请求仍有效。 */
@@ -136,8 +136,7 @@ export type FieldNode =
 
 /** 对象操作的提交边界只覆盖该对象及其所属明细。 */
 export interface ObjectOperations {
-  get?: Operation;
-  update?: Operation;
+  update?: Operation<ObjectNode>;
   delete?: Operation;
   /** 查询权威结果，不重发原写入；关闭反馈不等于核实完成。 */
   reconcile?: Operation;
@@ -215,6 +214,9 @@ export interface ObjectCapabilities {
 
 interface ObjectBase extends NodeBase, ObjectCapabilities {
   kind: "object";
+  /** 可打开记录窗口的对象声明静态业务类型。 */
+  businessType?: string;
+  load?: (id: string) => Promise<void>;
   /** 正式记录的稳定业务身份；分组、条件和未保存记录可为 null。 */
   identity: string | null;
   /** 当前值及所属明细已被权威确认可打印；输入、待保存或结果未知时由消费者置 false。 */
@@ -248,13 +250,16 @@ export interface RecordsNode extends NodeBase {
   items: ObjectNode[];
   selected: ObjectNode | null;
   /** 仅改变所属模型的本地明细；最终保存由父对象 update 完成。 */
-  operations: { create?: Operation; remove?: Operation };
+  operations: {
+    create?: Operation<RecordsNode>;
+    remove?: Operation<RecordsNode>;
+  };
 }
 
 /** Collection 不属于节点联合，不能作为 ObjectNode 的子明细。 */
 /** 局部关联入口始终归属于独立集合；选中记录不成为全局导航目标。 */
 export interface CollectionTarget {
-  collection: Collection;
+  collection: ListCollection;
   record?: ObjectNode;
 }
 
@@ -369,8 +374,8 @@ export interface PrintTemplate {
 }
 
 /** 独立查询和写入的业务集合；普通资料与 AA/AB 等单据共用。 */
-export interface Collection {
-  /** 在所属 BusinessModel.members 或 DomainGroup.members 中的稳定集合键。 */
+export interface ListCollection {
+  /** 在所属 BusinessModel.work.members 或 DomainGroup.members 中的稳定集合键。 */
   key: string;
   label: string;
   /** false 排除集合及其所属节点。缺省可读。 */
@@ -385,7 +390,12 @@ export interface Collection {
   page: number;
   pageSize: number;
   total: number;
-  operations: { query?: Operation; create?: Operation; export?: Operation };
+  load?: (request: { page: number; pageSize: number }) => Promise<void>;
+  operations: {
+    query?: Operation<{ page: number; pageSize: number }>;
+    create?: Operation;
+    export?: Operation;
+  };
   /** 自动产生单条记录打印入口；缺省不显示。拼写沿用用户确认的接口。 */
   itemPrintTemple?: PrintTemplate;
   /** 读取结果的有限呈现事实；数值及合计仍归消费者。 */
@@ -417,7 +427,7 @@ export interface DomainGroup {
   /** 停用等业务状态可收起侧栏入口；已授权链接仍可直达。 */
   hiddenFromNavigation?: boolean;
   /** 按数组顺序呈现，集合 key 在领域内唯一。 */
-  members: Collection[];
+  members: ListCollection[];
 }
 
 /** 栏目内可折叠的业务分类，例如单据下的采购。 */
@@ -441,28 +451,29 @@ export type Session =
   | { state: "anonymous" | "recovering"; owner: null }
   | { state: "ready" | "password-required"; owner: Owner };
 
-/** 工作台使用固定布局，不进入独立业务集合，不接受列数或组件配置。 */
+/** 首页集合，使用固定四块布局。 */
 export interface Workbench {
-  /** 首次进入工作台时统一读取四块内容，失败可显式重试。 */
-  load?: Operation;
+  key: string;
+  label: string;
+  readable?: boolean;
+  load?: () => Promise<void>;
   /** 真实快捷记录的目标，只保存已有节点引用；不预取或改变目标集合当前页。 */
   targets?: ReadonlyMap<ObjectNode, CollectionTarget>;
   /** 常用报表的独立维护集合。 */
-  manageReports?: CollectionTarget;
+  manageReports?: { collection: ListCollection; record?: never };
   information: RecordsNode;
   vouchers: RecordsNode;
   reports: RecordsNode;
   masters: RecordsNode;
 }
 
+export type Collection = ListCollection | Workbench;
+
 /** 登录前整体传入；登录、退出、再次登录保持同一响应式根对象。 */
 export interface BusinessModel {
   kind: "application";
   label: string;
   brand: { productName: string; companyName: string };
-  /** 栏目和领域生成侧栏；直属集合可直接定位，不生成菜单项。 */
-  members: (BusinessCategory | DomainGroup | Collection)[];
-  workbench?: Workbench;
   /** 省略时默认 MD3 浅色；选择持久化由消费者负责。 */
   theme?: {
     value: { preset: "md1" | "md2" | "md3"; mode: "light" | "dark" };
@@ -475,19 +486,17 @@ export interface BusinessModel {
     form: ObjectNode;
     operations: { signIn: Operation; recover: Operation };
   };
-  account: {
-    label: string;
-    profile: ObjectNode;
-    password: ObjectNode;
-    operations: { changePassword: Operation; signOut: Operation };
-  };
   session: Session;
-  navigation: {
-    /** null 表示工作台；未配置时进入首个获权集合，无获权集合时显示空工作区。 */
-    current: Collection | null;
-    /** null 为首页；消费者同时同步所属 Router，不扩大业务导航目标。 */
-    href(collection: Collection | null, record?: ObjectNode): string;
-    visit(collection: Collection | null, record?: ObjectNode): void;
+  work: {
+    /** 栏目和领域生成侧栏；直属集合可直接定位，不生成菜单项。 */
+    members: (BusinessCategory | DomainGroup | ListCollection)[];
+    workbench?: Workbench;
+    account: {
+      label: string;
+      profile: ObjectNode;
+      password: ObjectNode;
+      operations: { changePassword: Operation; signOut: Operation };
+    };
   };
   /** 统一反馈；登出清理，关闭消息不代表业务结果已核实。 */
   messages: {
@@ -497,6 +506,6 @@ export interface BusinessModel {
     /** Require acknowledgment before continuing to interact with the UI. */
     blocking?: true;
     /** 反馈定位不产生新的全局导航目标。 */
-    target: Collection | BusinessNode | null;
+    target: ListCollection | BusinessNode | null;
   }[];
 }

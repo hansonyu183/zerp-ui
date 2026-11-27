@@ -47,8 +47,6 @@ function setup(run = vi.fn(async () => {})) {
     ],
   });
   f.rows.conditions.members.push(node);
-  const visit = vi.fn(f.model.navigation.visit);
-  f.model.navigation.visit = visit;
   wrapper = mount(BusinessApplication, {
     props: { model: f.model },
     attachTo: document.body,
@@ -63,7 +61,7 @@ function setup(run = vi.fn(async () => {})) {
       ],
     },
   });
-  return { ...f, node, action, run, visit };
+  return { ...f, node, action, run };
 }
 function action(label: string) {
   return wrapper!.findAll("button,a").find((b) => b.text() === label);
@@ -192,7 +190,7 @@ it("downloads distinct script files in read-only views without replacing collect
   expect(first).toHaveBeenCalledTimes(1);
   expect(second).toHaveBeenCalledTimes(1);
   expect(exported).not.toHaveBeenCalled();
-  expect(f.visit).not.toHaveBeenCalled();
+  expect(f.rows.selected).toBeNull();
   expect(wrapper!.find('[role="region"][aria-label="下载甲"]').exists()).toBe(
     false,
   );
@@ -205,7 +203,7 @@ it("executes menu and tree callbacks without navigating", async () => {
   await click("重新计算");
   await click("计算子项");
   expect(f.run).toHaveBeenCalledTimes(2);
-  expect(f.visit).not.toHaveBeenCalled();
+  expect(f.rows.selected).toBeNull();
   expect(f.rows.selected).toBeNull();
 });
 it("rechecks interaction read-only and disabled state", async () => {
@@ -310,7 +308,6 @@ it("reports a current action failure and preserves navigation and downloads", as
   await click("重新计算");
   expect(document.body.textContent).toContain("操作失败");
   await click("关联记录");
-  expect(f.visit).toHaveBeenCalledTimes(1);
   expect(f.rows.selected).toBe(f.record);
   f.rows.selected = null;
   await flushPromises();

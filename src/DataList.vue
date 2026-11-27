@@ -8,7 +8,7 @@
     K extends string | number = string | number
   "
 >
-import { renderedHref } from "./model-target";
+import { renderedHref, renderedTarget } from "./model-target";
 import Feedback from "./Feedback.vue";
 import { valueAt } from "./business-type";
 import FeedbackRegion from "./FeedbackRegion.vue";
@@ -164,6 +164,7 @@ function cellActions(row: R) {
               label: intent.label,
               disabled: intent.disabled,
               href: intent.kind === "record" ? intent.href : undefined,
+              stamp: intent.kind === "record" ? undefined : intent.stamp,
             },
           ]
         : [];
@@ -247,7 +248,10 @@ function activateCell(
   if (
     !intent ||
     intent.disabled ||
-    (intent.kind === "record" && renderedHref(event) !== intent.href)
+    (intent.kind === "record" && renderedHref(event) !== intent.href) ||
+    (intent.kind !== "record" &&
+      intent.stamp !== undefined &&
+      renderedTarget(event) !== intent.stamp)
   ) {
     event.preventDefault();
     return;
@@ -500,6 +504,9 @@ function display(row: Partial<R>, column: Column<R>) {
                       color="on-surface"
                       type="button"
                       :aria-label="intent.label"
+                      :data-target="
+                        intent.kind !== 'record' ? intent.stamp : undefined
+                      "
                       :style="presentationStyle(row, entry.column.key)"
                       :disabled="disabled || intent.disabled"
                       @click="activateCell($event, row, entry.column.key)"

@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { computed, inject, toRaw, watch } from "vue";
+import { reloadWorkbench, isPending } from "./business-operations";
+
+import { readable as nodeReadable } from "./business-nodes";
+import { computed } from "vue";
 import {
   VCard,
   VCardTitle,
@@ -10,30 +13,31 @@ import {
   VListItemTitle,
 } from "vuetify/components";
 import type { Workbench, RecordsNode, ObjectNode } from "./business-model";
-import { directRuntimeKey } from "./direct-model-runtime";
 import { formatField } from "./model-format";
 import BusinessFeedback from "./BusinessFeedback.vue";
 import {
   readableTarget,
   availableTarget,
-  canOpenRecord,
   targetHref,
   visitTarget,
   plainClick,
   renderedHref,
+  targetStamp,
+  renderedTarget,
 } from "./model-target";
-const props = defineProps<{ node: Workbench }>();
-const runtime = inject(directRuntimeKey)!;
+const props = defineProps<{
+  node: Workbench;
+}>();
 const sections = computed(() =>
   (["information", "vouchers", "reports", "masters"] as const)
     .map((role) => ({ role, node: props.node[role] }))
-    .filter((section) => runtime.readable(section.node)),
+    .filter((section) => nodeReadable(section.node)),
 );
 function caption(row: ObjectNode) {
   return row.members
     .flatMap((field) => {
       if (
-        !runtime.readable(field) ||
+        !nodeReadable(field) ||
         !("value" in field) ||
         field.kind === "interactions" ||
         field.kind === "output" ||
@@ -54,19 +58,17 @@ function caption(row: ObjectNode) {
 function rows(section: RecordsNode) {
   return section.items.filter(
     (row) =>
-      runtime.readable(row) &&
+      nodeReadable(row) &&
       (!props.node.targets?.get(row) ||
-        readableTarget(runtime, props.node.targets.get(row)!)),
+        readableTarget(props.node.targets.get(row)!)),
   );
 }
 function canOpen(row: ObjectNode) {
   const target = props.node.targets?.get(row);
-  return target
-    ? canOpenRecord(runtime, row) && availableTarget(runtime, target)
-    : runtime.available(row, "get");
+  return !!target && availableTarget(target);
 }
 function pending(row: ObjectNode) {
-  return runtime.busy.value.has(toRaw(row));
+  return isPending(row);
 }
 function open(event: MouseEvent | KeyboardEvent, row: ObjectNode) {
   const target = props.node.targets?.get(row);
@@ -78,66 +80,48 @@ function open(event: MouseEvent | KeyboardEvent, row: ObjectNode) {
     event.preventDefault();
     return;
   }
-  if (!target) {
-    if (renderedHref(event) !== null) {
-      event.preventDefault();
-      return;
-    }
-    void runtime.run(row, "get");
-    return;
-  }
-  if (renderedHref(event) !== targetHref(runtime, target)) {
+  if (
+    !target ||
+    renderedTarget(event) !== targetStamp(target) ||
+    renderedHref(event) !== (targetHref(target) ?? null)
+  ) {
     event.preventDefault();
     return;
   }
   if (!plainClick(event)) return;
   event.preventDefault();
-  visitTarget(runtime, target);
+  visitTarget(target);
 }
 function manage(event: MouseEvent) {
   const target = props.node.manageReports;
   if (
     !target ||
-    !runtime.readable(props.node.reports) ||
-    !availableTarget(runtime, target)
+    !nodeReadable(props.node.reports) ||
+    !availableTarget(target)
   ) {
     event.preventDefault();
     return;
   }
-  if (renderedHref(event) !== targetHref(runtime, target)) {
+  if (renderedHref(event) !== targetHref(target)) {
     event.preventDefault();
     return;
   }
   if (!plainClick(event)) return;
   event.preventDefault();
-  visitTarget(runtime, target);
+  visitTarget(target);
 }
-const activated = new Set<string>();
-watch(
-  [runtime.scope, () => sections.value.length, () => props.node.load?.disabled],
-  () => {
-    const owner = runtime.scope.value;
-    if (
-      !sections.value.length ||
-      !runtime.ready.value ||
-      activated.has(owner) ||
-      !props.node.load ||
-      props.node.load.disabled
-    )
-      return;
-    activated.add(owner);
-    void runtime.runWorkbench(true);
-  },
-  { immediate: true },
-);
+function refresh() {
+  void reloadWorkbench(props.node);
+}
 </script>
 <template>
   <section class="zerp-workbench" aria-label="工作台">
     <VBtn
-      v-if="node.load && !node.load.disabled && sections.length"
+      v-if="node.load && sections.length"
       class="mb-3"
-      :disabled="runtime.busy.value.has(toRaw(node))"
-      @click="runtime.runWorkbench()"
+      :loading="isPending(node)"
+      :disabled="isPending(node)"
+      @click="refresh"
       >刷新</VBtn
     >
     <div class="zerp-workbench-grid">
@@ -159,10 +143,26 @@ watch(
               v-for="row in rows(section.node)"
               :key="row.identity ?? row.key"
               :link="canOpen(row)"
+              :data-target="targetStamp(node.targets?.get(row))"
+              :role="
+                canOpen(row) && node.targets?.get(row)?.record
+                  ? 'button'
+                  : undefined
+              "
+              :type="
+                canOpen(row) && node.targets?.get(row)?.record
+                  ? 'button'
+                  : undefined
+              "
+              :tag="
+                canOpen(row) && node.targets?.get(row)?.record
+                  ? 'button'
+                  : 'div'
+              "
               :disabled="canOpen(row) && pending(row)"
               :href="
                 canOpen(row) && node.targets?.get(row)
-                  ? targetHref(runtime, node.targets.get(row)!)
+                  ? targetHref(node.targets.get(row)!)
                   : undefined
               "
               @click="open($event, row)"
@@ -174,18 +174,14 @@ watch(
             v-if="
               section.role === 'reports' &&
               node.manageReports &&
-              availableTarget(runtime, node.manageReports)
+              availableTarget(node.manageReports)
             "
-            :href="targetHref(runtime, node.manageReports)"
+            :href="targetHref(node.manageReports)"
             variant="text"
             @click="manage"
             >管理常用报表</VBtn
           >
-          <BusinessFeedback
-            :target="section.node"
-            fixed
-            :blocked="node.load?.disabled"
-          />
+          <BusinessFeedback :target="section.node" fixed />
         </VCardText>
       </VCard>
     </div>

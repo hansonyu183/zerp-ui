@@ -7,7 +7,7 @@ import {
   type Ref,
 } from "vue";
 import type { BusinessModel } from "./business-model";
-import type { Node } from "./direct-model-runtime";
+import type { Node } from "./business-nodes";
 
 type Message = BusinessModel["messages"][number];
 type Failure = {

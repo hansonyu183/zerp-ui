@@ -1,9 +1,10 @@
+import { route } from "./fixtures/static-host";
 import { computed, nextTick, watch } from "vue";
 import { expect, it, vi } from "vitest";
 import { fixture, field, object, operation } from "./fixtures/static-model";
 
 it("observes direct input and backend results while preserving record identity", async () => {
-  const { model, rows, name, record } = fixture();
+  const { rows, name, record } = fixture();
   rows.selected = record;
   const displayed = computed(() => name.value);
   name.value = "input";
@@ -18,12 +19,11 @@ it("observes direct input and backend results while preserving record identity",
       name.value = await response;
     }),
   );
-  const pending = record.operations.update.run();
+  const pending = record.operations.update.run(record);
   resolve("backend");
   await pending;
   expect(displayed.value).toBe("backend");
   expect(rows.selected).toBe(record);
-  expect(model.navigation.current).toBe(rows);
 });
 it("reacts to ordered members, explicit columns, operation state and session permissions", async () => {
   const { model, record, rows, owner } = fixture();
@@ -34,7 +34,7 @@ it("reacts to ordered members, explicit columns, operation state and session per
       rows.columns,
       rows.operations,
       model.session,
-      model.members,
+      model.work.members,
     ],
     observed,
     { deep: true },
@@ -65,14 +65,14 @@ it("reacts to ordered members, explicit columns, operation state and session per
   }
 });
 it("keeps query, page and new-record input across collection navigation", async () => {
-  const { model, rows, term } = fixture();
+  const { rows, term } = fixture();
   term.value = "unfinished";
   rows.page = 3;
   rows.draft = object("draft", "新增", [field("name", "名称", "new input")]);
   const draft = rows.draft;
-  model.navigation.current = null;
+  route(null);
   await nextTick();
-  model.navigation.current = rows;
+  route(rows);
   await nextTick();
   expect(term.value).toBe("unfinished");
   expect(rows.page).toBe(3);

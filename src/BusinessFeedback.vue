@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { computed, inject, useId, watch } from "vue";
+import { feedbackForApplication } from "./business-operations";
+import { applicationReady } from "./business-session";
+import { visitTarget } from "./model-target";
+import { computed, useId, watch } from "vue";
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import {
   VBtn,
@@ -11,10 +14,11 @@ import {
   VDefaultsProvider,
 } from "vuetify/components";
 import {
-  directRuntimeKey,
   isCollection,
   type Node,
-} from "./direct-model-runtime";
+  ancestors as nodeAncestors,
+  readable as nodeReadable,
+} from "./business-nodes";
 import Feedback from "./Feedback.vue";
 import { appBarHeight } from "./shell";
 
@@ -24,10 +28,10 @@ const props = defineProps<{
   fixed?: boolean;
   blocked?: boolean;
 }>();
-const runtime = inject(directRuntimeKey)!;
 const defaults = injectDefaults();
-const { blocking, transient, acknowledge, dismissTransient } = runtime.feedback;
-const reason = computed(() => runtime.feedback.reason(props.target));
+const feedback = feedbackForApplication();
+const { blocking, transient, acknowledge, dismissTransient } = feedback;
+const reason = computed(() => feedback.reason(props.target));
 const description = useId();
 
 watch(
@@ -35,11 +39,7 @@ watch(
   (target, _previous, onCleanup) => {
     if (target)
       onCleanup(
-        runtime.feedback.presentWith(
-          target,
-          !!props.exact,
-          () => !!props.blocked,
-        ),
+        feedback.presentWith(target, !!props.exact, () => !!props.blocked),
       );
   },
   { immediate: true },
@@ -47,25 +47,21 @@ watch(
 function locate(target: Node) {
   const collection = isCollection(target)
     ? target
-    : runtime.ancestors(target).find(isCollection);
-  if (!collection || !runtime.readable(target)) return;
-  const record = [...runtime.ancestors(target), target].find(
+    : nodeAncestors(target).find(isCollection);
+  if (!collection || !nodeReadable(target)) return;
+  const record = [...nodeAncestors(target), target].find(
     (node) =>
       !isCollection(node) &&
       node.kind === "object" &&
-      runtime.ancestors(node).at(-1) === collection,
+      nodeAncestors(node).at(-1) === collection,
   );
-  runtime
-    .model()
-    .navigation.visit(
-      collection,
-      record &&
-        !isCollection(record) &&
-        record.kind === "object" &&
-        record.identity !== null
+  visitTarget({
+    collection,
+    record:
+      record && !isCollection(record) && record.kind === "object"
         ? record
         : undefined,
-    );
+  });
 }
 </script>
 <template>
@@ -133,7 +129,7 @@ function locate(target: Node) {
       :attach="false"
       :contained="false"
       :style="{
-        insetBlockStart: runtime.ready.value ? `${appBarHeight}px` : undefined,
+        insetBlockStart: applicationReady ? `${appBarHeight}px` : undefined,
       }"
       :aria-describedby="description"
       aria-label="操作提示"

@@ -1,6 +1,6 @@
 import { reactive } from "vue";
 import type {
-  Collection,
+  ListCollection,
   ObjectNode,
   PrintTemplate,
   FieldNode,
@@ -157,7 +157,7 @@ function voucher(): ObjectNode {
     },
   ]);
 }
-export const printDemo: Collection = reactive({
+export const printDemo: ListCollection = reactive({
   key: "print-demo",
   label: "打印示例",
   columns: [{ key: "number", label: "单号" }],

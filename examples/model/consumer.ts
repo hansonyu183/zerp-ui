@@ -2,17 +2,15 @@ import { reactive, ref } from "vue";
 import type {
   BusinessModel,
   DomainGroup,
-  Collection,
+  ListCollection,
   FieldNode,
   InteractionNode,
   ObjectNode,
-  Operation,
   Owner,
   PrintTemplate,
   RecordsNode,
 } from "@zerp/ui/model";
 import { printDemo } from "./print-demo";
-import { router } from "./router";
 import {
   bindFamilyQueries,
   clearFamilyInputs,
@@ -21,7 +19,7 @@ import {
 } from "./families";
 
 export const trace = (name: string) => console.log(`synthetic-call:${name}`);
-const operation = (run: () => Promise<void>): Operation => ({
+const operation = (run: () => Promise<void>) => ({
   disabled: false,
   run,
 });
@@ -46,6 +44,7 @@ const object = (
 ): ObjectNode =>
   reactive({
     kind: "object",
+    businessType: key,
     printable: false,
     family: "standard",
     key,
@@ -55,6 +54,24 @@ const object = (
     members,
     operations: {},
   });
+function commitEdited(record: ObjectNode, edited: ObjectNode) {
+  for (const field of record.members) {
+    const next = edited.members.find((entry) => entry.key === field.key);
+    if (!next || next.kind !== field.kind || field.readOnly) continue;
+    if (field.kind === "object" && next.kind === "object")
+      commitEdited(field, next);
+    else if (field.kind === "records" && next.kind === "records") {
+      field.items = next.items.map((row) => {
+        const existing = field.items.find((item) => item.key === row.key);
+        const result = existing ?? contactLine(row.key);
+        commitEdited(result, row);
+        return result;
+      });
+    } else if ("value" in field && "value" in next && field.kind !== "output") {
+      Object.assign(field, { value: next.value });
+    }
+  }
+}
 const loginLedger: FieldNode = reactive({
   kind: "reference",
   key: "ledger",
@@ -184,16 +201,24 @@ const lines: RecordsNode = reactive({
   selected: null,
   operations: {},
 });
-lines.operations.create = operation(async () => {
-  trace("contacts.create");
-  lines.items.push(contactLine(`contact-${++nextContact}`));
-});
-lines.operations.remove = operation(async () => {
-  trace("contacts.remove");
-  if (lines.selected)
-    lines.items.splice(lines.items.indexOf(lines.selected), 1);
-  lines.selected = null;
-});
+lines.operations.create = {
+  disabled: false,
+  async run(draft) {
+    trace("contacts.create");
+    draft.items.push(contactLine(`contact-${++nextContact}`));
+  },
+};
+
+lines.operations.remove = {
+  disabled: false,
+  async run(draft) {
+    trace("contacts.remove");
+    if (draft.selected)
+      draft.items.splice(draft.items.indexOf(draft.selected), 1);
+    draft.selected = null;
+  },
+};
+
 const settlementAccount = text("account", "结算账户", "合成账户");
 const feedbackForm = feedbackReference("feedback-reference", "表单引用");
 function resetFeedbackForm() {
@@ -236,17 +261,28 @@ Object.defineProperty(customer, "printable", {
     customer.identity !== null &&
     currentCustomerFacts() === savedCustomerFacts.value,
 });
-customer.operations.get = operation(async () => {
+customer.load = async () => {
   trace("customer.get");
-});
+};
 const viewerMode = ref(false);
 customer.operations.update = {
   get disabled() {
-    return viewerMode.value || name.value === "暂不可保存";
+    return viewerMode.value;
   },
-  async run() {
+  async run(edited) {
     trace("customer.update");
-    if (name.value === "需要核对客户名称") {
+    const draftName = edited.members.find((node) => node.key === "name");
+    const value = draftName?.kind === "text" ? draftName.value : name.value;
+    if (value === "暂不可保存") {
+      model.messages.push({
+        id: "customer-save-unavailable",
+        level: "error",
+        target: customer,
+        text: "当前无法保存。",
+      });
+      throw Error("当前无法保存。");
+    }
+    if (value === "需要核对客户名称") {
       model.messages.push({
         id: "customer-name-verification",
         level: "error",
@@ -255,7 +291,7 @@ customer.operations.update = {
       });
       throw Error("合成校验失败");
     }
-    if (name.value === "需要确认提示") {
+    if (value === "需要确认提示") {
       model.messages.push({
         id: "customer-confirm-notice",
         level: "warning",
@@ -263,9 +299,10 @@ customer.operations.update = {
         target: customer,
         blocking: true,
       });
-      return;
+      throw Error("等待确认");
     }
-    if (name.value === "失败") throw Error("合成保存失败，请修改名称后重试。");
+    if (value === "失败") throw Error("合成保存失败，请修改名称后重试。");
+    commitEdited(customer, edited);
     savedCustomerFacts.value = currentCustomerFacts();
     model.messages.push({
       id: String(Date.now()),
@@ -320,7 +357,7 @@ const itemTemplate: PrintTemplate = reactive({
     },
   ],
 });
-const customers: Collection = reactive({
+const customers: ListCollection = reactive({
   key: "customers",
   label: "客户",
   icon: "catalog",
@@ -377,7 +414,7 @@ const customers: Collection = reactive({
   },
 });
 let retryableCustomerQueryFailed = false;
-customers.operations.query = operation(async () => {
+customers.load = async ({ page }) => {
   const keyword = filter.value;
   const owner = JSON.stringify(model.session.owner);
   trace("customers.query");
@@ -401,6 +438,7 @@ customers.operations.query = operation(async () => {
     });
     throw Error("合成查询失败");
   }
+  customers.page = page;
   if (keyword === "空结果") {
     customers.items = [];
     customers.total = 0;
@@ -427,23 +465,28 @@ customers.operations.query = operation(async () => {
   customer.identity = "C1";
   customers.items = [customer];
   customers.total = keyword === "可重试读取" ? customers.pageSize + 1 : 1;
-});
+};
 customers.operations.create = operation(async () => {
   trace("customers.create");
   const draft = object("new-customer", "客户", [
     text("code", "编号"),
     text("name", "客户名称"),
   ]);
-  draft.operations.update = operation(async () => {
-    trace("customer.create");
-    draft.identity = `C${Date.now()}`;
-    customers.items.push(draft);
-    customers.total++;
-    customers.draft = null;
-  });
+  draft.businessType = "customer";
+  draft.operations.update = {
+    disabled: false,
+    async run(edited) {
+      trace("customer.create");
+      commitEdited(draft, edited);
+      draft.identity = `C${Date.now()}`;
+      customers.items.push(draft);
+      customers.total++;
+      customers.draft = null;
+    },
+  };
   customers.draft = draft;
 });
-const contacts: Collection = reactive({
+const contacts: ListCollection = reactive({
   key: "contacts",
   label: "联系人",
   columns: [{ key: "name", label: "姓名" }],
@@ -456,17 +499,18 @@ const contacts: Collection = reactive({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: {
-    query: operation(async () => {
-      trace("contacts.query");
-      contacts.items = [
-        object("contact-1", "联系人", [text("name", "姓名", "合成联系人")]),
-      ];
-      contacts.total = 1;
-    }),
+  operations: {},
+  async load({ page }) {
+    trace("contacts.query");
+    contacts.page = page;
+    contacts.items = [
+      object("contact-1", "联系人", [text("name", "姓名", "合成联系人")]),
+    ];
+    contacts.items[0]!.businessType = "contact";
+    contacts.total = 1;
   },
 });
-const empty: Collection = reactive({
+const empty: ListCollection = reactive({
   key: "empty",
   label: "空集合",
   columns: [{ key: "title", label: "空集合列标题" }],
@@ -477,12 +521,12 @@ const empty: Collection = reactive({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: {
-    query: operation(async () => {
-      trace("empty.query");
-      empty.items = [];
-      empty.total = 0;
-    }),
+  operations: {},
+  async load({ page }) {
+    trace("empty.query");
+    empty.page = page;
+    empty.items = [];
+    empty.total = 0;
   },
 });
 const quantity: FieldNode = reactive({
@@ -498,6 +542,7 @@ const voucher: ObjectNode = reactive({
   kind: "object",
   printable: false,
   family: "voucher",
+  businessType: "voucher.AA",
   type: "AA",
   key: "voucher-1",
   label: "单据",
@@ -518,10 +563,14 @@ const voucher: ObjectNode = reactive({
     },
   ],
   operations: {
-    update: operation(async () => {
-      trace("voucher.update");
-      voucherStatus.value = `已保存数量 ${quantity.value}`;
-    }),
+    update: {
+      disabled: false,
+      async run(edited: ObjectNode) {
+        trace("voucher.update");
+        commitEdited(voucher, edited);
+        voucherStatus.value = `已保存数量 ${quantity.value}`;
+      },
+    },
     submit: operation(async () => {
       trace("voucher.submit");
       voucherStatus.value = "已提交";
@@ -586,9 +635,10 @@ const voucherDetails = Array.from({ length: 24 }, (_, index) => {
       voucherDetailLinks,
     );
   }
+  record.businessType = "voucher.AA";
   return record;
 });
-const vouchers: Collection = reactive({
+const vouchers: ListCollection = reactive({
   key: "vouchers",
   label: "单据",
   icon: "voucher",
@@ -603,15 +653,15 @@ const vouchers: Collection = reactive({
   page: 1,
   pageSize: 12,
   total: 0,
-  operations: {
-    query: operation(async () => {
-      trace("vouchers.query");
-      const records =
-        voucherKeyword.value === "手机详情" ? voucherDetails : [voucher];
-      const offset = (vouchers.page - 1) * vouchers.pageSize;
-      vouchers.items = records.slice(offset, offset + vouchers.pageSize);
-      vouchers.total = records.length;
-    }),
+  operations: {},
+  async load({ page, pageSize }) {
+    trace("vouchers.query");
+    vouchers.page = page;
+    const records =
+      voucherKeyword.value === "手机详情" ? voucherDetails : [voucher];
+    const offset = (page - 1) * pageSize;
+    vouchers.items = records.slice(offset, offset + pageSize);
+    vouchers.total = records.length;
   },
 });
 const secret: Extract<FieldNode, { kind: "secret" }> = reactive({
@@ -654,7 +704,7 @@ const password = object("password", "密码管理", [nextPassword]);
 const shortcut = (
   key: string,
   label: string,
-  target: Collection | null,
+  target: ListCollection | null,
 ): RecordsNode => ({
   kind: "records",
   key,
@@ -666,18 +716,13 @@ const shortcut = (
         text("title", "名称", target?.label ?? "今日有一条合成提醒", true),
       ]),
       identity: key,
-      operations: {
-        get: operation(async () => {
-          if (target) model.navigation.visit(target);
-        }),
-      },
     },
   ],
   selected: null,
   operations: {},
 });
 function asDomain(
-  collection: Collection,
+  collection: ListCollection,
   label = collection.label,
 ): DomainGroup {
   return {
@@ -687,8 +732,8 @@ function asDomain(
     members: [collection],
   };
 }
-function collections(): Collection[] {
-  return model.members.flatMap((member) => {
+function collections(): ListCollection[] {
+  return model.work.members.flatMap((member) => {
     if (!("kind" in member)) return [member];
     if (member.kind === "domain") return member.members;
     return member.members.flatMap((child) =>
@@ -702,8 +747,8 @@ let generation = 0;
 function resetBusiness() {
   clearFamilyInputs();
   for (const { role } of workbenchSeeds) {
-    model.workbench![role].items = [];
-    model.workbench![role].selected = null;
+    model.work.workbench![role].items = [];
+    model.work.workbench![role].selected = null;
   }
   for (const collection of collections()) {
     collection.items = [];
@@ -744,7 +789,7 @@ const signIn = operation(async () => {
   for (const collection of collections())
     collection.readable = !viewer || collection === customers;
   for (const { role } of workbenchSeeds)
-    model.workbench![role].readable = !viewer;
+    model.work.workbench![role].readable = !viewer;
   credit.readable = !viewer;
   customer.readOnly = viewer;
   customers.operations.create!.disabled = viewer;
@@ -753,39 +798,12 @@ const signIn = operation(async () => {
   for (const reference of [category, groups, feedbackForm])
     if ("load" in reference && reference.load) reference.load.disabled = viewer;
   model.session = { state: "ready", owner };
-  model.navigation.current = viewer ? customers : null;
 });
 
 export const model: BusinessModel = reactive({
   kind: "application",
   label: "静态业务模型",
   brand: { productName: "合成业务示例", companyName: "示例企业" },
-  members: [
-    {
-      kind: "category",
-      key: "business",
-      label: "业务",
-      members: [
-        {
-          kind: "domain",
-          key: "customerDomain",
-          label: "客户",
-          members: [customers, contacts],
-        },
-        asDomain(vouchers),
-        asDomain(printDemo),
-        ...Object.values(familyCollections).map((collection) =>
-          asDomain(collection),
-        ),
-        {
-          kind: "section",
-          key: "examples",
-          label: "示例分类",
-          members: [asDomain(empty, "E 空集合")],
-        },
-      ],
-    },
-  ],
   authentication: {
     form: object("login", "登录", [loginLedger, loginName, loginPassword]),
     operations: {
@@ -795,78 +813,95 @@ export const model: BusinessModel = reactive({
       }),
     },
   },
-  account: {
-    label: "合成用户",
-    profile,
-    password,
-    operations: {
-      changePassword: operation(async () => {
-        trace("account.changePassword");
-        nextPassword.value = "";
-        model.messages.push({
-          id: "password",
-          level: "success",
-          text: "合成密码已更新",
-          target: null,
-        });
-      }),
-      signOut: operation(async () => {
-        trace("session.signOut");
-        model.session = {
-          state: "anonymous",
-          owner: null,
-        };
-        resetBusiness();
-        void router.push("/");
-      }),
-    },
-  },
   session: { state: "anonymous", owner: null },
-  navigation: {
-    current: null,
-    href(collection, record) {
-      return collection
-        ? `/business/${encodeURIComponent(collection.key)}${record ? `?id=${encodeURIComponent(record.identity ?? record.key)}` : ""}`
-        : "/";
-    },
-    visit(collection, record) {
-      if (collection && record) collection.selected = record;
-      model.navigation.current = collection;
-      void router.push(this.href(collection, record));
-    },
-  },
   messages: [],
-  workbench: {
-    load: operation(async () => {
-      const requestOwner = JSON.stringify(model.session.owner);
-      trace("workbench.load");
-      await Promise.resolve();
-      if (
-        model.session.state !== "ready" ||
-        JSON.stringify(model.session.owner) !== requestOwner
-      )
-        return;
-      for (const { role, items } of workbenchSeeds) {
-        const block = model.workbench![role];
-        if (block.readable !== false) block.items = items;
-      }
-    }),
-    information: shortcut("information", "重要信息", null),
-    vouchers: shortcut("vouchers", "单据", vouchers),
-    reports: shortcut("reports", "报表", reports),
-    masters: shortcut("masters", "资料", customers),
+  work: {
+    members: [
+      {
+        kind: "category",
+        key: "business",
+        label: "业务",
+        members: [
+          {
+            kind: "domain",
+            key: "customerDomain",
+            label: "客户",
+            members: [customers, contacts],
+          },
+          asDomain(vouchers),
+          asDomain(printDemo),
+          ...Object.values(familyCollections).map((collection) =>
+            asDomain(collection),
+          ),
+          {
+            kind: "section",
+            key: "examples",
+            label: "示例分类",
+            members: [asDomain(empty, "E 空集合")],
+          },
+        ],
+      },
+    ],
+    account: {
+      label: "合成用户",
+      profile,
+      password,
+      operations: {
+        changePassword: operation(async () => {
+          trace("account.changePassword");
+          nextPassword.value = "";
+          model.messages.push({
+            id: "password",
+            level: "success",
+            text: "合成密码已更新",
+            target: null,
+          });
+        }),
+        signOut: operation(async () => {
+          trace("session.signOut");
+          model.session = {
+            state: "anonymous",
+            owner: null,
+          };
+          resetBusiness();
+        }),
+      },
+    },
+    workbench: {
+      key: "home",
+      label: "工作台",
+      async load() {
+        const requestOwner = JSON.stringify(model.session.owner);
+        trace("workbench.load");
+        await Promise.resolve();
+        if (
+          model.session.state !== "ready" ||
+          JSON.stringify(model.session.owner) !== requestOwner
+        )
+          return;
+        for (const { role, items } of workbenchSeeds) {
+          const block = model.work.workbench![role];
+          if (block.readable !== false) block.items = items;
+        }
+      },
+      information: shortcut("information", "重要信息", null),
+      vouchers: shortcut("vouchers", "单据", vouchers),
+      reports: shortcut("reports", "报表", reports),
+      masters: shortcut("masters", "资料", customers),
+    },
   },
 });
 const workbenchSeeds = (
   ["information", "vouchers", "reports", "masters"] as const
-).map((role) => ({ role, items: model.workbench![role].items }));
+).map((role) => ({ role, items: model.work.workbench![role].items }));
 const recentCustomer = object("customer-off-page", "客户", [
   text("name", "客户名称", "外页合成客户", true),
 ]);
-model.workbench!.targets = new Map([
+recentCustomer.businessType = "customer";
+model.work.workbench!.targets = new Map([
   [
     workbenchSeeds.find(({ role }) => role === "vouchers")!.items[0]!,
-    { collection: vouchers, record: vouchers.items[0]! },
+    { collection: vouchers, record: voucher },
   ],
   [
     workbenchSeeds.find(({ role }) => role === "reports")!.items[0]!,
@@ -877,12 +912,6 @@ model.workbench!.targets = new Map([
     { collection: customers, record: recentCustomer },
   ],
 ]);
-model.workbench!.manageReports = { collection: reports };
-for (const { role } of workbenchSeeds) model.workbench![role].items = [];
+model.work.workbench!.manageReports = { collection: reports };
+for (const { role } of workbenchSeeds) model.work.workbench![role].items = [];
 bindFamilyQueries(() => model.session.owner);
-router.afterEach((to) => {
-  model.navigation.current =
-    collections().find(
-      (collection) => model.navigation.href(collection) === to.path,
-    ) ?? null;
-});

@@ -1,23 +1,28 @@
 <script setup lang="ts">
+import { reportPosition, saveReportPosition } from "./report-position";
 import {
-  computed,
-  inject,
-  ref,
-  watch,
-  toRaw,
-  onMounted,
-  onBeforeUnmount,
-  nextTick,
-} from "vue";
+  isPending,
+  loadPage,
+  queryView as getQueryView,
+  runOperation,
+  type QueryView,
+} from "./business-operations";
+import { sessionScope } from "./business-session";
+import { routedCollection } from "./work-router";
+import { openRecord } from "./record-windows";
+import { computed, onMounted, onBeforeUnmount } from "vue";
 import { VBtn } from "vuetify/components";
 import {
-  directRuntimeKey,
   members,
   isCollection,
   type Node,
   type CollectionNode,
   type ObjectNode,
-} from "./direct-model-runtime";
+  available as nodeAvailable,
+  operations as nodeOperations,
+  readable as nodeReadable,
+  writable as nodeWritable,
+} from "./business-nodes";
 import type {
   BusinessNode as BusinessValue,
   RecordsNode,
@@ -28,29 +33,25 @@ import BusinessFeedback from "./BusinessFeedback.vue";
 import BusinessActionGroup from "./BusinessActionGroup.vue";
 import BusinessCollection from "./BusinessCollection.vue";
 import BusinessRecords from "./BusinessRecords.vue";
-import RecordDialog from "./RecordDialog.vue";
 import BusinessGroups from "./BusinessGroups.vue";
 import TemplatePrint from "./TemplatePrint.vue";
 import BusinessFamilyContent from "./BusinessFamilyContent.vue";
-const props = withDefaults(
-  defineProps<{
-    node: Node;
-    focus?: Node;
-    publicAuth?: boolean;
-    autoRead?: boolean;
-    readOnly?: boolean;
-    filter?: boolean;
-    editing?: boolean;
-  }>(),
-  { autoRead: true },
-);
-const runtime = inject(directRuntimeKey)!;
+const props = defineProps<{
+  node: Node;
+  focus?: Node;
+  publicAuth?: boolean;
+  readOnly?: boolean;
+  filter?: boolean;
+  editing?: boolean;
+  profile?: boolean;
+  save?: (node: ObjectNode) => Promise<void>;
+}>();
 const collection = computed(() => props.node as CollectionNode);
 const records = computed(() => props.node as RecordsNode);
 const field = computed(() => props.node as FieldNode);
 const visible = computed(() =>
   members(props.node).filter(([, node]) =>
-    props.publicAuth ? node.readable !== false : runtime.readable(node),
+    props.publicAuth ? node.readable !== false : nodeReadable(node),
   ),
 );
 const runs = computed(() => {
@@ -73,7 +74,7 @@ const runs = computed(() => {
   return result;
 });
 const actions = computed(() =>
-  Object.keys(runtime.operations(props.node)).filter(
+  Object.keys(nodeOperations(props.node)).filter(
     (key) =>
       key !== "query" &&
       !(
@@ -98,7 +99,7 @@ const actions = computed(() =>
           "audit",
           "openVoucher",
         ].includes(key)) &&
-      runtime.available(props.node, key, props.publicAuth),
+      nodeAvailable(props.node, key, props.publicAuth),
   ),
 );
 const saveUnavailable = computed(() => {
@@ -106,98 +107,79 @@ const saveUnavailable = computed(() => {
   return (
     !isCollection(node) &&
     node.kind === "object" &&
-    (props.editing ||
-      (node === runtime.model().account.profile && runtime.writable(node))) &&
+    (props.editing || (props.profile && nodeWritable(node))) &&
     !actions.value.includes("update")
   );
 });
-const pending = computed(() => runtime.busy.value.has(toRaw(props.node)));
-const dialogReady = ref(false);
-onMounted(
-  () =>
-    void nextTick(() => {
-      dialogReady.value = true;
-    }),
-);
-const printRequested = ref(false);
-const restoreDetailFocus = ref<() => HTMLElement | null>();
+const pending = computed(() => isPending(props.node));
 function openDetail(
+  record: ObjectNode,
   mode: "read" | "edit",
-  restoreFocus: () => HTMLElement | null,
+  focus?: () => HTMLElement | null,
+  print = false,
 ) {
-  detailMode.value = mode;
-  printRequested.value = false;
-  restoreDetailFocus.value = restoreFocus;
+  if (routedCollection.value && routedCollection.value !== collection.value)
+    return;
+  openRecord({ collection: collection.value, record, mode, focus, print });
 }
-const dismissedDraft = ref<ObjectNode | null>(null),
-  detailMode = ref<"read" | "edit">("edit");
-const detail = computed(() =>
-  collection.value.draft && collection.value.draft !== dismissedDraft.value
-    ? collection.value.draft
-    : collection.value.selected,
+async function action(name: string) {
+  const node = props.node;
+  if (
+    name === "update" &&
+    props.save &&
+    !isCollection(node) &&
+    node.kind === "object"
+  ) {
+    await props.save(node);
+    return;
+  }
+  if (name === "create" && isCollection(node)) {
+    const focus = document.activeElement;
+    if ((await runOperation(node, name, props.publicAuth)) && node.draft)
+      openDetail(node.draft, "edit", () =>
+        focus instanceof HTMLElement ? focus : null,
+      );
+    return;
+  }
+  await runOperation(node, name, props.publicAuth);
+}
+const queryAvailable = computed(
+  () =>
+    !!(collection.value.load || collection.value.operations.query) &&
+    nodeReadable(props.node) &&
+    !collection.value.operations.query?.disabled,
 );
-const detailReadOnly = computed(() => {
-  const record = detail.value;
-  if (!record || collection.value.draft === record) return false;
-  if (printRequested.value) return true;
-  return (
-    !runtime.handleable(record) &&
-    (detailMode.value === "read" || !runtime.editable(record))
-  );
-});
-function closeDetail() {
-  if (collection.value.draft === detail.value)
-    dismissedDraft.value = detail.value;
-  if (collection.value.selected === detail.value)
-    collection.value.selected = null;
-  detailMode.value = "edit";
-  printRequested.value = false;
-}
-const queryAvailable = computed(() => runtime.available(props.node, "query"));
 const canQuery = computed(() => queryAvailable.value && !pending.value);
+const canPage = computed(() => !!collection.value.load && !pending.value);
 const queryView = computed(() =>
-  isCollection(props.node) ? runtime.queryView(props.node) : undefined,
+  isCollection(props.node) ? getQueryView(props.node) : undefined,
 );
 const reading = computed(() => queryView.value?.state === "loading");
 const queryFailure = computed(() =>
   queryView.value?.state === "failure" ? queryView.value : undefined,
 );
+const retryAvailable = computed(() => {
+  const failure = queryFailure.value;
+  return (
+    !!failure?.canRetry() &&
+    (failure.explicit ? queryAvailable.value : !!collection.value.load)
+  );
+});
 function retryQuery() {
   const failure = queryFailure.value;
-  if (failure?.canRetry()) void query(failure.retryPage);
+  if (failure && retryAvailable.value && !pending.value)
+    void loadPage(collection.value, failure.retryPage, failure.explicit);
 }
-async function query(page = 1) {
+async function query() {
   if (!canQuery.value) return;
-  collection.value.page = page;
-  await runtime.run(props.node, "query");
+  await loadPage(collection.value, 1, true);
 }
-watch(
-  () => props.node,
-  () => {
-    if (
-      props.autoRead &&
-      !(
-        isCollection(props.node) &&
-        props.node.report &&
-        runtime.reportViews.has(toRaw(props.node))
-      )
-    )
-      void runtime.run(
-        props.node,
-        isCollection(props.node) ? "query" : "get",
-        props.publicAuth,
-      );
-  },
-  { immediate: true },
-);
-const initialScope = runtime.scope.value;
+const initialScope = sessionScope.value;
 const initialNode = props.node;
 let scrollFrame: number | undefined;
 onMounted(() => {
   const saved =
-    isCollection(props.node) &&
-    props.node.report &&
-    runtime.reportViews.get(toRaw(props.node));
+    isCollection(props.node) && props.node.report && reportPosition(props.node);
   if (saved)
     scrollFrame = requestAnimationFrame(() =>
       window.scrollTo(saved.left, saved.top),
@@ -208,11 +190,11 @@ onBeforeUnmount(() => {
   if (
     isCollection(initialNode) &&
     initialNode.report &&
-    initialScope === runtime.scope.value &&
-    runtime.readable(initialNode) &&
-    runtime.model().navigation.current === initialNode
+    initialScope === sessionScope.value &&
+    nodeReadable(initialNode) &&
+    routedCollection.value === initialNode
   )
-    runtime.reportViews.set(toRaw(initialNode), {
+    saveReportPosition(initialNode, {
       left: window.scrollX,
       top: window.scrollY,
     });
@@ -220,7 +202,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section
-    v-if="publicAuth || runtime.readable(node)"
+    v-if="publicAuth || nodeReadable(node)"
     :aria-label="node.label ?? undefined"
   >
     <template v-if="!isCollection(node) && node.kind === 'object'">
@@ -233,6 +215,7 @@ onBeforeUnmount(() => {
           :public-auth="publicAuth"
           :read-only="readOnly"
           :filter="filter"
+          :save="save"
         />
         <div
           v-else
@@ -248,7 +231,6 @@ onBeforeUnmount(() => {
             :node="child"
             :focus="focus"
             :public-auth="publicAuth"
-            :auto-read="false"
             :read-only="readOnly"
             :class="{
               'zerp-direct-form-wide':
@@ -259,7 +241,7 @@ onBeforeUnmount(() => {
       </template>
     </template>
     <template v-else-if="isCollection(node)">
-      <BusinessNode :node="collection.conditions" :auto-read="false" filter />
+      <BusinessNode :node="collection.conditions" filter />
       <div class="zerp-business-actions">
         <div class="zerp-business-query">
           <VBtn
@@ -278,16 +260,16 @@ onBeforeUnmount(() => {
             <span v-if="reading" role="status">正在读取…</span>
             <div v-else-if="queryFailure" role="alert">
               {{ queryFailure.error }}
-              <span v-if="collection.items.some(runtime.readable)">
+              <span v-if="collection.items.some(nodeReadable)">
                 已有结果未更新。
               </span>
             </div>
             <BusinessFeedback :target="collection" exact />
           </div>
           <VBtn
-            v-if="queryFailure?.canRetry() && queryAvailable"
+            v-if="retryAvailable"
             variant="text"
-            :disabled="!canQuery"
+            :disabled="pending"
             @click="retryQuery"
             >重试</VBtn
           >
@@ -298,72 +280,26 @@ onBeforeUnmount(() => {
           :actions="actions"
           :pending="pending"
           :aria-label="`${node.label ?? ''}操作`"
-          @action="runtime.run(node, $event, publicAuth)"
+          @action="action"
         />
         <VBtn
           v-if="
             collection.draft &&
-            collection.draft === dismissedDraft &&
-            runtime.readable(collection.draft)
+            collection.draft !== collection.selected &&
+            nodeReadable(collection.draft)
           "
-          @click="dismissedDraft = null"
+          @click="openDetail(collection.draft, 'edit')"
           >继续编辑</VBtn
         >
       </div>
       <BusinessCollection
         :node="collection"
         :query-view="queryView"
-        :can-query="canQuery"
-        @page="query"
+        :can-query="canPage"
+        @page="loadPage(collection, $event)"
         @open="openDetail"
-        @print="
-          restoreDetailFocus = undefined;
-          collection.selected = $event;
-          detailMode = 'read';
-          printRequested = true;
-        "
+        @print="openDetail($event, 'read', undefined, true)"
       />
-      <RecordDialog
-        v-if="dialogReady && detail && runtime.readable(detail)"
-        :title="collection.draft === detail ? '新增' : (detail.label ?? '')"
-        :reading="runtime.busy.value.get(toRaw(detail))?.() ?? false"
-        header-close
-        :return-focus="
-          collection.draft === detail ? undefined : restoreDetailFocus
-        "
-        @close="closeDetail"
-      >
-        <BusinessNode
-          :node="detail"
-          :editing="
-            collection.draft === detail ||
-            (detailMode === 'edit' && runtime.editable(detail))
-          "
-          :read-only="detailReadOnly"
-        />
-        <TemplatePrint
-          v-if="
-            collection.draft !== detail &&
-            (collection.items.includes(detail) ||
-              collection.selected === detail) &&
-            detailReadOnly
-          "
-          :collection="collection"
-          :record="detail"
-          :auto-open="printRequested"
-        />
-        <template #feedback>
-          <BusinessFeedback
-            :target="detail"
-            fixed
-            :blocked="
-              (collection.draft === detail ||
-                (detailMode === 'edit' && runtime.editable(detail))) &&
-              !runtime.available(detail, 'update')
-            "
-          />
-        </template>
-      </RecordDialog>
     </template>
     <BusinessRecords
       v-else-if="node.kind === 'records'"
@@ -379,8 +315,8 @@ onBeforeUnmount(() => {
       v-else
       :node="field"
       :public-auth="publicAuth"
-      :read-only="readOnly || (!publicAuth && !runtime.writable(node))"
-      :scope="runtime.scope.value"
+      :read-only="readOnly || (!publicAuth && !nodeWritable(node))"
+      :scope="sessionScope"
     />
     <BusinessActionGroup
       v-if="!isCollection(node) && (actions.length || saveUnavailable)"
@@ -388,7 +324,7 @@ onBeforeUnmount(() => {
       :actions="actions"
       :pending="pending"
       :aria-label="`${node.label ?? ''}操作`"
-      @action="runtime.run(node, $event, publicAuth)"
+      @action="action"
     >
       <p v-if="saveUnavailable" role="status">当前无法保存。</p>
     </BusinessActionGroup>

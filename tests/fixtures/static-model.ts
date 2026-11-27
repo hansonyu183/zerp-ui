@@ -3,13 +3,12 @@ import { vi } from "vitest";
 import type {
   BusinessModel,
   BusinessNode,
-  Collection,
+  ListCollection,
   DomainGroup,
   FieldNode,
   ObjectNode,
-  Operation,
 } from "../../src/model";
-export const operation = (run = vi.fn(async () => {})): Operation =>
+export const operation = (run = vi.fn(async () => {})) =>
   reactive({ disabled: false, run });
 export const field = (
   key = "name",
@@ -31,6 +30,7 @@ export const object = (
 ): ObjectNode =>
   reactive({
     kind: "object",
+    businessType: key,
     printable: false,
     family: "standard",
     key,
@@ -41,7 +41,7 @@ export const object = (
     operations: {},
   });
 export function domainOf(
-  collection: Collection,
+  collection: ListCollection,
   label = collection.label,
 ): DomainGroup {
   return {
@@ -56,7 +56,7 @@ export function fixture() {
   const record = object("r1", "记录", [name]);
   record.operations.update = operation();
   const term = field("term", "条件", "");
-  const rows: Collection = reactive({
+  const rows: ListCollection = reactive({
     key: "rows",
     label: "记录集合",
     columns: [{ key: "name", label: "名称" }],
@@ -68,36 +68,33 @@ export function fixture() {
     pageSize: 20,
     total: 1,
     operations: { query: operation(), create: operation() },
+    async load(request) {
+      if (rows.page !== request.page) await rows.operations.query?.run(request);
+      rows.page = request.page;
+    },
   });
   const owner = { ledger: "test", operator: "test", generation: "1" };
   const model: BusinessModel = reactive({
     kind: "application",
     label: "公开模型测试",
     brand: { productName: "Test", companyName: "Synthetic" },
-    members: [domainOf(rows)],
     authentication: {
       form: object("login", "登录", [field("username", "登录名", "")]),
       operations: { signIn: operation(), recover: operation() },
-    },
-    account: {
-      label: "Tester",
-      profile: object("profile", "个人资料", [
-        field("displayName", "姓名", "Tester"),
-      ]),
-      password: object("password", "密码", []),
-      operations: { changePassword: operation(), signOut: operation() },
     },
     session: {
       state: "ready",
       owner,
     },
-    navigation: {
-      current: rows,
-      href(collection) {
-        return collection ? `/${collection.key}` : "/";
-      },
-      visit(collection) {
-        model.navigation.current = collection;
+    work: {
+      members: [domainOf(rows)],
+      account: {
+        label: "Tester",
+        profile: object("profile", "个人资料", [
+          field("displayName", "姓名", "Tester"),
+        ]),
+        password: object("password", "密码", []),
+        operations: { changePassword: operation(), signOut: operation() },
       },
     },
     messages: [],

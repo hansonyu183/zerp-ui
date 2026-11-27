@@ -1,52 +1,43 @@
 <script setup lang="ts">
-import { computed, inject, ref, toRaw, useId, watch } from "vue";
+import {
+  collectionHref,
+  goToCollection,
+  routedCollection,
+} from "./work-router";
+import { readable as nodeReadable } from "./business-nodes";
+import { computed, toRaw, useId } from "vue";
 import { VTabs, VTab } from "vuetify/components";
-import type { Collection, DomainGroup } from "./business-model";
-import { directRuntimeKey } from "./direct-model-runtime";
+import type { ListCollection, DomainGroup } from "./business-model";
 import { plainClick, renderedHref } from "./model-target";
 import BusinessNode from "./BusinessNode.vue";
 const props = defineProps<{ node: DomainGroup }>();
-const runtime = inject(directRuntimeKey)!;
 const id = useId();
 const ids = new WeakMap<object, number>();
 let nextId = 0;
-function key(collection: Collection) {
+function key(collection: ListCollection) {
   const raw = toRaw(collection);
   if (!ids.has(raw)) ids.set(raw, ++nextId);
   return ids.get(raw)!;
 }
 const entries = computed(() =>
-  props.node.members.filter((collection) => runtime.readable(collection)),
+  props.node.members.filter((collection) => nodeReadable(collection)),
 );
 const current = computed(() => {
-  const selected = runtime.model().navigation.current;
+  const selected = routedCollection.value;
   return selected && entries.value.includes(selected) ? selected : null;
 });
-const visited = new WeakSet<object>();
-const autoRead = ref(true);
-watch(
-  current,
-  (collection) => {
-    if (!collection) return;
-    const raw = toRaw(collection);
-    autoRead.value = !visited.has(raw);
-    visited.add(raw);
-  },
-  { immediate: true, flush: "sync" },
-);
-function visit(event: MouseEvent | KeyboardEvent, collection: Collection) {
+function visit(event: MouseEvent | KeyboardEvent, collection: ListCollection) {
   if (!entries.value.includes(collection)) {
     event.preventDefault();
     return;
   }
-  if (renderedHref(event) !== runtime.model().navigation.href(collection)) {
+  if (renderedHref(event) !== collectionHref(collection)) {
     event.preventDefault();
     return;
   }
   if (!plainClick(event)) return;
   event.preventDefault();
-  if (collection !== current.value)
-    runtime.model().navigation.visit(collection);
+  if (collection !== current.value) goToCollection(collection);
 }
 </script>
 <template>
@@ -64,7 +55,7 @@ function visit(event: MouseEvent | KeyboardEvent, collection: Collection) {
         :value="key(collection)"
         :id="`${id}-tab-${key(collection)}`"
         :aria-controls="`${id}-panel`"
-        :href="runtime.model().navigation.href(collection)"
+        :href="collectionHref(collection)"
         @click="visit($event, collection)"
         @keydown.space="visit($event, collection)"
       >
@@ -81,7 +72,7 @@ function visit(event: MouseEvent | KeyboardEvent, collection: Collection) {
       :class="{ 'zerp-form-panel': entries.length > 1 }"
     >
       <h2 v-if="current.label !== node.label">{{ current.label }}</h2>
-      <BusinessNode :key="key(current)" :node="current" :auto-read="autoRead" />
+      <BusinessNode :key="key(current)" :node="current" />
     </div>
   </section>
 </template>

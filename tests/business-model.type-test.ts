@@ -24,10 +24,18 @@ const missingDisabled: Operation = { async run() {} };
 const oldOperation = { ...operation, disabledReason: "old", } satisfies Operation;
 // prettier-ignore
 // @ts-expect-error Global navigation accepts root collections only.
-model.navigation.current = object;
+model.work.navigation.current = object;
 // prettier-ignore
 // @ts-expect-error Root members cannot be objects.
-model.members.push(object);
+model.work.members.push(object);
+// @ts-expect-error Navigation belongs to the workspace model.
+void model.navigation;
+// @ts-expect-error Workbench belongs to the workspace model.
+void model.workbench;
+// @ts-expect-error Account belongs to the workspace model.
+void model.account;
+// @ts-expect-error Business members belong to the workspace model.
+void model.members;
 // prettier-ignore
 // @ts-expect-error Owned records cannot submit independently.
 const recordsSave = { ...records, operations: { update: operation }, } satisfies RecordsNode;

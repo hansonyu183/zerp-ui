@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { computed, inject, ref, watch, toRaw } from "vue";
+import { isPending } from "./business-operations";
+import { sessionScope } from "./business-session";
+import {
+  allowed as nodeAllows,
+  readable as nodeReadable,
+} from "./business-nodes";
+import { computed, ref, watch } from "vue";
 import { VBtn } from "vuetify/components";
-import type { Collection, ObjectNode } from "./business-model";
-import { directRuntimeKey } from "./direct-model-runtime";
+import type { ListCollection, ObjectNode } from "./business-model";
 import { layoutPrintTemplate } from "./print-layout";
 import type { PrintDocument } from "./printing";
 import PrintPreview from "./PrintPreview.vue";
@@ -10,12 +15,11 @@ import RecordDialog from "./RecordDialog.vue";
 import Feedback from "./Feedback.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
 const props = defineProps<{
-  collection: Collection;
+  collection: ListCollection;
   record?: ObjectNode;
   disabled?: boolean;
   autoOpen?: boolean;
 }>();
-const runtime = inject(directRuntimeKey)!;
 const open = ref(false);
 const template = computed(() =>
   props.record
@@ -24,11 +28,11 @@ const template = computed(() =>
 );
 const permitted = computed(
   () =>
-    runtime.allowed(props.collection, props.record ? "itemPrint" : "print") &&
-    (!props.record || runtime.readable(props.record)),
+    nodeAllows(props.collection, props.record ? "itemPrint" : "print") &&
+    (!props.record || nodeReadable(props.record)),
 );
 const printableRows = computed(() =>
-  props.collection.items.filter((row) => runtime.readable(row)),
+  props.collection.items.filter((row) => nodeReadable(row)),
 );
 const hasUnprintableRecord = computed(() =>
   props.record
@@ -39,10 +43,10 @@ const hasUnprintableRecord = computed(() =>
 );
 const pending = computed(
   () =>
-    runtime.busy.value.has(toRaw(props.collection)) ||
+    isPending(props.collection) ||
     (props.record
-      ? runtime.busy.value.has(toRaw(props.record))
-      : printableRows.value.some((row) => runtime.busy.value.has(toRaw(row)))),
+      ? isPending(props.record)
+      : printableRows.value.some((row) => isPending(row))),
 );
 const blockedReason = computed(() =>
   hasUnprintableRecord.value
@@ -73,7 +77,7 @@ watch(
     available,
     template,
     () => props.record ?? props.collection,
-    runtime.scope,
+    sessionScope,
   ],
   async ([opened, admitted, configured, source], _previous, onCleanup) => {
     const controller = new AbortController();
@@ -86,7 +90,7 @@ watch(
       const document = await layoutPrintTemplate(
         configured,
         source,
-        runtime.readable,
+        nodeReadable,
         controller.signal,
       );
       if (!controller.signal.aborted) preview.value = { document };
@@ -103,7 +107,7 @@ watch(
 );
 let autoOpened = false;
 watch(
-  runtime.scope,
+  sessionScope,
   () => {
     open.value = false;
     autoOpened = true;

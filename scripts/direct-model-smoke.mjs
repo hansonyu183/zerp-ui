@@ -59,28 +59,25 @@ export async function directModelSmoke(page) {
       "homepage must not query unvisited collections",
     );
     const workbench = page.locator(".zerp-workbench");
-    const recentCustomer = workbench.getByRole("link", {
+    const recentCustomer = workbench.getByRole("button", {
       name: "客户",
       exact: true,
     });
-    await expect(recentCustomer).toHaveAttribute(
-      "href",
-      "/business/customers?id=customer-off-page",
-    );
     await expect(
       workbench.getByRole("link", { name: "管理常用报表", exact: true }),
     ).toHaveAttribute("href", "/business/reports");
     await recentCustomer.click();
-    await expect(page).toHaveURL(
-      /\/business\/customers\?id=customer-off-page$/,
-    );
+    await expect(page).toHaveURL(new URL("/", page.url()).href);
     await expect(
       page
         .getByRole("dialog")
         .getByRole("textbox", { name: "客户名称", exact: true }),
     ).toHaveValue("外页合成客户");
     await close();
-    await expect(page.getByText("合成客户甲", { exact: true })).toBeVisible();
+    assert.equal(
+      callbacks.filter((name) => name === "customers.query").length,
+      0,
+    );
     await page.locator(".zerp-shell-brand").click();
     await expect(workbench).toBeVisible();
     await workbench
@@ -110,18 +107,6 @@ export async function directModelSmoke(page) {
     await category.fill("分类45");
     await page.getByRole("option", { name: "分类45", exact: true }).click();
     assert.equal(callbacks.filter((name) => name === "catalog.load").length, 1);
-    await dialog
-      .getByRole("textbox", { name: "客户名称", exact: true })
-      .fill("临时目录范围");
-    await category.click();
-    await expect(
-      page.getByRole("option", { name: "分类1", exact: true }),
-    ).toBeVisible();
-    assert.equal(callbacks.filter((name) => name === "catalog.load").length, 2);
-    await category.press("Escape");
-    await dialog
-      .getByRole("textbox", { name: "客户名称", exact: true })
-      .fill("合成客户更新");
     const nameBox = await dialog
       .getByRole("textbox", { name: "客户名称", exact: true })
       .boundingBox();
@@ -138,6 +123,14 @@ export async function directModelSmoke(page) {
         ).y - nameBox.y,
       ),
     ).toBeLessThan(1);
+    await category.click();
+    await expect(
+      page.getByRole("option", { name: "分类1", exact: true }),
+    ).toBeVisible();
+    assert.equal(callbacks.filter((name) => name === "catalog.load").length, 2);
+    await dialog
+      .getByRole("textbox", { name: "客户名称", exact: true })
+      .click();
     const settlement = dialog.getByRole("tab", { name: "结算", exact: true }),
       contacts = dialog.getByRole("tab", { name: "联系人", exact: true });
     await expect(settlement).toHaveAttribute("aria-selected", "true");
@@ -155,7 +148,7 @@ export async function directModelSmoke(page) {
     const rowPrint = page
       .getByRole("table")
       .getByRole("button", { name: "打印", exact: true });
-    await expect(rowPrint).toHaveCount(0);
+    await expect(rowPrint).toBeEnabled();
     await dialog.getByRole("button", { name: "保存", exact: true }).click();
     await expect(rowPrint).toBeEnabled();
     await close();
@@ -310,7 +303,7 @@ export async function directModelSmoke(page) {
       .getByRole("textbox", { name: "查询期间", exact: true })
       .fill("2026-10");
     await page.getByRole("button", { name: "下一页", exact: true }).click();
-    const bottom = page.getByRole("link", {
+    const bottom = page.getByRole("button", {
       name: "打开底部凭证",
       exact: true,
     });
@@ -326,7 +319,7 @@ export async function directModelSmoke(page) {
         .getByRole("textbox", { name: "关联凭证编号", exact: true }),
     ).toHaveValue("S-001");
     await close();
-    await page.goBack();
+    await expect(page).toHaveURL(/\/business\/structured$/);
     await expect(
       page.getByRole("textbox", { name: "查询期间", exact: true }),
     ).toHaveValue("2026-10");
@@ -409,6 +402,26 @@ export async function directModelSmoke(page) {
     await expect(
       page.getByRole("textbox", { name: "额度", exact: true }),
     ).toHaveCount(0);
+    const linkPage = await page.context().newPage();
+    try {
+      const directCollection = new URL("/business/customers", page.url());
+      await linkPage.goto(directCollection.href);
+      await linkPage
+        .getByRole("textbox", { name: "登录名", exact: true })
+        .fill("admin");
+      await linkPage
+        .getByRole("textbox", { name: "登录密码", exact: true })
+        .fill("synthetic-only");
+      await linkPage.getByRole("button", { name: "登录", exact: true }).click();
+      await expect(linkPage).toHaveURL(directCollection.href);
+      await expect(
+        linkPage.getByText("合成客户甲", { exact: true }),
+      ).toBeVisible();
+      await expect(linkPage.getByRole("dialog")).toHaveCount(0);
+    } finally {
+      await linkPage.close();
+    }
+
     for (const name of [
       "session.signIn",
       "workbench.load",

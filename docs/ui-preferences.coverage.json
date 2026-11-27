@@ -93,9 +93,9 @@
     },
     "unit-home-link": {
       "file": "tests/static-application.spec.ts",
-      "anchor": "uses the consumer homepage URL and notifies its null navigation callback",
+      "anchor": "uses the framework homepage URL",
       "surface": "source/public-entry",
-      "assertion": "品牌区及工作台入口使用消费者的首页链接，普通点击调用首页导航，修饰键点击保留链接行为"
+      "assertion": "品牌区及工作台入口使用库生成的首页链接，普通点击打开首页，修饰键点击保留链接行为"
     },
     "unit-navigation-icons": {
       "file": "tests/static-application.spec.ts",
@@ -109,11 +109,23 @@
       "surface": "tgz/browser",
       "assertion": "二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起"
     },
+    "unit-passive-record": {
+      "file": "tests/static-application.spec.ts",
+      "anchor": "reads the selected record only after the user opens its window",
+      "surface": "source/public-entry",
+      "assertion": "模型已有选中记录时保持集合页，点击记录窗口入口才读取这条记录"
+    },
+    "unit-workspace-windows": {
+      "file": "tests/workspace-windows.spec.ts",
+      "anchor": "opens an AA window directly from the workbench",
+      "surface": "source/public-entry",
+      "assertion": "从工作台打开记录窗口保持 URL、直接读取记录、同类切换确认并保留取消时的编辑、异类窗口共存"
+    },
     "unit-workbench-load": {
       "file": "tests/static-application.spec.ts",
-      "anchor": "does not load a configured workbench again on return",
+      "anchor": "loads the workbench once per session and retries only on request",
       "surface": "source/public-entry",
-      "assertion": "当前会话返回工作台时不重复加载，失败后支持主动重试"
+      "assertion": "工作台每个会话首次进入调用读取，返回复用，刷新可明确重试"
     },
     "unit-workflow-actions": {
       "file": "tests/business-list-preferences.spec.ts",
@@ -509,7 +521,7 @@
         "unit-domain-tabs",
         "package-domain-tabs"
       ],
-      "remaining": "领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
+      "remaining": "领域Tab顺序、显式查询、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
       "requirementSha256": "c089ab7546178d49bc07c721f974e6e0a16335662b17079db7d0302d4989f628"
     },
     {
@@ -539,7 +551,7 @@
         "package-domain-tabs"
       ],
       "remaining": "领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。",
-      "requirementSha256": "8fde220399009d960e85876817cb711770866e3a5b283d001f4ca4646d564a90"
+      "requirementSha256": "a2a972b4d128676887369b0ac5fa96b6e46ced334f89508a05f504b9c63f0fe6"
     },
     {
       "id": "UI-FORM-07",
@@ -555,14 +567,20 @@
     {
       "id": "UI-FORM-08",
       "checks": ["unit-model", "unit-reactivity", "unit-overlay"],
-      "remaining": "直接模型值及未知结果限制有证据；不恢复冻结请求/普通离开确认仍需架构审查。",
-      "requirementSha256": "d3d38416648e4a7f95f3dba3bd1536c6e5ba7bcaf5b338dcfc37a7c0558aba40"
+      "remaining": "普通输入和未知结果限制有代表性断言。记录窗口暂存和确认切换由 UI-FORM-10 的公开入口用例覆盖。",
+      "requirementSha256": "9988f2a1e6566105d3d409792bf603192feb64fe371ab20a7f46d092a6d02670"
     },
     {
       "id": "UI-FORM-09",
       "checks": ["unit-record-loading"],
       "remaining": "永久断言覆盖合成编辑弹窗的读取和保存；真实消费者接入另验收。",
       "requirementSha256": "6d3a59e87884dd694865a095f9355f6316fab08abe290f9a1837addf0d7302cf"
+    },
+    {
+      "id": "UI-FORM-10",
+      "checks": ["unit-workspace-windows"],
+      "remaining": "工作台保留页面和 URL、同类复用、异类共存及未保存编辑确认有合成场景。真实消费者的保存、权限和会话联动另验收。",
+      "requirementSha256": "d950ca7e2d15baed7904d80aa1294f61c8ec5f5ede8c99bdc149259a0228316e"
     },
     {
       "id": "UI-NAV-01",
@@ -590,7 +608,7 @@
         "package-domain-tabs"
       ],
       "remaining": "公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。",
-      "requirementSha256": "fe2341644e9571029ab3b884ec11daffebe3bf808846e1bee6a4b66a5cea2928"
+      "requirementSha256": "bb416813310ffaf6a0a5cba776065480f2d2f1bb2c7d67960727b13535edbfc6"
     },
     {
       "id": "UI-NAV-04",
@@ -602,7 +620,7 @@
       "id": "UI-NAV-05",
       "checks": ["package-full"],
       "remaining": "新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。",
-      "requirementSha256": "018a43b3fd9d150bb03ba344077eb108863eaf9b25859f545886e178f7689ac3"
+      "requirementSha256": "bc00870046743b40a0ce4d51b6ee7bbabdce55bcfa71f537ad0909fdb5f43596"
     },
     {
       "id": "UI-NAV-06",
@@ -610,16 +628,17 @@
         "unit-model",
         "package-full",
         "unit-shell",
-        "unit-workbench-load"
+        "unit-workbench-load",
+        "unit-passive-record"
       ],
-      "remaining": "合成场景覆盖业务读取时账户可达、工作台返回不重复加载及重试；真实消费者的模型构造与启动请求另核对。",
-      "requirementSha256": "b684a2f81509e917423d469c58bec1c8f936afb810c277aabd5163983038d2df"
+      "remaining": "源码公开入口覆盖首次读取、返回已访问集合、手动刷新及记录窗口读取。真实消费者的模型构造和启动请求另核对。",
+      "requirementSha256": "b4f0e2d8cd9b41282f0278bad5a2d1ab5c1d784c5bba0856456397d3f15d6f4b"
     },
     {
       "id": "UI-WORK-01",
       "checks": ["package-workbench"],
-      "remaining": "独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。各主题具体表面色和空角色等业务状态另验收。",
-      "requirementSha256": "32b7e21c5a24058f3e80ef2bb9d2232be3d8caa0441c7e4bf6e72504fa1a0236"
+      "remaining": "独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。首页集合统一定位及首次读取见相关源码断言。各主题具体表面色和空角色等业务状态另验收。",
+      "requirementSha256": "f6df2847bf01094410f499cb01bb3750c1914ea79426c625099e90a3bd5ca252"
     },
     {
       "id": "UI-WORK-02",
@@ -671,9 +690,9 @@
     },
     {
       "id": "UI-BOUND-02",
-      "checks": ["unit-model"],
-      "remaining": "库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。",
-      "requirementSha256": "c5fbb063f38bd2dab4119202259af5a79ba7c58f1ca0515196d26ed6dc67fc5a"
+      "checks": ["unit-model", "unit-passive-record"],
+      "remaining": "库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。业务对象的可选 load 尚待公开接口及行为验收。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。",
+      "requirementSha256": "225b25c58ee555d92e37533f776b65041a29f9e8a603b486eff6a4a93e74d975"
     },
     {
       "id": "UI-BOUND-03",

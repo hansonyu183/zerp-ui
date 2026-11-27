@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { inject, ref, watch, useId } from "vue";
+import { ref, watch, useId } from "vue";
 import { VTabs, VTab } from "vuetify/components";
-import { directRuntimeKey, type Node } from "./direct-model-runtime";
+import {
+  type Node,
+  type ObjectNode,
+  ancestors as nodeAncestors,
+  independent as independentNode,
+} from "./business-nodes";
 import BusinessNode from "./BusinessNode.vue";
 const props = defineProps<{
   entries: [string, Node][];
@@ -10,8 +15,8 @@ const props = defineProps<{
   publicAuth?: boolean;
   readOnly?: boolean;
   filter?: boolean;
+  save?: (node: ObjectNode) => Promise<void>;
 }>();
-const runtime = inject(directRuntimeKey)!;
 const active = ref("");
 const tabId = useId();
 const visited = ref(new Set<string>());
@@ -28,7 +33,7 @@ watch(
     const focused = props.entries.find(
       ([, n]) =>
         props.focus &&
-        (n === props.focus || runtime.ancestors(props.focus).includes(n)),
+        (n === props.focus || nodeAncestors(props.focus).includes(n)),
     );
     if (focused) {
       active.value = focused[0];
@@ -73,8 +78,9 @@ watch(
         :node="child"
         :focus="focus"
         :public-auth="publicAuth"
-        :read-only="runtime.independent(child) ? false : readOnly"
+        :read-only="independentNode(child) ? false : readOnly"
         :filter="filter"
+        :save="save"
       />
     </div>
   </template>

@@ -1,47 +1,69 @@
-import { modelCollections } from "./model-collections";
+import { collectionHref, goToCollection } from "./work-router";
+import { openRecord } from "./record-windows";
+import {
+  ancestors as nodeAncestors,
+  readable as nodeReadable,
+} from "./business-nodes";
 import { toRaw } from "vue";
+import { sessionScope } from "./business-session";
 import type { CollectionTarget, ObjectNode } from "./business-model";
-import type { DirectRuntime } from "./direct-model-runtime";
-export function readableTarget(
-  runtime: DirectRuntime,
-  target: CollectionTarget,
-) {
-  const parents = target.record ? runtime.ancestors(target.record) : [];
+export function readableTarget(target: CollectionTarget) {
+  const parents = target.record ? nodeAncestors(target.record) : [];
   return (
-    modelCollections(runtime.model()).some(
-      (collection) => toRaw(collection) === toRaw(target.collection),
-    ) &&
-    runtime.readable(target.collection) &&
+    nodeReadable(target.collection) &&
+    nodeAncestors(target.collection).length === 0 &&
     (!target.record ||
       (parents.length === 1 &&
         toRaw(parents[0]!) === toRaw(target.collection) &&
-        runtime.readable(target.record)))
+        nodeReadable(target.record)))
   );
 }
-export function canOpenRecord(runtime: DirectRuntime, record: ObjectNode) {
+export function canOpenRecord(record: ObjectNode) {
+  return !!record.businessType && nodeReadable(record);
+}
+export function availableTarget(target: CollectionTarget) {
   return (
-    runtime.readable(record) &&
-    (!runtime.operations(record).get || runtime.available(record, "get"))
+    readableTarget(target) && (!target.record || !!target.record.businessType)
   );
 }
-export function availableTarget(
-  runtime: DirectRuntime,
-  target: CollectionTarget,
-) {
-  return (
-    readableTarget(runtime, target) &&
-    (!target.record || canOpenRecord(runtime, target.record))
-  );
+const targetIds = new WeakMap<object, number>();
+let nextTargetId = 0;
+function targetId(object: object) {
+  const raw = toRaw(object);
+  if (!targetIds.has(raw)) targetIds.set(raw, ++nextTargetId);
+  return targetIds.get(raw);
 }
-export function targetHref(runtime: DirectRuntime, target: CollectionTarget) {
-  return availableTarget(runtime, target)
-    ? runtime.model().navigation.href(target.collection, target.record)
+export function targetStamp(target?: CollectionTarget) {
+  if (!target) return;
+  const { collection, record } = target;
+  return JSON.stringify([
+    sessionScope.value,
+    targetId(collection),
+    record && targetId(record),
+    record?.identity,
+  ]);
+}
+export function renderedTarget(event: Event) {
+  return event.currentTarget instanceof HTMLElement
+    ? event.currentTarget.dataset.target
     : undefined;
 }
-export function visitTarget(runtime: DirectRuntime, target: CollectionTarget) {
-  if (!availableTarget(runtime, target)) return;
-  if (target.record) target.collection.selected = target.record;
-  runtime.model().navigation.visit(target.collection, target.record);
+export function targetHref(target: CollectionTarget) {
+  return !target.record && availableTarget(target)
+    ? collectionHref(target.collection)
+    : undefined;
+}
+export function visitTarget(target: CollectionTarget) {
+  if (!availableTarget(target)) return;
+  if (target.record) {
+    const trigger = document.activeElement;
+    openRecord({
+      collection: target.collection,
+      record: target.record,
+      mode: "read",
+      focus: () => (trigger instanceof HTMLElement ? trigger : null),
+    });
+  } else goToCollection(target.collection);
 }
 export function plainClick(event: MouseEvent | KeyboardEvent) {
   return (

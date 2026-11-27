@@ -29,13 +29,13 @@ import { model } from "./consumer";
 
 `@zerp/ui/model` 仅导出构造模型所需的类型，原生 Node 加载时没有运行时值或 Vue/Vuetify/CSS 依赖。唯一类型源为 `src/business-model.ts`，不再提供 `modelMetadata` Symbol。完整静态对象在登录前构造；登录、退出、再次登录沿用同一根引用。
 
-静态模型的根 `members` 包含业务栏目 `BusinessCategory`、领域 `DomainGroup` 或直属 `Collection`；领域分组仅组织一层并列集合，多个获权集合用 Material Tabs 切换，单集合直接展示；切换保留各自输入、条件与分页，不拥有整体保存，各集合独立查询、授权和保存。集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label` 是显示名称。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
+认证表单归 `authentication`，账户、导航、工作台和业务成员归 `work`。工作区的 `work.members` 包含业务栏目 `BusinessCategory`、领域 `DomainGroup` 或直属 `Collection`；领域分组仅组织一层并列集合，多个获权集合用 Material Tabs 切换，单集合直接展示；切换保留各自输入、条件与分页，不拥有整体保存，各集合独立查询、授权和保存。集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label` 是显示名称。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
 
 输入直接更新字段值；`Operation` 必须提供 `disabled` 与无参数异步 `run()`。业务回调处理 API、冲突、请求有效性和未知结果恢复。库不保存编辑基线、冻结请求或前端原请求日志，不拦截普通草稿离开。旧公开结构没有兼容入口。仍有效的流程、处理、批次、报表与输出分别使用固定能力属性；不是任意命令、页面模板或组件映射。
 
 消费者在模型上更新节点的 `readable`、表单的 `readOnly` 和操作的 `disabled`。UI 响应这些值更新呈现，后端负责实际鉴权。`session` 只携带状态和 `owner`。退出时消费者清空会话业务数据和缓存并使旧回写失效，库清理旧忙碌状态及反馈。
 
-侧栏从业务模型中的栏目、分类和领域派生。消费者通过 `href/visit/current` 同步 Router。选中详情与新增在所属集合覆盖式容器中呈现，保留列表、条件和分页。配置工作台时，侧栏首项和品牌链接都可以进入工作台，路由以 `current: null` 表示首页。没有工作台时，首页进入第一个可见领域的首个获权集合。工作台固定四块 `information/vouchers/reports/masters`，桌面一横三竖、手机纵排；统一 `load` 按 owner 首次进入执行，失败可重试。
+侧栏和集合页路由从业务模型的栏目、分类、领域和集合派生，由 UI 库管理。工作台是可选的首页集合，固定展示 `information/vouchers/reports/masters` 四块，桌面一横三竖、手机纵排。没有可读工作台时，首页进入第一个可见领域的首个获权集合。集合或记录首次成为当前可读目标时调用可选 `load`，成功后返回同一目标复用结果。
 
 引用只选值，支持普通/树形、单选/多选、历史值回显和不可新选候选；目录按需完整读取，筛选和分页在前端进行。日期、日期时间与精确十进制 `format` 只改变显示，不回写值。集合 `itemPrintTemple/printTemple` 使用有限 JSON 自动生成单条/当前页打印入口，不预取其他页、不打印 draft；无权值和秘密不输出。预览和打开系统打印窗口不等于实体打印成功。
 
@@ -53,7 +53,7 @@ UI 规范与逐条部分覆盖边界分别见[规范](https://github.com/hansony
 
 引用字段可通过 `scopeKey` 表达候选目录业务依赖；变化会清除旧目录并按需重新读取，历史选值继续回显。消费者负责在 load 回写前核对依赖有效性，owner 隔离由宿主完成。
 
-工作台可通过 `targets` 的只读节点引用映射提供真实快捷链接，通过 `manageReports` 进入常用报表维护；记录目标的链接显式调用 `navigation.href(collection, record)`，普通点击交给 `visit(collection, record)`，修饰键和新标签沿原生链接处理。根 canonical 链接不根据 `selected` 猜目标，外页记录不因生成链接被塞入当前页或选中。
+工作台 `targets` 使用原记录引用。集合目标生成页面链接；记录目标直接打开相应类型的窗口，保留当前页面、URL、筛选和分页。同种业务类型共用一个窗口，切换同类记录时，如有未保存编辑，须确认是否丢弃。
 
 栏目和折叠分类使用有序成员数组。每个可见领域在侧栏只显示一条链接，打开首个获权集合，切换集合 Tab 保持领域高亮。直属集合可用于路由直达及业务关联。权限裁剪隐藏无权领域和空分类、空栏目。
 

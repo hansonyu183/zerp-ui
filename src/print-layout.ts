@@ -1,6 +1,6 @@
 import type {
   BusinessNode,
-  Collection,
+  ListCollection,
   ObjectNode,
   PrintTemplate,
 } from "./business-model";
@@ -10,8 +10,8 @@ import { printMarkup, printTextStyle, type PrintDocument } from "./printing";
 /** Browser-only measurement stays private; callers cancel it when their UI scope changes. */
 export async function layoutPrintTemplate(
   template: PrintTemplate,
-  source: Collection | ObjectNode,
-  readable: (node: Collection | BusinessNode) => boolean,
+  source: ListCollection | ObjectNode,
+  readable: (node: ListCollection | BusinessNode) => boolean,
   signal: AbortSignal,
 ): Promise<PrintDocument> {
   signal.throwIfAborted();

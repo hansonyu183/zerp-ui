@@ -62,9 +62,11 @@ export async function businessInteractionSmoke(page) {
   const name = editor.getByRole("textbox", { name: "客户名称", exact: true });
   const save = editor.getByRole("button", { name: "保存", exact: true });
   await name.fill("暂不可保存");
-  await expect(save).toHaveCount(0);
+  await save.click();
   await expect(
-    editor.getByText("当前无法保存。", { exact: true }),
+    page
+      .getByRole("region", { name: "页面消息" })
+      .getByText("当前无法保存。", { exact: true }),
   ).toBeVisible();
   await name.fill("需要核对客户名称");
   await expect(save).toBeEnabled();

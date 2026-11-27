@@ -7,3 +7,5 @@
 运行和构建命令从根 package.json 的 dev:model/build:model/check:package 读取。check:package 将同一个 tgz 物理安装到新目录，构建同一消费者并通过浏览器公开行为验收，不使用源码别名、私有 VM 或开发端接口。
 
 只参加编译的完整静态对象另见 ../model-contract；其中声明的回调不可用作运行实现。真实 ZERP/OIT 集成、公司领域规则和正式发行不在本例范围内。
+
+UI 库根据页面与窗口调用消费者声明的 load，合成回调把结果写回同一个模型。集合读取接收分页参数，记录读取接收记录 ID。示例只注册 Vuetify 并传入模型。

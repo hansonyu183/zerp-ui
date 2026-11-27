@@ -1,7 +1,7 @@
 /** 唯一公开 model 入口的定向编译检查；不导入或执行宿主、示例或任何业务回调。 */
 import type {
   BusinessModel,
-  Collection,
+  ListCollection,
   DomainGroup,
   DomainSection,
   FieldNode,
@@ -17,7 +17,7 @@ import type {
 } from "@zerp/ui/model";
 
 declare const object: ObjectNode;
-declare const collection: Collection;
+declare const collection: ListCollection;
 declare const records: RecordsNode;
 declare const model: BusinessModel;
 declare const template: PrintTemplate;
@@ -49,32 +49,32 @@ const legacyName = { ...object, name: "旧名称" } satisfies ObjectNode;
 // @ts-expect-error Symbol 元数据不属于新模型协议。
 const legacySymbol = { ...model, [legacyMeta]: {} } satisfies BusinessModel;
 // prettier-ignore
-// @ts-expect-error Collection 不是子节点。
+// @ts-expect-error ListCollection 不是子节点。
 const nestedCollection = { ...object, members: [collection], } satisfies ObjectNode;
 // prettier-ignore
 // @ts-expect-error 子明细不能独立提交。
 const independentDetails = { ...records, operations: { update: operation }, } satisfies RecordsNode;
 // prettier-ignore
-// @ts-expect-error Collection 不再提供 element。
-const legacyElement = { ...collection, element: object } satisfies Collection;
+// @ts-expect-error ListCollection 不再提供 element。
+const legacyElement = { ...collection, element: object } satisfies ListCollection;
 // prettier-ignore
 // @ts-expect-error 列定义改为 columns。
-const legacyList = { ...collection, list: [] } satisfies Collection;
+const legacyList = { ...collection, list: [] } satisfies ListCollection;
 // prettier-ignore
 // @ts-expect-error 查询条件名为 conditions，query 仅是操作名。
-const legacyQuery = { ...collection, query: object } satisfies Collection;
+const legacyQuery = { ...collection, query: object } satisfies ListCollection;
 // prettier-ignore
 // @ts-expect-error 不接受伪装成子节点的 kind。
-const legacyCollectionKind = { ...collection, kind: "collection", } satisfies Collection;
+const legacyCollectionKind = { ...collection, kind: "collection", } satisfies ListCollection;
 // prettier-ignore
 // @ts-expect-error 空表需要显式列标题，不能只有 key。
-const missingColumnLabel = { ...collection, columns: [{ key: "name" }], } satisfies Collection;
+const missingColumnLabel = { ...collection, columns: [{ key: "name" }], } satisfies ListCollection;
 // prettier-ignore
-// @ts-expect-error 根 members 只接收独立集合或领域分组，不接收记录。
-const wrongRoot = { ...model, members: [object], } satisfies BusinessModel;
+// @ts-expect-error 工作区 members 接收栏目、领域或独立集合。
+const wrongRoot = { ...model, work: { ...model.work, members: [object] } } satisfies BusinessModel;
 // prettier-ignore
 // @ts-expect-error 导航只能指向集合。
-const wrongNavigation: BusinessModel["navigation"] = { ...model.navigation, current: object, };
+const wrongNavigation: BusinessModel["work"]["navigation"] = { ...model.work.navigation, current: object, };
 // prettier-ignore
 // @ts-expect-error 已认证的会话必须有 owner。
 const wrongSession = { state: "ready", owner: null } satisfies Session;
@@ -149,7 +149,7 @@ void [
 
 // prettier-ignore
 // @ts-expect-error 图标只使用有限业务语义，不接受任意 MDI 图标名。
-const invalidCollectionIcon = { ...collection, icon: "mdi-home" } satisfies Collection;
+const invalidCollectionIcon = { ...collection, icon: "mdi-home" } satisfies ListCollection;
 void invalidCollectionIcon;
 
 const interactionAction = {
@@ -209,14 +209,9 @@ const workbenchTargets: Workbench["targets"] = new Map([
   [object, { collection, record: object }],
 ]);
 const managementTarget: Workbench["manageReports"] = { collection };
-model.navigation.href(collection, object);
-model.navigation.visit(collection, object);
 // prettier-ignore
 // @ts-expect-error 快捷目标必须是根集合及可选记录，不能替换为裸对象导航。
 const invalidWorkbenchTarget: Workbench["manageReports"] = object;
-// prettier-ignore
-// @ts-expect-error href的记录参数不能是Collection。
-model.navigation.href(collection, collection);
 void [workbenchTargets, managementTarget, invalidWorkbenchTarget];
 
 const domain = {
@@ -238,12 +233,15 @@ const nestedSection: DomainSection = { ...section, members: [section] };
 void [sectionCollection, nestedSection];
 const groupedModel = {
   ...model,
-  members: [domain, collection],
+  work: { ...model.work, members: [domain, collection] },
 } satisfies BusinessModel;
 const keyedRoot = {
   ...model,
-  // @ts-expect-error 根成员必须是有序数组。
-  members: { customers: domain },
+  work: {
+    ...model.work,
+    // @ts-expect-error 工作区成员必须是有序数组。
+    members: { customers: domain },
+  },
 } satisfies BusinessModel;
 const keyedDomain = {
   ...domain,
@@ -266,24 +264,12 @@ const domainSave = { ...domain, operations: { update: operation } } satisfies Do
 // @ts-expect-error 对象字段不能包含领域。
 const domainInObject = { ...object, members: [domain] } satisfies ObjectNode;
 // prettier-ignore
-// @ts-expect-error 领域不是可选中的业务导航目标。
-model.navigation.current = domain;
+// @ts-expect-error Router 归 UI 库，业务模型不声明导航对象。
+void model.work.navigation;
 // prettier-ignore
-// @ts-expect-error 领域不能传入集合路由。
-model.navigation.href(domain);
-const legacyNavigation = {
-  ...model.navigation,
-  // @ts-expect-error 菜单从业务成员派生，路由不再维护一份投影。
-  groups: [],
-} satisfies BusinessModel["navigation"];
-void [
-  groupedModel,
-  domainRecord,
-  domainNested,
-  domainSave,
-  domainInObject,
-  legacyNavigation,
-];
+// @ts-expect-error 集合 load 需要分页参数。
+collection.load?.({ id: "aa" });
+void [groupedModel, domainRecord, domainNested, domainSave, domainInObject];
 
 // prettier-ignore
 // @ts-expect-error label 必须是字符串。

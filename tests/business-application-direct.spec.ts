@@ -55,14 +55,49 @@ it("blocks interaction until explicit acknowledgment and consumes duplicate prom
   await click("新增");
   const dialog = document.querySelector('[role="alertdialog"]');
   expect(dialog?.textContent).toContain(message.text);
-  expect(wrapper.element.hasAttribute("inert")).toBe(true);
+  expect(wrapper.get(".zerp-shell").element.closest("[inert]")).not.toBeNull();
   await click("确定");
   expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-  expect(wrapper.element.hasAttribute("inert")).toBe(false);
+  expect(wrapper.get(".zerp-shell").element.closest("[inert]")).toBeNull();
   expect(model.messages).toHaveLength(2);
   reject(Error("合成业务拒绝"));
   await flushPromises();
   expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+  expect(wrapper.get('[aria-label="页面消息"]').text()).toBe("");
+});
+it("keeps the blocking background locked with caller attributes", async () => {
+  const { model } = fixture();
+  model.session = { state: "anonymous", owner: null };
+  model.messages.push({
+    id: "blocking",
+    level: "warning",
+    text: "请确认",
+    target: null,
+    blocking: true,
+  });
+  wrapper = await render(model, { class: "consumer-root", inert: null });
+  expect(wrapper.classes()).toContain("consumer-root");
+  expect(
+    wrapper.get(".zerp-auth-page").element.closest("[inert]"),
+  ).not.toBeNull();
+});
+it("mounts a new application without inheriting pending feedback", async () => {
+  const first = fixture();
+  let reject!: (error: Error) => void;
+  first.rows.operations.create = operation(
+    vi.fn(() => new Promise<void>((_, fail) => (reject = fail))),
+  );
+  wrapper = await render(first.model);
+  await click("新增");
+  wrapper.unmount();
+  wrapper = undefined;
+
+  const next = fixture();
+  next.model.session = { state: "anonymous", owner: null };
+  wrapper = await render(next.model);
+  reject(Error("旧页面操作失败"));
+  await flushPromises();
+  expect(wrapper.text()).toContain("登录");
   expect(wrapper.get('[aria-label="页面消息"]').text()).toBe("");
 });
 it("edits the same model in an overlay and retains failed-save input", async () => {
@@ -76,7 +111,8 @@ it("edits the same model in an overlay and retains failed-save input", async () 
   await click("编辑");
   await input("名称").setValue("unfinished");
   await click("保存");
-  expect(name.value).toBe("unfinished");
+  expect(name.value).toBe("initial");
+  expect(input("名称").element.value).toBe("unfinished");
   expect(document.querySelector('[role="dialog"]')).not.toBeNull();
   expect(document.body.textContent).toContain("操作失败");
   expect(record.operations.update.run).toHaveBeenCalledTimes(1);
@@ -109,7 +145,7 @@ it("hides unavailable queries and prevents duplicate invocation after restoratio
 it("returns the same root to authentication on logout and hides prior data", async () => {
   const { model, rows } = fixture();
   const root = model;
-  model.account.operations.signOut = operation(
+  model.work.account.operations.signOut = operation(
     vi.fn(async () => {
       model.session = {
         state: "anonymous",
@@ -139,6 +175,7 @@ it("isolates old busy and late failure feedback after owner changes", async () =
     ),
   );
   wrapper = await render(model);
+  await click("查询");
   const owner = { ledger: "other", operator: "other", generation: "2" };
   model.session = {
     state: "ready",
@@ -155,6 +192,7 @@ it("uses consumer-created drafts and reopens them without creating twice", async
     vi.fn(async () => {
       rows.draft = {
         kind: "object",
+        businessType: "new",
         printable: false,
         family: "standard",
         key: "new",
@@ -184,7 +222,7 @@ it("uses consumer-created drafts and reopens them without creating twice", async
   await click("关闭");
   expect(rows.draft).not.toBeNull();
   await click("继续编辑");
-  expect(input("新增名称").element.value).toBe("unfinished new");
+  expect(input("新增名称").element.value).toBe("");
   expect(rows.operations.create.run).toHaveBeenCalledTimes(1);
   const save = Array.from(
     document.querySelectorAll<HTMLButtonElement>("button"),
@@ -197,6 +235,7 @@ it("uses consumer-created drafts and reopens them without creating twice", async
 it("does not advertise absent queries or advance disabled pagination", async () => {
   const { model, rows } = fixture();
   delete rows.operations.query;
+  delete rows.load;
   rows.total = 100;
   wrapper = await render(model);
   expect(
@@ -227,7 +266,7 @@ it("keeps consumer unknown-result restrictions through refresh and feedback dism
   await click("关闭");
   await click("查询");
   expect(record.operations.update!.disabled).toBe(true);
-  expect(rows.operations.query!.run).toHaveBeenCalledTimes(2);
+  expect(rows.operations.query!.run).toHaveBeenCalledTimes(1);
   await click("查看");
   expect(saved()).toBeUndefined();
   await click("核对结果");

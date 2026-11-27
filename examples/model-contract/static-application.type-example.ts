@@ -5,7 +5,7 @@
 import { reactive } from "vue";
 import type {
   BusinessModel,
-  Collection,
+  ListCollection,
   DomainGroup,
   ObjectNode,
   PrintTemplate,
@@ -17,33 +17,59 @@ declare function signIn(): Promise<void>;
 declare function recoverSession(): Promise<void>;
 declare function signOut(): Promise<void>;
 declare function changePassword(): Promise<void>;
-declare function queryAccountSettings(): Promise<void>;
-declare function queryContacts(): Promise<void>;
-declare function queryCategories(): Promise<void>;
-declare function queryCustomerGroups(): Promise<void>;
-declare function queryAttributeDefinitions(): Promise<void>;
-declare function queryRelatedDictionaries(): Promise<void>;
-declare function queryCustomers(): Promise<void>;
+declare function queryAccountSettings(request: {
+  page: number;
+  pageSize: number;
+}): Promise<void>;
+declare function queryContacts(request: {
+  page: number;
+  pageSize: number;
+}): Promise<void>;
+declare function queryCategories(request: {
+  page: number;
+  pageSize: number;
+}): Promise<void>;
+declare function queryCustomerGroups(request: {
+  page: number;
+  pageSize: number;
+}): Promise<void>;
+declare function queryAttributeDefinitions(request: {
+  page: number;
+  pageSize: number;
+}): Promise<void>;
+declare function queryRelatedDictionaries(request: {
+  page: number;
+  pageSize: number;
+}): Promise<void>;
+declare function queryCustomers(request: {
+  page: number;
+  pageSize: number;
+}): Promise<void>;
 declare function createCustomer(): Promise<void>;
-declare function saveCustomer(): Promise<void>;
+declare function saveCustomer(edited: ObjectNode): Promise<void>;
 declare function loadGroups(): Promise<void>;
-declare function queryAA(): Promise<void>;
+declare function queryAA(request: {
+  page: number;
+  pageSize: number;
+}): Promise<void>;
 declare function createAA(): Promise<void>;
-declare function saveAA(): Promise<void>;
+declare function saveAA(edited: ObjectNode): Promise<void>;
 declare function submitAA(): Promise<void>;
-declare function queryAB(): Promise<void>;
+declare function queryAB(request: {
+  page: number;
+  pageSize: number;
+}): Promise<void>;
 declare function createAB(): Promise<void>;
-declare function saveAB(): Promise<void>;
+declare function saveAB(edited: ObjectNode): Promise<void>;
 declare function approveAB(): Promise<void>;
 declare function addLine(): Promise<void>;
 declare function removeLine(): Promise<void>;
 declare function loadWorkbench(): Promise<void>;
-declare function openAA(): Promise<void>;
-declare const href: BusinessModel["navigation"]["href"];
-declare const visit: BusinessModel["navigation"]["visit"];
+declare function loadAA(id: string): Promise<void>;
 
 /** 新记录结构示例，不是 element，也不在登录前安装为业务数据。 */
 export const customerDraft = reactive({
+  businessType: "customer",
   kind: "object",
   printable: false,
   family: "standard",
@@ -142,6 +168,7 @@ export const aaDraft = reactive({
   kind: "object",
   printable: false,
   family: "voucher",
+  businessType: "voucher.AA",
   type: "AA",
   key: "aa-draft",
   label: "采购订单",
@@ -223,6 +250,7 @@ export const abDraft = reactive({
   kind: "object",
   printable: false,
   family: "voucher",
+  businessType: "voucher.AB",
   type: "AB",
   key: "ab-draft",
   label: "采购收货",
@@ -322,7 +350,7 @@ const printTemple = {
   ],
 } satisfies PrintTemplate;
 
-const customers = reactive<Collection>({
+const customers = reactive<ListCollection>({
   key: "customers",
   label: "客户",
   columns: [
@@ -356,15 +384,15 @@ const customers = reactive<Collection>({
   page: 1,
   pageSize: 20,
   total: 0,
+  load: queryCustomers,
   operations: {
-    query: { disabled: false, run: queryCustomers },
     create: { disabled: false, run: createCustomer },
   },
   itemPrintTemple,
   printTemple,
 });
 
-const aa = reactive<Collection>({
+const aa = reactive<ListCollection>({
   key: "AA",
   label: "AA 采购订单",
   columns: [
@@ -388,12 +416,12 @@ const aa = reactive<Collection>({
   page: 1,
   pageSize: 20,
   total: 0,
+  load: queryAA,
   operations: {
-    query: { disabled: false, run: queryAA },
     create: { disabled: false, run: createAA },
   },
 });
-const ab = reactive<Collection>({
+const ab = reactive<ListCollection>({
   key: "AB",
   label: "AB 采购收货",
   columns: [
@@ -417,14 +445,16 @@ const ab = reactive<Collection>({
   page: 1,
   pageSize: 20,
   total: 0,
+  load: queryAB,
   operations: {
-    query: { disabled: false, run: queryAB },
     create: { disabled: false, run: createAB },
   },
 });
 
 const workbench = reactive<Workbench>({
-  load: { disabled: false, run: loadWorkbench },
+  key: "home",
+  label: "工作台",
+  load: loadWorkbench,
   information: {
     kind: "records",
     key: "information",
@@ -463,7 +493,7 @@ const workbench = reactive<Workbench>({
   },
 });
 
-/** 工作台行的 get 可调用消费者导航；它本身不成为全局导航目标。 */
+/** 工作台行只呈现快捷记录。 */
 export const voucherShortcut = {
   kind: "object",
   printable: false,
@@ -482,11 +512,12 @@ export const voucherShortcut = {
       readOnly: true,
     },
   ],
-  operations: { get: { disabled: false, run: openAA } },
+  load: loadAA,
+  operations: {},
 } satisfies ObjectNode;
 
 /** 合成独立目录：每个集合有自己的查询回调、条件、分页和记录保存回调。 */
-const accountSettings = reactive<Collection>({
+const accountSettings = reactive<ListCollection>({
   key: "accountSettings",
   label: "账款设置",
   columns: [{ key: "name", label: "名称" }],
@@ -507,9 +538,10 @@ const accountSettings = reactive<Collection>({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: { query: { disabled: false, run: queryAccountSettings } },
+  load: queryAccountSettings,
+  operations: {},
 });
-const contacts = reactive<Collection>({
+const contacts = reactive<ListCollection>({
   key: "contacts",
   label: "联系人",
   columns: [{ key: "name", label: "名称" }],
@@ -530,9 +562,10 @@ const contacts = reactive<Collection>({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: { query: { disabled: false, run: queryContacts } },
+  load: queryContacts,
+  operations: {},
 });
-const categories = reactive<Collection>({
+const categories = reactive<ListCollection>({
   key: "categories",
   label: "分类",
   columns: [{ key: "name", label: "名称" }],
@@ -553,9 +586,10 @@ const categories = reactive<Collection>({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: { query: { disabled: false, run: queryCategories } },
+  load: queryCategories,
+  operations: {},
 });
-const customerGroups = reactive<Collection>({
+const customerGroups = reactive<ListCollection>({
   key: "customerGroups",
   label: "分组",
   columns: [{ key: "name", label: "名称" }],
@@ -576,9 +610,10 @@ const customerGroups = reactive<Collection>({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: { query: { disabled: false, run: queryCustomerGroups } },
+  load: queryCustomerGroups,
+  operations: {},
 });
-const attributeDefinitions = reactive<Collection>({
+const attributeDefinitions = reactive<ListCollection>({
   key: "attributeDefinitions",
   label: "属性定义",
   columns: [{ key: "name", label: "名称" }],
@@ -599,9 +634,10 @@ const attributeDefinitions = reactive<Collection>({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: { query: { disabled: false, run: queryAttributeDefinitions } },
+  load: queryAttributeDefinitions,
+  operations: {},
 });
-const relatedDictionaries = reactive<Collection>({
+const relatedDictionaries = reactive<ListCollection>({
   key: "relatedDictionaries",
   label: "相关字典",
   columns: [{ key: "name", label: "名称" }],
@@ -622,7 +658,8 @@ const relatedDictionaries = reactive<Collection>({
   page: 1,
   pageSize: 20,
   total: 0,
-  operations: { query: { disabled: false, run: queryRelatedDictionaries } },
+  load: queryRelatedDictionaries,
+  operations: {},
 });
 /** 领域不是 ObjectNode，没有整体 query/update，也不授予集合权限。 */
 export const customerDomain = reactive({
@@ -645,43 +682,6 @@ export const model: BusinessModel = reactive({
   kind: "application",
   label: "OIT 合成示例",
   brand: { productName: "OIT 示例", companyName: "" },
-  members: [
-    {
-      kind: "category",
-      key: "masters",
-      label: "基础资料",
-      members: [customerDomain],
-    },
-    {
-      kind: "category",
-      key: "vouchers",
-      label: "单据",
-      members: [
-        {
-          kind: "section",
-          key: "A",
-          label: "采购",
-          members: [
-            {
-              kind: "domain",
-              key: "AA",
-              label: aa.label,
-              icon: "voucher",
-              members: [aa],
-            },
-            {
-              kind: "domain",
-              key: "AB",
-              label: ab.label,
-              icon: "voucher",
-              members: [ab],
-            },
-          ],
-        },
-      ],
-    },
-  ],
-  workbench,
   theme: {
     value: { preset: "md3", mode: "light" },
     change(value) {
@@ -732,59 +732,92 @@ export const model: BusinessModel = reactive({
       recover: { disabled: false, run: recoverSession },
     },
   },
-  account: {
-    label: "",
-    profile: {
-      kind: "object",
-      printable: false,
-      family: "standard",
-      key: "profile",
-      label: "个人资料",
-      identity: null,
-      readOnly: true,
-      members: [
-        {
-          kind: "text",
-          key: "displayName",
-          label: "姓名",
-          value: "",
-          required: false,
-          readOnly: true,
-        },
-      ],
-      operations: {},
-    },
-    password: {
-      kind: "object",
-      printable: false,
-      family: "standard",
-      key: "password",
-      label: "修改密码",
-      identity: null,
-      readOnly: false,
-      members: [
-        {
-          kind: "password",
-          key: "newPassword",
-          label: "新密码",
-          value: "",
-          required: true,
-          readOnly: false,
-        },
-      ],
-      operations: {},
-    },
-    operations: {
-      changePassword: { disabled: false, run: changePassword },
-      signOut: { disabled: false, run: signOut },
-    },
-  },
   session: { state: "anonymous", owner: null },
-  // null 表示工作台；详情与编辑留在集合的 selected/draft 内。
-  navigation: {
-    current: null,
-    href,
-    visit,
+  work: {
+    members: [
+      {
+        kind: "category",
+        key: "masters",
+        label: "基础资料",
+        members: [customerDomain],
+      },
+      {
+        kind: "category",
+        key: "vouchers",
+        label: "单据",
+        members: [
+          {
+            kind: "section",
+            key: "A",
+            label: "采购",
+            members: [
+              {
+                kind: "domain",
+                key: "AA",
+                label: aa.label,
+                icon: "voucher",
+                members: [aa],
+              },
+              {
+                kind: "domain",
+                key: "AB",
+                label: ab.label,
+                icon: "voucher",
+                members: [ab],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    workbench,
+    account: {
+      label: "",
+      profile: {
+        kind: "object",
+        printable: false,
+        family: "standard",
+        key: "profile",
+        label: "个人资料",
+        identity: null,
+        readOnly: true,
+        members: [
+          {
+            kind: "text",
+            key: "displayName",
+            label: "姓名",
+            value: "",
+            required: false,
+            readOnly: true,
+          },
+        ],
+        operations: {},
+      },
+      password: {
+        kind: "object",
+        printable: false,
+        family: "standard",
+        key: "password",
+        label: "修改密码",
+        identity: null,
+        readOnly: false,
+        members: [
+          {
+            kind: "password",
+            key: "newPassword",
+            label: "新密码",
+            value: "",
+            required: true,
+            readOnly: false,
+          },
+        ],
+        operations: {},
+      },
+      operations: {
+        changePassword: { disabled: false, run: changePassword },
+        signOut: { disabled: false, run: signOut },
+      },
+    },
   },
   messages: [],
 } satisfies BusinessModel);

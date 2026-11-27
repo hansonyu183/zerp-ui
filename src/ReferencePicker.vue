@@ -171,6 +171,7 @@ watch(open, (value) => {
 });
 watch(
   () =>
+    props.options === undefined &&
     selected.value.some((value) => !value.label || value.label === value.id),
   (needed) => {
     if (needed) void load();

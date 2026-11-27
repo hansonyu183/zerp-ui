@@ -1,3 +1,4 @@
+import type { BusinessModel } from "./business-model";
 import type { RouteLocationRaw } from "vue-router";
 import type { ThemeDefinition } from "vuetify";
 import { md1, md2, md3 } from "vuetify/blueprints";
@@ -15,6 +16,13 @@ export type Brand = Readonly<{
     | { kind: "text"; text: string }
     | { kind: "image"; src: string; alt: string };
 }>;
+export function modelBrand(brand: BusinessModel["brand"]): Omit<Brand, "home"> {
+  return {
+    productName: brand.productName,
+    enterpriseName: brand.companyName,
+    mark: { kind: "text", text: brand.productName.slice(0, 1) },
+  };
+}
 export type LoadState =
   { kind: "loading" } | { kind: "ready" } | { kind: "error"; caption: string };
 export type AccountIntent = "profile" | "change-password" | "sign-out";

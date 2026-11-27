@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from "vitest";
 import { flushPromises } from "@vue/test-utils";
 import { reactive } from "vue";
-import type { Collection, InteractionNode } from "../src/model";
+import type { ListCollection, InteractionNode } from "../src/model";
 import { fixture, object } from "./fixtures/static-model";
 import { click, input, render } from "./fixtures/static-host";
 
@@ -42,7 +42,7 @@ it("presents a mobile read-only text value in a wrapping labeled field", async (
 
 it("shows the target collection title after following a related link inside a domain", async () => {
   const { model, record, rows } = fixture();
-  const invoices: Collection = reactive({
+  const invoices: ListCollection = reactive({
     ...rows,
     key: "invoices",
     label: "发票",
@@ -50,7 +50,7 @@ it("shows the target collection title after following a related link inside a do
     items: [],
     operations: {},
   });
-  model.members = [
+  model.work.members = [
     { kind: "domain", key: "ledger", label: "账务", members: [rows, invoices] },
   ];
   const links: InteractionNode = {
@@ -72,13 +72,15 @@ it("shows the target collection title after following a related link inside a do
   wrapper = await render(model);
   await click("编辑");
   const dialog = document.querySelector('[role="dialog"]')!;
-  const link = dialog.querySelector<HTMLAnchorElement>('a[href="/invoices"]')!;
+  const link = dialog.querySelector<HTMLAnchorElement>(
+    'a[href="/business/invoices"]',
+  )!;
   expect(link.textContent?.trim()).toBe("查看关联发票");
   link.click();
   await flushPromises();
 
-  expect(model.navigation.current).toBe(invoices);
-  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(window.location.pathname).toBe("/business/" + invoices.key);
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
   expect(wrapper.get("h1").text()).toBe("账务");
   expect(wrapper.get('[role="tabpanel"] h2').text()).toBe("发票");
 });

@@ -6,6 +6,7 @@ defineSlots<{
   "navigation-status"?(): unknown;
 }>();
 import FeedbackHost from "./FeedbackHost.vue";
+import { plainClick } from "./model-target";
 import { navigationSections } from "./navigation-sections";
 import { computed, nextTick, ref, useId, useTemplateRef, watch } from "vue";
 import { RouterLink } from "vue-router";
@@ -41,6 +42,7 @@ const props = withDefaults(
     navigation: readonly NavigationGroup[];
     selectedNavigationKey?: string | null;
     visit?: (key: string) => void;
+    visitHome?: () => void;
     scope: string;
     active?: boolean;
     account?: ShellAccount;
@@ -53,6 +55,11 @@ const emit = defineEmits<{
   "account-action": [AccountIntent];
   "update:theme": [ThemeChoice];
 }>();
+function visitHome(event: MouseEvent) {
+  if (!props.visitHome || !plainClick(event)) return;
+  event.preventDefault();
+  props.visitHome();
+}
 const { mobile } = useDisplay();
 const navigationId = useId();
 const overlayId = `zerp-shell-overlays-${useId().replace(/:/g, "-")}`;
@@ -178,6 +185,7 @@ function navigated(event: MouseEvent) {
                 :to="brand.home"
                 class="zerp-shell-brand"
                 :aria-label="`${brand.productName}：首页`"
+                @click.capture="visitHome"
               >
                 <VAvatar color="primary" :size="28">
                   <span v-if="brand.mark.kind === 'text'">{{

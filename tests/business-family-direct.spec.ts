@@ -133,7 +133,7 @@ it("keeps report facts, precise totals and authorized links with root collection
     "12345678901234567890.10",
   );
   const link = document.querySelector<HTMLAnchorElement>(
-    'a[aria-label="打开记录"]',
+    'button[aria-label="打开记录"]',
   );
   expect(link).not.toBeNull();
   link!.click();

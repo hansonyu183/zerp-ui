@@ -1,5 +1,5 @@
 import { config } from "@vue/test-utils";
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
 vi.stubGlobal(
   "ResizeObserver",
   class {
@@ -34,3 +34,5 @@ vi.stubGlobal(
     scale: 1,
   }),
 );
+
+beforeEach(() => window.history.replaceState(null, "", "/"));

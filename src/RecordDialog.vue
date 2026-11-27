@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import FeedbackHost from "./FeedbackHost.vue";
-import { nextTick, onBeforeUnmount } from "vue";
+import { nextTick, onBeforeUnmount, useTemplateRef, watch } from "vue";
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import {
   VDialog,
@@ -14,17 +14,35 @@ const props = withDefaults(
   defineProps<{
     title: string;
     blocked?: boolean;
+    show?: boolean;
+    workspace?: boolean;
     headerClose?: boolean;
     reading?: boolean;
     returnFocus?: HTMLElement | null | (() => HTMLElement | null);
   }>(),
-  { reading: undefined },
+  { reading: undefined, show: true },
 );
 const emit = defineEmits<{
   close: [];
   feedback: [element: HTMLElement | null];
 }>();
 const defaults = injectDefaults();
+const header = useTemplateRef<HTMLElement>("header");
+function focusWorkspace() {
+  const element = header.value;
+  if (
+    props.workspace &&
+    props.show &&
+    element &&
+    !element.closest(".zerp-record-dialog")?.contains(document.activeElement)
+  )
+    element.focus({ preventScroll: true });
+}
+watch(
+  () => props.show,
+  () => void nextTick(focusWorkspace),
+  { immediate: true },
+);
 const initialTrigger =
   typeof document === "undefined" ? null : document.activeElement;
 onBeforeUnmount(() => {
@@ -44,11 +62,18 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <VDialog
-    :model-value="true"
-    :persistent="blocked"
+    :model-value="show"
+    :scrim="!workspace"
+    :retain-focus="!workspace"
+    :close-on-back="!workspace"
+    :persistent="blocked || workspace"
+    :no-click-animation="workspace"
     max-width="1100"
     scrollable
     :aria-label="title"
+    :aria-modal="workspace ? 'false' : undefined"
+    @keydown.esc="workspace && !blocked && emit('close')"
+    @after-enter="focusWorkspace"
     @update:model-value="!$event && !blocked && emit('close')"
   >
     <VDefaultsProvider :defaults="defaults">
@@ -59,7 +84,11 @@ onBeforeUnmount(() => {
         :aria-label="title"
       >
         <FeedbackHost @target="emit('feedback', $event)">
-          <header class="zerp-record-dialog__header">
+          <header
+            ref="header"
+            :tabindex="workspace ? -1 : undefined"
+            class="zerp-record-dialog__header"
+          >
             <VCardTitle>{{ title }}</VCardTitle>
             <span
               v-if="reading !== undefined"
@@ -67,6 +96,7 @@ onBeforeUnmount(() => {
               role="status"
               >{{ reading ? "正在读取…" : "" }}</span
             >
+            <slot name="actions" />
             <VBtn
               v-if="headerClose"
               type="button"

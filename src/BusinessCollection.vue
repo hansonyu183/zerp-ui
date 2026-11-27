@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { computed, inject, toRaw } from "vue";
+import { labels } from "./operation-labels";
+import { isPending, runOperation, type QueryView } from "./business-operations";
+
+import { computed, toRaw } from "vue";
 import { useDisplay } from "vuetify";
 import DataList from "./DataList.vue";
 import FeedbackRegion from "./FeedbackRegion.vue";
@@ -9,45 +12,55 @@ import { businessRowActions, type RowAction } from "./row-action";
 import type { ReportCell, ReportPresentation } from "./report";
 import type { CollectionTarget } from "./business-model";
 import {
-  directRuntimeKey,
-  labels,
   type CollectionNode,
-  type DirectRuntime,
   type ObjectNode,
   type Node,
-} from "./direct-model-runtime";
+  allowed as nodeAllows,
+  available as nodeAvailable,
+  operations as nodeOperations,
+  readable as nodeReadable,
+} from "./business-nodes";
 import type { FieldNode } from "./business-model";
 import { formatField } from "./model-format";
-import { availableTarget, canOpenRecord, visitTarget } from "./model-target";
+import {
+  availableTarget,
+  canOpenRecord,
+  targetHref,
+  targetStamp,
+  visitTarget,
+} from "./model-target";
 type Values = Record<string, string | number | boolean | null>;
 const props = defineProps<{
   node: CollectionNode;
-  queryView?: ReturnType<DirectRuntime["queryView"]>;
+  queryView?: QueryView;
   canQuery: boolean;
 }>();
 const emit = defineEmits<{
   page: [page: number];
-  open: [mode: "read" | "edit", restoreFocus: () => HTMLElement | null];
+  open: [
+    record: ObjectNode,
+    mode: "read" | "edit",
+    restoreFocus: () => HTMLElement | null,
+  ];
   print: [record: ObjectNode];
 }>();
-const runtime = inject(directRuntimeKey)!;
 const { xs } = useDisplay();
 function field(row: ObjectNode, key: string) {
   return row.members.find((member) => member.key === key);
 }
-const readableRows = computed(() => props.node.items.filter(runtime.readable));
+const readableRows = computed(() => props.node.items.filter(nodeReadable));
 const columns = computed<Column<Values>[]>(() =>
   props.node.columns
     .filter((column) =>
       readableRows.value.every((row) => {
         const n = field(row, column.key);
-        return !n || runtime.readable(n);
+        return !n || nodeReadable(n);
       }),
     )
     .map((column) => ({ ...column, type: "text" })),
 );
 function display(node: Node | undefined): Values[string] {
-  if (!node || !runtime.readable(node) || !("value" in node)) return null;
+  if (!node || !nodeReadable(node) || !("value" in node)) return null;
   if (node.kind === "secret" || node.kind === "password") return "••••••";
   try {
     return formatField(node as FieldNode);
@@ -106,23 +119,23 @@ const rowOperations = new Set([
 ]);
 function actions(row: Values): RowAction[] {
   const source = original(row);
-  if (!source || !runtime.readable(source)) return [];
-  const result: RowAction[] = canOpenRecord(runtime, source)
-    ? [runtime.available(source, "update") ? "edit" : "view"]
+  if (!source || !nodeReadable(source)) return [];
+  const result: RowAction[] = canOpenRecord(source)
+    ? [nodeAvailable(source, "update") ? "edit" : "view"]
     : [];
   const itemTemplate = props.node.itemPrintTemple;
   if (
     itemTemplate &&
     source.identity !== null &&
     source.printable &&
-    runtime.allowed(props.node, "itemPrint")
+    nodeAllows(props.node, "itemPrint")
   )
     result.push("print");
-  for (const action of Object.keys(runtime.operations(source)))
+  for (const action of Object.keys(nodeOperations(source)))
     if (
       rowOperations.has(action) &&
       !(action === "print" && itemTemplate) &&
-      runtime.available(source, action)
+      nodeAvailable(source, action)
     )
       result.push(action as RowAction);
   return result;
@@ -132,7 +145,7 @@ function showAllActions(row: Values) {
 }
 function reasons(row: Values): Partial<Record<RowAction, string>> {
   const source = original(row);
-  return source && runtime.busy.value.has(toRaw(source))
+  return source && isPending(source)
     ? Object.fromEntries(actions(row).map((action) => [action, "正在处理"]))
     : {};
 }
@@ -142,7 +155,7 @@ function select(action: RowAction, row: Values) {
     !source ||
     !props.node.items.includes(source) ||
     !actions(row).includes(action) ||
-    runtime.busy.value.has(toRaw(source))
+    isPending(source)
   )
     return;
   if (action === "print" && props.node.itemPrintTemple) {
@@ -174,9 +187,8 @@ function select(action: RowAction, row: Values) {
         ? action.closest<HTMLElement>('[tabindex="0"]')
         : action;
     };
-    props.node.selected = source;
-    emit("open", action === "edit" ? "edit" : "read", restoreFocus);
-  } else void runtime.run(source, action);
+    emit("open", source, action === "edit" ? "edit" : "read", restoreFocus);
+  } else void runOperation(source, action);
 }
 function filterValues(values: Partial<Values>): Partial<Values> {
   return Object.fromEntries(
@@ -185,7 +197,7 @@ function filterValues(values: Partial<Values>): Partial<Values> {
         (column) =>
           props.node.items.every((row) => {
             const n = field(row, column.key);
-            return runtime.readable(row) && !!n && runtime.readable(n);
+            return nodeReadable(row) && !!n && nodeReadable(n);
           }) && Object.hasOwn(values, column.key),
       )
       .map((column) => [column.key, values[column.key]]),
@@ -205,7 +217,7 @@ const presentation = computed<ReportPresentation<Values, string> | undefined>(
     if (!value) return;
     const visible = (id: string) => {
       const row = props.node.items.find((row) => row.identity === id);
-      return !row || runtime.readable(row);
+      return !row || nodeReadable(row);
     };
     return {
       ...value,
@@ -222,7 +234,7 @@ const presentation = computed<ReportPresentation<Values, string> | undefined>(
                     node = record && field(record, key);
                   return (
                     !!node &&
-                    runtime.readable(node) &&
+                    nodeReadable(node) &&
                     columns.value.some((column) => column.key === key)
                   );
                 }),
@@ -242,7 +254,7 @@ const presentation = computed<ReportPresentation<Values, string> | undefined>(
   },
 );
 function readableTarget(target: CollectionTarget) {
-  return availableTarget(runtime, target);
+  return availableTarget(target);
 }
 
 function cell(
@@ -251,7 +263,7 @@ function cell(
 ): ReportCell<CollectionTarget> | undefined {
   const source = original(row),
     node = source && field(source, key);
-  if (!node || !runtime.readable(node)) return;
+  if (!node || !nodeReadable(node)) return;
   const fact = props.node.report?.cells?.find(
     (fact) => toRaw(fact.row) === toRaw(source!) && fact.field === key,
   );
@@ -261,23 +273,20 @@ function cell(
     target: fact.target,
     label: fact.label,
     disabled: fact.disabled,
+    stamp: targetStamp(fact.target),
   };
-  return fact.kind === "record"
-    ? {
-        ...value,
-        kind: "record",
-        href: runtime
-          .model()
-          .navigation.href(fact.target.collection, fact.target.record),
-      }
-    : { ...value, kind: fact.kind };
+  if (fact.kind !== "record") return { ...value, kind: fact.kind };
+  const href = targetHref(fact.target);
+  return href
+    ? { ...value, kind: "record", href }
+    : { ...value, kind: "detail" };
 }
 function visit(value: ReportCell<CollectionTarget>, row: Values) {
   const source = original(row);
   if (
     !source ||
     !props.node.items.includes(source) ||
-    !runtime.readable(source) ||
+    !nodeReadable(source) ||
     !readableTarget(value.target)
   )
     return;
@@ -289,8 +298,8 @@ function visit(value: ReportCell<CollectionTarget>, row: Values) {
   );
   if (!fact) return;
   const node = field(source, fact.field);
-  if (!node || !runtime.readable(node)) return;
-  visitTarget(runtime, value.target);
+  if (!node || !nodeReadable(node)) return;
+  visitTarget(value.target);
 }
 </script>
 <template>
@@ -307,7 +316,7 @@ function visit(value: ReportCell<CollectionTarget>, row: Values) {
     "
     :page-size="node.pageSize"
     :loading="queryView?.state === 'loading'"
-    :result-state="queryView?.state ?? 'idle'"
+    :result-state="queryView?.state ?? 'success'"
     :paging-disabled="!canQuery || queryView?.state === 'failure'"
     :row-key="key"
     :summary="summary"

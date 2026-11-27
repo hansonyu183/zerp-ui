@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { labels } from "./operation-labels";
 import { useDisplay } from "vuetify";
 import { VBtn, VList, VListItem, VMenu } from "vuetify/components";
-import { labels } from "./direct-model-runtime";
 
 const props = defineProps<{ actions: readonly string[]; pending: boolean }>();
 const emit = defineEmits<{ action: [action: string] }>();

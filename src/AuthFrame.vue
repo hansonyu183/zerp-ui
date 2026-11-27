@@ -7,7 +7,7 @@ import {
   type Brand,
   type ThemeChoice,
 } from "./shell";
-defineProps<{ brand: Brand; theme: ThemeChoice }>();
+defineProps<{ brand: Omit<Brand, "home">; theme: ThemeChoice }>();
 </script>
 <template>
   <VThemeProvider

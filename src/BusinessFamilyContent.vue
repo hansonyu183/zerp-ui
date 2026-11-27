@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount } from "vue";
+import {
+  executeOperation,
+  isPending,
+  runOperation,
+} from "./business-operations";
+import {
+  available as nodeAvailable,
+  readable as nodeReadable,
+  writable as nodeWritable,
+} from "./business-nodes";
+import { computed, onBeforeUnmount } from "vue";
 import BusinessInteractions from "./BusinessInteractions.vue";
 import type { Interaction } from "./collaboration";
 import PrintPreview from "./PrintPreview.vue";
@@ -9,7 +19,6 @@ import type {
   InteractionNode,
   InteractionAction,
 } from "./business-model";
-import { directRuntimeKey } from "./direct-model-runtime";
 import {
   availableTarget,
   readableTarget,
@@ -20,7 +29,6 @@ const props = defineProps<{
   node: OutputNode | InteractionNode;
   readOnly?: boolean;
 }>();
-const runtime = inject(directRuntimeKey)!;
 let alive = true;
 onBeforeUnmount(() => {
   alive = false;
@@ -31,9 +39,9 @@ const questions = computed(() =>
 const output = computed(() =>
   props.node.kind === "output" ? props.node : null,
 );
-const busy = computed(() => runtime.busy.value.has(props.node));
+const busy = computed(() => isPending(props.node));
 function readable(target: CollectionTarget) {
-  return readableTarget(runtime, target);
+  return readableTarget(target);
 }
 
 type Intent =
@@ -64,7 +72,7 @@ function menuEntry(entry: Menu["items"][number], current: () => boolean) {
       target.operation !== operation ||
       !!entry.disabled ||
       operation.disabled ||
-      !runtime.interactable(questions.value);
+      !nodeWritable(questions.value);
     if (blocked()) return null;
     return {
       ...entry,
@@ -72,7 +80,7 @@ function menuEntry(entry: Menu["items"][number], current: () => boolean) {
       target: { kind: "action" as const, operation, blocked },
     };
   }
-  return !entry.disabled && availableTarget(runtime, target)
+  return !entry.disabled && availableTarget(target)
     ? {
         ...entry,
         target: {
@@ -90,8 +98,7 @@ const interactions = computed<readonly Interaction<Intent>[]>(
       if (item.kind === "download") {
         const target = item.target;
         if ("kind" in target) {
-          if (!questions.value || !runtime.downloadable(questions.value))
-            return [];
+          if (!questions.value || !nodeReadable(questions.value)) return [];
           const operation = target.operation;
           const blocked = () =>
             !alive ||
@@ -117,21 +124,21 @@ const interactions = computed<readonly Interaction<Intent>[]>(
           item.target !== target ||
           !!item.disabled ||
           !readable(target) ||
-          !runtime.available(target.collection, "export");
+          !nodeAvailable(target.collection, "export");
         return blocked()
           ? []
           : [
               {
                 ...item,
                 target: { kind: "download", target, blocked },
-                disabled: runtime.busy.value.has(target.collection),
+                disabled: isPending(target.collection),
               },
             ];
       }
       if (item.kind === "related") {
         const source = questions.value;
         const target = item.target;
-        return !item.disabled && availableTarget(runtime, target)
+        return !item.disabled && availableTarget(target)
           ? [
               {
                 ...item,
@@ -188,24 +195,31 @@ const interactions = computed<readonly Interaction<Intent>[]>(
     }) ?? [],
 );
 function answer(id: string, value: string | boolean) {
-  if (!props.readOnly && questions.value && runtime.writable(props.node))
+  if (!props.readOnly && questions.value && nodeWritable(props.node))
     questions.value.value[id] = value;
 }
 function visit(intent: Intent) {
   if ("operation" in intent) {
     const node = questions.value;
     if (node)
-      void (
-        intent.kind === "action" ? runtime.runInteraction : runtime.runDownload
-      )(node, intent.operation, () => props.node === node && !intent.blocked());
+      void executeOperation(
+        node,
+        intent.operation,
+        () =>
+          props.node === node &&
+          (intent.kind === "action" || nodeReadable(node)) &&
+          !intent.blocked(),
+        { target: node },
+      );
     return;
   }
   const { target } = intent;
-  if (intent.blocked() || !runtime.readable(props.node) || !readable(target))
+  if (intent.blocked() || !nodeReadable(props.node) || !readable(target))
     return;
-  if (intent.kind === "download") void runtime.run(target.collection, "export");
+  if (intent.kind === "download")
+    void runOperation(target.collection, "export");
   else {
-    visitTarget(runtime, target);
+    visitTarget(target);
   }
 }
 </script>
@@ -215,13 +229,13 @@ function visit(intent: Intent) {
     :items="interactions"
     :href="
       (intent) =>
-        intent.kind === 'visit' && runtime.readable(node) && !intent.blocked()
-          ? targetHref(runtime, intent.target)
+        intent.kind === 'visit' && nodeReadable(node) && !intent.blocked()
+          ? targetHref(intent.target)
           : undefined
     "
     :answers="questions.value"
-    :disabled="busy || !runtime.readable(node)"
-    :answers-disabled="readOnly || !runtime.writable(node)"
+    :disabled="busy || !nodeReadable(node)"
+    :answers-disabled="readOnly || !nodeWritable(node)"
     @answer="answer"
     @intent="visit"
   />
@@ -230,9 +244,9 @@ function visit(intent: Intent) {
       v-if="output.value"
       :document="output.value"
       :allowed="true"
-      :action-available="() => runtime.available(node, 'print')"
+      :action-available="() => nodeAvailable(node, 'print')"
       :disabled="busy"
-      @opened="runtime.run(node, 'print')"
+      @opened="runOperation(node, 'print')"
     />
     <p v-else>尚未生成预览</p>
   </section>

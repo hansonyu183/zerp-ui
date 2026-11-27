@@ -3,7 +3,7 @@ import {
   bindPrintTemplate as bind,
   type MeasurePrintText,
 } from "../src/model-print";
-import type { Collection, ObjectNode, PrintTemplate } from "../src/model";
+import type { ListCollection, ObjectNode, PrintTemplate } from "../src/model";
 const measure: MeasurePrintText = () => ({ height: 0, insetTop: 0 });
 const bindPrintTemplate = (
   ...args: Parameters<typeof bind> extends [...infer A, MeasurePrintText]
@@ -31,7 +31,7 @@ const row = (id: string): ObjectNode => ({
     },
   ],
 });
-const collection: Collection = {
+const collection: ListCollection = {
   key: "rows",
   label: "记录",
   conditions: row("conditions"),

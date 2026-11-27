@@ -1,7 +1,7 @@
 import { flushPromises } from "@vue/test-utils";
 import { afterEach, expect, it, vi } from "vitest";
 import { domainOf, fixture, operation } from "./fixtures/static-model";
-import { render, click, input } from "./fixtures/static-host";
+import { render, click, input, route } from "./fixtures/static-host";
 let wrapper: Awaited<ReturnType<typeof render>> | undefined;
 afterEach(() => {
   wrapper?.unmount();
@@ -89,6 +89,7 @@ it("distinguishes loading, failure, retry, empty success and normal paging", asy
   const paging = () => document.querySelector('nav[aria-label="分页"]');
 
   wrapper = await render(model);
+  await click("查询");
   expect(text()).toContain("正在读取");
   expect(text()).not.toContain("暂无记录");
   expect(paging()).toBeNull();
@@ -142,10 +143,13 @@ it("keeps prior rows marked stale and uses one concrete query failure", async ()
       }),
   );
   wrapper = await render(model);
+  await click("查询");
+  rows.page = 2;
+  await flushPromises();
   await click("下一页");
   expect(rows.page).toBe(2);
   expect(document.querySelector('[aria-label="分页"]')?.textContent).toContain(
-    "第 1 页",
+    "第 2 页",
   );
   expect(document.querySelector("table")?.textContent).toContain("initial");
   const alerts = document.querySelectorAll('[role="alert"]');
@@ -154,7 +158,7 @@ it("keeps prior rows marked stale and uses one concrete query failure", async ()
   expect(alerts[0]?.textContent).toContain("已有结果未更新");
   expect(document.body.textContent).not.toContain("该次查询的重复提示");
   await click("重试");
-  expect(rows.page).toBe(2);
+  expect(rows.page).toBe(3);
   expect(document.querySelectorAll('[role="alert"]')).toHaveLength(0);
 });
 
@@ -170,7 +174,7 @@ it.each([
     const other = fixture().rows;
     other.key = "other";
     other.label = "另一集合";
-    model.members.push(domainOf(other));
+    model.work.members.push(domainOf(other));
     let finish!: () => void;
     const pending = new Promise<void>((resolve) => {
       finish = resolve;
@@ -188,7 +192,8 @@ it.each([
       }),
     );
     wrapper = await render(model);
-    model.navigation.current = other;
+    await click("查询");
+    route(other);
     await flushPromises();
     finish();
     await flushPromises();
@@ -241,7 +246,6 @@ it("uses a fresh first-page query after failed conditions are edited", async () 
   term.value = "original";
   const read = vi
     .fn(async () => {})
-    .mockImplementationOnce(async () => {})
     .mockImplementationOnce(async () => {
       throw Error("read failed");
     })
@@ -260,18 +264,17 @@ it("uses a fresh first-page query after failed conditions are edited", async () 
   await flushPromises();
   expect(retry()).toBe(false);
   await click("查询");
-  expect(read).toHaveBeenCalledTimes(3);
+  expect(read).toHaveBeenCalledTimes(2);
   expect(document.querySelector('[role="alert"]')).toBeNull();
 });
 
 it("hides detail actions when a configured read is unavailable", async () => {
   const { model, record } = fixture();
-  record.operations.get = operation();
-  record.operations.get.disabled = true;
+  record.businessType = undefined;
   wrapper = await render(model);
   expect(document.querySelector('button[aria-label="编辑"]')).toBeNull();
   expect(document.querySelector("tbody")?.textContent).toContain("initial");
-  delete record.operations.get;
+  record.businessType = "record";
   await flushPromises();
   expect(document.querySelector('button[aria-label="编辑"]')).not.toBeNull();
 });
@@ -319,8 +322,6 @@ it("shows newly available approval inside an already open record", async () => {
 
 it("locates a record message through the explicit navigation target", async () => {
   const { model, rows, record } = fixture();
-  const visit = vi.fn();
-  model.navigation.visit = visit;
   model.messages.push({
     id: "record-notice",
     level: "warning",
@@ -333,8 +334,9 @@ it("locates a record message through the explicit navigation target", async () =
     .findAll("button")
     .find((button) => button.text() === "查看")!
     .trigger("click");
-  expect(visit).toHaveBeenCalledWith(rows, record);
-  expect(rows.selected).toBeNull();
+  await flushPromises();
+  expect(rows.selected).toBe(record);
+  expect(window.location.pathname).toBe("/business/" + rows.key);
 });
 
 it("keeps a supplied collection blocker next to the query operation", async () => {
@@ -392,7 +394,7 @@ it.each([false, true])(
     }
     expect(document.body.textContent).not.toContain("查询受限");
     await click("重试");
-    expect(query).toHaveBeenCalledTimes(3);
+    expect(query).toHaveBeenCalledTimes(2);
     expect(wrapper.find('[role="alert"]').exists()).toBe(false);
   },
 );

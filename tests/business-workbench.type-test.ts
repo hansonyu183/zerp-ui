@@ -13,7 +13,9 @@ const complete = {
   vouchers: rows,
   reports: rows,
   masters: rows,
-  load: { disabled: false, async run() {} },
+  key: "home",
+  label: "工作台",
+  async load() {},
 } satisfies Workbench;
 // prettier-ignore
 // @ts-expect-error Workbench is a fixed four-block structure.
@@ -23,5 +25,5 @@ const arbitrary = { ...workbench, columns: 3 } satisfies Workbench;
 const independent = { ...workbench, vouchers: collection } satisfies Workbench;
 // prettier-ignore
 // @ts-expect-error Workbench cannot become a global collection target.
-model.navigation.current = workbench;
+model.work.members = [workbench];
 void [complete, arbitrary, independent];

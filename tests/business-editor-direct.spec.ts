@@ -13,7 +13,7 @@ it("shows record loading only while the dialog reads the record", async () => {
   let finishRead!: () => void;
   let finishSave!: () => void;
   let failRead!: (error: Error) => void;
-  record.operations.get = operation(
+  record.load = operation(
     vi
       .fn<() => Promise<void>>()
       .mockImplementationOnce(async () => {
@@ -28,7 +28,7 @@ it("shows record loading only while the dialog reads the record", async () => {
             failRead = reject;
           }),
       ),
-  );
+  ).run;
   record.operations.update = operation(
     vi.fn(
       () =>
@@ -56,6 +56,11 @@ it("shows record loading only while the dialog reads the record", async () => {
   await click("关闭");
   expect(rows.selected).toBeNull();
 
+  model.session = {
+    state: "ready",
+    owner: { ledger: "synthetic", operator: "another", generation: "2" },
+  };
+  await flushPromises();
   await click("编辑");
   expect(status()).toBe("正在读取…");
   failRead(Error("合成读取失败"));
@@ -128,7 +133,8 @@ it("keeps owned detail edits local until the parent save", async () => {
   wrapper = await render(model);
   await click("编辑");
   await input("数量").setValue("3");
-  expect(quantity.value).toBe("3");
+  expect(quantity.value).toBe("2");
+  expect(input("数量").element.value).toBe("3");
   expect(record.operations.update!.run).not.toHaveBeenCalled();
   await click("保存");
   expect(record.operations.update!.run).toHaveBeenCalledTimes(1);
@@ -170,14 +176,20 @@ it.each([1440, 390])(
       first.members[2]!.readable = false;
       second.members[2]!.readable = false;
       second.members[3]!.readable = false;
+      let complete!: () => void;
+      record.load = async () => {
+        await new Promise<void>((resolve) => {
+          complete = resolve;
+        });
+        (record.members.at(-1) as RecordsNode).items = [first, second];
+      };
       wrapper = await render(model);
       await click("编辑");
       const view = () => document.querySelector(".zerp-direct-records")!;
       expect(view().textContent).toContain("暂无记录");
       expect(view().querySelector("table, article")).toBeNull();
 
-      const records = record.members.at(-1) as RecordsNode;
-      records.items = [first, second];
+      complete();
       await flushPromises();
       const selector =
         width === 390 ? "article:first-child .zerp-owned-field > span" : "th";
@@ -193,6 +205,8 @@ it.each([1440, 390])(
       );
 
       second.members.pop();
+      await click("关闭");
+      await click("编辑");
       await flushPromises();
       const error = document.querySelector('[role="alert"]');
       expect(error?.textContent).toContain(
@@ -218,7 +232,7 @@ it("keeps the primary record action in reach on phones and gathers secondary act
   window.dispatchEvent(new Event("resize"));
   try {
     const { model, record } = fixture();
-    record.operations.get = operation();
+    record.load = vi.fn(async () => {});
     record.operations.delete = operation();
     record.operations.reconcile = operation();
     wrapper = await render(model);
