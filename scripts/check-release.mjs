@@ -37,7 +37,8 @@ for (const script of [
   "check:ui-preferences:inventory",
 ])
   run("pnpm", [script]);
-run("pnpm", ["test:model"]);
+// Limit concurrent jsdom rendering so mobile detail checks keep their timeout.
+run("pnpm", ["test:model", "--maxWorkers=2"]);
 const slices = [
   { issue: 159, name: "model", flag: [] },
   {
