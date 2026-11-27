@@ -1,10 +1,10 @@
 # ZERP UI
 
-`@zerp/ui` 是独立发布的 Vue/Vuetify 业务界面库。唯一公开组件 `BusinessApplication` 接收一个完整的响应式 `BusinessModel`。固定普通属性、集合、对象、有序成员及有限操作共同组织界面，正式规格见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152) 和 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
+`@zerp/ui` 是独立发布的 Vue/Vuetify 业务界面库。唯一公开组件 `App` 接收一个完整的响应式 `BusinessModel`。固定普通属性、集合、对象、有序成员及有限操作共同组织界面，正式规格见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152) 和 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)。
 
 ## 固定版本安装
 
-当前版本为 [ui-v0.49.4](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.49.4)，采用静态 BusinessModel 协议；从该 Release 下载 `zerp-ui-0.49.4.tgz` 与 `SHA256SUMS`，核对摘要后安装：
+当前已发布版本为 [ui-v0.49.4](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.49.4)，采用静态 BusinessModel 协议，公开组件名为 `BusinessApplication`。从该 Release 下载 `zerp-ui-0.49.4.tgz` 与 `SHA256SUMS`，核对摘要后安装：
 
 ```sh
 shasum -a 256 -c SHA256SUMS
@@ -15,21 +15,25 @@ pnpm add ./zerp-ui-0.49.4.tgz
 
 ## 公开入口与迁移
 
+以下示例适用于当前源码。模型已符合当前接口时，把 `BusinessApplication` 的导入和模板标签改为 `App` 即可。从 0.49.4 升级还需按[迁移清单](docs/interfaces/static-migration.md)调整模型结构。
+
+使用 `BusinessNode`、`BusinessCategory` 的消费者，分别从 `@zerp/ui/model` 改导入 `Node`、`Category`。
+
 升级到 0.48.0 时，将根成员和领域集合改为数组，并移除 `RecordsNode.columns`。所属明细的字段顺序和标题由各行的 `ObjectNode.members` 定义。独立集合和打印模板继续声明各自的列数组。详见[静态模型接口](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/README.md)。
 
 升级到 0.49.0 时，移除会话权限清单，通过节点的 `readable`、`readOnly` 和操作的 `disabled` 更新界面。将节点的空标签改为字符串。固定安装 0.48.0 的消费者应查阅[该版本的接口](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.48.0/docs/interfaces/README.md)。
 
 ```vue
 <script setup lang="ts">
-import { BusinessApplication } from "@zerp/ui";
+import { App } from "@zerp/ui";
 import { model } from "./consumer";
 </script>
-<template><BusinessApplication :model="model" /></template>
+<template><App :model="model" /></template>
 ```
 
-`@zerp/ui/model` 仅导出构造模型所需的类型，原生 Node 加载时没有运行时值或 Vue/Vuetify/CSS 依赖。唯一类型源为 `src/business-model.ts`，不再提供 `modelMetadata` Symbol。完整静态对象在登录前构造；登录、退出、再次登录沿用同一根引用。
+`@zerp/ui/model` 仅导出构造模型所需的类型，原生 Node 加载时没有运行时值或 Vue/Vuetify/CSS 依赖。唯一类型源为 `src/model/business-model.ts`，不再提供 `modelMetadata` Symbol。完整静态对象在登录前构造；登录、退出、再次登录沿用同一根引用。
 
-认证表单归 `authentication`，账户、导航、工作台和业务成员归 `work`。工作区的 `work.members` 包含业务栏目 `BusinessCategory`、领域 `DomainGroup` 或直属 `Collection`；领域分组仅组织一层并列集合，多个获权集合用 Material Tabs 切换，单集合直接展示；切换保留各自输入、条件与分页，不拥有整体保存，各集合独立查询、授权和保存。集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label` 是显示名称。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
+认证表单归 `authentication`，账户、导航、工作台和业务成员归 `work`。工作区的 `work.members` 包含业务栏目 `Category`、领域 `DomainGroup` 或直属 `Collection`；领域分组仅组织一层并列集合，多个获权集合用 Material Tabs 切换，单集合直接展示；切换保留各自输入、条件与分页，不拥有整体保存，各集合独立查询、授权和保存。集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label` 是显示名称。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
 
 输入直接更新字段值；`Operation` 必须提供 `disabled` 与无参数异步 `run()`。业务回调处理 API、冲突、请求有效性和未知结果恢复。库不保存编辑基线、冻结请求或前端原请求日志，不拦截普通草稿离开。旧公开结构没有兼容入口。仍有效的流程、处理、批次、报表与输出分别使用固定能力属性；不是任意命令、页面模板或组件映射。
 
@@ -41,7 +45,7 @@ import { model } from "./consumer";
 
 ## 独立消费者与验证
 
-[运行消费者](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model/README.md)直接定义合成业务模型，仅绑定 BusinessApplication。[类型示例](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model-contract/README.md)仅参加编译。接入及升级见[迁移清单](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/static-migration.md)。
+[运行消费者](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model/README.md)直接定义合成业务模型，仅绑定 App。[类型示例](https://github.com/hansonyu183/zerp-ui/blob/main/examples/model-contract/README.md)仅参加编译。接入及升级见[迁移清单](https://github.com/hansonyu183/zerp-ui/blob/main/docs/interfaces/static-migration.md)。
 
 命令以 package.json scripts 为准。`check:release` 在干净源码提交上运行相关类型、模型、UI、lint 和格式检查，只 pack 一次，将同一 tgz 物理安装到全新消费者，核对声明、原生 Node、样式/字体、唯一宿主及公开行为；逐命令退出码和摘要记录于 `.scratch/release/<SHA>/evidence.json`。正式发行的原包复验需要检出发行对应的干净提交，并将该版本的 `evidence.json` 放到上述证据路径，再运行 `node scripts/check-release.mjs --tgz <下载包>`。命令核对源码 SHA 和包摘要，直接使用下载的原包。
 
@@ -59,7 +63,7 @@ UI 规范与逐条部分覆盖边界分别见[规范](https://github.com/hansony
 
 ### 单据打印
 
-在 Collection 上提供有限 JSON `itemPrintTemple` / `printTemple`，即可通过公开 BusinessApplication 使用单条或当前页打印。明细 `rowHeight`、`headerHeight` 为最小高度；文字按真实浏览器字体自动换行撑高并分页。`kind: "pageNumber"` 输出“第 X / Y 页”，明细后的 `record` 区域可放置只出现一次的合计及签字栏。
+在 Collection 上提供有限 JSON `itemPrintTemple` / `printTemple`，即可通过公开 App 使用单条或当前页打印。明细 `rowHeight`、`headerHeight` 为最小高度；文字按真实浏览器字体自动换行撑高并分页。`kind: "pageNumber"` 输出“第 X / Y 页”，明细后的 `record` 区域可放置只出现一次的合计及签字栏。
 
 合成 A4 送货单见示例导航“打印示例”，模板和数据定义见 `examples/model/print-demo.ts`。使用 `pnpm check:print` 定向验收独立安装及真实 PDF。完整边界见[打印契约](https://github.com/hansonyu183/zerp-ui/blob/main/docs/printing/contract.md)。
 

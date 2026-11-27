@@ -109,19 +109,19 @@
 
 ### unit-theme
 
-[tests/business-shell-preferences.spec.ts](../tests/business-shell-preferences.spec.ts) · source/public-entry
+[tests/shell-preferences.spec.ts](../tests/shell-preferences.spec.ts) · source/public-entry
 
 定位：`defaults to MD3 light`。默认MD3浅色，切明暗后切MD2仍保持暗色。
 
 ### unit-feedback
 
-[tests/business-application-direct.spec.ts](../tests/business-application-direct.spec.ts) · source/public-entry
+[tests/app-direct.spec.ts](../tests/app-direct.spec.ts) · source/public-entry
 
 定位：`retains failed-save input`。保存失败保持输入与覆盖式编辑。
 
 ### unit-tabs
 
-[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+[tests/editor-direct.spec.ts](../tests/editor-direct.spec.ts) · source/public-entry
 
 定位：`uses ordered Material groups`。有序多组、首组默认激活、切换保留输入及隐藏不可读分组。
 
@@ -133,7 +133,7 @@
 
 ### unit-owned-detail-members
 
-[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+[tests/editor-direct.spec.ts](../tests/editor-direct.spec.ts) · source/public-entry
 
 定位：`shares ordered readable detail members`。桌面和手机的空态、行成员标题及顺序、空值和零值、跨行字段权限以及行结构错误反馈。
 
@@ -145,19 +145,19 @@
 
 ### unit-overlay
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`opens detail over retained conditions`。第二操作列、覆盖式编辑、保留条件和页码。
 
 ### unit-actions
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`puts row actions in the second column`。第二操作列及打开编辑不自动写入。
 
 ### unit-shell
 
-[tests/business-shell-preferences.spec.ts](../tests/business-shell-preferences.spec.ts) · source/public-entry
+[tests/shell-preferences.spec.ts](../tests/shell-preferences.spec.ts) · source/public-entry
 
 定位：`keeps the account menu reachable`。页面读取等待时账户仍可达。
 
@@ -177,7 +177,7 @@
 
 [scripts/ui-preferences-smoke.mjs](../scripts/ui-preferences-smoke.mjs) · tgz/browser
 
-定位：`two-level-navigation-canonical-link-title-and-mobile-close`。二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起。
+定位：`two-level-navigation-canonical-link-title-and-mobile-close`。二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起，按 Escape 收起并将焦点还给导航按钮。
 
 ### unit-passive-record
 
@@ -199,19 +199,19 @@
 
 ### unit-workflow-actions
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`keeps all qualified workflow actions directly reachable`。代表性流程行展示全部获准直接动作且不显示更多操作入口。
 
 ### unit-review
 
-[tests/business-review-preferences.spec.ts](../tests/business-review-preferences.spec.ts) · source/public-entry
+[tests/review-preferences.spec.ts](../tests/review-preferences.spec.ts) · source/public-entry
 
 定位：`narrows field reads and writes`。普通用户只读、增权恢复、管理员尊重业务只读及owner失配。
 
 ### unit-model
 
-[tests/business-application-direct.spec.ts](../tests/business-application-direct.spec.ts) · source/public-entry
+[tests/app-direct.spec.ts](../tests/app-direct.spec.ts) · source/public-entry
 
 定位：`edits the same model`。直接输入、失败保持、disabled与并发保护、退出同根引用及迟到错误隔离。
 
@@ -253,7 +253,7 @@
 
 ### unit-buttons
 
-[tests/business-shell-preferences.spec.ts](../tests/business-shell-preferences.spec.ts) · source/public-entry
+[tests/shell-preferences.spec.ts](../tests/shell-preferences.spec.ts) · source/public-entry
 
 定位：`restores Material primary, ordinary and destructive action hierarchy`。查询柔和主题色、保存实心主题色、删除危险色、关闭文字按钮，保留操作语义。
 
@@ -265,7 +265,7 @@
 
 ### unit-auth-session-actions
 
-[tests/business-application-direct.spec.ts](../tests/business-application-direct.spec.ts) · source/public-entry
+[tests/app-direct.spec.ts](../tests/app-direct.spec.ts) · source/public-entry
 
 定位：`offers only sign-in when anonymous and leaves recovery to the consumer`。匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮，宿主不调用恢复回调。
 
@@ -289,25 +289,25 @@
 
 ### package-query-states
 
-[scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
+[scripts/interaction-smoke.mjs](../scripts/interaction-smoke.mjs) · tgz/browser
 
 定位：`query-loading-single-feedback-retry-pagination-and-success-empty`。已有结果的查询显示读取中、一次失败反馈与未更新标识，原条件重试恢复分页，成功空结果隐藏分页。
 
 ### package-save-qualification
 
-[scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
+[scripts/interaction-smoke.mjs](../scripts/interaction-smoke.mjs) · tgz/browser
 
 定位：`mobile-save-qualification-and-unobstructed-specific-feedback`。手机编辑的保存随资格隐藏及恢复；模型失败文案只出现一次，字段不位移且可正常触达。
 
 ### unit-available-operations
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`updates row operations when eligibility or permission changes`。业务操作资格及撤权即时反馈，调用前重检及执行互斥。
 
 ### unit-mobile-action-overflow
 
-[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+[tests/editor-direct.spec.ts](../tests/editor-direct.spec.ts) · source/public-entry
 
 定位：`keeps the primary record action in reach on phones`。手机详情最常用操作直达，次要操作收纳并可执行。
 
@@ -331,19 +331,19 @@
 
 ### unit-readable-columns
 
-[tests/business-list-preferences.spec.ts](../tests/business-list-preferences.spec.ts) · source/public-entry
+[tests/list-preferences.spec.ts](../tests/list-preferences.spec.ts) · source/public-entry
 
 定位：`excludes unreadable fields from explicit columns and detail`。字段读取资格恢复后，同步恢复列表列及已打开的详情字段。
 
 ### unit-record-loading
 
-[tests/business-editor-direct.spec.ts](../tests/business-editor-direct.spec.ts) · source/public-entry
+[tests/editor-direct.spec.ts](../tests/editor-direct.spec.ts) · source/public-entry
 
 定位：`shows record loading only while the dialog reads the record`。编辑弹窗在记录读取期间显示提示，读取成功或失败后移除，保存期间不显示读取提示。
 
 ### package-notice-lifecycle
 
-[scripts/business-interaction-smoke.mjs](../scripts/business-interaction-smoke.mjs) · tgz/browser
+[scripts/interaction-smoke.mjs](../scripts/interaction-smoke.mjs) · tgz/browser
 
 定位：`top-notice-expiry-and-blocking-acknowledgment`。顶部提示到时消失，桌面和手机模态阻塞背景并在确认后恢复焦点。
 

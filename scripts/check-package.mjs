@@ -130,12 +130,7 @@ for (const name of ["main.ts"]) {
     (await readFile(path, "utf8")).replaceAll('"../shared/', '"./shared/'),
   );
 }
-for (const name of [
-  "business-model",
-  "business-families",
-  "business-workbench",
-  "public-api",
-]) {
+for (const name of ["business-model", "families", "workbench", "public-api"]) {
   const fixture = await readFile(
     join(root, `tests/${name}.type-test.ts`),
     "utf8",
@@ -205,12 +200,8 @@ for (const name of Object.keys(pkg.peerDependencies)) {
 }
 run("npm", ["ls", "vue", "vuetify", "vue-router", "--all"], consumer);
 for (const path of [
-  "src/write-lock",
-  "src/CrudView.vue",
-  "src/DynamicForm.vue",
-  "src/RecordDetails.vue",
-  "src/VoucherEditor.vue",
-  "dist/CrudView.vue",
+  "src/app/work/views/list/DataList.vue",
+  "dist/app/work/views/list/DataList.vue.d.ts",
   "dist/index.js",
 ]) {
   assert.throws(() => require.resolve(`@zerp/ui/${path}`), {
@@ -229,7 +220,7 @@ run(join(consumer, "node_modules/.bin/vue-tsc"), ["--noEmit"], consumer);
 // suppress our package's diagnostics with the consumer's skipLibCheck setting.
 const ts = require("typescript");
 const declarationRoot = dirname(require.resolve("@zerp/ui/style.css"));
-const declarationFiles = (await readdir(declarationRoot))
+const declarationFiles = (await readdir(declarationRoot, { recursive: true }))
   .filter((name) => name.endsWith(".d.ts"))
   .map((name) => join(declarationRoot, name));
 const declarationProgram = ts.createProgram(declarationFiles, {

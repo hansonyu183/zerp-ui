@@ -11,7 +11,7 @@ const declarations = new URL("../dist/index.d.ts", import.meta.url);
 await writeFile(
   declarations,
   (await readFile(declarations, "utf8")).replace(
-    /^import "\.\/(?:style|shell-layout)\.css";\n/gm,
+    /^import "\.\/styles\/(?:style|shell-layout)\.css";\n/gm,
     "",
   ),
 );

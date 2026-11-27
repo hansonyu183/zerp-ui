@@ -8,8 +8,8 @@ import {
 import { reactive } from "vue";
 import { afterEach, expect, it, vi } from "vitest";
 import { createRouter, createMemoryHistory } from "vue-router";
-import { layoutPrintTemplate } from "../src/print-layout";
-import { BusinessApplication } from "../src/index";
+import { layoutPrintTemplate } from "../src/components/printing/print-layout";
+import { App } from "../src/index";
 import type {
   BusinessModel,
   ObjectNode,
@@ -18,8 +18,9 @@ import type {
   PrintTemplate,
 } from "../src/model";
 // jsdom has no font/layout engine; browser PDF smoke covers real measurement.
-vi.mock("../src/print-layout", async () => {
-  const { bindPrintTemplate } = await import("../src/model-print");
+vi.mock("../src/components/printing/print-layout", async () => {
+  const { bindPrintTemplate } =
+    await import("../src/components/printing/model-print");
   return {
     layoutPrintTemplate: vi.fn(
       async (...args: Parameters<typeof bindPrintTemplate>) =>
@@ -55,7 +56,10 @@ const object = (
   members,
   operations: {},
 });
-const text = (key: string, value: string): FieldNode => ({
+const text = (
+  key: string,
+  value: string,
+): Extract<FieldNode, { kind: "text" | "longText" | "password" }> => ({
   kind: "text",
   key,
   label: key,
@@ -118,7 +122,7 @@ afterEach(async () => {
   document.body.innerHTML = "";
 });
 async function show(model: BusinessModel) {
-  mounted = mount(BusinessApplication, {
+  mounted = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -805,7 +809,8 @@ it("discards late template layout after model values change and after preview cl
   expect(previousSignal?.aborted).toBe(true);
   const frame = wrapper.get('iframe[title="打印预览"]');
   expect(frame.attributes("srcdoc")).toContain("new-value");
-  const { bindPrintTemplate } = await import("../src/model-print");
+  const { bindPrintTemplate } =
+    await import("../src/components/printing/model-print");
   finish(
     bindPrintTemplate(
       template,
@@ -822,4 +827,27 @@ it("discards late template layout after model values change and after preview cl
     .trigger("click");
   await flushPromises();
   expect(wrapper.find('iframe[title="打印预览"]').exists()).toBe(false);
+});
+
+it("leaves nested record values untracked while template preview is closed", async () => {
+  const { model, collection } = fixture();
+  const value = vi.fn(() => "private");
+  const hidden = {
+    ...text("hidden", ""),
+    readable: false,
+    get value() {
+      return value();
+    },
+  };
+  const row = object("formal", [text("code", "initial"), hidden]);
+  row.identity = "formal";
+  row.printable = true;
+  collection.items = [row];
+  collection.total = 1;
+  collection.printTemple = template;
+  await show(model);
+  value.mockClear();
+  (collection.items[0]!.members[0] as { value: string }).value = "updated";
+  await flushPromises();
+  expect(value).not.toHaveBeenCalled();
 });

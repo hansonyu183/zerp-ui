@@ -1,50 +1,29 @@
-import {
-  defineWorkbenchPage,
-  defineWorkbenchPreferencesPage,
-  type WorkbenchPreferencesAdapter,
-} from "./fixtures/assembly";
-type Key = { kind: "report" | "ds"; id: string };
-const adapter: WorkbenchPreferencesAdapter<Key> = {
-  load: async () => [
-    {
-      id: "report:a",
-      key: { kind: "report", id: "a" },
-      name: "报表",
-      added: false,
-    },
-  ],
-  async setAdded({ key, added, signal }) {
-    const id: string = key.id;
-    const value: boolean = added;
-    void [id, value, signal];
-  },
-};
-defineWorkbenchPreferencesPage({ title: "管理", instance: "a", adapter });
-defineWorkbenchPreferencesPage<string>({
-  title: "管理",
-  instance: "a",
-  // @ts-expect-error Cannot pair string keys with an object-key adapter.
-  adapter,
-});
-const home = {
-  title: "工作台",
-  instance: "a",
-  adapter: {
-    load: async () => ({
-      vouchers: { items: [] },
-      reports: { items: [] },
-      masters: { items: [] },
-      information: [],
-    }),
-  },
-};
-defineWorkbenchPage(home);
-// @ts-expect-error No consumer-rendered layout.
-defineWorkbenchPage({ ...home, render: () => null });
-// @ts-expect-error No consumer component through a getter.
-defineWorkbenchPreferencesPage(() => ({
-  title: "管理",
-  instance: "a",
-  adapter,
-  component: {},
-}));
+import type {
+  BusinessModel,
+  Workbench,
+  RecordsNode,
+  Collection,
+} from "@zerp/ui/model";
+declare const rows: RecordsNode;
+declare const collection: Collection;
+declare const workbench: Workbench;
+declare const model: BusinessModel;
+const complete = {
+  information: rows,
+  vouchers: rows,
+  reports: rows,
+  masters: rows,
+  key: "home",
+  label: "工作台",
+  async load() {},
+} satisfies Workbench;
+// prettier-ignore
+// @ts-expect-error Workbench is a fixed four-block structure.
+const arbitrary = { ...workbench, columns: 3 } satisfies Workbench;
+// prettier-ignore
+// @ts-expect-error Workbench blocks are owned records, not independent collections.
+const independent = { ...workbench, vouchers: collection } satisfies Workbench;
+// prettier-ignore
+// @ts-expect-error Workbench cannot become a global collection target.
+model.work.members = [workbench];
+void [complete, arbitrary, independent];

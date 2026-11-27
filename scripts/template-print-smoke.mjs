@@ -16,6 +16,7 @@ export async function templatePrintSmoke(page, options) {
   const navigation = page.getByRole("navigation", { name: "主导航" });
   await navigation.getByText("业务", { exact: true }).click();
   await navigation.getByRole("link", { name: "打印示例", exact: true }).click();
+  await page.getByRole("button", { name: "查询", exact: true }).click();
   await page.getByText("DEMO-001", { exact: true }).waitFor();
   await page.getByRole("button", { name: "打印", exact: true }).click();
   const dialog = page.getByRole("dialog", {

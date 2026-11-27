@@ -2,9 +2,9 @@ import { mount, flushPromises } from "@vue/test-utils";
 import { afterEach, expect, it, vi } from "vitest";
 import { reactive } from "vue";
 import { createRouter, createMemoryHistory } from "vue-router";
-import { BusinessApplication } from "../src/index";
+import { App } from "../src/index";
 import type { InteractionNode } from "../src/model";
-import { fixture, operation } from "./fixtures/static-model";
+import { fixture, object, operation } from "./fixtures/static-model";
 
 let wrapper: ReturnType<typeof mount> | undefined;
 afterEach(() => {
@@ -47,7 +47,7 @@ function setup(run = vi.fn(async () => {})) {
     ],
   });
   f.rows.conditions.members.push(node);
-  wrapper = mount(BusinessApplication, {
+  wrapper = mount(App, {
     props: { model: f.model },
     attachTo: document.body,
     global: {
@@ -100,6 +100,26 @@ it("lets an enabled download run from a read-only node", async () => {
   await flushPromises();
   await click("下载文件");
   expect(run).toHaveBeenCalledTimes(1);
+});
+it("opens a record from a related action inside a nested node", async () => {
+  const { rows, record, node } = setup();
+  node.items = [
+    {
+      kind: "related",
+      id: "nested-link",
+      label: "打开关联记录",
+      target: { collection: rows, record },
+    },
+  ];
+  rows.conditions.members = [object("group", "关联信息", [node])];
+  await flushPromises();
+  const path = window.location.href;
+
+  await click("打开关联记录");
+
+  expect(rows.selected).toBe(record);
+  expect(window.location.href).toBe(path);
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
 });
 it("prevents duplicate script downloads and reports current failures", async () => {
   let finish!: () => void;

@@ -38,19 +38,19 @@
       "assertion": "新静态模型消费者：引用一次加载及分页/过滤、单据明细跨Tab、权限、固定业务能力、报表下钻返回位置"
     },
     "unit-theme": {
-      "file": "tests/business-shell-preferences.spec.ts",
+      "file": "tests/shell-preferences.spec.ts",
       "anchor": "defaults to MD3 light",
       "surface": "source/public-entry",
       "assertion": "默认MD3浅色，切明暗后切MD2仍保持暗色"
     },
     "unit-feedback": {
-      "file": "tests/business-application-direct.spec.ts",
+      "file": "tests/app-direct.spec.ts",
       "anchor": "retains failed-save input",
       "surface": "source/public-entry",
       "assertion": "保存失败保持输入与覆盖式编辑"
     },
     "unit-tabs": {
-      "file": "tests/business-editor-direct.spec.ts",
+      "file": "tests/editor-direct.spec.ts",
       "anchor": "uses ordered Material groups",
       "surface": "source/public-entry",
       "assertion": "有序多组、首组默认激活、切换保留输入及隐藏不可读分组"
@@ -62,7 +62,7 @@
       "assertion": "数字形态的根和集合键仍按声明顺序生成侧栏和领域 Tab，并选择首个可读入口"
     },
     "unit-owned-detail-members": {
-      "file": "tests/business-editor-direct.spec.ts",
+      "file": "tests/editor-direct.spec.ts",
       "anchor": "shares ordered readable detail members",
       "surface": "source/public-entry",
       "assertion": "桌面和手机的空态、行成员标题及顺序、空值和零值、跨行字段权限以及行结构错误反馈"
@@ -74,19 +74,19 @@
       "assertion": "独立安装消费者在 1440/390px 的明细标题及顺序一致"
     },
     "unit-overlay": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "opens detail over retained conditions",
       "surface": "source/public-entry",
       "assertion": "第二操作列、覆盖式编辑、保留条件和页码"
     },
     "unit-actions": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "puts row actions in the second column",
       "surface": "source/public-entry",
       "assertion": "第二操作列及打开编辑不自动写入"
     },
     "unit-shell": {
-      "file": "tests/business-shell-preferences.spec.ts",
+      "file": "tests/shell-preferences.spec.ts",
       "anchor": "keeps the account menu reachable",
       "surface": "source/public-entry",
       "assertion": "页面读取等待时账户仍可达"
@@ -107,7 +107,7 @@
       "file": "scripts/ui-preferences-smoke.mjs",
       "anchor": "two-level-navigation-canonical-link-title-and-mobile-close",
       "surface": "tgz/browser",
-      "assertion": "二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起"
+      "assertion": "二级分类默认收起，属下集合链接与当前标题可见，手机选择后抽屉收起，按 Escape 收起并将焦点还给导航按钮"
     },
     "unit-passive-record": {
       "file": "tests/static-application.spec.ts",
@@ -128,19 +128,19 @@
       "assertion": "工作台每个会话首次进入调用读取，返回复用，刷新可明确重试"
     },
     "unit-workflow-actions": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "keeps all qualified workflow actions directly reachable",
       "surface": "source/public-entry",
       "assertion": "代表性流程行展示全部获准直接动作且不显示更多操作入口"
     },
     "unit-review": {
-      "file": "tests/business-review-preferences.spec.ts",
+      "file": "tests/review-preferences.spec.ts",
       "anchor": "narrows field reads and writes",
       "surface": "source/public-entry",
       "assertion": "普通用户只读、增权恢复、管理员尊重业务只读及owner失配"
     },
     "unit-model": {
-      "file": "tests/business-application-direct.spec.ts",
+      "file": "tests/app-direct.spec.ts",
       "anchor": "edits the same model",
       "surface": "source/public-entry",
       "assertion": "直接输入、失败保持、disabled与并发保护、退出同根引用及迟到错误隔离"
@@ -182,7 +182,7 @@
       "assertion": "公开独立安装消费者的领域Tab、真实href、方向键/Enter激活、查询输入保持"
     },
     "unit-buttons": {
-      "file": "tests/business-shell-preferences.spec.ts",
+      "file": "tests/shell-preferences.spec.ts",
       "anchor": "restores Material primary, ordinary and destructive action hierarchy",
       "surface": "source/public-entry",
       "assertion": "查询柔和主题色、保存实心主题色、删除危险色、关闭文字按钮，保留操作语义"
@@ -194,7 +194,7 @@
       "assertion": "390/1440px 的公开认证页面覆盖卡片留白、品牌与字段左对齐、引用与文本和密码框的左右边界、全宽登录按钮及手动恢复入口移除。手机同时验证登录按钮的触控高度"
     },
     "unit-auth-session-actions": {
-      "file": "tests/business-application-direct.spec.ts",
+      "file": "tests/app-direct.spec.ts",
       "anchor": "offers only sign-in when anonymous and leaves recovery to the consumer",
       "surface": "source/public-entry",
       "assertion": "匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮，宿主不调用恢复回调"
@@ -218,25 +218,25 @@
       "assertion": "逐个访问全部合成业务入口及其详情/Tab、账户/改密、工作台、密钥修改和打印预览；390/1440px验证字段、操作区、Tab、表格、菜单及iframe边界，无文档横向溢出，弹窗位于顶栏下方"
     },
     "package-query-states": {
-      "file": "scripts/business-interaction-smoke.mjs",
+      "file": "scripts/interaction-smoke.mjs",
       "anchor": "query-loading-single-feedback-retry-pagination-and-success-empty",
       "surface": "tgz/browser",
       "assertion": "已有结果的查询显示读取中、一次失败反馈与未更新标识，原条件重试恢复分页，成功空结果隐藏分页"
     },
     "package-save-qualification": {
-      "file": "scripts/business-interaction-smoke.mjs",
+      "file": "scripts/interaction-smoke.mjs",
       "anchor": "mobile-save-qualification-and-unobstructed-specific-feedback",
       "surface": "tgz/browser",
       "assertion": "手机编辑的保存随资格隐藏及恢复；模型失败文案只出现一次，字段不位移且可正常触达"
     },
     "unit-available-operations": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "updates row operations when eligibility or permission changes",
       "surface": "source/public-entry",
       "assertion": "业务操作资格及撤权即时反馈，调用前重检及执行互斥"
     },
     "unit-mobile-action-overflow": {
-      "file": "tests/business-editor-direct.spec.ts",
+      "file": "tests/editor-direct.spec.ts",
       "anchor": "keeps the primary record action in reach on phones",
       "surface": "source/public-entry",
       "assertion": "手机详情最常用操作直达，次要操作收纳并可执行"
@@ -260,19 +260,19 @@
       "assertion": "手机关联入口的同行及换行、可点击尺寸、真实链接和目标集合标题"
     },
     "unit-readable-columns": {
-      "file": "tests/business-list-preferences.spec.ts",
+      "file": "tests/list-preferences.spec.ts",
       "anchor": "excludes unreadable fields from explicit columns and detail",
       "surface": "source/public-entry",
       "assertion": "字段读取资格恢复后，同步恢复列表列及已打开的详情字段"
     },
     "unit-record-loading": {
-      "file": "tests/business-editor-direct.spec.ts",
+      "file": "tests/editor-direct.spec.ts",
       "surface": "source/public-entry",
       "anchor": "shows record loading only while the dialog reads the record",
       "assertion": "编辑弹窗在记录读取期间显示提示，读取成功或失败后移除，保存期间不显示读取提示"
     },
     "package-notice-lifecycle": {
-      "file": "scripts/business-interaction-smoke.mjs",
+      "file": "scripts/interaction-smoke.mjs",
       "anchor": "top-notice-expiry-and-blocking-acknowledgment",
       "surface": "tgz/browser",
       "assertion": "顶部提示到时消失，桌面和手机模态阻塞背景并在确认后恢复焦点"

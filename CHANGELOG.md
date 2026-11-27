@@ -1,5 +1,10 @@
 # Changelog
 
+## 未发布
+
+- 公开组件更名为 `App`。消费者需更新导入和模板标签。
+- 公开模型类型 `BusinessNode`、`BusinessCategory` 分别更名为 `Node`、`Category`。这两个类型的导入名需要更新。
+
 ## 0.49.4
 
 - 业务消息可设置 `blocking: true`，以模态弹窗阻止背景操作，直到用户确认。

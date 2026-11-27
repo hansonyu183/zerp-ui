@@ -1,10 +1,12 @@
 /** 唯一公开 model 入口的定向编译检查；不导入或执行宿主、示例或任何业务回调。 */
 import type {
   BusinessModel,
+  Category,
   ListCollection,
   DomainGroup,
   DomainSection,
   FieldNode,
+  Node,
   ObjectNode,
   Operation,
   PrintTemplate,
@@ -231,9 +233,16 @@ const sectionCollection: DomainSection = { ...section, members: [collection] };
 // @ts-expect-error 单据分类固定一层。
 const nestedSection: DomainSection = { ...section, members: [section] };
 void [sectionCollection, nestedSection];
+const category: Category = {
+  kind: "category",
+  key: "catalog",
+  label: "基础资料",
+  members: [domain],
+};
+const node: Node = object;
 const groupedModel = {
   ...model,
-  work: { ...model.work, members: [domain, collection] },
+  work: { ...model.work, members: [category, domain, collection] },
 } satisfies BusinessModel;
 const keyedRoot = {
   ...model,
@@ -269,7 +278,14 @@ void model.work.navigation;
 // prettier-ignore
 // @ts-expect-error 集合 load 需要分页参数。
 collection.load?.({ id: "aa" });
-void [groupedModel, domainRecord, domainNested, domainSave, domainInObject];
+void [
+  node,
+  groupedModel,
+  domainRecord,
+  domainNested,
+  domainSave,
+  domainInObject,
+];
 
 // prettier-ignore
 // @ts-expect-error label 必须是字符串。

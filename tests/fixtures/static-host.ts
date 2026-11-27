@@ -1,11 +1,11 @@
 import { mount, flushPromises, DOMWrapper } from "@vue/test-utils";
-import { BusinessApplication } from "../../src/index";
+import { App } from "../../src/index";
 import type { BusinessModel, ListCollection } from "../../src/model";
 export async function render(
   model: BusinessModel,
   attrs?: Record<string, unknown>,
 ) {
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attrs,
     attachTo: document.body,

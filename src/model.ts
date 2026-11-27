@@ -1,1 +1,1 @@
-export type * from "./business-model";
+export type * from "./model/business-model";

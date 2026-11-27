@@ -93,6 +93,29 @@ it("opens an AA window directly from the workbench and confirms switching dirty 
   expect(wrapper.get('[aria-label="记录窗口"]').text()).toContain("联系人详情");
 });
 
+it("does not traverse another collection again when the current collection changes", async () => {
+  const current = fixture();
+  const other = fixture();
+  other.rows.key = "other";
+  current.model.work.members.push(other.rows);
+  const members = other.record.members;
+  const readMembers = vi.fn(() => members);
+  Object.defineProperty(other.record, "members", { get: readMembers });
+
+  wrapper = await render(current.model);
+  expect(readMembers).toHaveBeenCalled();
+  readMembers.mockClear();
+
+  current.rows.items.push(
+    object("new", "新记录", [field("name", "名称", "新增测试记录")]),
+  );
+  await flushPromises();
+  expect(wrapper.text()).toContain("新增测试记录");
+  await click("编辑");
+  expect(wrapper.find('[role="dialog"]').exists()).toBe(true);
+  expect(readMembers).not.toHaveBeenCalled();
+});
+
 it("loads only the deep-linked collection and reuses it across page changes", async () => {
   const first = fixture();
   const second = fixture();

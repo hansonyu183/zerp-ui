@@ -34,9 +34,9 @@ import type { OperationHandle } from "@zerp/ui";
 // @ts-expect-error Runtime VM handles cannot be imported.
 import type { EditGuardHandle } from "@zerp/ui";
 // @ts-expect-error Private source subpaths are not package exports.
-import type {} from "@zerp/ui/src/pages";
+import type {} from "@zerp/ui/src/app/work/views/list/DataList.vue";
 // @ts-expect-error Private generated declarations are not package exports.
-import type {} from "@zerp/ui/dist/pages";
+import type {} from "@zerp/ui/dist/app/work/views/list/DataList.vue";
 void [
   CrudView,
   ConfigurationView,
@@ -140,8 +140,10 @@ import { projectBusinessFields } from "@zerp/ui";
 // @ts-expect-error Retired assembly APIs have no public compatibility export.
 import { domainBlocks } from "@zerp/ui";
 
+import { App } from "@zerp/ui";
+// @ts-expect-error The application is exported only as App.
 import { BusinessApplication } from "@zerp/ui";
-declare const slots: InstanceType<typeof BusinessApplication>["$slots"];
+declare const slots: InstanceType<typeof App>["$slots"];
 // @ts-expect-error The model application owns its content.
 slots.default();
 
@@ -186,4 +188,5 @@ void [
   applicationNavigation,
   projectBusinessFields,
   domainBlocks,
+  BusinessApplication,
 ];

@@ -1,7 +1,7 @@
 import { expect } from "@playwright/test";
 import { settleLayout } from "./direct-presentation-smoke.mjs";
 
-// Runs through the public BusinessApplication and its synthetic consumer only.
+// Runs through the public App and its synthetic consumer only.
 export async function mobileDetailSmoke(page) {
   await page.setViewportSize({ width: 390, height: 844 });
   await page

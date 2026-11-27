@@ -1,6 +1,6 @@
 import { reactive } from "vue";
 import type {
-  BusinessNode,
+  Node,
   ListCollection,
   InteractionNode,
   ObjectNode,
@@ -21,11 +21,7 @@ const text = (key: string, label: string, value: string, readOnly = false) =>
     readOnly,
     required: false,
   });
-const object = (
-  key: string,
-  label: string,
-  members: BusinessNode[],
-): ObjectNode =>
+const object = (key: string, label: string, members: Node[]): ObjectNode =>
   reactive({
     kind: "object",
     businessType: key,

@@ -4,7 +4,7 @@ import {
   readonlyReferenceFeedbackSmoke,
 } from "./field-alignment-smoke.mjs";
 import { authAlignmentSmoke } from "./auth-alignment-smoke.mjs";
-import { businessInteractionSmoke } from "./business-interaction-smoke.mjs";
+import { interactionSmoke } from "./interaction-smoke.mjs";
 import { mobileDetailSmoke } from "./mobile-detail-smoke.mjs";
 import {
   settleLayout,
@@ -173,12 +173,19 @@ export async function uiPreferencesSmoke(page, options = {}) {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("空集合");
   await expect(sectionLink).toHaveAttribute("aria-current", "page");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "切换导航", exact: true }).click();
+  const navigationToggle = page.getByRole("button", {
+    name: "切换导航",
+    exact: true,
+  });
+  await navigationToggle.click();
+  await expect(sectionLink).toBeVisible();
+  await sectionLink.press("Escape");
+  await expect(navigationToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(navigationToggle).toBeFocused();
+  await navigationToggle.click();
   await expect(sectionLink).toBeVisible();
   await sectionLink.click();
-  await expect(
-    page.getByRole("button", { name: "切换导航", exact: true }),
-  ).toHaveAttribute("aria-expanded", "false");
+  await expect(navigationToggle).toHaveAttribute("aria-expanded", "false");
   await settleLayout(page);
   expect(
     (await page.locator(".v-navigation-drawer").boundingBox()).x + 224,
@@ -377,7 +384,7 @@ export async function uiPreferencesSmoke(page, options = {}) {
     clauses: ["UI-ACTION-03", "UI-SHELL-06"],
     ...(await readonlyReferenceFeedbackSmoke(page)),
   });
-  assertions.push(...(await businessInteractionSmoke(page)));
+  assertions.push(...(await interactionSmoke(page)));
   await page.goto(new URL("/", page.url()).href);
   assertions.push(...(await mobileDetailSmoke(page)));
   return {

@@ -143,7 +143,7 @@ function voucher(): ObjectNode {
       field("quantity", "1", "数量"),
     ]),
   );
-  return object("delivery-demo", [
+  const record = object("delivery-demo", [
     field("number", "DEMO-001"),
     field("total", "数量合计：35（合成业务值）"),
     {
@@ -156,6 +156,8 @@ function voucher(): ObjectNode {
       operations: {},
     },
   ]);
+  record.businessType = "delivery";
+  return record;
 }
 export const printDemo: ListCollection = reactive({
   key: "print-demo",

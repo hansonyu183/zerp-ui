@@ -2,7 +2,7 @@ import { reactive } from "vue";
 import { vi } from "vitest";
 import type {
   BusinessModel,
-  BusinessNode,
+  Node,
   ListCollection,
   DomainGroup,
   FieldNode,
@@ -26,7 +26,7 @@ export const field = (
 export const object = (
   key: string,
   label: string,
-  members: BusinessNode[] = [],
+  members: Node[] = [],
 ): ObjectNode =>
   reactive({
     kind: "object",
@@ -108,7 +108,7 @@ export function fixture() {
     owner,
   };
 }
-export function asField(node: BusinessNode): FieldNode {
+export function asField(node: Node): FieldNode {
   if ("value" in node && node.kind !== "interactions" && node.kind !== "output")
     return node;
   throw Error("Expected field");

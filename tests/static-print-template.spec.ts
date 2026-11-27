@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  bindPrintTemplate as bind,
+  bindPrintTemplate as prepare,
   type MeasurePrintText,
-} from "../src/model-print";
+} from "../src/components/printing/model-print";
 import type { ListCollection, ObjectNode, PrintTemplate } from "../src/model";
 const measure: MeasurePrintText = () => ({ height: 0, insetTop: 0 });
+const bind = (...args: Parameters<typeof prepare>) => prepare(...args).document;
 const bindPrintTemplate = (
   ...args: Parameters<typeof bind> extends [...infer A, MeasurePrintText]
     ? A

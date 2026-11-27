@@ -1,8 +1,8 @@
 # 静态响应式业务模型接口
 
-正式决定及实施状态维护于 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。本目录说明静态模型接口及其修订。唯一类型声明源为 src/business-model.ts，经 @zerp/ui/model 导出。有序成员和所属明细修订自 0.48.0 起适用。
+正式决定及实施状态维护于 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。本目录说明静态模型接口及其修订。唯一类型声明源为 src/model/business-model.ts，经 @zerp/ui/model 导出。有序成员和所属明细修订自 0.48.0 起适用。
 
-- [完整类型](../../src/business-model.ts)：固定普通属性、字段、统一对象、所属明细、独立集合、领域分组、打印、权限、工作台及应用生命周期。
+- [完整类型](../../src/model/business-model.ts)：固定普通属性、字段、统一对象、所属明细、独立集合、领域分组、打印、权限、工作台及应用生命周期。
 - [完整合成对象](../../examples/model-contract/static-application.type-example.ts)：直接定义客户、AA、AB、子明细、引用、格式、模板、工作台及完整匿名应用。
 - [类型验收](../../examples/model-contract/static-application.type-test.ts)：拒绝旧属性、错误值和错误操作层级，只参加编译。
 
@@ -10,29 +10,29 @@ model 入口仅导出类型，没有 Vue/Vuetify/CSS 运行时依赖。完整静
 
 ## 应用、认证与工作区
 
-`BusinessApplication` 接收同一个响应式 `BusinessModel`。应用级品牌、主题、会话和消息留在根上。`authentication` 持有登录表单及登录、恢复操作。`work` 持有业务成员、账户和可选首页集合。登录页只接收认证节点与共用呈现属性，工作页接收工作区节点与共用呈现属性。匿名与恢复使用登录页，就绪与强制改密使用工作页。
+`App` 接收同一个响应式 `BusinessModel`。应用级品牌、主题、会话和消息留在根上。`authentication` 持有登录表单及登录、恢复操作。`work` 持有业务成员、账户和可选首页集合。登录页使用固定模板，从认证表单的直接成员分别读取第一个单选引用、文本和密码字段，对应账套、账号和密码。工作页接收工作区节点与共用呈现属性。匿名与恢复使用登录页，就绪与强制改密使用工作页。
 
-浏览器同一 JavaScript 运行环境同时挂载一个 `BusinessApplication`。卸载后可挂载新的根模型。库在模块内保存当前界面状态和操作，卸载时释放。不同浏览器标签页各自持有自己的状态。
+浏览器同一 JavaScript 运行环境同时挂载一个 `App`。卸载后可挂载新的根模型。库在模块内保存当前界面状态和操作，卸载时释放。不同浏览器标签页各自持有自己的状态。
 
-消费者迁移时将原根级 `members`、`account`、`navigation`、`workbench` 移入 `work`，所有读写都走新路径。保留原集合、字段及回调引用。消费者 Router 负责未匹配路由，`work.navigation.current` 为 `null` 仍表示首页。
+消费者迁移时将原根级 `members`、`account` 和 `workbench` 移入 `work`，保留原集合、字段及回调引用。页面路由和 404 由库依据静态业务结构管理。
 
 ## 领域、对象与集合
 
 `ObjectNode` 用 `family` 区分 `standard` 和 `voucher`，单据额外提供只读 `type` 和封闭单据操作。`Collection` 承载独立查询、权限和保存边界。栏目、分类与领域组织业务入口。
 
-- `BusinessModel.work.members` 的类型为 `(BusinessCategory | DomainGroup | Collection)[]`。工作区栏目和领域按数组顺序呈现。
-- `BusinessCategory.members` 是有序的领域与折叠分类数组。`DomainSection.members` 是有序领域数组。键在同层唯一，分类固定一层。
+- `BusinessModel.work.members` 的类型为 `(Category | DomainGroup | Collection)[]`。工作区栏目和领域按数组顺序呈现。
+- `Category.members` 是有序的领域与折叠分类数组。`DomainSection.members` 是有序领域数组。键在同层唯一，分类固定一层。
 - `DomainGroup.members` 的类型为 `Collection[]`。Tab 和默认可读集合按数组顺序确定。各层成员使用自身的唯一 `key`。每个集合只定义一次，路由、工作台、关联和权限使用原集合引用。
 
 ```text
 BusinessModel.work.members
-├─ 基础资料（BusinessCategory）
+├─ 基础资料（Category）
 │  └─ 客户（DomainGroup）
 │     ├─ 客户（Collection）
 │     ├─ 账款设置（Collection）
 │     ├─ 联系人（Collection）
 │     └─ …
-└─ 单据（BusinessCategory）
+└─ 单据（Category）
    └─ 采购（DomainSection）
       ├─ AA 采购订单（DomainGroup，持有 AA 集合）
       └─ AB 采购收货（DomainGroup，持有 AB 集合）
@@ -116,7 +116,7 @@ pageNumber 元素沿用文本样式及区域坐标，分页完成后输出“第
 
 ## 验收边界
 
-通过唯一公开 BusinessApplication/model 入口、同一候选 tgz 的物理独立安装、合成模型及模拟回调验证。仅对新精确格式与模板算法补必要的纯函数检查；不导出私有 VM。UI 条款逐项核对，实际命令与退出码、确切源码 SHA、tgz 摘要及缺口回写 GitHub #159 及实施票。
+通过唯一公开 App/model 入口、同一候选 tgz 的物理独立安装、合成模型及模拟回调验证。仅对新精确格式与模板算法补必要的纯函数检查；不导出私有 VM。UI 条款逐项核对，实际命令与退出码、确切源码 SHA、tgz 摘要及缺口回写 GitHub #159 及实施票。
 
 合成消费者仅用于库的公开行为验收，使用合成数据和浏览器打印。正式发行原包见[固定版本安装](../../README.md#固定版本安装)。真实产品接入、API/E2E 及部署结果以消费者对应工单的验收记录为准。
 
@@ -134,6 +134,6 @@ pageNumber 元素沿用文本样式及区域坐标，分页完成后输出“第
 
 集合目标保留真实页面链接和原生修饰键行为。带记录的目标只打开该记录的窗口，工作台和其他页面保持原路由。此规则修订了 #173 的详情 URL 约定。
 
-Workbench.targets 是从快捷行到 CollectionTarget 的可选 ReadonlyMap，manageReports 提供“管理常用报表”入口。目标只保存已有业务节点引用；外页记录经当前公开有限 target 边归属到其独立集合，不预取、不填入当前页或 selected。实际成员归属优先，已属于另一个根的记录目标拒绝；权限仍沿当前 owner/集合/记录授权。移除目标边、撤权或切换身份后旧链接失效。未提供 targets 的行保留原有有限 get 操作语义。
+Workbench.targets 是从快捷行到 CollectionTarget 的可选 ReadonlyMap，manageReports 提供“管理常用报表”入口。目标只保存已有业务节点引用；外页记录经当前公开有限目标关系归属到其独立集合，定义目标时不预取，也不把记录加入当前页。实际打开记录窗口时更新目标集合的 `selected`。实际成员归属优先，已属于另一个根的记录目标拒绝；权限仍沿当前 owner/集合/记录授权。移除目标边、撤权或切换身份后旧链接失效。无可打开目标的可读行只呈现摘要。
 
 2026-11-17 用户追加要求恢复此前 BTN 与并列集合 Tab 样式：公开入口沿用 Material 按钮主次层级，保存等主要操作使用主题色，删除等危险操作具有危险样式，普通操作与关闭可区分；保留紧凑密度与 MD1/2/3、明暗响应。领域 Tab 使用 VTabs/VTab，不以普通按钮模拟；正式验收回写 #152。

@@ -2,8 +2,8 @@ import { route } from "./fixtures/static-host";
 import { mount, flushPromises, enableAutoUnmount } from "@vue/test-utils";
 import { reactive } from "vue";
 import { afterEach, expect, it, vi } from "vitest";
-import { BusinessApplication } from "../src/index";
-import { domainOf } from "./fixtures/static-model";
+import { App } from "../src/index";
+import { domainOf, field } from "./fixtures/static-model";
 import type { BusinessModel, ObjectNode, ListCollection } from "../src/model";
 enableAutoUnmount(afterEach);
 const operation = (run = vi.fn(async () => {})) => ({
@@ -67,7 +67,7 @@ function fixture() {
 }
 it("shows declared columns for an empty collection without querying the first authorized collection", async () => {
   const { model, collection, query } = fixture();
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
   expect(query).not.toHaveBeenCalled();
@@ -82,7 +82,7 @@ it("reads the selected record only after the user opens its window", async () =>
   collection.items = [record];
   collection.total = 1;
   collection.selected = record;
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   expect(wrapper.find('[role="dialog"]').exists()).toBe(false);
   expect(query).not.toHaveBeenCalled();
@@ -96,6 +96,28 @@ it("reads the selected record only after the user opens its window", async () =>
 it("keeps the same root through anonymous authentication and hides business collections during session recovery", async () => {
   const { model, query } = fixture();
   model.session = { state: "anonymous", owner: null };
+  model.authentication.form.members = [
+    {
+      kind: "password",
+      key: "password",
+      label: "密码",
+      value: "",
+      readOnly: false,
+      required: true,
+    },
+    field("user", "账号", ""),
+    {
+      kind: "reference",
+      key: "ledger",
+      label: "账套",
+      value: null,
+      readOnly: false,
+      required: false,
+      multiple: false,
+      options: [],
+    },
+    object("child", "业务区块"),
+  ];
   const signIn = vi.fn(async () => {
     const owner = { ledger: "synthetic", operator: "next", generation: "2" };
     model.session = {
@@ -104,10 +126,24 @@ it("keeps the same root through anonymous authentication and hides business coll
     };
   });
   model.authentication.operations.signIn.run = signIn;
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model }, attachTo: document.body });
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
   expect(query).not.toHaveBeenCalled();
+  const form = wrapper.get("form");
+  expect(
+    form
+      .findAll("input[aria-label]")
+      .map((input) => input.attributes("aria-label")),
+  ).toEqual(["账套", "账号", "密码"]);
+  expect(form.text()).not.toContain("业务区块");
+  model.authentication.operations.signIn.disabled = true;
+  await flushPromises();
+  expect(form.find('button[type="submit"]').exists()).toBe(false);
+  await form.trigger("submit");
+  expect(signIn).not.toHaveBeenCalled();
+  model.authentication.operations.signIn.disabled = false;
+  await flushPromises();
   await wrapper
     .findAll("button")
     .find((b) => b.text() === "登录")!
@@ -119,12 +155,13 @@ it("keeps the same root through anonymous authentication and hides business coll
   model.session = { state: "recovering", owner: null };
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
+  expect(wrapper.find('form button[type="submit"]').exists()).toBe(false);
   wrapper.unmount();
 });
 it("updates collection readability without deleting structure", async () => {
   const { model, collection } = fixture();
   collection.readable = false;
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
   collection.readable = true;
@@ -158,7 +195,7 @@ it("loads the workbench once per session and retries only on request", async () 
     reports: records("报表"),
     masters: records("资料"),
   };
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   expect(load).toHaveBeenCalledTimes(1);
   expect(wrapper.text()).toContain("操作失败");
@@ -208,7 +245,7 @@ it("edits the selected record directly, preserves failed input, and prevents dis
   collection.items = [row];
   collection.selected = row;
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -280,7 +317,7 @@ it("hides null-label detail nodes while preserving explicit list columns and ord
   collection.items = [row];
   collection.selected = row;
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -319,7 +356,7 @@ it("suppresses stale query feedback after a session change and lets the consumer
     if (model.session.owner !== owner) return;
     collection.total = 99;
   });
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   await wrapper
     .findAll("button")
@@ -379,7 +416,7 @@ it("edits owned detail rows in a compact desktop table and saves through the par
   ];
   collection.items = [parent];
   collection.selected = parent;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -420,7 +457,7 @@ it("discards failure feedback when a pending operation is replaced on the same b
   );
   collection.items = [row];
   collection.selected = row;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -460,7 +497,7 @@ it("opens processing-only records for direct input and executes supplied actions
   };
   collection.items = [row];
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -494,7 +531,7 @@ it("reports a missing explicit column member with a stable collection, record, a
   row.printable = true;
   collection.items = [row];
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   expect(wrapper.text()).toContain(
     "客户 / missing-1 / code：列引用的成员不存在",
@@ -515,7 +552,7 @@ it("lets a readonly collection user enter query criteria while preserving narrow
     },
   ];
 
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   const input = wrapper.get('input[aria-label="查询名称"]');
   expect(input.attributes("readonly")).toBeUndefined();
@@ -548,7 +585,7 @@ it("uses the framework homepage URL and preserves modified links", async () => {
     masters: records("资料"),
   };
   route(collection);
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   await flushPromises();
   const home = wrapper.get('a[aria-label="合成：首页"]');
   expect(home.attributes("href")).toBe("/");
@@ -594,7 +631,7 @@ it("keeps qualified workflow row actions directly visible while ordinary actions
   row.workflow = { operations: { start, advance, approveChild, rejectChild } };
   collection.items = [row];
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -678,7 +715,7 @@ it("keeps an unprintable record detail quiet until printing is available", async
       },
     ],
   };
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -717,7 +754,7 @@ it("captures report scroll before navigation clears the old page and restores it
     callback(0);
     return 1;
   };
-  const wrapper = mount(BusinessApplication, { props: { model } });
+  const wrapper = mount(App, { props: { model } });
   try {
     await flushPromises();
     Object.defineProperty(window, "scrollY", {
@@ -775,7 +812,7 @@ it("keeps authorized preview and print reachable from a read-only output view wh
   };
   collection.items = [row];
   collection.total = 1;
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -847,7 +884,7 @@ it("updates nested output confirmation from its operation availability", async (
   collection.items = [row];
   collection.total = 1;
 
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -916,7 +953,7 @@ it("keeps a nested object own update boundary editable from a view-only parent w
   collection.selected = parent;
   collection.total = 1;
 
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -971,7 +1008,7 @@ it("projects known finite domain icons and renders other domains as text links",
     items: [],
   };
   model.work.members.push(domainOf(unknown));
-  const wrapper = mount(BusinessApplication, {
+  const wrapper = mount(App, {
     props: { model },
     attachTo: document.body,
   });
@@ -986,4 +1023,91 @@ it("projects known finite domain icons and renders other domains as text links",
   expect(unknownLink.exists()).toBe(true);
   expect(unknownLink.find(".zerp-ui-icon").exists()).toBe(false);
   wrapper.unmount();
+});
+
+it("displays scalar summary values and opens a target from the exact readable report cell", async () => {
+  const { model, collection } = fixture();
+  const record = object("customer", "报表详情");
+  record.identity = "c1";
+  record.members = [
+    field("code", "编号", "C1"),
+    { ...field("hidden", "隐藏列", "secret"), readable: false },
+    {
+      kind: "decimal",
+      key: "amount",
+      label: "金额",
+      value: "0",
+      readOnly: false,
+      required: false,
+    },
+    {
+      kind: "boolean",
+      key: "approved",
+      label: "已审批",
+      value: false,
+      readOnly: false,
+    },
+  ];
+  collection.items = [record];
+  collection.total = 1;
+  collection.columns = [
+    { key: "code", label: "编号" },
+    { key: "amount", label: "金额" },
+    { key: "approved", label: "已审批" },
+  ];
+  const target = { collection, record };
+  collection.report = {
+    summary: {
+      caption: "合计",
+      values: { code: undefined, amount: 0, approved: false },
+    },
+    presentation: {
+      rows: [{ rowId: "previous-page", appearance: { bold: true } }],
+      groups: [
+        {
+          id: "previous-group",
+          label: "缺失边界的小计",
+          level: 0,
+          firstKey: "previous-page",
+          lastKey: "c1",
+          continuedBefore: false,
+          continuedAfter: false,
+          summary: { caption: "忽略该小计", values: { amount: 99 } },
+        },
+      ],
+    },
+    cells: [
+      {
+        row: record,
+        field: "hidden",
+        kind: "detail",
+        target,
+        label: "隐藏详情",
+        disabled: false,
+      },
+      {
+        row: record,
+        field: "code",
+        kind: "detail",
+        target,
+        label: "查看报表详情",
+        disabled: false,
+      },
+    ],
+  };
+  const wrapper = mount(App, { props: { model }, attachTo: document.body });
+  await flushPromises();
+  expect(wrapper.get("tfoot").attributes("aria-label")).toBe("合计");
+  expect(wrapper.findAll("tfoot td").map((cell) => cell.text())).toEqual([
+    "—",
+    "",
+    "0",
+    "false",
+  ]);
+  expect(wrapper.find('[aria-label="隐藏详情"]').exists()).toBe(false);
+  expect(wrapper.find(".zerp-report-group-summary").exists()).toBe(false);
+  const path = window.location.pathname;
+  await wrapper.get('[aria-label="查看报表详情"]').trigger("click");
+  expect(wrapper.get('[role="dialog"]').text()).toContain("报表详情");
+  expect(window.location.pathname).toBe(path);
 });
