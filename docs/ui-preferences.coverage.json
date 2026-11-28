@@ -389,7 +389,7 @@
     {
       "id": "UI-SHELL-02",
       "checks": ["unit-home-link"],
-      "remaining": "品牌区首页链接和导航回调有断言。顶栏完整子项顺序与品牌内容尚未逐项检查。",
+      "remaining": "品牌区首页链接及库内导航有断言。顶栏完整子项顺序与品牌内容尚未逐项检查。",
       "requirementSha256": "ad04b1a88628324bb0776f429a566cf70a7208ea7a4de22d5496a9f1fbf464a6"
     },
     {
@@ -634,7 +634,7 @@
         "package-domain-tabs",
         "unit-open-url"
       ],
-      "remaining": "公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。",
+      "remaining": "公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效、工作台首页入口及 `App.openUrl`。当前首页回退条件是没有可读工作台，规范写的是没有配置工作台。真实 OIT 的静态菜单、部署深链和权限另验。",
       "requirementSha256": "77daf9e64b69b5234c1ad9a0083636ea33353f278f0bfe86b4ab099fac924160"
     },
     {
@@ -719,7 +719,7 @@
     {
       "id": "UI-BOUND-02",
       "checks": ["unit-model", "unit-passive-record"],
-      "remaining": "库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。业务对象的可选 load 尚待公开接口及行为验收。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。",
+      "remaining": "公开入口的合成用例覆盖直接模型、同根会话切换、迟到反馈隔离和打开记录窗口时调用可选 load。oit-go 历史接入验收见 #155。消费者的当前版本与生产行为按各自交付记录验收。",
       "requirementSha256": "225b25c58ee555d92e37533f776b65041a29f9e8a603b486eff6a4a93e74d975"
     },
     {

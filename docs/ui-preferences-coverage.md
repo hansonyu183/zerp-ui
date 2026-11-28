@@ -25,7 +25,7 @@
 | UI-THEME-05 | [package-layout](#package-layout) | 覆盖表格12px及手机编辑输入16px；正文、菜单、导航、反馈及认证品牌字号与其他标题尚未逐类验证。 |
 | UI-THEME-06 | [package-layout](#package-layout)、[package-auth-alignment](#package-auth-alignment)、[package-mobile-detail-close](#package-mobile-detail-close)、[package-related-navigation](#package-related-navigation) | 覆盖代表性桌面动作、48px 顶栏、手机登录触控、认证与业务内容区留白、390px 客户工具栏同排、详情关闭和关联链接。登录卡片阴影、不同字段数量及窄屏换行情形另核对。 |
 | UI-SHELL-01 | [package-layout](#package-layout)、[package-application-alignment](#package-application-alignment) | 只测编辑弹层和顶栏；滚动、菜单、抽屉遮罩、消息及其他弹层边界待补。 |
-| UI-SHELL-02 | [unit-home-link](#unit-home-link) | 品牌区首页链接和导航回调有断言。顶栏完整子项顺序与品牌内容尚未逐项检查。 |
+| UI-SHELL-02 | [unit-home-link](#unit-home-link) | 品牌区首页链接及库内导航有断言。顶栏完整子项顺序与品牌内容尚未逐项检查。 |
 | UI-SHELL-03 | [unit-shell](#unit-shell)、[package-application-alignment](#package-application-alignment) | 慢页面读取期间账户菜单可达有断言，独立安装场景覆盖账户菜单及账户设置页面边界。窄屏文字收起尚未定向检查。 |
 | UI-SHELL-04 | [package-related-navigation](#package-related-navigation) | 核对代表性关联目的集合的可见标题；所有导航目标和业务名称重复仍需按路径审查。 |
 | UI-SHELL-05 | [package-feedback](#package-feedback)、[package-full](#package-full)、[package-reference-feedback](#package-reference-feedback)、[package-field-alignment](#package-field-alignment)、[package-query-states](#package-query-states)、[package-save-qualification](#package-save-qualification) | 覆盖代表性保存、查询失败和长引用错误的布局、去重、正文可操作及重试；所有字段和反馈组合未穷举。 |
@@ -53,7 +53,7 @@
 | UI-FORM-10 | [unit-workspace-windows](#unit-workspace-windows) | 合成场景覆盖工作台保留页面和 URL、同类切换重读、异类窗口激活、快照比较与保存。真实消费者的保存、权限和会话联动另验收。 |
 | UI-NAV-01 | [unit-domain](#unit-domain)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖分组默认收起及独立入口的实际链接。不显示导航标题及切换提示仍需定向检查。 |
 | UI-NAV-02 | [unit-navigation-icons](#unit-navigation-icons)、[unit-home-link](#unit-home-link)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖代表性语义图标、未知文本、首页修饰键和手机选择后关闭抽屉。桌面收起和全部导航链接的新标签行为仍需逐项检查。 |
-| UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs)、[unit-open-url](#unit-open-url) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。 |
+| UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs)、[unit-open-url](#unit-open-url) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效、工作台首页入口及 `App.openUrl`。当前首页回退条件是没有可读工作台，规范写的是没有配置工作台。真实 OIT 的静态菜单、部署深链和权限另验。 |
 | UI-NAV-04 | [package-related-navigation](#package-related-navigation) | 合成手机详情检查有序关联入口及真实导航目标；其它消费者的页面和目录路径需逐项审查。 |
 | UI-NAV-05 | [package-full](#package-full) | 新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。 |
 | UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full)、[unit-shell](#unit-shell)、[unit-workbench-load](#unit-workbench-load)、[unit-passive-record](#unit-passive-record)、[unit-workspace-windows](#unit-workspace-windows) | 源码公开入口覆盖首次读取、返回已访问集合、手动刷新及记录窗口重复读取。真实消费者的模型构造和启动请求另核对。 |
@@ -66,7 +66,7 @@
 | UI-SCOPE-02 | [unit-domain](#unit-domain)、[unit-domain-tabs](#unit-domain-tabs)、[package-domain-tabs](#package-domain-tabs) | 领域Tab顺序、按需读取、单集合、键盘/真实链接、撤权和输入/分页保持有映射；手机宽度有代表性检查，完整七集合和全部窄屏滚动组合及真实消费者另验收。 |
 | UI-SCOPE-03 | [unit-workflow-actions](#unit-workflow-actions) | 合成流程动作直接可达有代表证据；真实ZERP放行意见契约由消费者验收，不泛化免确认。 |
 | UI-BOUND-01 | 无自动断言 | 人工规范审查：不恢复失效要求；不擅自固定品牌色/字体族。 |
-| UI-BOUND-02 | [unit-model](#unit-model)、[unit-passive-record](#unit-passive-record) | 库内合成用例覆盖直接模型、同根会话切换和迟到反馈隔离。业务对象的可选 load 尚待公开接口及行为验收。oit-go 接入验收见 #155；每个消费者的当前版本及生产行为按其交付记录另验。 |
+| UI-BOUND-02 | [unit-model](#unit-model)、[unit-passive-record](#unit-passive-record) | 公开入口的合成用例覆盖直接模型、同根会话切换、迟到反馈隔离和打开记录窗口时调用可选 load。oit-go 历史接入验收见 #155。消费者的当前版本与生产行为按各自交付记录验收。 |
 | UI-BOUND-03 | 无自动断言 | 按消费者版本分别核对构造完整结构不依赖网络、响应不能改变结构及启动和实际业务路径。库的合成模型与包测试只覆盖库入口。 |
 
 ## 断言入口
