@@ -3,6 +3,7 @@ import { expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import {
   directPresentationSmoke,
+  settleLayout,
   workbenchPresentationSmoke,
 } from "./direct-presentation-smoke.mjs";
 export async function directModelSmoke(page) {
@@ -73,6 +74,34 @@ export async function directModelSmoke(page) {
         .getByRole("dialog")
         .getByRole("textbox", { name: "客户名称", exact: true }),
     ).toHaveValue("外页合成客户");
+    const recentDialog = page.getByRole("dialog");
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1440, height: 1000 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await settleLayout(page);
+      const bounds = (role, name) =>
+        recentDialog
+          .getByRole(role, { name, exact: true })
+          .evaluate((input) =>
+            input.closest(".v-field").getBoundingClientRect().toJSON(),
+          );
+      const [name, state, code] = await Promise.all([
+        bounds("textbox", "客户名称"),
+        bounds("combobox", "客户状态"),
+        bounds("textbox", "编号"),
+      ]);
+      const fieldGap = state.top - name.bottom;
+      expect(
+        fieldGap,
+        `${viewport.width}px within the field group`,
+      ).toBeGreaterThan(0);
+      expect(
+        code.top - state.bottom,
+        `${viewport.width}px after the field group`,
+      ).toBeCloseTo(fieldGap, 0);
+    }
     await close();
     assert.equal(
       callbacks.filter((name) => name === "customers.query").length,

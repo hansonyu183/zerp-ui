@@ -4,14 +4,14 @@
 
 ## 固定版本安装
 
-当前发行版本为 [ui-v0.51.0](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.51.0)，采用静态 BusinessModel 协议，公开组件名为 `App`。下载 `zerp-ui-0.51.0.tgz` 与 `SHA256SUMS`，核对摘要后安装。
+当前发行版本为 [ui-v0.51.1](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.51.1)，采用静态 BusinessModel 协议，公开组件名为 `App`。下载 `zerp-ui-0.51.1.tgz` 与 `SHA256SUMS`，核对摘要后安装。
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.51.0.tgz
+pnpm add ./zerp-ui-0.51.1.tgz
 ```
 
-0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。0.51.0 的当前安装包由 `App` 在宿主 Vue 应用中初始化 Vuetify，库入口负责载入其基础样式。消费者只需导入库样式并挂载 `App`。可通过 `model.brand.primary` 和 `model.brand.secondary` 提供品牌色。默认主题为 MD3 浅色，消费者通过 `BusinessModel.theme.value/change` 持久化主题选择。Vue 与 Vuetify 的 peer 范围见 package.json。
+0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。自 0.51.0 起，`App` 在宿主 Vue 应用中初始化 Vuetify，库入口负责载入其基础样式。消费者只需导入库样式并挂载 `App`。可通过 `model.brand.primary` 和 `model.brand.secondary` 提供品牌色。默认主题为 MD3 浅色，消费者通过 `BusinessModel.theme.value/change` 持久化主题选择。Vue 与 Vuetify 的 peer 范围见 package.json。
 
 ## 公开入口与迁移
 
