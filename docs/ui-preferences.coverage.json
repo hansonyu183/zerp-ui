@@ -195,9 +195,9 @@
     },
     "unit-auth-session-actions": {
       "file": "tests/app-direct.spec.ts",
-      "anchor": "offers only sign-in when anonymous and leaves recovery to the consumer",
+      "anchor": "offers only sign-in when anonymous",
       "surface": "source/public-entry",
-      "assertion": "匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮"
+      "assertion": "匿名时只提供登录按钮并调用登录回调"
     },
     "package-field-alignment": {
       "file": "scripts/field-alignment-smoke.mjs",
@@ -500,8 +500,8 @@
         "unit-operation-pending",
         "unit-reference-sync-load"
       ],
-      "remaining": "覆盖代表性撤权、禁用、查询及保存的运行中互斥、按回调返回值呈现忙碌、登录操作和手动会话恢复入口移除。互斥覆盖未穷举全部后端回调。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。",
-      "requirementSha256": "9710aeb15500963c6ad9d9826fb6904b41d3e54494acadec350aaf2ed84bfd63"
+      "remaining": "覆盖代表性撤权、禁用、查询及保存的运行中互斥、按回调返回值呈现忙碌、匿名登录操作。互斥覆盖未穷举全部后端回调。",
+      "requirementSha256": "58568b4f989c003d4387e66e6ef8672074aa847b4aedd389b52b4ac52ca38c18"
     },
     {
       "id": "UI-ACTION-04",
@@ -660,7 +660,7 @@
         "unit-workspace-windows"
       ],
       "remaining": "源码公开入口覆盖首次读取、返回已访问集合、手动刷新及记录窗口重复读取。真实消费者的模型构造和启动请求另核对。",
-      "requirementSha256": "fd1e6793ff1d45f5af3cea4c0197684f0e71e6a08287f90d4574493939d49b93"
+      "requirementSha256": "c4c139e7f12a72a047249d4806bd67ac9f3e38ce9937a6b6f463a4016991f684"
     },
     {
       "id": "UI-WORK-01",

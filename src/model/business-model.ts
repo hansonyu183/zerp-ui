@@ -430,7 +430,7 @@ export interface Category {
 
 /** 权限仍需同时满足节点业务限制；全体操作名封闭。 */
 export type Session =
-  | { state: "anonymous" | "recovering"; owner: null }
+  | { state: "anonymous"; owner: null }
   | { state: "ready" | "password-required"; owner: Owner };
 
 /** 首页集合，使用固定四块布局。 */

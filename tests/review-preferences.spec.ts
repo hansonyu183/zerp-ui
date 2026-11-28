@@ -23,13 +23,10 @@ it("narrows field reads and writes and restores structure on increased permissio
   await flushPromises();
   expect(input("名称").element.readOnly).toBe(true);
 });
-it("keeps the workspace hidden while the session is anonymous or recovering", async () => {
+it("keeps the workspace hidden while the session is anonymous", async () => {
   const { model } = fixture();
   model.session = { state: "anonymous", owner: null };
   wrapper = await render(model);
-  expect(document.body.textContent).not.toContain("initial");
-  model.session = { state: "recovering", owner: null };
-  await flushPromises();
   expect(document.body.textContent).not.toContain("initial");
   expect(input("登录名").exists()).toBe(true);
 });

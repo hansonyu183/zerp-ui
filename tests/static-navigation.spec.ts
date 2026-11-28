@@ -123,7 +123,7 @@ it("rechecks stale links against permissions and owner without remapping removed
   // Click before the queued DOM patch: the old key must never map to the next root.
   await oldLink.trigger("click");
   expect(window.location.pathname).toBe("/app/" + f.rows.key);
-  f.model.session = { state: "recovering", owner: null };
+  f.model.session = { state: "anonymous", owner: null };
   await oldLink.trigger("click");
   expect(window.location.pathname).toBe("/app/" + f.rows.key);
   await flushPromises();
