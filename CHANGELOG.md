@@ -2,6 +2,8 @@
 
 ## 0.51.0
 
+- 前端集合地址统一归入 `/app`。宿主可调用 `App.openUrl(url)`，集合地址执行导航，带单个 `id` 的记录地址只打开窗口并保留页面地址。
+
 - `App` 自动安装 Vuetify 并加载基础样式。原有品牌主色和辅色移入 `model.brand`，见[迁移说明](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.51.0/docs/interfaces/static-migration.md#vuetify-初始化迁移)。
 
 - 字段和所属明细直接更新原响应式记录。保存与明细增删回调接收原节点，消费者可监听变更。

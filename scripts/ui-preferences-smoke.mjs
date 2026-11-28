@@ -32,7 +32,7 @@ export async function uiPreferencesSmoke(page, options = {}) {
   await page.getByRole("button", { name: "登录", exact: true }).click();
   const navigation = page.getByRole("navigation", { name: "主导航" });
   const home = navigation.getByRole("link", { name: "工作台", exact: true });
-  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("href", "/app/");
   await expect(home).toHaveAttribute("aria-current", "page");
   await navigation.getByText("业务", { exact: true }).click();
   const customers = navigation.getByRole("link", { name: "客户", exact: true });
@@ -49,7 +49,7 @@ export async function uiPreferencesSmoke(page, options = {}) {
     name: "联系人",
     exact: true,
   });
-  await expect(contactTab).toHaveAttribute("href", "/business/contacts");
+  await expect(contactTab).toHaveAttribute("href", "/app/contacts");
   const filterInput = page.getByRole("textbox", {
     name: "关键词",
     exact: true,
@@ -168,7 +168,7 @@ export async function uiPreferencesSmoke(page, options = {}) {
     name: "E 空集合",
     exact: true,
   });
-  await expect(sectionLink).toHaveAttribute("href", "/business/empty");
+  await expect(sectionLink).toHaveAttribute("href", "/app/empty");
   await sectionLink.click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("空集合");
   await expect(sectionLink).toHaveAttribute("aria-current", "page");
@@ -385,7 +385,7 @@ export async function uiPreferencesSmoke(page, options = {}) {
     ...(await readonlyReferenceFeedbackSmoke(page)),
   });
   assertions.push(...(await interactionSmoke(page)));
-  await page.goto(new URL("/", page.url()).href);
+  await page.goto(new URL("/app/", page.url()).href);
   assertions.push(...(await mobileDetailSmoke(page)));
   return {
     assertions,

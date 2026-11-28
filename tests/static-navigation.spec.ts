@@ -23,12 +23,12 @@ it("uses array order for root links and domain tabs even with numeric keys", asy
   ];
   route(null);
   wrapper = await render(f.model);
-  expect(window.location.pathname).toBe("/business/" + f.rows.key);
+  expect(window.location.pathname).toBe("/app/" + f.rows.key);
   expect(wrapper.findAll("nav a").map((link) => link.text())).toEqual([
     "第一领域",
     "第二领域",
   ]);
-  expect(wrapper.get("nav a").attributes("href")).toBe("/business/20");
+  expect(wrapper.get("nav a").attributes("href")).toBe("/app/20");
   expect(wrapper.findAll('[role="tab"]').map((tab) => tab.text())).toEqual([
     "记录集合",
     "第二集合",
@@ -42,18 +42,18 @@ it("resolves sidebar, collection tab and brand links against the router base", a
   base.href = "/suite/";
   const previous = window.location.pathname;
   document.head.prepend(base);
-  window.history.replaceState(window.history.state, "", "/suite/business/rows");
+  window.history.replaceState(window.history.state, "", "/suite/app/rows");
   try {
     wrapper = await render(model);
-    expect(wrapper.get("nav a").attributes("href")).toBe(
-      "/suite/business/rows",
+    expect(wrapper.get("nav a").attributes("href")).toBe("/suite/app/rows");
+    expect(wrapper.get(".zerp-shell-brand").attributes("href")).toBe(
+      "/suite/app/",
     );
-    expect(wrapper.get(".zerp-shell-brand").attributes("href")).toBe("/suite/");
     const contactTab = wrapper.findAll('[role="tab"]')[1]!;
-    expect(contactTab.attributes("href")).toBe("/suite/business/contacts");
+    expect(contactTab.attributes("href")).toBe("/suite/app/contacts");
     await contactTab.trigger("click");
     await flushPromises();
-    expect(window.location.pathname).toBe("/suite/business/contacts");
+    expect(window.location.pathname).toBe("/suite/app/contacts");
   } finally {
     wrapper?.unmount();
     wrapper = undefined;
@@ -87,7 +87,7 @@ it("derives ordered domain links and folded sections, preserving page titles and
   ];
   route(null);
   wrapper = await render(f.model);
-  expect(window.location.pathname).toBe("/business/" + f.rows.key);
+  expect(window.location.pathname).toBe("/app/" + f.rows.key);
   const section = wrapper.find(".zerp-navigation-section");
   expect(section.exists()).toBe(true);
   expect(section.attributes("open")).toBeUndefined();
@@ -98,14 +98,14 @@ it("derives ordered domain links and folded sections, preserving page titles and
   ]);
   const link = section.find("a");
   expect(link.text()).toBe("AB 业务入口");
-  expect(link.attributes("href")).toBe("/business/rows");
+  expect(link.attributes("href")).toBe("/app/rows");
   expect(link.attributes("aria-current")).toBe("page");
   expect(wrapper.find("h1").text()).toBe("记录集合");
   await link.trigger("click", { ctrlKey: true });
-  expect(window.location.pathname).toBe("/business/" + f.rows.key);
+  expect(window.location.pathname).toBe("/app/" + f.rows.key);
   await link.trigger("click");
   await flushPromises();
-  expect(window.location.pathname).toBe("/business/" + f.rows.key);
+  expect(window.location.pathname).toBe("/app/" + f.rows.key);
   route(stopped);
   await flushPromises();
   expect(wrapper.get("h1").text()).toBe("历史集合");
@@ -122,10 +122,10 @@ it("rechecks stale links against permissions and owner without remapping removed
   f.rows.readable = false;
   // Click before the queued DOM patch: the old key must never map to the next root.
   await oldLink.trigger("click");
-  expect(window.location.pathname).toBe("/business/" + f.rows.key);
+  expect(window.location.pathname).toBe("/app/" + f.rows.key);
   f.model.session = { state: "recovering", owner: null };
   await oldLink.trigger("click");
-  expect(window.location.pathname).toBe("/business/" + f.rows.key);
+  expect(window.location.pathname).toBe("/app/" + f.rows.key);
   await flushPromises();
   expect(wrapper.findAll("nav a")).toHaveLength(0);
 });
@@ -163,7 +163,7 @@ it("prunes unauthorized roots, empty sections and groups, and falls back through
   blocked.readable = false;
   route(null);
   wrapper = await render(f.model);
-  expect(window.location.pathname).toBe("/business/" + f.rows.key);
+  expect(window.location.pathname).toBe("/app/" + f.rows.key);
   expect(wrapper.find("nav").text()).toContain("获权分类");
   expect(wrapper.find("nav").text()).not.toMatch(
     /空组|空分类|撤权分类|不可见集合/,
@@ -208,14 +208,14 @@ it("keeps domain collections independently authorized, queried and saved on requ
   await flushPromises();
   const link = wrapper.get("nav a");
   expect(wrapper.findAll("nav a").map((a) => a.text())).toEqual(["客户领域"]);
-  expect(link.attributes("href")).toBe("/business/rows");
+  expect(link.attributes("href")).toBe("/app/rows");
   expect(other.rows.operations.query!.run).not.toHaveBeenCalled();
   await wrapper
     .get('[role="tablist"]')
     .findAll('[role="tab"]')[1]!
     .trigger("click");
   await flushPromises();
-  expect(window.location.pathname).toBe("/business/" + other.rows.key);
+  expect(window.location.pathname).toBe("/app/" + other.rows.key);
   expect(link.attributes("aria-current")).toBe("page");
   expect(other.rows.operations.query!.run).not.toHaveBeenCalled();
   await click("查询");
@@ -223,7 +223,7 @@ it("keeps domain collections independently authorized, queried and saved on requ
   expect(wrapper.find('button[aria-label="编辑"]').exists()).toBe(false);
   f.rows.readable = false;
   await flushPromises();
-  expect(wrapper.get("nav a").attributes("href")).toBe("/business/contacts");
+  expect(wrapper.get("nav a").attributes("href")).toBe("/app/contacts");
   expect(wrapper.get("nav a").attributes("aria-current")).toBe("page");
   expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
   other.rows.readable = false;
@@ -247,7 +247,7 @@ it("invalidates removed domain collections and their stale navigation links", as
   f.model.work.members = [];
   await oldLink.trigger("click");
   await flushPromises();
-  expect(window.location.pathname).toBe("/business/" + f.rows.key);
+  expect(window.location.pathname).toBe("/app/" + f.rows.key);
   expect(wrapper.findAll("nav a")).toHaveLength(0);
   expect(wrapper.text()).toContain("404 页面不存在");
 });
@@ -278,12 +278,12 @@ it("uses Material domain tabs with real links and preserves each collection cont
   f.term.value = "keep customer search";
   f.rows.page = 3;
   const contactTab = tabs.findAll('[role="tab"]')[1]!;
-  expect(contactTab.attributes("href")).toBe("/business/contacts");
+  expect(contactTab.attributes("href")).toBe("/app/contacts");
   await contactTab.trigger("click", { ctrlKey: true });
-  expect(window.location.pathname).toBe("/business/" + f.rows.key);
+  expect(window.location.pathname).toBe("/app/" + f.rows.key);
   await contactTab.trigger("keydown", { key: " ", code: "Space" });
   await flushPromises();
-  expect(window.location.pathname).toBe("/business/" + second.rows.key);
+  expect(window.location.pathname).toBe("/app/" + second.rows.key);
   expect(second.rows.operations.query!.run).not.toHaveBeenCalled();
   second.term.value = "keep contact search";
   second.rows.page = 4;
@@ -307,6 +307,6 @@ it("uses Material domain tabs with real links and preserves each collection cont
   f.rows.readable = false;
   await oldTab.trigger("click");
   await flushPromises();
-  expect(window.location.pathname).toBe("/business/" + second.rows.key);
+  expect(window.location.pathname).toBe("/app/" + second.rows.key);
   expect(wrapper.find('[role="tablist"]').exists()).toBe(false);
 });

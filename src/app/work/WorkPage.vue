@@ -16,7 +16,7 @@ import {
   readable as nodeReadable,
   workbenchReadable,
 } from "../nodes";
-import { computed, ref, toRaw, watch } from "vue";
+import { computed, reactive, ref, toRaw, watch } from "vue";
 import type {
   BusinessModel,
   ListCollection,
@@ -25,6 +25,8 @@ import type {
 } from "../../model/business-model";
 import {
   homeHref,
+  resolveWorkUrl,
+  workHome,
   goToCollection,
   routePath,
   routeReady,
@@ -68,10 +70,11 @@ const current = computed<ListCollection | null>(() =>
 );
 const workbench = computed(() => {
   const home = props.model.workbench;
-  if (routePath.value === "/" && home && workbenchReadable(home)) return home;
+  if (routePath.value === workHome && home && workbenchReadable(home))
+    return home;
 });
 const notFound = computed(
-  () => routePath.value !== "/" && !routedCollection.value,
+  () => routePath.value !== workHome && !routedCollection.value,
 );
 watch(
   [
@@ -85,7 +88,7 @@ watch(
   () => {
     if (
       !routeReady.value ||
-      routePath.value !== "/" ||
+      routePath.value !== workHome ||
       !applicationReady.value ||
       sessionState.value !== "ready" ||
       workbench.value
@@ -235,19 +238,62 @@ function openCurrentRecord(request: RecordRequest) {
     return;
   windows.open(request);
 }
+function openRecordTarget(
+  collection: ListCollection,
+  record: ObjectNode,
+  resolvedId?: string,
+) {
+  const trigger = document.activeElement;
+  return windows.open({
+    collection,
+    record: reactive(record),
+    mode: "read",
+    resolvedId,
+    focus: () => (trigger instanceof HTMLElement ? trigger : null),
+  });
+}
+
 // 集合目标改变路由，记录目标直接打开窗口并保留当前页面。
 function visitTarget(target: CollectionTarget) {
   if (!availableTarget(target)) return;
-  if (target.record) {
-    const trigger = document.activeElement;
-    windows.open({
-      collection: target.collection,
-      record: target.record,
-      mode: "read",
-      focus: () => (trigger instanceof HTMLElement ? trigger : null),
-    });
-  } else goToCollection(target.collection);
+  if (target.record) openRecordTarget(target.collection, target.record);
+  else goToCollection(target.collection);
 }
+function openUrl(address: string): boolean {
+  if (
+    sessionState.value !== "ready" ||
+    feedbackForApplication().blocking.value ||
+    windows.confirm.value
+  )
+    return false;
+  const target = resolveWorkUrl(address);
+  if (!target) return false;
+  const { collection, id } = target;
+  if (!collection) {
+    visitHome();
+    return true;
+  }
+  if (!nodeReadable(collection)) return false;
+  if (id === undefined) {
+    accountView.value = null;
+    goToCollection(collection);
+    return true;
+  }
+
+  const session = sessionVersion.value;
+  const selected = collection.selected;
+  const record =
+    (selected?.identity === id ? selected : undefined) ??
+    collection.items.find((item) => item.identity === id) ??
+    collection.resolveRecord?.(id);
+  return (
+    !!record &&
+    session === sessionVersion.value &&
+    openRecordTarget(collection, record, id)
+  );
+}
+defineExpose({ openUrl });
+
 function visitHome() {
   accountView.value = null;
   goToCollection();

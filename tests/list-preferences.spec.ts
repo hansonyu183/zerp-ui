@@ -336,7 +336,7 @@ it("locates a record message through the explicit navigation target", async () =
     .trigger("click");
   await flushPromises();
   expect(rows.selected).toBe(record);
-  expect(window.location.pathname).toBe("/business/" + rows.key);
+  expect(window.location.pathname).toBe("/app/" + rows.key);
 });
 
 it("keeps a supplied collection blocker next to the query operation", async () => {

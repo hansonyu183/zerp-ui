@@ -3,7 +3,7 @@ import { watch } from "vue";
 import { flushPromises } from "@vue/test-utils";
 import type { ObjectNode, RecordsNode } from "../src/model";
 import { domainOf, field, fixture, object } from "./fixtures/static-model";
-import { click, render, route } from "./fixtures/static-host";
+import { click, input, render, route } from "./fixtures/static-host";
 
 let wrapper: Awaited<ReturnType<typeof render>> | undefined;
 afterEach(() => {
@@ -64,9 +64,9 @@ it("opens an off-page workbench record without navigating or reading its list", 
   wrapper = await render(f.model);
   expect(f.rows.selected).toBeNull();
   const manage = wrapper.findAll("a").find((a) => a.text() === "管理常用报表");
-  expect(manage?.attributes("href")).toBe("/business/rows");
+  expect(manage?.attributes("href")).toBe("/app/rows");
   await click("最近记录");
-  expect(window.location.pathname).toBe("/");
+  expect(window.location.pathname).toBe("/app/");
   expect(f.rows.items).not.toContain(f.offPage);
   expect(read).toHaveBeenCalledExactlyOnceWith("off-page");
   expect(list).not.toHaveBeenCalled();
@@ -92,7 +92,7 @@ it("drops an off-page window when selection synchronously changes the session", 
     await click("最近记录");
     expect(read).not.toHaveBeenCalled();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/app/");
   } finally {
     stop();
   }
@@ -114,7 +114,7 @@ it.each(["revoked", "removed", "replaced", "renamed"] as const)(
     await oldButton.trigger("click");
     expect(f.rows.selected).toBeNull();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/app/");
   },
 );
 
@@ -154,7 +154,101 @@ it.each(["opens", "disables", "removes", "replaces", "renames"] as const)(
     if (change === "renames") f.offPage.identity = "changed";
     await action.trigger("click");
     await flushPromises();
-    expect(window.location.pathname).toBe("/business/rows");
+    expect(window.location.pathname).toBe("/app/rows");
     expect(f.rows.selected).toBe(change === "opens" ? f.offPage : null);
   },
 );
+
+it("dispatches app URLs to page navigation or existing record windows", async () => {
+  const f = setup();
+  const voucher = fixture().rows;
+  voucher.key = "AB";
+  voucher.label = "AB 单据";
+  voucher.items = [];
+  f.model.work.members.push(voucher);
+  const cell = field("name", "单据名称", "原值");
+  const row: ObjectNode = {
+    ...object("560009", "AB 记录", [cell]),
+    family: "voucher",
+    type: "AB",
+    businessType: "voucher.AB",
+  };
+  row.operations.update = { disabled: false, run: vi.fn() };
+  const other = {
+    ...row,
+    key: "560010",
+    identity: "560010",
+    label: "另一张 AB",
+  };
+  row.load = vi.fn(async () => {});
+  other.load = vi.fn(async () => {});
+  voucher.resolveRecord = vi.fn((id) =>
+    id === "560009" ? row : id === "560010" ? other : undefined,
+  );
+  voucher.load = vi.fn(async () => {});
+  f.rows.resolveRecord = vi.fn((id) =>
+    id === "off-page" ? f.offPage : undefined,
+  );
+
+  wrapper = await render(f.model);
+  const historyLength = window.history.length;
+  expect(wrapper.vm.openUrl("/app/AB?id=560009")).toBe(true);
+  await flushPromises();
+  expect(window.location.pathname).toBe("/app/");
+  expect(window.history.length).toBe(historyLength);
+  expect(row.load).toHaveBeenCalledExactlyOnceWith("560009");
+  expect(voucher.load).not.toHaveBeenCalled();
+  expect(voucher.items).toHaveLength(0);
+  await click("编辑");
+  await input("单据名称").setValue("未保存");
+  expect(wrapper.vm.openUrl("/app/AB?id=560010")).toBe(true);
+  await flushPromises();
+  expect(other.load).not.toHaveBeenCalled();
+  await click("取消");
+  expect(input("单据名称").element.value).toBe("未保存");
+  expect(window.location.pathname).toBe("/app/");
+
+  expect(wrapper.vm.openUrl("/app/AB?id=560010")).toBe(true);
+  await flushPromises();
+  other.identity = "560011";
+  await click("继续切换");
+  expect(other.load).not.toHaveBeenCalled();
+  expect(input("单据名称").element.value).toBe("未保存");
+
+  expect(wrapper.vm.openUrl("/app/rows?id=off-page")).toBe(true);
+  await flushPromises();
+  expect(f.rows.selected).toBe(f.offPage);
+  expect(window.location.pathname).toBe("/app/");
+  await click("关闭");
+
+  expect(wrapper.vm.openUrl("/app/rows")).toBe(true);
+  await flushPromises();
+  expect(window.location.pathname).toBe("/app/rows");
+  expect(wrapper.vm.openUrl("/app/AB?id=560009&id=560010")).toBe(false);
+  expect(wrapper.vm.openUrl("/app/AB?id=560009&tab=other")).toBe(false);
+  expect(wrapper.vm.openUrl("https://example.invalid/app/AB?id=560010")).toBe(
+    false,
+  );
+  expect(wrapper.vm.openUrl("/app/missing?id=560010")).toBe(false);
+  voucher.readable = false;
+  expect(wrapper.vm.openUrl("/app/AB?id=560010")).toBe(false);
+  expect(other.load).not.toHaveBeenCalled();
+  expect(window.location.pathname).toBe("/app/rows");
+});
+
+it("reopens the requested identity when the previous record loses its collection", async () => {
+  const { model, rows, record } = fixture();
+  const next = object(record.key, "重新取得的记录");
+  const read = vi.fn(async () => {});
+  next.load = read;
+  wrapper = await render(model);
+  expect(wrapper.vm.openUrl("/app/rows?id=r1")).toBe(true);
+  await flushPromises();
+  rows.items = [next];
+  rows.selected = null;
+  await flushPromises();
+  expect(wrapper.vm.openUrl("/app/rows?id=r1")).toBe(true);
+  await flushPromises();
+  expect(rows.selected).toBe(next);
+  expect(read).toHaveBeenCalledExactlyOnceWith("r1");
+});

@@ -65,9 +65,9 @@ export async function directModelSmoke(page) {
     });
     await expect(
       workbench.getByRole("link", { name: "管理常用报表", exact: true }),
-    ).toHaveAttribute("href", "/business/reports");
+    ).toHaveAttribute("href", "/app/reports");
     await recentCustomer.click();
-    await expect(page).toHaveURL(new URL("/", page.url()).href);
+    await expect(page).toHaveURL(new URL("/app/", page.url()).href);
     await expect(
       page
         .getByRole("dialog")
@@ -83,7 +83,7 @@ export async function directModelSmoke(page) {
     await workbench
       .getByRole("link", { name: "管理常用报表", exact: true })
       .click();
-    await expect(page).toHaveURL(/\/business\/reports$/);
+    await expect(page).toHaveURL(/\/app\/reports$/);
     await visit("空集合");
     await expect(
       page.getByRole("columnheader", { name: "空集合列标题", exact: true }),
@@ -323,7 +323,7 @@ export async function directModelSmoke(page) {
         .getByRole("textbox", { name: "关联凭证编号", exact: true }),
     ).toHaveValue("S-001");
     await close();
-    await expect(page).toHaveURL(/\/business\/structured$/);
+    await expect(page).toHaveURL(/\/app\/structured$/);
     await expect(
       page.getByRole("textbox", { name: "查询期间", exact: true }),
     ).toHaveValue("2026-10");
@@ -408,7 +408,7 @@ export async function directModelSmoke(page) {
     ).toHaveCount(0);
     const linkPage = await page.context().newPage();
     try {
-      const directCollection = new URL("/business/customers", page.url());
+      const directCollection = new URL("/app/customers", page.url());
       await linkPage.goto(directCollection.href);
       await linkPage
         .getByRole("textbox", { name: "登录名", exact: true })

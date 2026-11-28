@@ -71,7 +71,7 @@ it("shows declared columns for an empty collection without querying the first au
   await flushPromises();
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
   expect(query).not.toHaveBeenCalled();
-  expect(window.location.pathname).toBe("/business/" + collection.key);
+  expect(window.location.pathname).toBe("/app/" + collection.key);
   wrapper.unmount();
 });
 it("reads the selected record only after the user opens its window", async () => {
@@ -150,7 +150,7 @@ it("keeps the same root through anonymous authentication and hides business coll
     .trigger("click");
   await flushPromises();
   expect(signIn).toHaveBeenCalledTimes(1);
-  expect(window.location.pathname).toBe("/business/customers");
+  expect(window.location.pathname).toBe("/app/customers");
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
   model.session = { state: "recovering", owner: null };
   await flushPromises();
@@ -628,24 +628,23 @@ it("uses the framework homepage URL and preserves modified links", async () => {
   const wrapper = mount(App, { props: { model } });
   await flushPromises();
   const home = wrapper.get('a[aria-label="合成：首页"]');
-  expect(home.attributes("href")).toBe("/");
-  const workbench = wrapper.get('nav a[href="/"]');
+  expect(home.attributes("href")).toBe("/app/");
+  const workbench = wrapper.get('nav a[href="/app/"]');
   expect(workbench.text()).toContain("工作台");
   expect(wrapper.findAll("nav a")[0]!.element).toBe(workbench.element);
   await workbench.trigger("click", { ctrlKey: true });
-  expect(window.location.pathname).toBe("/business/customers");
+  expect(window.location.pathname).toBe("/app/customers");
   await workbench.trigger("click");
   await flushPromises();
-  expect(window.location.pathname).toBe("/");
+  expect(window.location.pathname).toBe("/app/");
   expect(workbench.attributes("aria-current")).toBe("page");
   route(collection);
   await flushPromises();
   await home.trigger("click", { ctrlKey: true });
-  expect(window.location.pathname).toBe("/business/customers");
-  expect(window.location.pathname).toBe("/business/" + collection.key);
+  expect(window.location.pathname).toBe("/app/" + collection.key);
   await home.trigger("click");
   await flushPromises();
-  expect(window.location.pathname).toBe("/");
+  expect(window.location.pathname).toBe("/app/");
   expect(wrapper.text()).toContain("重要信息");
   wrapper.unmount();
 });

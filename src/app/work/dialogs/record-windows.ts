@@ -8,7 +8,7 @@ import {
   watch,
 } from "vue";
 import type { ListCollection, ObjectNode } from "../../../model/business-model";
-import { readable } from "../../nodes";
+import { canSelectRecord, readable } from "../../nodes";
 import { runWithFeedback } from "../../feedback";
 import { readRecord } from "../reads";
 import { sessionVersion } from "../../session";
@@ -20,9 +20,10 @@ export type RecordRequest = {
   mode: "read" | "edit";
   focus?: () => HTMLElement | null;
   print?: boolean;
+  resolvedId?: string;
 };
 
-export type RecordWindow = RecordRequest & {
+export type RecordWindow = Omit<RecordRequest, "resolvedId"> & {
   type: string;
   key: number;
   printKey: number;
@@ -55,24 +56,32 @@ export function useRecordWindows() {
   onBeforeUnmount(() => windows.clear());
 
   function open(request: RecordRequest, confirmed = false) {
-    const { record, collection } = request;
+    const { record, collection, resolvedId } = request;
     const type = record.businessType;
-    if (!type || !readable(collection) || !readable(record)) return;
+    if (
+      !type ||
+      !readable(collection) ||
+      !(resolvedId === undefined
+        ? readable(record)
+        : record.identity === resolvedId && canSelectRecord(collection, record))
+    )
+      return false;
     const existing = windows.get(type);
     if (
       existing &&
+      readable(existing.record) &&
       (toRaw(existing.record) === toRaw(record) ||
         (record.identity !== null &&
           existing.record.identity === record.identity))
     ) {
       active.value = type;
-      if (existing.saving) return;
+      if (existing.saving) return true;
       if (request.mode === "edit") existing.mode = "edit";
       existing.print = request.print;
       if (request.print) existing.printKey++;
-      return;
+      return true;
     }
-    if (existing?.saving) return;
+    if (existing?.saving) return false;
     if (
       existing &&
       !confirmed &&
@@ -80,20 +89,21 @@ export function useRecordWindows() {
       edited(existing.record, existing.baseline)
     ) {
       confirm.value = request;
-      return;
+      return true;
     }
     const session = sessionVersion.value;
     if (existing) clearSelection(existing, true);
-    if (session !== sessionVersion.value) return;
+    if (session !== sessionVersion.value) return false;
     collection.selected = record;
     if (
       session !== sessionVersion.value ||
       !readable(record) ||
       collection.selected !== record
     )
-      return;
+      return false;
+    const { resolvedId: _resolvedId, ...selection } = request;
     const entry: RecordWindow = shallowReactive({
-      ...request,
+      ...selection,
       type,
       key: ++key,
       printKey: 0,
@@ -103,6 +113,7 @@ export function useRecordWindows() {
     windows.set(type, entry);
     active.value = type;
     void load(entry);
+    return true;
   }
   async function load(entry: RecordWindow) {
     const current = () => windows.get(entry.type) === entry;

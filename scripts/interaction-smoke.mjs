@@ -3,7 +3,7 @@ import { settleLayout } from "./direct-presentation-smoke.mjs";
 
 export async function interactionSmoke(page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(new URL("/", page.url()).href);
+  await page.goto(new URL("/app/", page.url()).href);
   await page
     .getByRole("textbox", { name: "登录名", exact: true })
     .fill("admin");

@@ -143,6 +143,11 @@ import { domainBlocks } from "@zerp/ui";
 import { App } from "@zerp/ui";
 // @ts-expect-error The application is exported only as App.
 import { BusinessApplication } from "@zerp/ui";
+declare const app: InstanceType<typeof App>;
+const accepted: boolean = app.openUrl("/app/customers?id=123");
+// @ts-expect-error Vue Router is private to App.
+app.router.push("/app/customers");
+void accepted;
 declare const slots: InstanceType<typeof App>["$slots"];
 // @ts-expect-error The model application owns its content.
 slots.default();

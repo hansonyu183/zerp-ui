@@ -53,7 +53,7 @@
 | UI-FORM-10 | [unit-workspace-windows](#unit-workspace-windows) | 合成场景覆盖工作台保留页面和 URL、同类切换重读、异类窗口激活、快照比较与保存。真实消费者的保存、权限和会话联动另验收。 |
 | UI-NAV-01 | [unit-domain](#unit-domain)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖分组默认收起及独立入口的实际链接。不显示导航标题及切换提示仍需定向检查。 |
 | UI-NAV-02 | [unit-navigation-icons](#unit-navigation-icons)、[unit-home-link](#unit-home-link)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖代表性语义图标、未知文本、首页修饰键和手机选择后关闭抽屉。桌面收起和全部导航链接的新标签行为仍需逐项检查。 |
-| UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。 |
+| UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs)、[unit-open-url](#unit-open-url) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效和工作台首页入口；真实 OIT 菜单、Router 和权限另验。 |
 | UI-NAV-04 | [package-related-navigation](#package-related-navigation) | 合成手机详情检查有序关联入口及真实导航目标；其它消费者的页面和目录路径需逐项审查。 |
 | UI-NAV-05 | [package-full](#package-full) | 新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。 |
 | UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full)、[unit-shell](#unit-shell)、[unit-workbench-load](#unit-workbench-load)、[unit-passive-record](#unit-passive-record)、[unit-workspace-windows](#unit-workspace-windows) | 源码公开入口覆盖首次读取、返回已访问集合、手动刷新及记录窗口重复读取。真实消费者的模型构造和启动请求另核对。 |
@@ -364,6 +364,12 @@
 [tests/app-direct.spec.ts](../tests/app-direct.spec.ts) · source/public-entry
 
 定位：`installs Vuetify on mount`。公开 App 自动安装并在同一宿主重挂载，品牌主色和辅色随模型更新。
+
+### unit-open-url
+
+[tests/static-target-links.spec.ts](../tests/static-target-links.spec.ts) · source/public-entry
+
+定位：`dispatches app URLs to page navigation or existing record windows`。公开 App 以 /app 地址切页或打开外页记录窗口，校验权限、参数、页面地址和未保存确认。
 
 ## 执行与维护
 
