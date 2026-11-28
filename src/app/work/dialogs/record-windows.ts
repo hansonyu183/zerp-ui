@@ -12,13 +12,7 @@ import { readable } from "../../nodes";
 import { runWithFeedback } from "../../feedback";
 import { readRecord } from "../reads";
 import { sessionVersion } from "../../session";
-import {
-  draftOrigin,
-  edited,
-  recordDraft,
-  recordValues,
-  updateBaseline,
-} from "../../record-draft";
+import { edited, recordValues, updateBaseline } from "./record-values";
 
 export type RecordRequest = {
   collection: ListCollection;
@@ -32,9 +26,8 @@ export type RecordWindow = RecordRequest & {
   type: string;
   key: number;
   printKey: number;
-  draft: ObjectNode;
-  baseline: unknown;
-  edits: boolean;
+  baseline: ReturnType<typeof recordValues> | "loading" | "failed";
+  saving: boolean;
 };
 
 export type RecordWindowsState = ReturnType<typeof useRecordWindows>;
@@ -61,7 +54,7 @@ export function useRecordWindows() {
 
   onBeforeUnmount(() => windows.clear());
 
-  function open(request: RecordRequest, discard = false) {
+  function open(request: RecordRequest, confirmed = false) {
     const { record, collection } = request;
     const type = record.businessType;
     if (!type || !readable(collection) || !readable(record)) return;
@@ -72,17 +65,19 @@ export function useRecordWindows() {
         (record.identity !== null &&
           existing.record.identity === record.identity))
     ) {
-      if (request.mode === "edit") beginEdit(existing);
+      active.value = type;
+      if (existing.saving) return;
+      if (request.mode === "edit") existing.mode = "edit";
       existing.print = request.print;
       if (request.print) existing.printKey++;
-      active.value = type;
       return;
     }
+    if (existing?.saving) return;
     if (
       existing &&
-      existing.edits &&
-      !discard &&
-      edited(existing.draft, existing.baseline)
+      !confirmed &&
+      typeof existing.baseline !== "string" &&
+      edited(existing.record, existing.baseline)
     ) {
       confirm.value = request;
       return;
@@ -97,35 +92,32 @@ export function useRecordWindows() {
       collection.selected !== record
     )
       return;
-    const edits = supportsEditing(record);
-    const draft = edits ? recordDraft(record) : record;
     const entry: RecordWindow = shallowReactive({
       ...request,
       type,
       key: ++key,
       printKey: 0,
-      draft,
-      baseline: edits ? recordValues(draft) : undefined,
-      edits,
+      baseline: "loading",
+      saving: false,
     });
     windows.set(type, entry);
     active.value = type;
-    void readRecord(record, () => windows.get(type)?.record === record)?.then(
-      (loaded) => {
-        if (entry.edits && loaded && windows.get(type) === entry)
-          applyLoaded(entry);
-      },
-    );
+    void load(entry);
   }
-  // 用户在读取期间有编辑时只更新基准，保留正在编辑的值。
-  function applyLoaded(entry: RecordWindow) {
-    if (edited(entry.draft, entry.baseline))
-      entry.baseline = recordValues(entry.record);
-    else resetDraft(entry);
+  async function load(entry: RecordWindow) {
+    const current = () => windows.get(entry.type) === entry;
+    const pending = readRecord(entry.record, current);
+    const loaded = pending ? await pending : true;
+    if (current())
+      entry.baseline =
+        loaded && readable(entry.record)
+          ? recordValues(entry.record)
+          : "failed";
   }
-  function resetDraft(entry: RecordWindow) {
-    entry.draft = recordDraft(entry.record);
-    entry.baseline = recordValues(entry.draft);
+  function retry(entry: RecordWindow) {
+    if (entry.baseline !== "failed") return;
+    entry.baseline = "loading";
+    void load(entry);
   }
   function clearSelection(entry: RecordWindow, discardDraft = false) {
     if (entry.collection.selected === entry.record)
@@ -134,58 +126,48 @@ export function useRecordWindows() {
       entry.collection.draft = null;
   }
   function close(entry: RecordWindow) {
-    if (windows.get(entry.type) !== entry) return;
+    if (entry.saving || windows.get(entry.type) !== entry) return;
     windows.delete(entry.type);
     clearSelection(entry);
     if (active.value === entry.type) active.value = visible.value.at(-1)?.type;
   }
-  function resolveSwitch(discard: boolean) {
+  function resolveSwitch(confirmed: boolean) {
     const request = confirm.value;
     confirm.value = undefined;
-    if (discard && request) open(request, true);
+    if (confirmed && request) open(request, true);
   }
   function beginEdit(entry: RecordWindow) {
-    if (!entry.edits) {
-      entry.edits = true;
-      resetDraft(entry);
-    }
     entry.mode = "edit";
     entry.print = false;
   }
-  // 等待保存时可继续编辑，成功后只确认本次提交覆盖的值。
   async function save(entry: RecordWindow, node: ObjectNode) {
-    const original = draftOrigin(node);
-    const operation = original.operations.update;
-    if (!operation || operation.disabled) return;
-    const identity = original.identity;
-    const submitted = recordValues(node);
-    const result = await runWithFeedback(
-      original,
-      () => operation.run(recordDraft(node)),
-      () =>
-        windows.get(entry.type) === entry &&
-        original.identity === identity &&
-        original.operations.update === operation &&
-        readable(original),
-      original,
-      true,
-    );
-    if (!result || windows.get(entry.type) !== entry) return;
-    const saved = recordDraft(original);
-    entry.baseline = updateBaseline(
-      entry.draft,
-      entry.baseline,
-      node,
-      recordValues(saved),
-    );
-    if (edited(node, submitted)) return;
-    if (node === entry.draft) entry.draft = saved;
-    else node.members = saved.members;
-  }
-  async function retry(entry: RecordWindow) {
-    const current = () => windows.get(entry.type) === entry;
-    if (await readRecord(entry.record, current, false)) {
-      if (entry.edits && current()) applyLoaded(entry);
+    const baseline = entry.baseline;
+    const operation = node.operations.update;
+    if (
+      entry.saving ||
+      typeof baseline === "string" ||
+      !operation ||
+      operation.disabled
+    )
+      return;
+    const identity = node.identity;
+    entry.saving = true;
+    try {
+      const result = await runWithFeedback(
+        node,
+        () => operation.run(node),
+        () =>
+          windows.get(entry.type) === entry &&
+          (identity === null || node.identity === identity) &&
+          node.operations.update === operation &&
+          readable(node),
+        node,
+        true,
+      );
+      if (result && windows.get(entry.type) === entry)
+        entry.baseline = updateBaseline(entry.record, baseline, node);
+    } finally {
+      entry.saving = false;
     }
   }
   return {
@@ -199,13 +181,4 @@ export function useRecordWindows() {
     retry,
     open,
   };
-}
-
-function supportsEditing(record: ObjectNode): boolean {
-  return (
-    !!record.operations.update ||
-    record.members.some(
-      (member) => member.kind === "object" && supportsEditing(member),
-    )
-  );
 }

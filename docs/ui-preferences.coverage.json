@@ -119,7 +119,7 @@
       "file": "tests/workspace-windows.spec.ts",
       "anchor": "opens an AA window directly from the workbench",
       "surface": "source/public-entry",
-      "assertion": "从工作台打开记录窗口保持 URL、直接读取记录、同类切换确认并保留取消时的编辑、异类窗口共存"
+      "assertion": "工作台打开记录保留 URL，直接编辑原模型，同类切换确认与重读，异类窗口激活及保存后的快照比较"
     },
     "unit-workbench-load": {
       "file": "tests/static-application.spec.ts",
@@ -581,8 +581,8 @@
     {
       "id": "UI-FORM-08",
       "checks": ["unit-model", "unit-reactivity", "unit-overlay"],
-      "remaining": "普通输入和未知结果限制有代表性断言。记录窗口暂存和确认切换由 UI-FORM-10 的公开入口用例覆盖。",
-      "requirementSha256": "9988f2a1e6566105d3d409792bf603192feb64fe371ab20a7f46d092a6d02670"
+      "remaining": "普通输入和未知结果限制有代表性断言。记录窗口直接写入和确认切换由 UI-FORM-10 的公开入口用例覆盖。",
+      "requirementSha256": "85136afa06ff3a5c5c2b8c6d7d9087d3cd1223d90e514a0243455ebb3a3f4d73"
     },
     {
       "id": "UI-FORM-09",
@@ -593,8 +593,8 @@
     {
       "id": "UI-FORM-10",
       "checks": ["unit-workspace-windows"],
-      "remaining": "工作台保留页面和 URL、同类复用、异类共存及未保存编辑确认有合成场景。真实消费者的保存、权限和会话联动另验收。",
-      "requirementSha256": "d950ca7e2d15baed7904d80aa1294f61c8ec5f5ede8c99bdc149259a0228316e"
+      "remaining": "合成场景覆盖工作台保留页面和 URL、同类切换重读、异类窗口激活、快照比较与保存。真实消费者的保存、权限和会话联动另验收。",
+      "requirementSha256": "04a4a1ac46cac2cf90c18e61e48b102ec72b9a435ceb8c87055b564dd2b22041"
     },
     {
       "id": "UI-NAV-01",
@@ -643,10 +643,11 @@
         "package-full",
         "unit-shell",
         "unit-workbench-load",
-        "unit-passive-record"
+        "unit-passive-record",
+        "unit-workspace-windows"
       ],
-      "remaining": "源码公开入口覆盖首次读取、返回已访问集合、手动刷新及记录窗口读取。真实消费者的模型构造和启动请求另核对。",
-      "requirementSha256": "b4f0e2d8cd9b41282f0278bad5a2d1ab5c1d784c5bba0856456397d3f15d6f4b"
+      "remaining": "源码公开入口覆盖首次读取、返回已访问集合、手动刷新及记录窗口重复读取。真实消费者的模型构造和启动请求另核对。",
+      "requirementSha256": "fd1e6793ff1d45f5af3cea4c0197684f0e71e6a08287f90d4574493939d49b93"
     },
     {
       "id": "UI-WORK-01",

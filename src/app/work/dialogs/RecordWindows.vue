@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 渲染 WorkPage 管理的记录窗口，提供窗口切换、编辑、打印和放弃编辑确认。
+// 渲染 WorkPage 管理的记录窗口，提供窗口切换、编辑、打印和未保存确认。
 import { computed } from "vue";
 import {
   VBtn,
@@ -10,7 +10,6 @@ import {
 } from "vuetify/components";
 import { allowed, available, editable } from "../../nodes";
 import { feedbackForApplication } from "../../feedback";
-import { isReading, recordLoadFailed } from "../reads";
 import type { RecordWindowsState, RecordWindow } from "./record-windows";
 import { targetHref } from "../work-router";
 import type {
@@ -61,6 +60,10 @@ function handleable(node: ObjectNode) {
   );
 }
 
+function locked(entry: RecordWindow) {
+  return typeof entry.baseline === "string" || entry.saving;
+}
+
 function readOnly(entry: RecordWindow) {
   return (
     entry.print ||
@@ -93,14 +96,15 @@ function readOnly(entry: RecordWindow) {
     :title="
       entry.collection.draft === entry.record ? '新增' : entry.record.label
     "
-    :blocked="!!blocking || !!confirm"
-    :reading="isReading(entry.record)"
+    :blocked="!!blocking || !!confirm || entry.saving"
+    :reading="entry.baseline === 'loading'"
+    :form-locked="locked(entry)"
     :return-focus="entry.focus"
     @close="close(entry)"
   >
     <template #actions>
       <VBtn
-        v-if="recordLoadFailed(entry.record)"
+        v-if="entry.baseline === 'failed'"
         variant="text"
         @click="retry(entry)"
         >重试读取</VBtn
@@ -108,7 +112,7 @@ function readOnly(entry: RecordWindow) {
       <VBtn
         v-if="
           entry.mode === 'read' &&
-          !isReading(entry.record) &&
+          !locked(entry) &&
           available(entry.record, 'update')
         "
         variant="text"
@@ -116,16 +120,22 @@ function readOnly(entry: RecordWindow) {
         >编辑</VBtn
       >
     </template>
-    <Node
-      :node="entry.edits ? entry.draft : entry.record"
-      :target-href="targetHref"
-      @visit="emit('visit', $event)"
-      :editing="entry.mode === 'edit'"
-      :read-only="readOnly(entry)"
-      :save="(node) => save(entry, node)"
-    />
+    <div :inert="locked(entry) || undefined">
+      <Node
+        :node="entry.record"
+        :target-href="targetHref"
+        @visit="emit('visit', $event)"
+        :editing="entry.mode === 'edit'"
+        :read-only="readOnly(entry)"
+        :save="(node) => save(entry, node)"
+      />
+    </div>
     <TemplatePrint
-      v-if="entry.collection.draft !== entry.record && readOnly(entry)"
+      v-if="
+        !locked(entry) &&
+        entry.collection.draft !== entry.record &&
+        readOnly(entry)
+      "
       :key="entry.printKey"
       :collection="entry.collection"
       :record="entry.record"
@@ -143,14 +153,14 @@ function readOnly(entry: RecordWindow) {
     v-if="confirm"
     :model-value="true"
     persistent
-    aria-label="丢弃未保存的编辑？"
+    aria-label="切换记录？"
     max-width="420"
   >
     <VCard>
-      <VCardText>丢弃当前记录的未保存编辑并切换？</VCardText>
+      <VCardText>当前记录有未保存的变更，仍要切换吗？</VCardText>
       <VCardActions>
         <VBtn @click="resolveSwitch(false)">取消</VBtn>
-        <VBtn color="primary" @click="resolveSwitch(true)">丢弃并切换</VBtn>
+        <VBtn color="primary" @click="resolveSwitch(true)">继续切换</VBtn>
       </VCardActions>
     </VCard>
   </VDialog>

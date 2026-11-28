@@ -54,24 +54,6 @@ const object = (
     members,
     operations: {},
   });
-function commitEdited(record: ObjectNode, edited: ObjectNode) {
-  for (const field of record.members) {
-    const next = edited.members.find((entry) => entry.key === field.key);
-    if (!next || next.kind !== field.kind || field.readOnly) continue;
-    if (field.kind === "object" && next.kind === "object")
-      commitEdited(field, next);
-    else if (field.kind === "records" && next.kind === "records") {
-      field.items = next.items.map((row) => {
-        const existing = field.items.find((item) => item.key === row.key);
-        const result = existing ?? contactLine(row.key);
-        commitEdited(result, row);
-        return result;
-      });
-    } else if ("value" in field && "value" in next && field.kind !== "output") {
-      Object.assign(field, { value: next.value });
-    }
-  }
-}
 const loginLedger: FieldNode = reactive({
   kind: "reference",
   key: "ledger",
@@ -203,19 +185,19 @@ const lines: RecordsNode = reactive({
 });
 lines.operations.create = {
   disabled: false,
-  async run(draft) {
+  async run(records) {
     trace("contacts.create");
-    draft.items.push(contactLine(`contact-${++nextContact}`));
+    records.items.push(contactLine(`contact-${++nextContact}`));
   },
 };
 
 lines.operations.remove = {
   disabled: false,
-  async run(draft) {
+  async run(records) {
     trace("contacts.remove");
-    if (draft.selected)
-      draft.items.splice(draft.items.indexOf(draft.selected), 1);
-    draft.selected = null;
+    if (records.selected)
+      records.items.splice(records.items.indexOf(records.selected), 1);
+    records.selected = null;
   },
 };
 
@@ -269,10 +251,9 @@ customer.operations.update = {
   get disabled() {
     return viewerMode.value;
   },
-  async run(edited) {
+  async run() {
     trace("customer.update");
-    const draftName = edited.members.find((node) => node.key === "name");
-    const value = draftName?.kind === "text" ? draftName.value : name.value;
+    const value = name.value;
     if (value === "暂不可保存") {
       model.messages.push({
         id: "customer-save-unavailable",
@@ -302,7 +283,6 @@ customer.operations.update = {
       throw Error("等待确认");
     }
     if (value === "失败") throw Error("合成保存失败，请修改名称后重试。");
-    commitEdited(customer, edited);
     savedCustomerFacts.value = currentCustomerFacts();
     model.messages.push({
       id: String(Date.now()),
@@ -475,9 +455,8 @@ customers.operations.create = operation(async () => {
   draft.businessType = "customer";
   draft.operations.update = {
     disabled: false,
-    async run(edited) {
+    async run() {
       trace("customer.create");
-      commitEdited(draft, edited);
       draft.identity = `C${Date.now()}`;
       customers.items.push(draft);
       customers.total++;
@@ -565,9 +544,8 @@ const voucher: ObjectNode = reactive({
   operations: {
     update: {
       disabled: false,
-      async run(edited: ObjectNode) {
+      async run() {
         trace("voucher.update");
-        commitEdited(voucher, edited);
         voucherStatus.value = `已保存数量 ${quantity.value}`;
       },
     },

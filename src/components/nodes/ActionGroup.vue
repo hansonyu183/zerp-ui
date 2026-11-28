@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, inject } from "vue";
+import { formLocked } from "../../app/nodes";
 import { labels } from "./operation-labels";
 import { useDisplay } from "vuetify";
 import { VBtn, VList, VListItem, VMenu } from "vuetify/components";
 
 const props = defineProps<{ actions: readonly string[]; pending: boolean }>();
 const emit = defineEmits<{ action: [action: string] }>();
+const locked = inject(formLocked, undefined);
+const disabled = computed(() => props.pending || locked?.value);
 const { xs, width } = useDisplay();
 const destructive = ["delete", "remove", "void", "reverse"];
 const primary = [
@@ -42,7 +45,7 @@ function style(action: string) {
   return { color: "", variant: "tonal" as const };
 }
 function choose(action: string) {
-  if (!props.pending && props.actions.includes(action)) emit("action", action);
+  if (!disabled.value && props.actions.includes(action)) emit("action", action);
 }
 </script>
 
@@ -53,15 +56,15 @@ function choose(action: string) {
       v-for="action in featured"
       :key="action"
       v-bind="style(action)"
-      :disabled="pending"
+      :disabled="disabled"
       @click="choose(action)"
       >{{ labels[action] ?? action }}</VBtn
     >
-    <VMenu v-if="secondary.length" :disabled="pending">
+    <VMenu v-if="secondary.length" :disabled="disabled">
       <template #activator="{ props: activator }">
         <VBtn
           v-bind="activator"
-          :disabled="pending"
+          :disabled="disabled"
           prepend-icon="mdi-dots-horizontal"
           aria-label="更多操作"
           variant="text"
@@ -74,7 +77,7 @@ function choose(action: string) {
           :key="action"
           :title="labels[action] ?? action"
           :color="destructive.includes(action) ? 'error' : undefined"
-          :disabled="pending"
+          :disabled="disabled"
           role="menuitem"
           @click="choose(action)"
         />

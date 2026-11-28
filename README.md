@@ -4,11 +4,11 @@
 
 ## 固定版本安装
 
-当前发行版本为 [ui-v0.50.0](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.50.0)，采用静态 BusinessModel 协议，公开组件名为 `App`。下载 `zerp-ui-0.50.0.tgz` 与 `SHA256SUMS`，核对摘要后安装。
+当前发行版本为 [ui-v0.51.0](https://github.com/hansonyu183/zerp-ui/releases/tag/ui-v0.51.0)，采用静态 BusinessModel 协议，公开组件名为 `App`。下载 `zerp-ui-0.51.0.tgz` 与 `SHA256SUMS`，核对摘要后安装。
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-pnpm add ./zerp-ui-0.50.0.tgz
+pnpm add ./zerp-ui-0.51.0.tgz
 ```
 
 0.43.x 及更早版本使用旧模型协议，升级须按静态模型迁移。宿主初始化 Vue 和 Vuetify，集合路由由 UI 库管理。peer 范围及 Node/pnpm 基线见 package.json。导入 `vuetify/styles` 和 `@zerp/ui/style.css`，以 `createVuetify({ theme: createShellThemes() })` 初始化主题。`createShellThemes({ primary, secondary })` 接受可选品牌色。两项主题导出均来自 `@zerp/ui`，其中 `defaultThemeChoice` 为 MD3 浅色。需要持久化主题选择时，通过 `BusinessModel.theme.value/change` 交给消费者处理。
@@ -35,11 +35,11 @@ import { model } from "./consumer";
 
 认证表单归 `authentication`，账户、导航、工作台和业务成员归 `work`。工作区的 `work.members` 包含业务栏目 `Category`、领域 `DomainGroup` 或直属 `Collection`；领域分组仅组织一层并列集合，多个获权集合用 Material Tabs 切换，单集合直接展示；切换保留各自输入、条件与分页，不拥有整体保存，各集合独立查询、授权和保存。集合用 `columns` 提供空表列标题、`conditions` 表达查询条件，不再有 `element/list/query` 结构。普通资料与单据都使用 `ObjectNode`，单据以 `family: "voucher"` 与只读 `type` 区分。有序 `members` 决定表单顺序和分组，`label` 是显示名称。`RecordsNode` 所属明细只修改本地模型，随父对象保存。
 
-输入直接更新字段值；`Operation` 提供 `disabled` 和 `run(input)`。同步操作返回 `void`，异步操作返回代表完成的 `Promise<void>`，UI 自动管理忙碌状态。业务回调处理 API、冲突、请求有效性和未知结果恢复。记录窗口持有本次编辑值及最近确认值，用于保存和同类记录切换确认。旧公开结构没有兼容入口。仍有效的流程、处理、批次、报表与输出分别使用固定能力属性；不是任意命令、页面模板或组件映射。
+输入直接更新字段值；`Operation` 提供 `disabled` 和 `run(input)`。同步操作返回 `void`，异步操作返回代表完成的 `Promise<void>`，UI 自动管理忙碌状态。业务回调处理 API、冲突、请求有效性和未知结果恢复。记录窗口直接编辑原响应式对象，业务方可监听变更。窗口保留最近读取或保存确认的业务值快照，用于同类记录切换时判断未保存变更。旧公开结构没有兼容入口。仍有效的流程、处理、批次、报表与输出分别使用固定能力属性；不是任意命令、页面模板或组件映射。
 
 消费者在模型上更新节点的 `readable`、表单的 `readOnly` 和操作的 `disabled`。UI 响应这些值更新呈现，后端负责实际鉴权。`session` 只携带状态和 `owner`。退出时消费者清空会话业务数据和缓存并使旧回写失效，库清理旧忙碌状态及反馈。
 
-侧栏和集合页路由从业务模型的栏目、分类、领域和集合派生，由 UI 库管理。工作台是可选的首页集合，固定展示 `information/vouchers/reports/masters` 四块，桌面一横三竖、手机纵排。没有可读工作台时，首页进入第一个可见领域的首个获权集合。集合或记录首次成为当前可读目标时调用可选 `load`，成功后返回同一目标复用结果。
+侧栏和集合页路由从业务模型的栏目、分类、领域和集合派生，由 UI 库管理。工作台是可选的首页集合，固定展示 `information/vouchers/reports/masters` 四块，桌面一横三竖、手机纵排。没有可读工作台时，首页进入第一个可见领域的首个获权集合。集合首次成为当前可读目标时调用可选 `load`，成功后返回同一集合复用结果。记录每次打开窗口或切入同类窗口时执行已声明的 `load(id)`。
 
 引用只选值，支持普通/树形、单选/多选、历史值回显和不可新选候选；目录按需完整读取，筛选和分页在前端进行。日期、日期时间与精确十进制 `format` 只改变显示，不回写值。集合 `itemPrintTemple/printTemple` 使用有限 JSON 自动生成单条/当前页打印入口，不预取其他页、不打印 draft；无权值和秘密不输出。预览和打开系统打印窗口不等于实体打印成功。
 
@@ -57,7 +57,7 @@ UI 规范与逐条部分覆盖边界分别见[规范](https://github.com/hansony
 
 引用字段可通过 `scopeKey` 表达候选目录业务依赖；变化会清除旧目录并按需重新读取，历史选值继续回显。消费者负责在 load 回写前核对依赖有效性，owner 隔离由宿主完成。
 
-工作台 `targets` 使用原记录引用。集合目标生成页面链接；记录目标直接打开相应类型的窗口，保留当前页面、URL、筛选和分页。同种业务类型共用一个窗口，切换同类记录时，如有未保存编辑，须确认是否丢弃。
+工作台 `targets` 使用原记录引用。集合目标生成页面链接；记录目标直接打开相应类型的窗口，保留当前页面、URL、筛选和分页。同种业务类型共用一个窗口，切换同类记录时，如有未保存变更，须确认是否继续。确认后离开的对象保留当前值，切回时由其读取回调写回。
 
 栏目和折叠分类使用有序成员数组。每个可见领域在侧栏只显示一条链接，打开首个获权集合，切换集合 Tab 保持领域高亮。直属集合可用于路由直达及业务关联。权限裁剪隐藏无权领域和空分类、空栏目。
 

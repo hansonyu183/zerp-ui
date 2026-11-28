@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { readable as nodeReadable } from "../../app/nodes";
-import { computed } from "vue";
+import { formLocked, readable as nodeReadable } from "../../app/nodes";
+import { computed, inject } from "vue";
 import {
   VCheckbox,
   VFileInput,
@@ -21,12 +21,14 @@ const props = defineProps<{
   scope: string;
   publicAuth?: boolean;
 }>();
-const disabled = computed(() => props.readOnly || props.node.readOnly);
+const locked = inject(formLocked, undefined);
+const readOnly = computed(() => props.readOnly || props.node.readOnly);
+const disabled = computed(() => readOnly.value || locked?.value);
 const { xs } = useDisplay();
 const wrapReadOnlyText = computed(
   () =>
     xs.value &&
-    disabled.value &&
+    readOnly.value &&
     (props.node.kind === "text" || props.node.kind === "longText"),
 );
 const secret = computed(() =>
@@ -38,7 +40,7 @@ const reference = computed(() =>
     : null,
 );
 const display = computed(() => {
-  if (!disabled.value) return {};
+  if (!readOnly.value) return {};
   try {
     return { value: formatField(props.node) };
   } catch (cause) {

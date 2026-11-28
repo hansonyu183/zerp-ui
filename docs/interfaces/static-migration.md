@@ -2,13 +2,21 @@
 
 正式规格及状态见 [#159](https://github.com/hansonyu183/zerp-ui/issues/159)，接口权威见 [#152](https://github.com/hansonyu183/zerp-ui/issues/152)。本清单在替换运行路径前建立，用于核对能力没有静默丢失；它不是第二份实施状态。
 
+## 从 0.50.0 升级至 0.51.0
+
+1. 字段和明细直接更新原响应式对象。保存和明细增删回调接收原节点，可用 Vue 监听值变化处理业务联动与打印资格。
+2. 正式记录每次打开或切入同类窗口时调用已声明的 `load(id)`。读取回调在完成前写回当前对象，窗口据此建立未保存比较快照。
+3. 确认切换后，离开的对象保留当前值。切回时由其 `load(id)` 写回。
+
+## 能力对应
+
 | 原公开呈现路径/能力               | 唯一静态模型表达                                                                                           | 保留的可观察行为                                                                         |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Symbol 应用元数据、任意根业务成员 | BusinessModel 固定属性，`work.members` 为栏目、领域或独立集合的有序数组。领域 members 为独立集合的有序数组 | 同一根引用，认证前构造、授权后按需读取                                                   |
 | 认证/账户对象级操作               | `authentication.form/operations`，`work.account.profile/password/operations`                               | 匿名、恢复、强制改密、账户入口不等待当前页查询                                           |
 | 根对象聚合及 navigationProjection | 静态栏目、领域、集合生成库内页面路由                                                                       | 权限裁剪、正常链接、工作台首页、前进后退和 404                                           |
 | CollectionNode.element/list/query | ListCollection 的有序列、条件、当前页及可选分页 load                                                       | 空表标题、按页读取、失败保留已有结果                                                     |
-| ObjectNode.form、对象命名属性     | ObjectNode.members 有序数组，businessType 表达记录业务类型                                                 | 字段及权限直接呈现；工作区每种类型一个窗口，切换同类记录时确认是否丢弃未保存编辑         |
+| ObjectNode.form、对象命名属性     | ObjectNode.members 有序数组，businessType 表达记录业务类型                                                 | 字段及权限直接呈现；工作区每种类型一个窗口，切换同类记录时对比读后快照并确认未保存变更         |
 | array element 模板及所属明细      | RecordsNode.items/selected/operations，字段、标题及顺序由每行 ObjectNode.members 提供                      | 桌面和手机沿用获权字段及顺序，本地增删随父保存                                           |
 | family 单据分支                   | ObjectNode.family=voucher、只读 type、固定 VoucherOperations                                               | AA/AB 同一运行路径，不按业务类型码猜测操作                                               |
 | 版本资料、流程、处理及批次操作    | standard/voucher 对象上的固定 document/workflow/processing/batch 能力                                      | 原封闭操作集、授权、disabled、执行中去重、业务结果由消费者回写                           |

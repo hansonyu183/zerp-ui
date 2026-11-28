@@ -407,13 +407,11 @@ export function runWithFeedback(
     const channel = feedbackForApplication();
     const receipt = channel.begin(key, target);
     return settle(callback, (success) => {
-      const current =
-        sessionVersion.value === session &&
-        receipt.visible(inWindow) &&
-        valid();
-      if (!success && current) receipt.reportFailure();
-      receipt.finish(current);
-      return success && current;
+      const current = sessionVersion.value === session && valid();
+      const visible = current && receipt.visible(inWindow);
+      if (!success && visible) receipt.reportFailure();
+      receipt.finish(visible);
+      return success && (inWindow ? current : visible);
     });
   });
 }
