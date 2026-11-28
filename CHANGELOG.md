@@ -2,7 +2,7 @@
 
 ## 0.51.0
 
-- `App` 自动安装 Vuetify 并加载基础样式。原有品牌主色和辅色移入 `model.brand`，见[迁移说明](docs/interfaces/static-migration.md#vuetify-初始化迁移)。
+- `App` 自动安装 Vuetify 并加载基础样式。原有品牌主色和辅色移入 `model.brand`，见[迁移说明](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.51.0/docs/interfaces/static-migration.md#vuetify-初始化迁移)。
 
 - 字段和所属明细直接更新原响应式记录。保存与明细增删回调接收原节点，消费者可监听变更。
 - 打开、重开及切换同类记录时调用已声明的 `load(id)`。成功读取后的值用于比较未保存变更，保存成功只更新对应范围。
