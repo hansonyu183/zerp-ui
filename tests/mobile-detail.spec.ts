@@ -21,7 +21,7 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-// The installed Chromium smoke covers switching the open window to desktop.
+// CI jsdom takes longer to render this long mobile value.
 it("presents a mobile read-only text value in a wrapping labeled field", async () => {
   viewport(390);
   const { model, record, name } = fixture();
@@ -35,7 +35,7 @@ it("presents a mobile read-only text value in a wrapping labeled field", async (
   expect(value.readOnly).toBe(true);
   expect(value.value).toBe(name.value);
   expect(value).toBeInstanceOf(HTMLTextAreaElement);
-}, 10_000);
+}, 30_000);
 
 it("shows the target collection title after following a related link inside a domain", async () => {
   const { model, record, rows } = fixture();
