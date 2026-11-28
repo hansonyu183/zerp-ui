@@ -8,10 +8,24 @@
 2. 正式记录每次打开或切入同类窗口时调用已声明的 `load(id)`。读取回调在完成前写回当前对象，窗口据此建立未保存比较快照。
 3. 确认切换后，离开的对象保留当前值。切回时由其 `load(id)` 写回。
 4. 删除 `authentication.operations.recover` 和 `recovering` 状态。未认证时使用 `{ state: "anonymous", owner: null }`。
+5. 将原 `/business/…` 集合链接迁移到 `/app/…`，并让部署服务器将 `/app` 和 `/app/*` 交给应用入口。宿主可用 `App.openUrl(url)` 打开页面或记录窗口，参数见[集合路由与记录窗口](README.md#集合路由与记录窗口)。
 
 ## Vuetify 初始化迁移
 
 宿主在挂载 `App` 前导入 `@zerp/ui/style.css`，移除原先的 `app.use(createVuetify(...))` 和 `vuetify/styles` 导入。原有品牌色从 `createShellThemes({ primary, secondary })` 移入 `model.brand` 的同名属性。
+
+## 从 0.49.4 升级至 0.50.0
+
+1. 改用 `App` 导入及模板标签。将模型类型 `BusinessNode`、`BusinessCategory` 改为 `Node`、`Category`。分页业务集合声明为 `ListCollection`，`Collection` 现在是 `ListCollection | Workbench` 联合类型。关联目标的集合为 `ListCollection`，`Workbench.manageReports` 只指向集合页面。
+2. 把根级 `members`、`account` 和可选 `workbench` 移入 `work`，为工作台补 `key`、`label`。移除 `navigation.current/href/visit` 和用于同步这些回调的旧路由接驳。0.50.0 的集合地址使用 `/business/…`，部署服务器将该路径交给应用入口。
+3. 将记录的 `operations.get` 改为 `ObjectNode.load(id)`，工作台的 `load` 从 `Operation` 改为 `load()`。分页集合以 `load({ page, pageSize })` 承接首次进入和翻页。可选的 `operations.query.run({ page, pageSize })` 承接显式查询，无该操作时使用 `load`。三个读取回调返回 `Promise<void>`，实参和回写职责见[按需读取](README.md#按需读取)。
+4. 为需要打开记录窗口的正式记录和新增草稿填入稳定的 `businessType`。保存回调通过 `ObjectNode.operations.update.run(edited)` 读取窗口提交值，并将权威结果回写原业务对象。所属明细的 `create/remove.run` 接收当前 `RecordsNode`，在该节点上修改明细。可用同步操作返回 `void`，有请求的操作返回代表请求完成的 Promise。
+
+## 更早版本
+
+- 0.48.0 将当时的根成员和领域成员改为数组，移除 `RecordsNode.columns`。所属明细沿用有序行成员，独立集合和打印模板各自保留有序列。
+- 0.49.0 移除会话权限清单，消费者以节点的 `readable`、`readOnly` 和操作的 `disabled` 更新界面。节点 `label` 使用字符串。
+- 0.43.x 及更早使用旧模型协议，按下表迁移能力。
 
 ## 能力对应
 
@@ -25,7 +39,7 @@
 | array element 模板及所属明细      | RecordsNode.items/selected/operations，字段、标题及顺序由每行 ObjectNode.members 提供                      | 桌面和手机沿用获权字段及顺序，本地增删随父保存                                           |
 | family 单据分支                   | ObjectNode.family=voucher、只读 type、固定 VoucherOperations                                               | AA/AB 同一运行路径，不按业务类型码猜测操作                                               |
 | 版本资料、流程、处理及批次操作    | standard/voucher 对象上的固定 document/workflow/processing/batch 能力                                      | 原封闭操作集、授权、disabled、执行中去重、业务结果由消费者回写                           |
-| 报表参数、结果、合计、结构及下钻  | conditions、Collection.report、ObjectNode.report.operations、CollectionTarget                              | 保留消费者数值/分页/合计与局部选中；返回保留查询和滚动                                   |
+| 报表参数、结果、合计、结构及下钻  | conditions、ListCollection.report、ObjectNode.report.operations、CollectionTarget                              | 保留消费者数值/分页/合计与局部选中；返回保留查询和滚动                                   |
 | 普通字段、密码、秘密及附件        | FieldNode 固定联合                                                                                         | 直接输入、秘密 keep/replace/clear、不暴露已有秘密                                        |
 | 普通引用及树候选                  | reference/treeReference、单多选值、静态 options/有限 load                                                  | 按需完整读取、前端过滤分页、历史值回显、禁用新选                                         |
 | 日期、日期时间、精确十进制        | 各字段的强类型 format                                                                                      | 仅改变展示，保持日期/时区和十进制原值                                                    |
