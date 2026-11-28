@@ -108,7 +108,16 @@ async function action(name: string) {
 <template>
   <section v-if="nodeReadable(node)" :aria-label="node.label ?? undefined">
     <template v-if="node.kind === 'object'">
-      <template v-for="run in runs" :key="run.key">
+      <div
+        v-for="run in runs"
+        :key="run.key"
+        class="zerp-direct-form-run"
+        :class="{
+          'zerp-direct-form': !run.grouped,
+          'zerp-direct-form--short': !run.grouped && run.entries.length <= 3,
+          'zerp-direct-form--filter': !run.grouped && filter,
+        }"
+      >
         <Groups
           v-if="run.grouped"
           :entries="run.entries"
@@ -119,14 +128,7 @@ async function action(name: string) {
           :filter="filter"
           :save="save"
         />
-        <div
-          v-else
-          class="zerp-direct-form"
-          :class="{
-            'zerp-direct-form--short': run.entries.length <= 3,
-            'zerp-direct-form--filter': filter,
-          }"
-        >
+        <template v-else>
           <Node
             v-for="child in run.entries"
             :key="child.key"
@@ -139,8 +141,8 @@ async function action(name: string) {
                 child.kind === 'longText' || child.kind === 'records',
             }"
           />
-        </div>
-      </template>
+        </template>
+      </div>
     </template>
     <Records
       v-else-if="node.kind === 'records'"
@@ -183,6 +185,9 @@ section {
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+}
+.zerp-direct-form-run + .zerp-direct-form-run {
+  margin-block-start: 12px;
 }
 .zerp-direct-form > * {
   min-width: 0;

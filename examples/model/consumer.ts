@@ -868,7 +868,20 @@ const workbenchSeeds = (
   ["information", "vouchers", "reports", "masters"] as const
 ).map((role) => ({ role, items: model.work.workbench![role].items }));
 const recentCustomer = object("customer-off-page", "客户", [
-  text("name", "客户名称", "外页合成客户", true),
+  object("basic", "基本信息", [
+    text("name", "客户名称", "外页合成客户", true),
+    {
+      kind: "reference",
+      key: "state",
+      label: "客户状态",
+      readOnly: false,
+      required: false,
+      multiple: false,
+      value: { id: "active", label: "正常" },
+      options: [{ id: "active", label: "正常", selectable: true }],
+    },
+  ]),
+  text("code", "编号", "C2", true),
 ]);
 recentCustomer.businessType = "customer";
 model.work.workbench!.targets = new Map([
