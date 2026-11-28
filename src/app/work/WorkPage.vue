@@ -16,7 +16,7 @@ import {
   readable as nodeReadable,
   workbenchReadable,
 } from "../nodes";
-import { computed, ref, toRaw, watch } from "vue";
+import { computed, reactive, ref, toRaw, watch } from "vue";
 import type {
   BusinessModel,
   ListCollection,
@@ -25,6 +25,8 @@ import type {
 } from "../../model/business-model";
 import {
   homeHref,
+  resolveWorkUrl,
+  workHome,
   goToCollection,
   routePath,
   routeReady,
@@ -68,10 +70,11 @@ const current = computed<ListCollection | null>(() =>
 );
 const workbench = computed(() => {
   const home = props.model.workbench;
-  if (routePath.value === "/" && home && workbenchReadable(home)) return home;
+  if (routePath.value === workHome && home && workbenchReadable(home))
+    return home;
 });
 const notFound = computed(
-  () => routePath.value !== "/" && !routedCollection.value,
+  () => routePath.value !== workHome && !routedCollection.value,
 );
 watch(
   [
@@ -85,7 +88,7 @@ watch(
   () => {
     if (
       !routeReady.value ||
-      routePath.value !== "/" ||
+      routePath.value !== workHome ||
       !applicationReady.value ||
       sessionState.value !== "ready" ||
       workbench.value
@@ -248,6 +251,47 @@ function visitTarget(target: CollectionTarget) {
     });
   } else goToCollection(target.collection);
 }
+function openUrl(address: string): boolean {
+  if (
+    !routeReady.value ||
+    sessionState.value !== "ready" ||
+    feedbackForApplication().blocking.value ||
+    windows.confirm.value
+  )
+    return false;
+  const target = resolveWorkUrl(address);
+  if (!target) return false;
+  const { collection, id } = target;
+  if (!collection) {
+    visitHome();
+    return true;
+  }
+  if (!nodeReadable(collection)) return false;
+  if (id === undefined) {
+    accountView.value = null;
+    goToCollection(collection);
+    return true;
+  }
+
+  const session = sessionVersion.value;
+  const selected = collection.selected;
+  const record =
+    (selected?.identity === id ? selected : undefined) ??
+    collection.items.find((item) => item.identity === id) ??
+    collection.resolveRecord?.(id);
+  if (session !== sessionVersion.value || !record || record.identity !== id)
+    return false;
+  const trigger = document.activeElement;
+  return windows.open({
+    collection,
+    record: reactive(record),
+    mode: "read",
+    resolvedFromUrl: true,
+    focus: () => (trigger instanceof HTMLElement ? trigger : null),
+  });
+}
+defineExpose({ openUrl });
+
 function visitHome() {
   accountView.value = null;
   goToCollection();

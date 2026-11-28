@@ -140,9 +140,9 @@ export async function mobileDetailSmoke(page) {
     name: "关联联系人",
     exact: true,
   });
-  await expect(contacts).toHaveAttribute("href", "/business/contacts");
+  await expect(contacts).toHaveAttribute("href", "/app/contacts");
   await contacts.click();
-  await expect(page).toHaveURL(/\/business\/contacts$/);
+  await expect(page).toHaveURL(/\/app\/contacts$/);
   await expect(
     page.getByRole("heading", { name: "联系人", exact: true }),
   ).toBeVisible();

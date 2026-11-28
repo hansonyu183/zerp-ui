@@ -129,6 +129,17 @@ export function readable(node: NodeOrCollection): boolean {
     same(node, password) || parents.some((parent) => same(parent, password))
   );
 }
+// A URL resolver may supply a record before it becomes the collection selection.
+export function canSelectRecord(
+  collection: ListCollection,
+  record: ObjectNode,
+) {
+  const parents = structuralPaths.value.get(toRaw(record));
+  return (
+    record.readable !== false &&
+    (!parents || (parents.length === 1 && same(parents[0]!, collection)))
+  );
+}
 export function writable(node: NodeOrCollection): boolean {
   return (
     readable(node) &&

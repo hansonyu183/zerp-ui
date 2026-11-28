@@ -365,6 +365,8 @@ export interface ListCollection {
   conditions: ObjectNode;
   items: ObjectNode[];
   selected: ObjectNode | null;
+  /** 按地址打开分页之外的记录时，提供由静态定义构造的原业务对象。 */
+  resolveRecord?: (id: string) => ObjectNode | undefined;
   /** 新增记录本身，由 create 回调直接构造其完整字段及回调。 */
   draft: ObjectNode | null;
   page: number;

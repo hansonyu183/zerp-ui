@@ -8,11 +8,12 @@ import type {
 import { collectionEntries } from "./structure";
 import { readableTarget } from "../target";
 
+export const workHome = "/app/";
 const activeRouter = shallowRef<Router>();
 const ready = shallowRef(false);
 export const routeReady = computed(() => ready.value);
 export const routePath = computed(
-  () => activeRouter.value?.currentRoute.value.path ?? "/",
+  () => activeRouter.value?.currentRoute.value.path ?? workHome,
 );
 // 唯一集合键使用短路径，键冲突时使用完整业务路径区分。
 const routesForWork = computed(() => {
@@ -28,7 +29,9 @@ const routesForWork = computed(() => {
     const slug = (count.get(collection.key) === 1 ? [collection.key] : keys)
       .map(encodeURIComponent)
       .join("/");
-    const path = `/business/${slug}`;
+    const path = workHome + slug;
+    if (path === workHome || byPath.has(path))
+      throw Error(`集合路径重复：${path}`);
     byPath.set(path, collection);
     byCollection.set(collection, path);
   }
@@ -39,7 +42,9 @@ export const routedCollection = computed(() =>
 );
 
 // 页面内部路由使用未包含 base 的路径，原生链接由 Router 生成。
-export const homeHref = computed(() => activeRouter.value!.resolve("/").href);
+export const homeHref = computed(
+  () => activeRouter.value!.resolve(workHome).href,
+);
 
 export function collectionHref(collection: ListCollection) {
   const path = routesForWork.value.byCollection.get(collection);
@@ -63,8 +68,37 @@ export function targetHref(target: CollectionTarget) {
 export function goToCollection(collection?: ListCollection) {
   const path = collection
     ? routesForWork.value.byCollection.get(collection)
-    : "/";
+    : workHome;
   if (path) void activeRouter.value?.push(path);
+}
+
+// Lookup uses the same encoded collection paths as browser navigation.
+export function resolveWorkUrl(address: string) {
+  const router = activeRouter.value;
+  if (!router) return;
+  let url: URL;
+  try {
+    url = new URL(address, window.location.origin);
+  } catch {
+    return;
+  }
+  if (
+    url.origin !== window.location.origin ||
+    url.username ||
+    url.password ||
+    url.hash
+  )
+    return;
+  const base = router.options.history.base;
+  if (base && !url.pathname.startsWith(base + "/")) return;
+  const path = url.pathname.slice(base.length);
+  const ids = url.searchParams.getAll("id");
+  if (url.searchParams.size !== ids.length || ids.length > 1 || ids[0] === "")
+    return;
+  if ((path === workHome || path === "/app") && ids.length === 0)
+    return { collection: null };
+  const collection = routesForWork.value.byPath.get(path);
+  if (collection) return { collection, id: ids[0] };
 }
 
 export function useWorkRouter() {
@@ -75,7 +109,10 @@ export function useWorkRouter() {
   });
   activeRouter.value = router;
   ready.value = false;
-  void router.replace(history.location).then(() => {
+  const location = ["/", "/app"].includes(history.location)
+    ? workHome
+    : history.location;
+  void router.replace(location).then(() => {
     if (activeRouter.value === router) ready.value = true;
   });
   onBeforeUnmount(() => {

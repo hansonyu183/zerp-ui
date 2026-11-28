@@ -36,8 +36,8 @@ export const input = (label: string) => {
 
 export function route(collection: ListCollection | null) {
   const path = collection
-    ? `/business/${encodeURIComponent(collection.key)}`
-    : "/";
+    ? `/app/${encodeURIComponent(collection.key)}`
+    : "/app/";
   window.history.pushState(
     {
       ...window.history.state,

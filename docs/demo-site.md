@@ -2,7 +2,7 @@
 
 示例站托管于 Cloudflare Pages 项目 `zerp-ui-demo`，正式分支为 `main`。2026-11-24 只读核对时，正式部署 `e41706c9-be85-4d14-98b7-4bcfd53faa2e` 对应源码 `992cf5dc771813e5b69e6f56f1d9ea2135b55327`，即 [ui-v0.14.0](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.14.0) 的 `examples/shell`。正式域名根路径和 `/business/customers` 均显示旧版合成流程。后续核对以 Pages 正式部署元数据和在线资源为准。 [示例站](https://zerp-ui-demo.pages.dev)
 
-下文描述新版 [`examples/model`](../examples/model/README.md) 的发布流程。示例数据、身份和回调均为合成，独立于 ZERP 和 oit-go 的业务服务。Pages 的 SPA 回退只负责加载应用壳。当前合成消费者刷新后需重新登录，登录进入有权默认入口，保留深链目标需要消费者另外处理。
+下文描述新版 [`examples/model`](../examples/model/README.md) 的发布流程。示例数据、身份和回调均为合成，独立于 ZERP 和 oit-go 的业务服务。Pages 的 SPA 回退负责将 /app、/app/* 加载到应用壳。当前合成消费者刷新后需重新登录，登录进入有权默认入口，保留深链目标需要消费者另外处理。
 
 ## 发布与部署
 

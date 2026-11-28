@@ -70,13 +70,13 @@ it("shows the target collection title after following a related link inside a do
   await click("编辑");
   const dialog = document.querySelector('[role="dialog"]')!;
   const link = dialog.querySelector<HTMLAnchorElement>(
-    'a[href="/business/invoices"]',
+    'a[href="/app/invoices"]',
   )!;
   expect(link.textContent?.trim()).toBe("查看关联发票");
   link.click();
   await flushPromises();
 
-  expect(window.location.pathname).toBe("/business/" + invoices.key);
+  expect(window.location.pathname).toBe("/app/" + invoices.key);
   expect(document.querySelector('[role="dialog"]')).not.toBeNull();
   expect(wrapper.get("h1").text()).toBe("账务");
   expect(wrapper.get('[role="tabpanel"] h2').text()).toBe("发票");

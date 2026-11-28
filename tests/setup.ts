@@ -30,4 +30,4 @@ vi.stubGlobal(
   }),
 );
 
-beforeEach(() => window.history.replaceState(null, "", "/"));
+beforeEach(() => window.history.replaceState(null, "", "/app/"));

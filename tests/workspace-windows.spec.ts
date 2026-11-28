@@ -304,15 +304,15 @@ it("loads only the deep-linked collection and reuses it across page changes", as
       members: [second.rows],
     },
   ];
-  window.history.replaceState(null, "", "/business/right/rows");
+  window.history.replaceState(null, "", "/app/right/rows");
   wrapper = await render(first.model);
   expect(loadFirst).not.toHaveBeenCalled();
   expect(loadSecond).toHaveBeenCalledExactlyOnceWith({ page: 1, pageSize: 20 });
-  await wrapper.get('a[href="/business/left/rows"]').trigger("click");
+  await wrapper.get('a[href="/app/left/rows"]').trigger("click");
   await flushPromises();
-  await wrapper.get('a[href="/business/right/rows"]').trigger("click");
+  await wrapper.get('a[href="/app/right/rows"]').trigger("click");
   await flushPromises();
-  expect(window.location.pathname).toBe("/business/right/rows");
+  expect(window.location.pathname).toBe("/app/right/rows");
   expect(loadFirst).toHaveBeenCalledTimes(1);
   expect(loadSecond).toHaveBeenCalledTimes(1);
 });
