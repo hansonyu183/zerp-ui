@@ -30,8 +30,10 @@ it("installs Vuetify on mount and keeps brand colors reactive in the same host",
     expect(themeStyles()).toContain("--v-theme-primary: 18,52,86;");
     expect(themeStyles()).toContain("--v-theme-secondary: 101,67,33;");
     model.brand.primary = "#224466";
+    model.brand.secondary = "#772255";
     await flushPromises();
     expect(themeStyles()).toContain("--v-theme-primary: 34,68,102;");
+    expect(themeStyles()).toContain("--v-theme-secondary: 119,34,85;");
     expect(themeStyles()).not.toContain("--v-theme-primary: 18,52,86;");
 
     shown.value = false;
@@ -42,7 +44,7 @@ it("installs Vuetify on mount and keeps brand colors reactive in the same host",
     expect(container.querySelector(".zerp-auth-page")).not.toBeNull();
     expect(install).toHaveBeenCalledTimes(1);
     expect(themeStyles()).not.toContain("--v-theme-primary: 34,68,102;");
-    expect(themeStyles()).toContain("--v-theme-secondary: 101,67,33;");
+    expect(themeStyles()).toContain("--v-theme-secondary: 119,34,85;");
   } finally {
     host.unmount();
     container.remove();
