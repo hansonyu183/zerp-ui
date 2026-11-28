@@ -81,7 +81,7 @@ const wrongNavigation: BusinessModel["work"]["navigation"] = { ...model.work.nav
 // @ts-expect-error 已认证的会话必须有 owner。
 const wrongSession = { state: "ready", owner: null } satisfies Session;
 // @ts-expect-error 认证操作只声明 signIn。
-model.authentication.operations.recover;
+void model.authentication.operations.recover;
 // prettier-ignore
 // @ts-expect-error 恢复会话已移除。
 const recoveringSession = { state: "recovering", owner: null } satisfies Session;
@@ -298,4 +298,4 @@ const nullLabel = { kind: "text", key: "name", label: null, readOnly: false, req
 // prettier-ignore
 // @ts-expect-error Session 仅提供状态和 owner。
 const legacySession = { state: "anonymous", owner: null, presentation: null } satisfies Session;
-void [nullLabel, legacySession];
+void [nullLabel, legacySession, recoveringSession];
