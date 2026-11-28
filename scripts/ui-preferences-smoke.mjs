@@ -140,23 +140,25 @@ export async function uiPreferencesSmoke(page, options = {}) {
     check: "default-and-independent-theme-transitions",
     result: "passed",
   });
-  const presentation =
-    options.layout === false ? undefined : await directPresentationSmoke(page);
-  assertions.push({
-    clauses: [
-      "UI-THEME-05",
-      "UI-THEME-06",
-      "UI-SHELL-01",
-      "UI-DESKTOP-02",
-      "UI-MOBILE-01",
-      "UI-ACTION-02",
-      "UI-FORM-02",
-      "UI-FORM-03",
-      "UI-FORM-04",
-    ],
-    check: "representative-desktop-mobile-presentation",
-    result: "passed",
-  });
+  let presentation;
+  if (options.layout !== false) {
+    presentation = await directPresentationSmoke(page);
+    assertions.push({
+      clauses: [
+        "UI-THEME-05",
+        "UI-THEME-06",
+        "UI-SHELL-01",
+        "UI-DESKTOP-02",
+        "UI-MOBILE-01",
+        "UI-ACTION-02",
+        "UI-FORM-02",
+        "UI-FORM-03",
+        "UI-FORM-04",
+      ],
+      check: "representative-desktop-mobile-presentation",
+      result: "passed",
+    });
+  }
 
   const keyword = page.getByRole("textbox", { name: "关键词", exact: true });
   await keyword.fill("保留条件");
@@ -363,15 +365,17 @@ export async function uiPreferencesSmoke(page, options = {}) {
     result: "passed",
   });
 
-  await page
-    .getByRole("link", { name: "合成业务示例：首页", exact: true })
-    .click();
-  if (options.workbench !== false) await workbenchPresentationSmoke(page);
-  assertions.push({
-    clauses: ["UI-WORK-01", "UI-THEME-02"],
-    check: "workbench-layout-and-theme",
-    result: "passed",
-  });
+  if (options.workbench !== false) {
+    await page
+      .getByRole("link", { name: "合成业务示例：首页", exact: true })
+      .click();
+    await workbenchPresentationSmoke(page);
+    assertions.push({
+      clauses: ["UI-WORK-01", "UI-THEME-02"],
+      check: "workbench-layout-and-theme",
+      result: "passed",
+    });
+  }
   await page
     .getByRole("button", { name: "账户：合成用户", exact: true })
     .click();
@@ -380,6 +384,8 @@ export async function uiPreferencesSmoke(page, options = {}) {
     .getByRole("textbox", { name: "登录名", exact: true })
     .fill("viewer");
   await page.getByRole("button", { name: "登录", exact: true }).click();
+  await navigation.getByText("业务", { exact: true }).click();
+  await customers.click();
   assertions.push({
     clauses: ["UI-ACTION-03", "UI-SHELL-06"],
     ...(await readonlyReferenceFeedbackSmoke(page)),

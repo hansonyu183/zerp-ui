@@ -34,7 +34,7 @@
 
 本节记录 0.44.0 的实施边界。领域分组采用下文 2026-11-17 修订，当前发行及接入入口见[项目说明](../../README.md)。
 
-[#159](https://github.com/hansonyu183/zerp-ui/issues/159) 将上述目标落实到唯一公开声明及宿主：固定普通属性取代 Symbol，根 members 只包含 Collection，对象与单据共用 ObjectNode，所属明细使用 RecordsNode。类型源统一为 src/model/business-model.ts，由 @zerp/ui/model 仅以类型导出；临时目标声明副本删除。私有旧页面/运行时只供既有回归，不参与新模型检测、转换或 fallback。
+[#159](https://github.com/hansonyu183/zerp-ui/issues/159) 将上述目标落实到唯一公开声明及宿主：固定普通属性取代 Symbol，根 members 只包含 Collection，对象与单据共用 ObjectNode，所属明细使用 RecordsNode。0.44.0 的[类型源](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.44.0/src/business-model.ts)由 `@zerp/ui/model` 仅以类型导出；临时目标声明副本删除。私有旧页面/运行时只供既有回归，不参与新模型检测、转换或 fallback。
 
 本次采用保留完整静态结构、按权限裁剪组件的策略；这使撤权后的再次增权和同根对象再次登录可以恢复新获权结构。消费者清理会话业务数据并检查异步回写有效性；库隔离旧 busy、选择、候选呈现与反馈，不持有冻结请求、编辑基线或原请求日志。
 

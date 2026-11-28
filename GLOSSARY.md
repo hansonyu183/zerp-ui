@@ -18,10 +18,10 @@ _Avoid_: 将 Document/资料用作单据的统称。
 业务页面中表达一组相关业务内容的局部区域，例如单据表头、明细或金额汇总。术语与边界见 [#40](https://github.com/hansonyu183/zerp-ui/issues/40)。
 
 **业务类型（Business Type）**：
-对一类业务内容的字段、值结构及对象、集合和引用关系的统一描述。术语与边界见 [#108](https://github.com/hansonyu183/zerp-ui/issues/108)。
+在早期页面装配中，对一类业务内容的字段、值结构及关系的统一描述。在静态模型的记录窗口中，`ObjectNode.businessType` 标识共用一个窗口的记录类型，单据的 `type` 另表示单据种类。见 [#108](https://github.com/hansonyu183/zerp-ui/issues/108) 与[记录窗口接口](docs/interfaces/README.md#集合路由与记录窗口)。
 
 **列表/表单投影（List/Form Projection）**：
-从业务类型中有序选取供列表或表单使用的字段，不另行定义同一字段的业务含义。术语与边界见 [#108](https://github.com/hansonyu183/zerp-ui/issues/108)。
+早期页面装配从业务类型中有序选取供列表或表单使用的字段。静态模型的独立列表由 `ListCollection.columns` 声明列，对象表单及所属明细依据有序 `members` 呈现。见 [#108](https://github.com/hansonyu183/zerp-ui/issues/108) 与[静态模型接口](docs/interfaces/README.md#领域对象与集合)。
 
 ## 统一业务模型
 

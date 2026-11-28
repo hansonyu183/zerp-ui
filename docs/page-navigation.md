@@ -1,6 +1,6 @@
 # 页内导航与记录关联
 
-> 本文记录 [#107](https://github.com/hansonyu183/zerp-ui/issues/107) 的旧版页面装配。现行导航与记录链接使用静态模型，见[接口说明](interfaces/README.md#工作台与记录目标链接)。
+> 本文记录 [#107](https://github.com/hansonyu183/zerp-ui/issues/107) 的旧版页面装配。现行导航与记录链接使用静态模型，见[集合路由与记录窗口](interfaces/README.md#集合路由与记录窗口)和[工作台与记录目标链接](interfaces/README.md#工作台与记录目标链接)。
 
 `AppPage.pageNavigation` 呈现当前业务页的有限链接组，与主导航 `navigation` 分离。每组包含 `key/caption/kind/items`，kind为tabs或menu；tabs由消费者提供selectedKey以区分同路径的查询参数切换。库负责按钮、菜单、窄屏横向滚动和键盘交互，消费者继续持有路由及业务资格。
 

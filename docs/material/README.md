@@ -1,4 +1,4 @@
-> 本文保留 [ui-v0.10.0](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.10.0) 时期的合成消费者验收记录，文中命令以该版本的源码为准。当前组件入口、安装包与验证命令见[项目说明](../../README.md)，现行能力对应见[静态模型迁移](../interfaces/static-migration.md)。
+> 本文保留 [ui-v0.10.0](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.10.0) 的合成消费者 Material 验收，以及 [ui-v0.13.0](https://github.com/hansonyu183/zerp-ui/tree/ui-v0.13.0) 的手机卡片补记。发版门禁记录对应 0.10.0。当前组件入口、安装包与验证命令见[项目说明](../../README.md)，现行能力对应见[静态模型迁移](../interfaces/static-migration.md)。
 
 # Material 对照矩阵
 
