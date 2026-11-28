@@ -353,14 +353,12 @@ it("keeps a write guard when leaving and returning and makes consumers reject la
 });
 it("offers only sign-in when anonymous", async () => {
   const { model } = fixture();
-  const authButtons = () =>
-    Array.from(document.querySelectorAll(".zerp-auth-card button")).map(
-      (button) => button.textContent?.trim(),
-    );
-
   model.session = { state: "anonymous", owner: null };
   wrapper = await render(model);
-  expect(authButtons()).toEqual(["登录"]);
+  const authButtons = Array.from(
+    document.querySelectorAll(".zerp-auth-card button"),
+  ).map((button) => button.textContent?.trim());
+  expect(authButtons).toEqual(["登录"]);
   await click("登录");
   expect(model.authentication.operations.signIn.run).toHaveBeenCalledOnce();
 });

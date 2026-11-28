@@ -204,10 +204,10 @@ it("loads the workbench once per session and retries only on request", async () 
   route(null);
   await flushPromises();
   expect(load).toHaveBeenCalledTimes(1);
-  const session = model.session;
+  const owner = model.session.owner!;
   model.session = { state: "anonymous", owner: null };
   await flushPromises();
-  model.session = session;
+  model.session = { state: "ready", owner: { ...owner, generation: "2" } };
   await flushPromises();
   expect(load).toHaveBeenCalledTimes(2);
   await wrapper
