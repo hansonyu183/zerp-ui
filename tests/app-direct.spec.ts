@@ -110,8 +110,9 @@ it("edits the same model in an overlay and retains failed-save input", async () 
   wrapper = await render(model);
   await click("编辑");
   await input("名称").setValue("unfinished");
+  expect(name.value).toBe("unfinished");
   await click("保存");
-  expect(name.value).toBe("initial");
+  expect(name.value).toBe("unfinished");
   expect(input("名称").element.value).toBe("unfinished");
   expect(document.querySelector('[role="dialog"]')).not.toBeNull();
   expect(document.body.textContent).toContain("操作失败");
@@ -222,7 +223,7 @@ it("uses consumer-created drafts and reopens them without creating twice", async
   await click("关闭");
   expect(rows.draft).not.toBeNull();
   await click("继续编辑");
-  expect(input("新增名称").element.value).toBe("");
+  expect(input("新增名称").element.value).toBe("unfinished new");
   expect(rows.operations.create.run).toHaveBeenCalledTimes(1);
   const save = Array.from(
     document.querySelectorAll<HTMLButtonElement>("button"),

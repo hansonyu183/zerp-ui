@@ -109,7 +109,7 @@ it("does not manufacture Tabs for zero or a single visible group", async () => {
   await flushPromises();
   expect(document.querySelector('[role="tablist"]')).toBeNull();
 });
-it("keeps owned detail edits local until the parent save", async () => {
+it("writes owned detail edits to the model before the parent save", async () => {
   const { model, record } = fixture();
   const quantity = field("quantity", "数量", "2");
   const rows: RecordsNode = {
@@ -133,7 +133,7 @@ it("keeps owned detail edits local until the parent save", async () => {
   wrapper = await render(model);
   await click("编辑");
   await input("数量").setValue("3");
-  expect(quantity.value).toBe("2");
+  expect(quantity.value).toBe("3");
   expect(input("数量").element.value).toBe("3");
   expect(record.operations.update!.run).not.toHaveBeenCalled();
   await click("保存");
