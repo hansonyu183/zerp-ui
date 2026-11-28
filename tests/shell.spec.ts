@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { createShellThemes, defaultThemeChoice } from "../src/index";
+import { createShellThemes, defaultThemeChoice } from "../src/styles/theme";
 it("provides all six official material themes with finite brand colors and MD3 light by default", () => {
   const result = createShellThemes({
     primary: "#123456",

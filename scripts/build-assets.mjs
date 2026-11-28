@@ -5,13 +5,12 @@ await copyFile(
   require.resolve("@mdi/font/LICENSE"),
   new URL("../dist/MDI-LICENSE.txt", import.meta.url),
 );
-// CSS has no type exports. Vite extracts it for the explicit style.css entry;
-// do not leave a side-effect CSS import requiring ambient types in index.d.ts.
+// Style imports belong to runtime and CSS assets, not to index.d.ts.
 const declarations = new URL("../dist/index.d.ts", import.meta.url);
 await writeFile(
   declarations,
   (await readFile(declarations, "utf8")).replace(
-    /^import "\.\/styles\/(?:style|shell-layout)\.css";\n/gm,
+    /^import "(?:vuetify\/styles|\.\/styles\/(?:style|shell-layout)\.css)";\n/gm,
     "",
   ),
 );

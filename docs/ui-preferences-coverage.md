@@ -19,7 +19,7 @@
 | UI-GOV-05 | 无自动断言 | 流程审查：按共用组件实际复用关系记录受影响页面族/容器/状态、相关桌面/手机路径、已检/未覆盖范围及源码/安装、合成/真实证据面；清单通过不等于任务已遵守，不固定全量检查数量。 |
 | UI-GOV-06 | 无自动断言 | 流程审查由 Agent 执行：常规文案/UI自主判断；仅将业务含义不明或要求变更在开发交付后合并为一份清单，不逐项询问用户。 |
 | UI-THEME-01 | 无自动断言 | 布局所有权及消费者不补模板仍需架构审查；未穷举业务族。 |
-| UI-THEME-02 | [package-theme](#package-theme)、[package-workbench](#package-workbench) | 认证与业务外壳、工作台、领域 Tab 和查询按钮有主题响应证据。尚未逐个验证弹层、反馈和输入控件的主题色。 |
+| UI-THEME-02 | [package-theme](#package-theme)、[package-workbench](#package-workbench)、[unit-vuetify-host](#unit-vuetify-host) | 合成宿主直接挂载 App 验证 Vuetify 初始化和品牌色更新。认证与业务外壳、工作台、领域 Tab 和查询按钮有主题响应证据。尚未逐个验证弹层、反馈和输入控件的主题色。 |
 | UI-THEME-03 | [unit-theme](#unit-theme)、[package-theme](#package-theme) | 默认 MD3 浅色与主题和明暗独立切换有断言。ZERP 截图作为人工视觉参考，菜单顺序与真实消费者持久化另验收。 |
 | UI-THEME-04 | [unit-buttons](#unit-buttons)、[package-theme](#package-theme)、[package-auth-alignment](#package-auth-alignment) | 覆盖公开业务按钮层级、代表性主题响应及登录按钮宽度；各认证状态、业务族和弹层的按钮呈现尚未逐路径穷举。 |
 | UI-THEME-05 | [package-layout](#package-layout) | 覆盖表格12px及手机编辑输入16px；正文、菜单、导航、反馈及认证品牌字号与其他标题尚未逐类验证。 |
@@ -358,6 +358,12 @@
 [scripts/interaction-smoke.mjs](../scripts/interaction-smoke.mjs) · tgz/browser
 
 定位：`top-notice-expiry-and-blocking-acknowledgment`。顶部提示到时消失，桌面和手机模态阻塞背景并在确认后恢复焦点。
+
+### unit-vuetify-host
+
+[tests/app-direct.spec.ts](../tests/app-direct.spec.ts) · source/public-entry
+
+定位：`installs Vuetify on mount`。公开 App 自动安装并在同一宿主重挂载，品牌主色和辅色随模型更新。
 
 ## 执行与维护
 

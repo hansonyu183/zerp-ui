@@ -453,7 +453,13 @@ export type Collection = ListCollection | Workbench;
 export interface BusinessModel {
   kind: "application";
   label: string;
-  brand: { productName: string; companyName: string };
+  brand: {
+    productName: string;
+    companyName: string;
+    /** 可选主题品牌主色与辅色，省略时使用预设颜色。 */
+    primary?: string;
+    secondary?: string;
+  };
   /** 省略时默认 MD3 浅色；选择持久化由消费者负责。 */
   theme?: {
     value: { preset: "md1" | "md2" | "md3"; mode: "light" | "dark" };

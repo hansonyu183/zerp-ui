@@ -1,4 +1,3 @@
-import { config } from "@vue/test-utils";
 import { beforeEach, vi } from "vitest";
 vi.stubGlobal(
   "ResizeObserver",
@@ -17,10 +16,6 @@ window.matchMedia = vi.fn().mockImplementation((query: string) => ({
   addEventListener() {},
   removeEventListener() {},
 }));
-
-// Vuetify snapshots matchMedia support on import. Install the browser preference first.
-const { createVuetify } = await import("vuetify");
-config.global.plugins = [createVuetify()];
 
 vi.stubGlobal(
   "visualViewport",

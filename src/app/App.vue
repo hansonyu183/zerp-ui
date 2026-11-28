@@ -3,12 +3,14 @@
 import { computed, ref } from "vue";
 import type { BusinessModel } from "../model/business-model";
 import { useApp } from "./useApp";
+import { useVuetify } from "./useVuetify";
 import { defaultThemeChoice, type ThemeChoice } from "../styles/theme";
 import SignInPage from "./sign-in/SignInPage.vue";
 import WorkPage from "./work/WorkPage.vue";
 
 const props = defineProps<{ model: BusinessModel }>();
 const { ready, blocking } = useApp(() => props.model);
+useVuetify(() => props.model.brand);
 const localTheme = ref(defaultThemeChoice);
 const theme = computed(() => props.model.theme?.value ?? localTheme.value);
 function changeTheme(value: ThemeChoice) {
