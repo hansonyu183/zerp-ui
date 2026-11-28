@@ -42,6 +42,25 @@ function setup() {
   return { ...f, offPage, shortcut, workbench: f.model.work.workbench };
 }
 
+it("keeps an unreadable configured workbench at home without reading a collection", async () => {
+  const f = setup();
+  const loadWorkbench = vi.fn(async () => {});
+  const loadCollection = vi.fn(async () => {});
+  f.workbench.readable = false;
+  f.workbench.load = loadWorkbench;
+  f.rows.load = loadCollection;
+  wrapper = await render(f.model);
+  expect(window.location.pathname).toBe("/app/");
+  expect(wrapper.text()).toContain("暂无可用内容。");
+  expect(loadWorkbench).not.toHaveBeenCalled();
+
+  f.workbench.readable = true;
+  await flushPromises();
+  expect(window.location.pathname).toBe("/app/");
+  expect(loadWorkbench).toHaveBeenCalledTimes(1);
+  expect(loadCollection).not.toHaveBeenCalled();
+});
+
 it("builds the workbench caption in readable member order", async () => {
   const f = setup();
   f.shortcut.members = [

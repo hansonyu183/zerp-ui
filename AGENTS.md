@@ -12,7 +12,7 @@
 - 唯一公开组件为 `App`，消费者从 `@zerp/ui/model` 导入 `BusinessModel` 类型并用固定属性直接定义模型。变更公开接口前读取[静态模型接口](docs/interfaces/README.md)。
 - 各业务族运行时固定交互语义；字段/局部区块仅暴露所辖值、必要目录、模式与局部事件。
 - 不增加旧版兼容层、重复实现或任意模板/render/字符串命令；现有依赖可满足需求时优先复用。
-- 必须使用消费者源码直接定义的完整静态 BusinessModel。严禁运行时向后端查询字段结构，或从登录、恢复、application、列表、详情、新增、报表等响应中的 definition/schema/fields/metadata 推导、补齐或替换模型结构；不得以“动态业务事实”、缓存或归一化包装规避。`BusinessModel.work.members` 允许业务栏目、领域分组或独立 Collection。侧栏由源码静态结构生成；栏目内的分类与领域按成员数组顺序呈现。领域分组不拥有整体保存，各集合独立查询、授权和保存。字段、领域/字段分组、列、节点类型和关系在源码确定，后端数据只更新既定模型的业务值、身份、权限及操作资格。详见 docs/ui-preferences.md 的 UI-BOUND-03。
+- 必须使用消费者源码直接定义的完整静态 BusinessModel。严禁运行时向后端查询字段结构，或从登录、恢复、application、列表、详情、新增、报表等响应中的 definition/schema/fields/metadata 推导、补齐或替换模型结构；不得以“动态业务事实”、缓存或归一化包装规避。`BusinessModel.work.members` 允许业务栏目、领域分组或直属 `ListCollection`。侧栏由源码静态结构生成；栏目内的分类与领域按成员数组顺序呈现。领域分组不拥有整体保存，各集合独立查询、授权和保存。字段、领域/字段分组、列、节点类型和关系在源码确定，后端数据只更新既定模型的业务值、身份、权限及操作资格。详见 docs/ui-preferences.md 的 UI-BOUND-03。
 
 ## 个性化 UI 规范
 
@@ -33,12 +33,12 @@
 
 ### Issue tracker
 
-议题操作前读取 `docs/agents/issue-tracker.md`；正式规格、决策和工单维护于本仓库 GitHub Issues。
+议题操作前读取 [工单流程](docs/agents/issue-tracker.md)；正式规格、决策和工单维护于本仓库 GitHub Issues。
 
 ### Triage labels
 
-分诊及调整标签前读取 `docs/agents/triage-labels.md`；采用五个默认 triage 标签。
+分诊及调整标签前读取 [分诊标签](docs/agents/triage-labels.md)；采用五个默认 triage 标签。
 
 ### Domain docs
 
-采用 single-context 布局。探索代码及讨论领域术语、架构决策前读取 `docs/agents/domain.md`。
+采用 single-context 布局。探索代码及讨论领域术语、架构决策前读取 [领域文档](docs/agents/domain.md)。

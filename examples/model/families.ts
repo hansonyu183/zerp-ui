@@ -242,9 +242,10 @@ const detailRecord = object("detail", "合成凭证详情", [
   text("number", "关联凭证编号", "S-001", true),
 ]);
 export const details = collection("details", "关联凭证", detailRecord);
+const firstSaleName = text("name", "销售名称", "合成销售");
 const sales = [
   object("sale-1", "销售记录", [
-    text("name", "销售名称", "合成销售"),
+    firstSaleName,
     {
       kind: "decimal",
       key: "amount",
@@ -280,15 +281,19 @@ export const structuredReport: ListCollection = reactive({
   report: {
     summary: {
       caption: "销售总计",
-      values: { amount: "12345678901234567890.10" },
+      values: { amount: "12345678901234567890.10", missing: "无效列合计" },
     },
     presentation: {
       rows: [
         {
           rowId: "sale-1",
           appearance: { bold: true },
-          cells: { amount: { align: "right" } },
+          cells: {
+            amount: { align: "right" },
+            missing: { foreground: "invalid" },
+          },
         },
+        { rowId: "missing", appearance: { foreground: "invalid" } },
       ],
       groups: [
         {
@@ -303,6 +308,26 @@ export const structuredReport: ListCollection = reactive({
             caption: "分组小计",
             values: { amount: "12345678901234567890.10" },
           },
+        },
+        {
+          id: "outside-page",
+          label: "无效报表分组",
+          level: 0,
+          firstKey: "missing",
+          lastKey: "sale-1",
+          continuedBefore: false,
+          continuedAfter: false,
+          summary: { caption: "无效分组小计", values: { amount: "999" } },
+        },
+        {
+          id: "missing-parent",
+          label: "无效报表子组",
+          level: 2,
+          firstKey: "sale-1",
+          lastKey: "sale-1",
+          continuedBefore: false,
+          continuedAfter: false,
+          summary: { caption: "无效子组小计", values: { amount: "999" } },
         },
       ],
     },
@@ -408,6 +433,8 @@ export function bindFamilyQueries(owner: () => Owner | null) {
       await query?.run({ page, pageSize });
       if (JSON.stringify(owner()) !== requestOwner) return;
       if (rows === structuredReport) {
+        firstSaleName.value =
+          page === 1 ? "合成销售" : `合成销售（第 ${page} 页）`;
         details.items = [detailRecord];
         details.total = 1;
       }

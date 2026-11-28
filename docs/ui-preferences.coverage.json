@@ -1,17 +1,65 @@
 {
   "issue": "https://github.com/hansonyu183/zerp-ui/issues/159",
   "checks": {
+    "unit-unreadable-home": {
+      "file": "tests/static-target-links.spec.ts",
+      "anchor": "keeps an unreadable configured workbench at home",
+      "surface": "source/public-entry",
+      "assertion": "已配置但不可读的工作台使用原首页空态，保持集合未读取，增权后正常读取工作台"
+    },
+    "package-report-references": {
+      "file": "scripts/direct-model-smoke.mjs",
+      "anchor": "无效报表分组",
+      "surface": "tgz/browser",
+      "assertion": "通过公开 App 呈现有效报表正文与合计，自动跳过缺失行列引用和缺少边界行或父组的分组"
+    },
+    "unit-login-fields": {
+      "file": "tests/static-application.spec.ts",
+      "anchor": "keeps the same root through sign-in and hides business collections when anonymous",
+      "surface": "source/public-entry",
+      "assertion": "账套、账号、密码按固定顺序呈现，排除未采用的内容成员"
+    },
+    "unit-report-references": {
+      "file": "tests/report.spec.ts",
+      "anchor": "keeps the list and valid report facts when row and column references disappear",
+      "surface": "source/component",
+      "assertion": "跳过缺失行列、无效分组与对应小计，保留正文及其他有效报表事实"
+    },
+    "unit-print-current-page": {
+      "file": "tests/static-fields.spec.ts",
+      "anchor": "generates template-controlled current-page printing without querying more records or confirming physical output",
+      "surface": "source/public-entry",
+      "assertion": "当前页模板打印不追加查询，不调用实体结果确认"
+    },
+    "unit-print-record-qualification": {
+      "file": "tests/static-fields.spec.ts",
+      "anchor": "blocks edited and uncertain values from printing until consumer confirms the same formal record",
+      "surface": "source/public-entry",
+      "assertion": "已修改和结果未确认的记录不可打印，确认后恢复资格"
+    },
+    "unit-print-template-binding": {
+      "file": "tests/static-print-template.spec.ts",
+      "anchor": "refuses unauthorized and secret bindings instead of leaking raw values",
+      "surface": "source/template",
+      "assertion": "模板绑定拒绝无权字段和秘密值"
+    },
+    "unit-print-template-overflow": {
+      "file": "tests/static-print-template.spec.ts",
+      "anchor": "names an oversized row and rejects invalid measurements",
+      "surface": "source/template",
+      "assertion": "整行与表头超过纸张可用高度时提示明细位置并拒绝输出"
+    },
     "package-layout": {
       "file": "scripts/direct-presentation-smoke.mjs",
       "anchor": "export async function directPresentationSmoke",
       "surface": "tgz/browser",
-      "assertion": "代表性客户页：业务区留白、四列筛选/三列编辑、第二操作列、12px表格、32/48px动作、16px手机输入、手机查询与新增同排、手机记录卡片的 Material 细边框、弹层标题与正文对齐、弹层边界/焦点、手机无溢出"
+      "assertion": "发行模型主场景和 `pnpm check:ui-preferences` 均执行。代表性客户页包括业务区留白、四列筛选/三列编辑、第二操作列、12px表格、32/48px动作、16px手机输入、手机查询与新增同排、手机记录卡片的 Material 细边框、弹层标题与正文对齐、弹层边界/焦点、手机无溢出"
     },
     "package-workbench": {
       "file": "scripts/direct-presentation-smoke.mjs",
       "anchor": "export async function workbenchPresentationSmoke",
       "surface": "tgz/browser",
-      "assertion": "工作台四卡片桌面1+3、手机纵排，验证刷新按钮与卡片间距、卡片细边框、三主题暗色及恢复浅色"
+      "assertion": "发行模型主场景和 `pnpm check:ui-preferences` 均执行。工作台四卡片桌面1+3、手机纵排，验证刷新按钮与卡片间距、卡片细边框、三主题暗色及恢复浅色"
     },
     "package-theme": {
       "file": "scripts/ui-preferences-smoke.mjs",
@@ -529,14 +577,15 @@
     {
       "id": "UI-FORM-03",
       "checks": [
+        "unit-login-fields",
         "package-layout",
         "package-auth-alignment",
         "package-field-alignment",
         "package-application-alignment",
         "package-mobile-readonly-values"
       ],
-      "remaining": "覆盖认证品牌、同列输入、代表性编辑弹层标题与正文的对齐，以及合成业务导航、账户和工作台的代表性桌面手机布局。真实消费者和全部字段、尺寸及隐藏状态组合未穷举。",
-      "requirementSha256": "65a342751cc1531fa9033f63632b530160478b18fdd78baf4f019a9d3d4be851"
+      "remaining": "覆盖固定登录字段顺序、认证品牌、同列输入、代表性编辑弹层标题与正文的对齐，以及合成业务导航、账户和工作台的代表性桌面手机布局。真实消费者和全部字段、尺寸及隐藏状态组合未穷举。",
+      "requirementSha256": "37c66ed16cb071d66a451e91ed48a42a657c26b2795c44462c3b52a166bcf8c3"
     },
     {
       "id": "UI-FORM-04",
@@ -632,9 +681,10 @@
         "package-full",
         "unit-domain",
         "package-domain-tabs",
-        "unit-open-url"
+        "unit-open-url",
+        "unit-unreadable-home"
       ],
-      "remaining": "公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效、工作台首页入口及 `App.openUrl`。当前首页回退条件是没有可读工作台，规范写的是没有配置工作台。真实 OIT 的静态菜单、部署深链和权限另验。",
+      "remaining": "公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效、工作台首页入口及 `App.openUrl`。公开源码验证无工作台时回退、不可读工作台保留首页空态及增权后读取。 当前侧栏只显示可读工作台入口，品牌始终返回首页。真实 OIT 的静态菜单、部署深链和权限另验。",
       "requirementSha256": "77daf9e64b69b5234c1ad9a0083636ea33353f278f0bfe86b4ab099fac924160"
     },
     {
@@ -665,7 +715,7 @@
     {
       "id": "UI-WORK-01",
       "checks": ["package-workbench"],
-      "remaining": "独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。首页集合统一定位及首次读取见相关源码断言。各主题具体表面色和空角色等业务状态另验收。",
+      "remaining": "发行模型主场景与独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。首页集合统一定位及首次读取见相关源码断言。各主题具体表面色和空角色等业务状态另验收。",
       "requirementSha256": "f6df2847bf01094410f499cb01bb3750c1914ea79426c625099e90a3bd5ca252"
     },
     {
@@ -682,15 +732,27 @@
     },
     {
       "id": "UI-WORK-04",
-      "checks": ["unit-review", "package-full"],
-      "remaining": "新根集合局部详情下钻使用包场景验证条件/页码/滚动保持；结果有效性归消费者。",
+      "checks": ["package-full"],
+      "remaining": "独立安装包场景在翻页后打开并关闭关联窗口，确认地址、查询输入、当前页结果、页码、非零滚动位置及查询次数均保持。真实消费者的数据有效性另验。",
       "requirementSha256": "39569758bfc52afeeced21113218a53425aa6bd38cc5d5d82b318e4abccd45ad"
+    },
+    {
+      "id": "UI-WORK-05",
+      "checks": ["unit-report-references", "package-report-references"],
+      "remaining": "源码组件与独立包公开 App 均覆盖失效报表引用。真实消费者的权限及数据组合另验。",
+      "requirementSha256": "3a79b7511715e96d96aae0b4848469f0773e119a521de969a507066befd753b9"
     },
     {
       "id": "UI-PRINT-01",
       "requirementSha256": "533c5845f3ce88a6e387cb40c1b5e7b0ca80fc4b9e366710776bf853fd9cbd0f",
-      "checks": ["package-print-template"],
-      "remaining": "仅覆盖合成 A4 单据与浏览器 PDF；跨平台字体度量、真实消费者权限与业务汇总、实体打印设备另验收。 XLSX 设计输入与自动转换为标准 JSON 尚待实现及验收。"
+      "checks": [
+        "package-print-template",
+        "unit-print-current-page",
+        "unit-print-record-qualification",
+        "unit-print-template-binding",
+        "unit-print-template-overflow"
+      ],
+      "remaining": "包场景覆盖合成 A4 单据与 Chromium PDF，系统打印调用使用替身。源码另覆盖当前页读取边界、记录资格、绑定和行高错误。跨平台字体度量、真实消费者权限、业务汇总及实体打印另验。XLSX 设计输入与自动转换待实现及验收。"
     },
     {
       "id": "UI-SCOPE-01",

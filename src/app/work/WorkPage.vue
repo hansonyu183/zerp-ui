@@ -80,7 +80,7 @@ watch(
   [
     routePath,
     navigationEntries,
-    workbench,
+    () => props.model.workbench,
     applicationReady,
     sessionState,
     routeReady,
@@ -91,7 +91,7 @@ watch(
       routePath.value !== workHome ||
       !applicationReady.value ||
       sessionState.value !== "ready" ||
-      workbench.value
+      props.model.workbench
     )
       return;
     const first = navigationEntries.value[0]?.target;

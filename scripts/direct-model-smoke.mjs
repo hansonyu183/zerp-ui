@@ -329,19 +329,36 @@ export async function directModelSmoke(page) {
     );
     await close();
     await visit("结构化报表");
+    await expect(page.getByText("业务分组", { exact: true })).toBeVisible();
+    await expect(page.getByText("分组小计", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(
+        /无效报表分组|无效报表子组|无效分组小计|无效子组小计|无效列合计/,
+      ),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("rowgroup", { name: "销售总计", exact: true }),
     ).toContainText("12345678901234567890.10");
     await page
       .getByRole("textbox", { name: "查询期间", exact: true })
       .fill("2026-10");
-    await page.getByRole("button", { name: "下一页", exact: true }).click();
+    const pagination = page.getByRole("navigation", { name: "分页" });
+    await pagination
+      .getByRole("button", { name: "下一页", exact: true })
+      .click();
+    const pageTwo = "第 2 页 / 2 页 · 共 60 条";
+    await expect(pagination).toContainText(pageTwo);
+    const resultRows = page.locator("tr[data-record-key]");
+    await expect(resultRows).toHaveCount(30);
+    await expect(resultRows.first()).toContainText("合成销售（第 2 页）");
+    const result = await resultRows.allTextContents();
     const bottom = page.getByRole("button", {
       name: "打开底部凭证",
       exact: true,
     });
     await bottom.scrollIntoViewIfNeeded();
     const scroll = await page.evaluate(() => window.scrollY);
+    expect(scroll).toBeGreaterThan(0);
     const reads = callbacks.filter(
       (name) => name === "structured.query",
     ).length;
@@ -360,6 +377,8 @@ export async function directModelSmoke(page) {
       callbacks.filter((name) => name === "structured.query").length,
       reads,
     );
+    await expect(pagination).toContainText(pageTwo);
+    await expect(resultRows).toHaveText(result);
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scroll);
     await visit("打印办理");
     dialog = await open("查看");
@@ -423,6 +442,9 @@ export async function directModelSmoke(page) {
     await expect(
       navigation.getByRole("link", { name: "单据", exact: true }),
     ).toHaveCount(0);
+    await expect(page).toHaveURL(/\/app\/$/);
+    await expect(page.getByText("暂无可用内容。")).toBeVisible();
+    await visit("客户");
     const view = page
       .getByRole("link", { name: "查看", exact: true })
       .or(page.getByRole("button", { name: "查看", exact: true }));
