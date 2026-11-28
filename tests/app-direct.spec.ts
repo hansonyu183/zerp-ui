@@ -351,23 +351,16 @@ it("keeps a write guard when leaving and returning and makes consumers reject la
   await flushPromises();
   expect(name.value).toBe("initial");
 });
-it("offers only sign-in when anonymous and leaves recovery to the consumer", async () => {
+it("offers only sign-in when anonymous", async () => {
   const { model } = fixture();
-  const authButtons = () =>
-    Array.from(document.querySelectorAll(".zerp-auth-card button")).map(
-      (button) => button.textContent?.trim(),
-    );
-
   model.session = { state: "anonymous", owner: null };
   wrapper = await render(model);
-  expect(authButtons()).toEqual(["登录"]);
+  const authButtons = Array.from(
+    document.querySelectorAll(".zerp-auth-card button"),
+  ).map((button) => button.textContent?.trim());
+  expect(authButtons).toEqual(["登录"]);
   await click("登录");
   expect(model.authentication.operations.signIn.run).toHaveBeenCalledOnce();
-
-  model.session = { state: "recovering", owner: null };
-  await flushPromises();
-  expect(authButtons()).toEqual([]);
-  expect(model.authentication.operations.recover.run).not.toHaveBeenCalled();
 });
 
 it.each(["info", "success", "warning", "error"] as const)(

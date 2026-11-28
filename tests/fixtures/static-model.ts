@@ -80,7 +80,7 @@ export function fixture() {
     brand: { productName: "Test", companyName: "Synthetic" },
     authentication: {
       form: object("login", "登录", [field("username", "登录名", "")]),
-      operations: { signIn: operation(), recover: operation() },
+      operations: { signIn: operation() },
     },
     session: {
       state: "ready",

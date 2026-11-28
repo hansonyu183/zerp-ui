@@ -46,7 +46,7 @@ function fixture() {
     brand: { productName: "合成", companyName: "测试" },
     authentication: {
       form: object("login", "登录"),
-      operations: { signIn: operation(), recover: operation() },
+      operations: { signIn: operation() },
     },
     session: {
       state: "ready",
@@ -93,7 +93,7 @@ it("reads the selected record only after the user opens its window", async () =>
   wrapper.unmount();
 });
 
-it("keeps the same root through anonymous authentication and hides business collections during session recovery", async () => {
+it("keeps the same root through sign-in and hides business collections when anonymous", async () => {
   const { model, query } = fixture();
   model.session = { state: "anonymous", owner: null };
   model.authentication.form.members = [
@@ -152,10 +152,10 @@ it("keeps the same root through anonymous authentication and hides business coll
   expect(signIn).toHaveBeenCalledTimes(1);
   expect(window.location.pathname).toBe("/app/customers");
   expect(wrapper.findAll("th").map((x) => x.text())).toContain("编号");
-  model.session = { state: "recovering", owner: null };
+  model.session = { state: "anonymous", owner: null };
   await flushPromises();
   expect(wrapper.findAll("th")).toHaveLength(0);
-  expect(wrapper.find('form button[type="submit"]').exists()).toBe(false);
+  expect(wrapper.find('form button[type="submit"]').exists()).toBe(true);
   wrapper.unmount();
 });
 it("updates collection readability without deleting structure", async () => {
@@ -204,10 +204,10 @@ it("loads the workbench once per session and retries only on request", async () 
   route(null);
   await flushPromises();
   expect(load).toHaveBeenCalledTimes(1);
-  const session = model.session;
-  model.session = { state: "recovering", owner: null };
+  const owner = model.session.owner!;
+  model.session = { state: "anonymous", owner: null };
   await flushPromises();
-  model.session = session;
+  model.session = { state: "ready", owner: { ...owner, generation: "2" } };
   await flushPromises();
   expect(load).toHaveBeenCalledTimes(2);
   await wrapper

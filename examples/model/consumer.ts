@@ -784,12 +784,7 @@ export const model: BusinessModel = reactive({
   brand: { productName: "合成业务示例", companyName: "示例企业" },
   authentication: {
     form: object("login", "登录", [loginLedger, loginName, loginPassword]),
-    operations: {
-      signIn,
-      recover: operation(async () => {
-        trace("session.recover");
-      }),
-    },
+    operations: { signIn },
   },
   session: { state: "anonymous", owner: null },
   messages: [],

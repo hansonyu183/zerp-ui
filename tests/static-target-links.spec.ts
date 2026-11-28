@@ -81,7 +81,7 @@ it("drops an off-page window when selection synchronously changes the session", 
     () => f.rows.selected,
     (record) => {
       if (record === f.offPage)
-        f.model.session = { state: "recovering", owner: null };
+        f.model.session = { state: "anonymous", owner: null };
     },
     { flush: "sync" },
   );
