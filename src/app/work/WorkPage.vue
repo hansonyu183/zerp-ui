@@ -238,22 +238,29 @@ function openCurrentRecord(request: RecordRequest) {
     return;
   windows.open(request);
 }
+function openRecordTarget(
+  collection: ListCollection,
+  record: ObjectNode,
+  resolvedId?: string,
+) {
+  const trigger = document.activeElement;
+  return windows.open({
+    collection,
+    record: reactive(record),
+    mode: "read",
+    resolvedId,
+    focus: () => (trigger instanceof HTMLElement ? trigger : null),
+  });
+}
+
 // 集合目标改变路由，记录目标直接打开窗口并保留当前页面。
 function visitTarget(target: CollectionTarget) {
   if (!availableTarget(target)) return;
-  if (target.record) {
-    const trigger = document.activeElement;
-    windows.open({
-      collection: target.collection,
-      record: target.record,
-      mode: "read",
-      focus: () => (trigger instanceof HTMLElement ? trigger : null),
-    });
-  } else goToCollection(target.collection);
+  if (target.record) openRecordTarget(target.collection, target.record);
+  else goToCollection(target.collection);
 }
 function openUrl(address: string): boolean {
   if (
-    !routeReady.value ||
     sessionState.value !== "ready" ||
     feedbackForApplication().blocking.value ||
     windows.confirm.value
@@ -279,16 +286,11 @@ function openUrl(address: string): boolean {
     (selected?.identity === id ? selected : undefined) ??
     collection.items.find((item) => item.identity === id) ??
     collection.resolveRecord?.(id);
-  if (session !== sessionVersion.value || !record || record.identity !== id)
-    return false;
-  const trigger = document.activeElement;
-  return windows.open({
-    collection,
-    record: reactive(record),
-    mode: "read",
-    resolvedFromUrl: true,
-    focus: () => (trigger instanceof HTMLElement ? trigger : null),
-  });
+  return (
+    !!record &&
+    session === sessionVersion.value &&
+    openRecordTarget(collection, record, id)
+  );
 }
 defineExpose({ openUrl });
 

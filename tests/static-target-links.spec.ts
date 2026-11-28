@@ -208,6 +208,13 @@ it("dispatches app URLs to page navigation or existing record windows", async ()
   expect(input("单据名称").element.value).toBe("未保存");
   expect(window.location.pathname).toBe("/app/");
 
+  expect(wrapper.vm.openUrl("/app/AB?id=560010")).toBe(true);
+  await flushPromises();
+  other.identity = "560011";
+  await click("继续切换");
+  expect(other.load).not.toHaveBeenCalled();
+  expect(input("单据名称").element.value).toBe("未保存");
+
   expect(wrapper.vm.openUrl("/app/rows?id=off-page")).toBe(true);
   await flushPromises();
   expect(f.rows.selected).toBe(f.offPage);
@@ -227,4 +234,21 @@ it("dispatches app URLs to page navigation or existing record windows", async ()
   expect(wrapper.vm.openUrl("/app/AB?id=560010")).toBe(false);
   expect(other.load).not.toHaveBeenCalled();
   expect(window.location.pathname).toBe("/app/rows");
+});
+
+it("reopens the requested identity when the previous record loses its collection", async () => {
+  const { model, rows, record } = fixture();
+  const next = object(record.key, "重新取得的记录");
+  const read = vi.fn(async () => {});
+  next.load = read;
+  wrapper = await render(model);
+  expect(wrapper.vm.openUrl("/app/rows?id=r1")).toBe(true);
+  await flushPromises();
+  rows.items = [next];
+  rows.selected = null;
+  await flushPromises();
+  expect(wrapper.vm.openUrl("/app/rows?id=r1")).toBe(true);
+  await flushPromises();
+  expect(rows.selected).toBe(next);
+  expect(read).toHaveBeenCalledExactlyOnceWith("r1");
 });

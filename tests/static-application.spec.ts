@@ -641,7 +641,6 @@ it("uses the framework homepage URL and preserves modified links", async () => {
   route(collection);
   await flushPromises();
   await home.trigger("click", { ctrlKey: true });
-  expect(window.location.pathname).toBe("/app/customers");
   expect(window.location.pathname).toBe("/app/" + collection.key);
   await home.trigger("click");
   await flushPromises();

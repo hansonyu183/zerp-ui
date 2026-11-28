@@ -74,8 +74,8 @@ export function goToCollection(collection?: ListCollection) {
 
 // Lookup uses the same encoded collection paths as browser navigation.
 export function resolveWorkUrl(address: string) {
-  const router = activeRouter.value;
-  if (!router) return;
+  if (!ready.value) return;
+  const router = activeRouter.value!;
   let url: URL;
   try {
     url = new URL(address, window.location.origin);
@@ -107,8 +107,8 @@ export function useWorkRouter() {
     history,
     routes: [{ path: "/:pathMatch(.*)*", component: {} }],
   });
-  activeRouter.value = router;
   ready.value = false;
+  activeRouter.value = router;
   const location = ["/", "/app"].includes(history.location)
     ? workHome
     : history.location;
@@ -118,7 +118,7 @@ export function useWorkRouter() {
   onBeforeUnmount(() => {
     router.listening = false;
     history.destroy();
-    activeRouter.value = undefined;
     ready.value = false;
+    activeRouter.value = undefined;
   });
 }

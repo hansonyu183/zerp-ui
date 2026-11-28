@@ -20,10 +20,10 @@ export type RecordRequest = {
   mode: "read" | "edit";
   focus?: () => HTMLElement | null;
   print?: boolean;
-  resolvedFromUrl?: true;
+  resolvedId?: string;
 };
 
-export type RecordWindow = RecordRequest & {
+export type RecordWindow = Omit<RecordRequest, "resolvedId"> & {
   type: string;
   key: number;
   printKey: number;
@@ -56,22 +56,22 @@ export function useRecordWindows() {
   onBeforeUnmount(() => windows.clear());
 
   function open(request: RecordRequest, confirmed = false) {
-    const { record, collection } = request;
+    const { record, collection, resolvedId } = request;
     const type = record.businessType;
     if (
       !type ||
       !readable(collection) ||
-      !(request.resolvedFromUrl
-        ? canSelectRecord(collection, record)
-        : readable(record))
+      !(resolvedId === undefined
+        ? readable(record)
+        : record.identity === resolvedId && canSelectRecord(collection, record))
     )
       return false;
     const existing = windows.get(type);
     if (
       existing &&
+      readable(existing.record) &&
       (toRaw(existing.record) === toRaw(record) ||
         (record.identity !== null &&
-          toRaw(existing.collection) === toRaw(collection) &&
           existing.record.identity === record.identity))
     ) {
       active.value = type;
@@ -101,8 +101,9 @@ export function useRecordWindows() {
       collection.selected !== record
     )
       return false;
+    const { resolvedId: _resolvedId, ...selection } = request;
     const entry: RecordWindow = shallowReactive({
-      ...request,
+      ...selection,
       type,
       key: ++key,
       printKey: 0,
