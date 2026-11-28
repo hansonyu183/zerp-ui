@@ -367,7 +367,6 @@ it("offers only sign-in when anonymous and leaves recovery to the consumer", asy
   model.session = { state: "recovering", owner: null };
   await flushPromises();
   expect(authButtons()).toEqual([]);
-  expect(model.authentication.operations.recover.run).not.toHaveBeenCalled();
 });
 
 it.each(["info", "success", "warning", "error"] as const)(

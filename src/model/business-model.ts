@@ -472,7 +472,7 @@ export interface BusinessModel {
   };
   authentication: {
     form: ObjectNode;
-    operations: { signIn: Operation; recover: Operation };
+    operations: { signIn: Operation };
   };
   session: Session;
   work: {

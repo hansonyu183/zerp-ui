@@ -46,7 +46,7 @@ function fixture() {
     brand: { productName: "合成", companyName: "测试" },
     authentication: {
       form: object("login", "登录"),
-      operations: { signIn: operation(), recover: operation() },
+      operations: { signIn: operation() },
     },
     session: {
       state: "ready",

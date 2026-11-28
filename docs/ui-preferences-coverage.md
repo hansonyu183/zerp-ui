@@ -267,7 +267,7 @@
 
 [tests/app-direct.spec.ts](../tests/app-direct.spec.ts) · source/public-entry
 
-定位：`offers only sign-in when anonymous and leaves recovery to the consumer`。匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮，宿主不调用恢复回调。
+定位：`offers only sign-in when anonymous and leaves recovery to the consumer`。匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮。
 
 ### package-field-alignment
 

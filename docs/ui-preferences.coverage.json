@@ -197,7 +197,7 @@
       "file": "tests/app-direct.spec.ts",
       "anchor": "offers only sign-in when anonymous and leaves recovery to the consumer",
       "surface": "source/public-entry",
-      "assertion": "匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮，宿主不调用恢复回调"
+      "assertion": "匿名时只提供登录按钮并调用登录回调，自动恢复期间隐藏认证按钮"
     },
     "package-field-alignment": {
       "file": "scripts/field-alignment-smoke.mjs",
@@ -501,7 +501,7 @@
         "unit-reference-sync-load"
       ],
       "remaining": "覆盖代表性撤权、禁用、查询及保存的运行中互斥、按回调返回值呈现忙碌、登录操作和手动会话恢复入口移除。互斥覆盖未穷举全部后端回调。合成状态验证恢复期间隐藏业务与登录操作；真实消费者自动恢复另验收。",
-      "requirementSha256": "8d690477ca430e270b982f1db6579633f8ab6deca5eaf4a3af649c44a9ec0c03"
+      "requirementSha256": "9710aeb15500963c6ad9d9826fb6904b41d3e54494acadec350aaf2ed84bfd63"
     },
     {
       "id": "UI-ACTION-04",

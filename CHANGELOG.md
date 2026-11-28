@@ -2,6 +2,8 @@
 
 ## 0.51.0
 
+- 认证操作仅声明 `signIn`。会话恢复由消费者自行发起，并通过 `model.session` 提供恢复状态。
+
 - 前端集合地址统一归入 `/app`。宿主可调用 `App.openUrl(url)`，集合地址执行导航，带单个 `id` 的记录地址只打开窗口并保留页面地址。
 
 - `App` 自动安装 Vuetify 并加载基础样式。原有品牌主色和辅色移入 `model.brand`，见[迁移说明](https://github.com/hansonyu183/zerp-ui/blob/ui-v0.51.0/docs/interfaces/static-migration.md#vuetify-初始化迁移)。

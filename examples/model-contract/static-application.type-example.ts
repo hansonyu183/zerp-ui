@@ -14,7 +14,6 @@ import type {
 
 // 消费者实现这些回调；模型构造不调用回调、不读取服务端 schema。
 declare function signIn(): Promise<void>;
-declare function recoverSession(): Promise<void>;
 declare function signOut(): Promise<void>;
 declare function changePassword(): Promise<void>;
 declare function queryAccountSettings(request: {
@@ -729,7 +728,6 @@ export const model: BusinessModel = reactive({
     },
     operations: {
       signIn: { disabled: false, run: signIn },
-      recover: { disabled: false, run: recoverSession },
     },
   },
   session: { state: "anonymous", owner: null },
@@ -822,7 +820,7 @@ export const model: BusinessModel = reactive({
   messages: [],
 } satisfies BusinessModel);
 
-// signIn/recover 检查请求有效性，更新节点和操作后再写入 model.session。
+// 登录和消费者发起的会话恢复都检查请求有效性，更新节点和操作后再写入 model.session。
 // create 回调为每次新增直接构造独立记录；上述 draft/line 仅展示源码结构，不复用为多条记录。
 // signOut 撤销授权、清空输入/记录/缓存/消息并使迟到响应失效，根 model 不替换。
 // UI 若直接裁剪对象，负责恢复其结构；消费者负责清空恢复节点中的旧会话业务数据。

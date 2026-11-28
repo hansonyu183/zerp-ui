@@ -88,7 +88,7 @@ function fixture(fields: FieldNode[] = []) {
     brand: { productName: "合成", companyName: "测试" },
     authentication: {
       form: object("登录"),
-      operations: { signIn: op(), recover: op() },
+      operations: { signIn: op() },
     },
     session: {
       state: "ready",

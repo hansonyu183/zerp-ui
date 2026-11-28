@@ -80,6 +80,8 @@ const wrongNavigation: BusinessModel["work"]["navigation"] = { ...model.work.nav
 // prettier-ignore
 // @ts-expect-error 已认证的会话必须有 owner。
 const wrongSession = { state: "ready", owner: null } satisfies Session;
+// @ts-expect-error 会话恢复由消费者自行发起，认证操作只声明 signIn。
+model.authentication.operations.recover;
 
 const singleReference = {
   kind: "reference",
