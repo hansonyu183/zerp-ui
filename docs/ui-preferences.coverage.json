@@ -288,6 +288,12 @@
       "anchor": "top-notice-expiry-and-blocking-acknowledgment",
       "surface": "tgz/browser",
       "assertion": "顶部提示到时消失，桌面和手机模态阻塞背景并在确认后恢复焦点"
+    },
+    "unit-vuetify-host": {
+      "file": "tests/app-direct.spec.ts",
+      "anchor": "installs Vuetify on mount",
+      "surface": "source/public-entry",
+      "assertion": "公开 App 自动安装并在同一宿主重挂载，品牌主色和辅色随模型更新"
     }
   },
   "clauses": [
@@ -335,9 +341,9 @@
     },
     {
       "id": "UI-THEME-02",
-      "checks": ["package-theme", "package-workbench"],
-      "remaining": "认证与业务外壳、工作台、领域 Tab 和查询按钮有主题响应证据。尚未逐个验证弹层、反馈和输入控件的主题色。",
-      "requirementSha256": "2ba6be4893307054b3c2a85c3872a450e3692b24c58e3bee79f0e47ab24b5933"
+      "checks": ["package-theme", "package-workbench", "unit-vuetify-host"],
+      "remaining": "合成宿主直接挂载 App 验证 Vuetify 初始化和品牌色更新。认证与业务外壳、工作台、领域 Tab 和查询按钮有主题响应证据。尚未逐个验证弹层、反馈和输入控件的主题色。",
+      "requirementSha256": "cd3532831c333cea6a24e5248f94e67811cfe9be848cf82e98776bc4e6914922"
     },
     {
       "id": "UI-THEME-03",

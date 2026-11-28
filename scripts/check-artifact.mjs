@@ -64,7 +64,7 @@ export async function checkArtifact(tgz, expected) {
     );
     assert.deepEqual(
       publicNames.sort(),
-      ["App", "createShellThemes", "defaultThemeChoice"].sort(),
+      ["App", "defaultThemeChoice"].sort(),
       "Only the model application and necessary host APIs may be exported",
     );
     const pureModules = new Set();

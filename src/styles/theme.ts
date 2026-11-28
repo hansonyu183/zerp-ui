@@ -69,7 +69,6 @@ function foreground(color: Parameters<typeof getContrast>[0]) {
     ? "#000000"
     : "#ffffff";
 }
-/** Pass to the host's sole createVuetify({ theme: createShellThemes() }). */
 export function createShellThemes(colors: BrandColors = {}) {
   const themes: Record<string, ThemeDefinition> = {};
   for (const preset of ["md1", "md2", "md3"] as const) {

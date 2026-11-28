@@ -8,6 +8,10 @@
 2. 正式记录每次打开或切入同类窗口时调用已声明的 `load(id)`。读取回调在完成前写回当前对象，窗口据此建立未保存比较快照。
 3. 确认切换后，离开的对象保留当前值。切回时由其 `load(id)` 写回。
 
+## Vuetify 初始化迁移
+
+宿主在挂载 `App` 前导入 `@zerp/ui/style.css`，移除原先的 `app.use(createVuetify(...))` 和 `vuetify/styles` 导入。原有品牌色从 `createShellThemes({ primary, secondary })` 移入 `model.brand` 的同名属性。
+
 ## 能力对应
 
 | 原公开呈现路径/能力               | 唯一静态模型表达                                                                                           | 保留的可观察行为                                                                         |

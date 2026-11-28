@@ -1,3 +1,4 @@
+import "./fixtures/private-vuetify";
 import type { Component } from "vue";
 import { mount } from "@vue/test-utils";
 import { expect, it } from "vitest";
