@@ -15,7 +15,7 @@ pnpm add ./zerp-ui-0.51.0.tgz
 
 ## 公开入口与迁移
 
-以下示例适用于当前源码。模型已符合当前接口时，把 `BusinessApplication` 的导入和模板标签改为 `App` 即可。从 0.49.4 升级还需按[迁移清单](docs/interfaces/static-migration.md)调整模型结构。
+从 0.50.0 升级时，按[记录窗口迁移说明](docs/interfaces/static-migration.md#从-0500-升级至-0510)核对业务回调。以下示例适用于当前源码。模型已符合当前接口时，把 `BusinessApplication` 的导入和模板标签改为 `App` 即可。从 0.49.4 升级还需按[迁移清单](docs/interfaces/static-migration.md)调整模型结构。
 
 使用 `BusinessNode`、`BusinessCategory` 的消费者，分别从 `@zerp/ui/model` 改导入 `Node`、`Category`。
 
