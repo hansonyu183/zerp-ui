@@ -55,7 +55,7 @@
 | UI-NAV-02 | [unit-navigation-icons](#unit-navigation-icons)、[unit-home-link](#unit-home-link)、[package-navigation-drawer](#package-navigation-drawer) | 覆盖代表性语义图标、未知文本、首页修饰键和手机选择后关闭抽屉。桌面收起和全部导航链接的新标签行为仍需逐项检查。 |
 | UI-NAV-03 | [unit-model](#unit-model)、[unit-reactivity](#unit-reactivity)、[package-full](#package-full)、[unit-domain](#unit-domain)、[package-domain-tabs](#package-domain-tabs)、[unit-open-url](#unit-open-url) | 公开源码覆盖领域单链接、切换高亮、授权裁剪、旧链接失效、工作台首页入口及 `App.openUrl`。当前首页回退条件是没有可读工作台，规范写的是没有配置工作台。真实 OIT 的静态菜单、部署深链和权限另验。 |
 | UI-NAV-04 | [package-related-navigation](#package-related-navigation) | 合成手机详情检查有序关联入口及真实导航目标；其它消费者的页面和目录路径需逐项审查。 |
-| UI-NAV-05 | [package-full](#package-full) | 新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实作用域缓存归消费者。 |
+| UI-NAV-05 | [package-full](#package-full) | 新普通引用按需完整目录及本地分页/过滤有包场景；树形和多选另由字段测试覆盖，真实消费者的目录有效性及作用域联动另验。 |
 | UI-NAV-06 | [unit-model](#unit-model)、[package-full](#package-full)、[unit-shell](#unit-shell)、[unit-workbench-load](#unit-workbench-load)、[unit-passive-record](#unit-passive-record)、[unit-workspace-windows](#unit-workspace-windows) | 源码公开入口覆盖首次读取、返回已访问集合、手动刷新及记录窗口重复读取。真实消费者的模型构造和启动请求另核对。 |
 | UI-WORK-01 | [package-workbench](#package-workbench) | 独立安装的 UI 定向场景覆盖四角色桌面和手机布局、主题及细边框。发行门禁的默认模型场景跳过此布局检查。首页集合统一定位及首次读取见相关源码断言。各主题具体表面色和空角色等业务状态另验收。 |
 | UI-WORK-02 | 无自动断言 | 由 Agent 结合业务语境审查简短业务中文与同名一致性，不引入任意字数上限；常规文案不要求用户确认，见Q5。 |
