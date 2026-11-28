@@ -113,19 +113,24 @@ export async function mobileDetailSmoke(page) {
 
   await trigger.press("Enter");
   await expect(dialog).toBeVisible();
+
+  // Verify responsive presentation while the same window stays open.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(note).toHaveJSProperty("tagName", "INPUT");
+  await expect(note).not.toBeEditable();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(note).toHaveJSProperty("tagName", "TEXTAREA");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 
-  // Desktop keeps the original single-line read-only presentation.
+  // Verify focus recovery for a desktop row trigger.
   await page.setViewportSize({ width: 1440, height: 1000 });
   const desktopTrigger = page
     .getByRole("row")
     .filter({ hasText: "MD017" })
     .getByRole("button", { name: "查看", exact: true });
   await desktopTrigger.click();
-  await expect(note).toHaveJSProperty("tagName", "INPUT");
-  await expect(note).not.toBeEditable();
   await close.click();
   await expect(desktopTrigger).toBeFocused();
 

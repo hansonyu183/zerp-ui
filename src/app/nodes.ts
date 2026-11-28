@@ -1,5 +1,5 @@
 // 从静态模型索引节点归属，并根据节点可读性、只读状态和操作资格决定可呈现内容。
-import { computed, toRaw } from "vue";
+import { computed, toRaw, type InjectionKey, type Ref } from "vue";
 import type {
   Node,
   ListCollection,
@@ -9,8 +9,9 @@ import type {
 } from "../model/business-model";
 import { nodeOperation, type NodeOrCollection } from "../model/operations";
 import { collectionEntries, workbenchSections } from "./work/structure";
-import { draftOrigin } from "./record-draft";
 import { applicationReady, currentModel, sessionState } from "./session";
+
+export const formLocked: InjectionKey<Readonly<Ref<boolean>>> = Symbol();
 
 export function isCollection(node: NodeOrCollection): node is ListCollection {
   return "conditions" in node;
@@ -113,16 +114,13 @@ const structuralPaths = computed(() => {
   return paths;
 });
 export function ancestors(node: NodeOrCollection) {
-  const source = isCollection(node) ? node : draftOrigin(node);
-  return structuralPaths.value.get(toRaw(source)) ?? [];
+  return structuralPaths.value.get(toRaw(node)) ?? [];
 }
 const same = (a: object, b: object) => toRaw(a) === toRaw(b);
 // 读取模型给出的可读状态，并沿所属关系检查上级节点。
 export function readable(node: NodeOrCollection): boolean {
   if (!applicationReady.value || node.readable === false) return false;
-  const source = isCollection(node) ? node : draftOrigin(node);
-  if (source.readable === false) return false;
-  const parents = structuralPaths.value.get(toRaw(source));
+  const parents = structuralPaths.value.get(toRaw(node));
   if (!parents || parents.some((parent) => parent.readable === false))
     return false;
   if (sessionState.value !== "password-required") return true;

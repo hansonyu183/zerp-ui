@@ -305,7 +305,7 @@ it("edits the selected record directly, preserves failed input, and prevents dis
   const input = dialog.get('input[aria-label="编号"]');
   await input.setValue("changed");
   expect((collection.selected!.members[0] as { value: string }).value).toBe(
-    "before",
+    "changed",
   );
   const save = () =>
     dialog.findAll("button").find((button) => button.text() === "保存");
@@ -440,15 +440,7 @@ it("edits owned detail rows in a compact desktop table and saves through the par
       value: "原值",
     },
   ];
-  const save = vi.fn(async (edited: ObjectNode) => {
-    const draft = edited.members[0];
-    if (draft?.kind === "records") {
-      const current = child.members[0];
-      const next = draft.items[0]?.members[0];
-      if (current?.kind === "text" && next?.kind === "text")
-        current.value = next.value;
-    }
-  });
+  const save = vi.fn(async (_record: ObjectNode) => {});
   parent.operations.update = { disabled: false, run: save };
   parent.members = [
     {
@@ -473,13 +465,14 @@ it("edits owned detail rows in a compact desktop table and saves through the par
   const dialog = wrapper.get('[role="dialog"]');
   expect(dialog.findAll("th").map((header) => header.text())).toContain("名称");
   await dialog.get('input[aria-label="名称"]').setValue("修改后");
+  expect(child.members[0]).toMatchObject({ value: "修改后" });
   expect(save).not.toHaveBeenCalled();
   await dialog
     .findAll("button")
     .find((button) => button.text() === "保存")!
     .trigger("click");
   await flushPromises();
-  expect(save).toHaveBeenCalledTimes(1);
+  expect(save).toHaveBeenCalledExactlyOnceWith(collection.selected);
   expect(
     (
       (collection.selected!.members[0] as { items: ObjectNode[] }).items[0]!
@@ -990,10 +983,7 @@ it("keeps a nested object own update boundary editable from a view-only parent w
     value: "child",
   };
   child.members = [nested];
-  const update = vi.fn(async (edited: ObjectNode) => {
-    const changed = edited.members[0];
-    if (changed?.kind === "text") nested.value = changed.value;
-  });
+  const update = vi.fn(async (_record: ObjectNode) => {});
   child.operations.update = { disabled: false, run: update };
   parent.members = [direct, child];
   collection.items = [parent];
@@ -1026,6 +1016,7 @@ it("keeps a nested object own update boundary editable from a view-only parent w
   );
   expect(collection.selected!.operations.update).toBeUndefined();
   const currentChild = collection.selected!.members[1] as ObjectNode;
+  expect(update).toHaveBeenCalledWith(currentChild);
   expect((currentChild.members[0] as { value: string }).value).toBe("changed");
   currentChild.readOnly = true;
   currentChild.operations.update!.disabled = true;

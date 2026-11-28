@@ -7,7 +7,6 @@ import type {
 import { readable } from "./nodes";
 import { nodeOperation, type NodeOrCollection } from "../model/operations";
 import { runWithFeedback } from "./feedback";
-import { draftOrigin, updateDraftRows } from "./record-draft";
 
 export function runOperation(
   node: NodeOrCollection,
@@ -23,14 +22,9 @@ export function runOperation(
       ? node
       : undefined;
   const identity = "identity" in node ? node.identity : node.key;
-  const original = draftOrigin(node);
-  const invoke = () => operation.run(input);
   return runWithFeedback(
-    original,
-    () =>
-      input?.kind === "records" && original !== node
-        ? updateDraftRows(input, original as RecordsNode, invoke)
-        : invoke(),
+    node,
+    () => operation.run(input),
     () =>
       ("identity" in node ? node.identity : node.key) === identity &&
       nodeOperation(node, action, ownOnly) === operation &&

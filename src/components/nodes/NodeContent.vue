@@ -4,10 +4,11 @@ import { runOperation } from "../../app/node-actions";
 import { isPending } from "../../app/usePending";
 import {
   available as nodeAvailable,
+  formLocked,
   readable as nodeReadable,
   writable as nodeWritable,
 } from "../../app/nodes";
-import { computed, onBeforeUnmount } from "vue";
+import { computed, inject, onBeforeUnmount } from "vue";
 import Interactions from "./Interactions.vue";
 import type { Interaction } from "../../model/collaboration";
 import PrintPreview from "../printing/PrintPreview.vue";
@@ -35,6 +36,7 @@ const output = computed(() =>
   props.node.kind === "output" ? props.node : null,
 );
 const busy = computed(() => isPending(props.node));
+const locked = inject(formLocked, undefined);
 
 type Intent =
   | {
@@ -187,10 +189,16 @@ const interactions = computed<readonly Interaction<Intent>[]>(
     }) ?? [],
 );
 function answer(id: string, value: string | boolean) {
-  if (!props.readOnly && questions.value && nodeWritable(props.node))
+  if (
+    !locked?.value &&
+    !props.readOnly &&
+    questions.value &&
+    nodeWritable(props.node)
+  )
     questions.value.value[id] = value;
 }
 function visit(intent: Intent) {
+  if (locked?.value) return;
   if ("operation" in intent) {
     const node = questions.value;
     if (node)
@@ -225,7 +233,7 @@ function visit(intent: Intent) {
           : undefined
     "
     :answers="questions.value"
-    :disabled="busy || !nodeReadable(node)"
+    :disabled="locked || busy || !nodeReadable(node)"
     :answers-disabled="readOnly || !nodeWritable(node)"
     @answer="answer"
     @intent="visit"
@@ -235,7 +243,7 @@ function visit(intent: Intent) {
       v-if="output.value"
       :document="output.value"
       :action-available="() => nodeAvailable(node, 'print')"
-      :disabled="busy"
+      :disabled="locked || busy"
       @opened="runOperation(node, 'print')"
     />
     <p v-else>尚未生成预览</p>

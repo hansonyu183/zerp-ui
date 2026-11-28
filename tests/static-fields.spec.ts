@@ -638,7 +638,6 @@ it("blocks edited and uncertain values from printing until consumer confirms the
         throw Error("未知结果");
       }
       facts.accepted = (edited.members[0] as { value: string }).value;
-      (row.members[0] as { value: string }).value = facts.accepted;
       facts.state = "confirmed";
     }),
   };
@@ -655,12 +654,11 @@ it("blocks edited and uncertain values from printing until consumer confirms the
   await wrapper
     .get('[role="dialog"] input[aria-label="code"]')
     .setValue("unsaved");
-  expect(collection.selected!.printable).toBe(true);
-  expect(pagePrint()?.element.disabled).toBe(false);
-  expect(wrapper.text()).not.toContain("未确认保存");
+  expect(collection.selected!.printable).toBe(false);
+  expect(pagePrint()).toBeUndefined();
   expect(collection.operations.query!.run).not.toHaveBeenCalled();
   await clickText("保存");
-  expect(pagePrint()?.element.disabled).toBe(false);
+  expect(pagePrint()).toBeUndefined();
   await clickText("保存");
   expect(facts.state).toBe("unknown");
   expect(pagePrint()).toBeUndefined();

@@ -137,6 +137,7 @@ export type FieldNode =
 
 /** 对象操作的提交边界只覆盖该对象及其所属明细。 */
 export interface ObjectOperations {
+  /** 接收当前响应式业务对象，成功时由消费者写回确认值。 */
   update?: Operation<ObjectNode>;
   delete?: Operation;
   /** 查询权威结果，不重发原写入；关闭反馈不等于核实完成。 */
@@ -217,6 +218,7 @@ interface ObjectBase extends NodeBase, ObjectCapabilities {
   kind: "object";
   /** 可打开记录窗口的对象声明静态业务类型。 */
   businessType?: string;
+  /** 打开或切入记录窗口时读取当前记录，完成前将结果写入原对象。 */
   load?: (id: string) => Promise<void>;
   /** 正式记录的稳定业务身份；分组、条件和未保存记录可为 null。 */
   identity: string | null;

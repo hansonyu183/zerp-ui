@@ -15,7 +15,6 @@ import type {
   RecordsNode,
   FieldNode,
 } from "../../model/business-model";
-import { draftOrigin } from "../../app/record-draft";
 import Field from "../forms/Field.vue";
 import ActionGroup from "./ActionGroup.vue";
 import Records from "./Records.vue";
@@ -92,7 +91,7 @@ const saveUnavailable = computed(() => {
     !actions.value.includes("update")
   );
 });
-const pending = computed(() => isPending(draftOrigin(props.node)));
+const pending = computed(() => isPending(props.node));
 async function action(name: string) {
   const node = props.node;
   if (name === "update" && props.save && node.kind === "object") {

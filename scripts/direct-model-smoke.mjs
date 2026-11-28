@@ -92,6 +92,9 @@ export async function directModelSmoke(page) {
     await visit("客户");
     await expect(page.getByText("合成客户甲", { exact: true })).toBeVisible();
     const presentation = await directPresentationSmoke(page);
+    const customerReads = () =>
+      callbacks.filter((name) => name === "customer.get").length;
+    const readsBeforeOpen = customerReads();
     let dialog = await open();
     await dialog
       .getByRole("textbox", { name: "客户名称", exact: true })
@@ -127,7 +130,7 @@ export async function directModelSmoke(page) {
     await expect(
       page.getByRole("option", { name: "分类1", exact: true }),
     ).toBeVisible();
-    assert.equal(callbacks.filter((name) => name === "catalog.load").length, 2);
+    assert.equal(callbacks.filter((name) => name === "catalog.load").length, 1);
     await dialog
       .getByRole("textbox", { name: "客户名称", exact: true })
       .click();
@@ -148,11 +151,12 @@ export async function directModelSmoke(page) {
     const rowPrint = page
       .getByRole("table")
       .getByRole("button", { name: "打印", exact: true });
-    await expect(rowPrint).toBeEnabled();
+    await expect(rowPrint).toHaveCount(0);
     await dialog.getByRole("button", { name: "保存", exact: true }).click();
     await expect(rowPrint).toBeEnabled();
     await close();
     await rowPrint.click();
+    await expect.poll(customerReads).toBe(readsBeforeOpen + 2);
     const itemPreview = page.getByRole("dialog", {
       name: "客户打印",
       exact: true,

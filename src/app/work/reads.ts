@@ -1,4 +1,4 @@
-// 管理工作区集合、工作台和记录的读取方式，首次读取结果按目标和会话复用。
+// 管理工作区集合、工作台和记录的读取方式，集合和工作台按会话复用。
 import { computed, shallowReactive, shallowRef, toRaw } from "vue";
 import type {
   ListCollection,
@@ -6,8 +6,8 @@ import type {
   ObjectNode,
   Workbench,
 } from "../../model/business-model";
-import { feedbackForApplication, settle } from "../feedback";
-import { isPending, run } from "../usePending";
+import { feedbackForApplication, runWithFeedback, settle } from "../feedback";
+import { run } from "../usePending";
 import { readable, workbenchReadable } from "../nodes";
 import { currentModel } from "../session";
 
@@ -52,16 +52,14 @@ function retryGuard(collection: ListCollection) {
 const queries = shallowRef(
   shallowReactive(new WeakMap<ListCollection, QueryView>()),
 );
-const failedRecords = shallowReactive(new Set<ObjectNode>());
 let reads = new WeakMap<object, Promise<boolean>>();
+let windowReads = new WeakMap<ObjectNode, Promise<boolean>>();
 
 export function clearReads() {
   queries.value = shallowReactive(new WeakMap());
-  failedRecords.clear();
+  windowReads = new WeakMap();
   reads = new WeakMap();
 }
-
-const recordReads = shallowReactive(new WeakMap<ObjectNode, () => boolean>());
 
 function cachedRead(
   node: ListCollection | Workbench | ObjectNode,
@@ -175,52 +173,47 @@ export function readWorkbench(node: Workbench, first = true) {
   });
 }
 
-export function readRecord(
-  record: ObjectNode,
-  windowCurrent?: () => boolean,
-  first = true,
-) {
-  return cachedRead(record, first, (sameSession) => {
-    const load = record.load;
-    const id = record.identity;
-    const valid = () =>
-      sameSession() &&
-      windowCurrent?.() !== false &&
-      record.load === load &&
-      record.identity === id &&
-      readable(record);
-    if (!load || id == null || !valid()) return;
-    return run(record, () => {
-      const key = toRaw(record);
-      const feedback = feedbackForApplication();
-      const receipt = feedback.begin(record, record);
-      const visible = () => valid() && receipt.visible(!!windowCurrent);
-      failedRecords.delete(key);
-      recordReads.set(key, visible);
-      return settle(
-        () => record.load!(id),
-        (success) => {
-          const current = valid();
-          const showResult = current && receipt.visible(!!windowCurrent);
-          if (!success && current) failedRecords.add(key);
-          if (!success && showResult) receipt.reportFailure();
-          receipt.finish(showResult);
-          if (recordReads.get(key) === visible) recordReads.delete(key);
-          return current ? success : null;
-        },
+export function readRecord(record: ObjectNode, windowCurrent?: () => boolean) {
+  const load = record.load;
+  const id = record.identity;
+  if (!load || id === null) return;
+  const sessionReads = reads;
+  const valid = () =>
+    sessionReads === reads &&
+    windowCurrent?.() !== false &&
+    record.load === load &&
+    record.identity === id &&
+    readable(record);
+  const start = () =>
+    runWithFeedback(
+      record,
+      () => load.call(record, id),
+      valid,
+      record,
+      !!windowCurrent,
+    );
+  if (!windowCurrent)
+    return cachedRead(record, true, () => {
+      const result = start();
+      if (result === undefined) return;
+      return Promise.resolve(result).then((success) =>
+        valid() ? success : null,
       );
     });
-  });
-}
 
-export function isReading(record: ObjectNode) {
-  return isPending(record) && (recordReads.get(toRaw(record))?.() ?? false);
+  const key = toRaw(record);
+  const queue = windowReads;
+  const previous = queue.get(key);
+  const pending = Promise.resolve(previous)
+    .then(start)
+    .then((result) => result === true)
+    .finally(() => {
+      if (queue.get(key) === pending) queue.delete(key);
+    });
+  queue.set(key, pending);
+  return pending;
 }
 
 export function queryView(collection: ListCollection) {
   return queries.value.get(toRaw(collection));
-}
-
-export function recordLoadFailed(record: ObjectNode) {
-  return failedRecords.has(toRaw(record));
 }

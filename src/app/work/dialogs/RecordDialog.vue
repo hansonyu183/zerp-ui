@@ -1,7 +1,15 @@
 <script setup lang="ts">
 // 提供记录窗口与打印预览的容器，管理关闭、焦点进入和返回。
 import FeedbackHost from "../../../components/feedback/FeedbackHost.vue";
-import { nextTick, onBeforeUnmount, useTemplateRef, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  provide,
+  useTemplateRef,
+  watch,
+} from "vue";
+import { formLocked } from "../../nodes";
 import { injectDefaults } from "vuetify/lib/composables/defaults.js";
 import {
   VDialog,
@@ -19,6 +27,7 @@ const props = withDefaults(
     workspace?: boolean;
     headerClose?: boolean;
     reading?: boolean;
+    formLocked?: boolean;
     returnFocus?: HTMLElement | null | (() => HTMLElement | null);
   }>(),
   { reading: undefined, show: true },
@@ -27,6 +36,10 @@ const emit = defineEmits<{
   close: [];
 }>();
 const defaults = injectDefaults();
+provide(
+  formLocked,
+  computed(() => !!props.formLocked),
+);
 const header = useTemplateRef<HTMLElement>("header");
 function focusWorkspace() {
   const element = header.value;
